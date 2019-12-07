@@ -1,0 +1,3 @@
+gps:
+    sigma_p: 3   # position noise spectral density [m]
+    sigma_v: 0.2  # velocity noise spectral density [m/s]

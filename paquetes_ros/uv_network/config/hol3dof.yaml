@@ -1,0 +1,6 @@
+# Configure uv
+dyn:
+    dof: 3
+    holonomic: yes
+    model: velocity
+    alphas: [[0., 0., 0.0], [0., 0., 0.0]]

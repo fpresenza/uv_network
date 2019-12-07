@@ -1,0 +1,134 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="cfg_path"                 default="$(find uv_network)/config"/>
+    <arg name="init_config"              default="$(arg cfg_path)/init.yaml"/>
+    <arg name="hol3dof_config"           default="$(arg cfg_path)/hol3dof.yaml"/>  
+    <arg name="pid_config"               default="$(arg cfg_path)/pid3dof_b.yaml"/>
+    <arg name="IMU_config"               default="$(arg cfg_path)/MPU9250.yaml"/>
+    <arg name="GPS_config"               default="$(arg cfg_path)/GPS.yaml"/>
+    <arg name="range_config"             default="$(arg cfg_path)/range.yaml"/>        
+    <arg name="neighborhood_config"      default="$(arg cfg_path)/neighborhood.yaml"/>        
+    <arg name="n"                        default="1"/>
+
+<group ns="uv$(arg n)">
+    <!-- Carga los datos del vehiculo -->
+    <rosparam command="load" file="$(arg hol3dof_config)"/>
+    <param name="num" value="$(arg n)"/>
+    
+    <!-- lanza el nodo setpoint -->
+    <!--<node pkg="uv_network" name="setpoint" type="setpoint.py" output="screen">
+        <param name="node_id" value="REF"/>
+        <rosparam command="load" file="$(arg init_config)"/>        
+        <rosparam param="topics" subst_value="True">
+        {subs: ['user_reference'], pubs: ['reference']}
+        </rosparam>
+        <param name="init_key" value="pose"/>              
+    </node>-->
+
+    <!-- lanza el nodo pid del sist de guiado -->
+    <!--<node pkg="uv_network" name="pid_controller" type="pid_waypoints.py" output="screen">
+        <param name="node_id" value="CTRL-PID"/>
+        <rosparam command="load" file="$(arg pid_config)"/>
+        <rosparam param="topics" subst_value="True">
+        {subs: ['reference', 'nav'], pubs: ['ctrl_eff']}
+        </rosparam>
+    </node>-->
+
+    <!-- lanza el nodo mission_ctrl -->
+    <node pkg="uv_network" name="mission_ctrl" type="mission_ctrl.py" output="screen">
+        <param name="node_id" value="MISSION"/>
+        <rosparam param="topics" subst_value="True">
+        {subs: ['nav'], pubs: ['cmd_vel']}
+        </rosparam>
+        <rosparam param="rnd_vel_mean" subst_value="True">[0.,0.,0.]</rosparam>   
+        <rosparam param="rnd_vel_covar" subst_value="True">[[3.,0.,0.],[0.,3.,0.],[0.,0.,0.]]</rosparam>
+        <rosparam param="static" subst_value="True">[]</rosparam>            
+        <rosparam param="bound" subst_value="True">[100.,100.]</rosparam>
+    </node>
+
+    <!-- lanza el nodo normal_random_signal -->
+    <!--<node pkg="uv_network" name="normal_random_signal" type="normal_random_signal.py" output="screen">
+        <param name="node_id" value="NRS"/>
+        <rosparam param="topics" subst_value="True">
+        {subs: [], pubs: ['nrs']}
+        </rosparam>     
+        <rosparam param="rate" subst_value="True">0.2</rosparam>
+        <rosparam param="nrs_mean" subst_value="True">[0.,0.,0.]</rosparam>   
+        <rosparam param="nrs_covar" subst_value="True">[[3.,0.,0.],[0.,3.,0.],[0.,0.,3.]]</rosparam>   
+    </node>-->
+
+    <!-- lanza el nodo sum -->
+    <!--<node pkg="uv_network" name="sum" type="sum.py" output="screen">
+        <param name="node_id" value="SUM"/>
+        <rosparam param="topics" subst_value="True">
+        {subs: ['ctrl_eff', 'nrs', 'action'], pubs: ['cmd_vel']}
+        </rosparam>         
+    </node>-->
+
+    <!-- lanza el nodo de la dinamica -->
+    <node pkg="uv_network" name="dynamic_model" type="dynamic_model.py" output="screen">
+        <param name="node_id" value="DYN"/>
+        <rosparam command="load" file="$(arg init_config)"/>                               
+        <rosparam param="topics" subst_value="True">
+        {subs: ['cmd_vel'], pubs: ['motion']}
+        </rosparam>
+        <rosparam param="rate" subst_value="True">20.</rosparam>
+    </node>
+
+    <!-- lanza el nodo imu -->
+    <node pkg="uv_network" name="imu" type="imu.py" output="screen">
+        <param name="node_id" value="IMU"/>
+        <rosparam command="load" file="$(arg IMU_config)"/>
+        <rosparam param="rate" subst_value="True">15.</rosparam>
+        <rosparam param="topics" subst_value="True">
+        {subs: ['motion'], pubs: ['imu_raw_data']}
+        </rosparam>
+    </node>
+
+    <!-- lanza el nodo ekf_nav -->
+    <node pkg="uv_network" name="ekf_nav" type="ekf_nav.py" output="screen">
+        <param name="node_id" value="EKF"/>
+        <rosparam command="load" file="$(arg init_config)"/>    
+        <rosparam command="load" file="$(arg IMU_config)"/>
+        <rosparam command="load" file="$(arg GPS_config)"/>
+        <rosparam command="load" file="$(arg range_config)"/>
+        <rosparam command="load" file="$(arg neighborhood_config)"/>
+        <rosparam param="rate" subst_value="True">15.</rosparam>   
+        <rosparam param="imu_rate" subst_value="True">15.</rosparam>      
+        <rosparam param="topics" subst_value="True">
+        {subs: ['imu_raw_data', 'gps_raw_data', 'pose_and_range', 'cmd_vel'], pubs:['nav']}
+        </rosparam>
+    </node>
+
+    <!-- lanza el nodo pose_server -->
+    <node pkg="uv_network" name="pose_server" type="pose_server.py" output="screen">
+        <param name="node_id" value="PSER"/>
+        <rosparam param="topics" subst_value="True">
+        {subs: ['motion', 'nav'], pubs:['request_pose']}
+        </rosparam>
+    </node>
+
+    <!-- lanza el nodo pose_client -->
+    <node pkg="uv_network" name="pose_client" type="pose_client.py" output="screen">
+        <param name="node_id" value="PCL"/>
+        <rosparam command="load" file="$(arg range_config)"/>
+        <rosparam param="topics" subst_value="True">
+        {subs: ['1','2','3','4'], pubs:['pose_and_range']}
+        </rosparam>
+        <rosparam param="rate" subst_value="True">5.</rosparam>
+    </node>
+
+    <!-- lanza el nodo data_logger -->
+    <node pkg="uv_network" name="data_logger" type="data_logger.py" output="screen">
+        <param name="node_id" value="LOG"/>
+        <param name="directory" value="$(find uv_network)/sim/"/>        
+        <rosparam param="topics" subst_value="True">
+        {subs: {'motion': 'FloatArrayStamped', 'nav': 'NavFilter'}}
+        </rosparam>
+        <rosparam param="fieldnames" subst_value="True">
+        ['id','stamp','x','y','yaw', 'nav_stamp','nav_x','nav_y','nav_yaw','nav_x_cov','nav_xy_cov','nav_y_cov']
+        </rosparam>
+    </node>
+</group>
+
+</launch>

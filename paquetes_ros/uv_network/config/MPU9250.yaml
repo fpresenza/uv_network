@@ -1,0 +1,13 @@
+gyro:
+    sf: 1.5              # scale factor
+    nsd: 0.01            # noise spectral density [deg/sec*sqrt(hz)]
+    bias: 5.             # zero rated output tolerance [deg/sec]
+accel:
+    sf: 1.               # scale factor
+    nsd: 3.              # noise spectral density [mg/sqrt(hz)]
+    bias_xy: 60.         # zero-g calibration tolerance [mg]
+    bias_z: 80.          # zero-g calibration tolerance [mg]
+mag:
+    sf: 1.               # scale factor
+    nsd: 0.5
+    #bias: 300.           # zero field output [microT]   

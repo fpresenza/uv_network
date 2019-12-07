@@ -1,0 +1,2 @@
+range:
+    sigma_r: 5   # position noise spectral density [m]

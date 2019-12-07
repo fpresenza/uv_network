@@ -1,0 +1,7 @@
+# Service to request and respond pose to a robot
+
+Header header
+---
+Header header
+geometry_msgs/Pose pose
+geometry_msgs/PoseWithCovariance nav_pose

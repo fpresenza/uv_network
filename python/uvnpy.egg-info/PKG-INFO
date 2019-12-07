@@ -1,0 +1,34 @@
+Metadata-Version: 2.1
+Name: uvnpy
+Version: 0.0.1
+Summary: Módulos python
+Home-page: https://gitlab.com/fpresenza/uv_network
+Author: J. Francisco Presenza
+Author-email: jpresenza@fi.uba.ar
+License: GPLv3
+Description: =======================
+        Un paquete herramientas
+        =======================
+        
+        El paquete contiene herramientas en desarrollo de redes reconfigurables
+        de vehiculos no tripulados.
+        
+        Instalación
+        ===========
+        
+        Con lo siguiente se puede ejecutar `import uvnpy` desde cualquier
+        lado y funcionaría.
+        
+        Ejecutar:
+        
+        .. code-block:: bash
+        
+           python setup.py sdist bdist_wheel
+           pip install ./dist/uvnets-0.0.1.tar.gz
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 2.7
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Operating System :: OS Independent
+Requires-Python: >=2.7
+Description-Content-Type: text/rst
