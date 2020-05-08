@@ -43,9 +43,6 @@ class VelocityModel(object):
     def __str__(self):
         return 'VelocityModel(dof={})'.format(self.dof)
 
-    def __repr__(self):
-        return self.__str__()
-
     def restart(self):
         """ Return all values to initial conditions. """
         self.time = self.ti

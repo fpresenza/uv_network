@@ -5,88 +5,147 @@ Created on Mon Apr 06 12:41:07 2020
 @author: fran
 """
 import numpy as np
-import networkx as nx
+import graph_tool as gt
+from uvnpy.motion.vehicles import UnmannedVehicle, Rover
+from uvnpy.network.links import CommunicationLink
+from uvnpy.tools.tools import iterable
 
-# MatrixTuple = recordclass.recordclass('MatrixTuple', 'D A W L',\
-#     defaults=(np.empty(0), np.empty(0), np.empty(0), np.empty(0)))
+class UnmannedVehicleGraph(gt.Graph):
+	def __init__(self, *args, **kwargs):
+		super(UnmannedVehicleGraph, self).__init__(*args, **kwargs)
+		if not hasattr(self, 'vobj'): self.vobj = kwargs.get('vobj', UnmannedVehicle)
+		if not hasattr(self, 'eobj'): self.eobj = kwargs.get('eobj', CommunicationLink)
+		self.__ids = {}
+		self.__idx = {}
+		self.__set_property_maps()
 
-# class Graph(object):
-#     def __init__(self, *args, **kwargs):
-#         self.V = kwargs.get('V', [1])
-#         self.connect = kwargs.get('connect', lambda i,j: 0)
-#         self.E = kwargs.get('E', [(i, j) for i in self.V for j in self.V if i!=j and self.connect(i,j)])
-#         self.w = kwargs.get('w', [1 if kwargs.get('E') else self.connect(i,j) for (i,j) in self.E])
-#         self.N = dict(zip(self.V, map(self.neighborhood, self.V)))
-#         self.d = dict(zip(self.V, map(lambda v: len(self.N[v]), self.V)))
+	def __set_property_maps(self):
+		self.vertex_properties['robots'] = self.new_vertex_property('object')
+		self.edge_properties['links'] = self.new_edge_property('object')
 
-#         self.mat = MatrixTuple()
-#         # self.mat.D = np.diag(self.d)
-#         self.mat.A = np.array([[self.w[self.E.index((i,j))] if (i,j) in self.E else 0 for j in self.V] for i in self.V])
-#         # self.mat.W = np.diag(self.w)
-#         self.size = len(self.V)
+	def __set_robot_as_vp(self, nv, **kwargs):
+		obj = kwargs.get('object', self.vobj)
+		xi = kwargs.get('xi', None)
+		nv = nv if iterable(nv) else [nv]
+		for v in nv:
+			try:
+				id = np.max([r.id for r in self.vp.robots if hasattr(r, 'id')]) + 1
+			except ValueError:
+				id = 1
+			if xi is not None:
+				self.vp.robots[v] = obj(id, xi=xi())
+			else: 
+				self.vp.robots[v] = obj(id)
 
-#     # def degree(self, v, **kwargs):
-#     #     weighted = kwargs.get('weighted', False)
-#     #     return sum(map(lambda e: 1 if e[0]==v else 0, self.E)) 
+	def __set_link_as_ep(self, ne, s, t,  obj):
+		self.ep.links[ne] = obj(s, t)
 
-#     def neighborhood(self, v, **kwargs):
-#         e = list(filter(lambda e: 1 if e[0]==v else 0, self.E))
-#         return list(map(lambda arg: arg[1], e))
+	def __updt_hash(self):
+		self.__ids.clear()
+		self.__idx.clear()
+		for idx in self.get_vertices():
+			id = self.vp.robots[idx].id
+			self.__ids[idx] = id
+			self.__idx[id] = idx
 
-#     def update(self, *args, **kwargs):
-#         self.__init__(*args, **kwargs)
+	def idx(self, *ids):
+		return [self.__idx[id] for id in ids]
 
-#     # def __call__(self):
-#     #     return self.neighbors
+	def ids(self, *indices):
+		return [self.__ids[idx] for idx in indices]
 
-#     # def __len__(self):
-#     #     return len(self.neighbors)
+	def add_robots(self, N, **kwargs):
+		new_vertices = self.add_vertex(N)
+		self.__set_robot_as_vp(new_vertices, **kwargs)
+		self.__updt_hash()
+		return new_vertices
 
-#     # def incomplete(self):
-#     #     return len(self.neighbors) < self.size
+	def add_link(self, s, t, **kwargs):
+		obj = kwargs.get('object', self.eobj)
+		try:
+			i, j = self.__idx[s], self.__idx[t]
+		except KeyError:
+			raise KeyError('Invalid robot id')
+		new_edge = self.add_edge(i, j, add_missing=False)
+		self.__set_link_as_ep(new_edge, self.r(s), self.r(t), obj)
+		return new_edge
 
-#     # def append(self, id):
-#     #     self.neighbors.append(id)
+	def remove_robot(self, *ids):
+		try:
+			idx = [self.__idx[id] for id in ids]
+		except KeyError:
+			raise KeyError('Invalid robot id')
+		self.remove_vertex(idx)
+		self.__updt_hash()
 
-# class Random(Graph):
-#     def __init__(self, *args, **kwargs):
-#         V = kwargs.get('V', [1])
-#         w = dict([[(i,j), np.random.choice([1, 0])*np.random.randint(10)] for i in V for j in V])
-#         kwargs['connect'] = lambda i,j: w[i,j]
-#         super(Random, self).__init__(*args, **kwargs)
+	def remove_link(self, s, t):
+		try:
+			i, j = self.__idx[s], self.__idx[t]
+		except KeyError:
+			raise KeyError('Invalid robot id')
+		e = self.edge(i, j)
+		if e:
+			self.remove_edge(e)
+		else:
+			raise KeyError('No communication link')
+
+	def robots(self):
+		return self.vp.robots
+
+	def links(self):
+		return self.ep.links
+
+	def get_robots(self):
+		return np.array([self.__ids[idx] for idx in self.get_vertices()])
+
+	def get_links(self):
+		return np.array([self.ids(s, t) for (s, t) in self.get_edges()])
+
+	def v(self, id):
+		try:
+			return self.vertex(self.__idx[id])
+		except KeyError:
+			raise KeyError('Invalid robot id')
+
+	def r(self, id):
+		try:
+			return self.vp.robots[self.__idx[id]]
+		except KeyError:
+			raise KeyError('Invalid robot id')
+
+	def e(self, s, t):
+		try:
+			e = self.edge(self.__idx[s], self.__idx[t])
+		except KeyError:
+			raise KeyError('Invalid robot id')
+		if e:
+			return e
+		else:
+			raise KeyError('No communication link')
+
+	def l(self, s, t):
+		try:
+			e = self.edge(self.__idx[s], self.__idx[t])
+		except KeyError:
+			raise KeyError('Invalid robot id')
+		if e:
+			return self.ep.links[e]
+		else:
+			raise KeyError('No communication link')
+
+	def screen(self): 
+		print(self)
+		for r in self.robots():
+			print('{} at index {}'.format(r, self.__idx[r.id]))
+		print('---')
+		for l in self.links():
+			print(l)
+
+	def dist(self, i, j):
+		return np.linalg.norm(self.r(i).xy() - self.r(j).xy())
 
 
-# class Complete(Graph):
-#     def __init__(self, *args, **kwargs):
-#         kwargs['connect'] = lambda i,j: 1
-#         super(Complete, self).__init__(*args, **kwargs)
-
-
-# class Path(Graph):
-#     def __init__(self, *args, **kwargs):
-#         kwargs['connect'] = lambda i,j: 1 if j==i+1 else 0
-#         super(Path, self).__init__(*args, **kwargs)
-
-
-# class Cycle(Graph):
-#     def __init__(self, *args, **kwargs):
-#         kwargs['connect'] = lambda i,j: 1 if abs(i-j)== 1%len(self.V) else 0
-#         super(Cycle, self).__init__(*args, **kwargs)
-
-class Graph(nx.Graph):
-    def __init__(self, *args, **kwargs):
-        super(Graph, self).__init__(*args, **kwargs)
-
-    def __str__(self):
-        return 'Graph instance:\nnodes: {}\nedges: {}'.format(self.nodes, self.edges)
-
-    def __repr__(self):
-        return 'Graph()'
-
-    def get_nodes(self, *ids):
-        if ids:
-            subset = list(filter(lambda n: n.id in ids, self.nodes))
-        else:
-            subset = list(self.nodes)
-        subset.sort(key=lambda n: n.id)
-        return subset
+class RoverGraph(UnmannedVehicleGraph):
+	def __init__(self, *args, **kwargs):
+		self.vobj = Rover
+		super(RoverGraph, self).__init__(*args, **kwargs)

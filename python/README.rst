@@ -15,5 +15,5 @@ Ejecutar:
 
 .. code-block:: bash
 
-   python setup.py sdist bdist_wheel
-   pip install ./dist/uvnets-0.0.1.tar.gz
+   python3 setup.py sdist bdist_wheel
+   pip3 install ./dist/uvnpy-0.0.1.tar.gz

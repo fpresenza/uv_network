@@ -2,15 +2,15 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from uvnpy.network.vehicles import Rover
-import uvnpy.lib.graphix as graphix
+import uvnpy.tools.graphix as graphix
 from uvnpy.navigation.filters import Ekf
-from uvnpy.lib.ros import Vector3
-import uvnpy.lib.tools as tools
+from uvnpy.tools.ros import Vector3
+import uvnpy.tools.tools as tools
 
 cmd_vel = np.array([[1.],[1.], [0.]])
-Ts = 0.5
+Ts = 0.2
 time = np.arange(0, 99, Ts)
-N = 50 # number of episodes
+N = 10 # number of episodes
 
 fig1 = plt.figure(1)
 tgraph = fig1.add_subplot(111)
