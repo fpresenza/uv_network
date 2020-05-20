@@ -12,7 +12,7 @@ import uvnpy.tools.graphix as graphix
 
 def run(arg):
 	g = RoverGraph(directed=False)
-	g.add_robots(arg.n, xi=lambda: np.random.uniform(-arg.dist, arg.dist, (3,1)))
+	g.add_robots(arg.n, pi=lambda: np.random.uniform(-arg.dist, arg.dist, (3,1)))
 
 	time = np.arange(arg.ti, arg.tf, arg.h)
 

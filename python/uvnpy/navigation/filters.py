@@ -15,6 +15,7 @@ class Ekf(object):
         self.time = kwargs.get('t', 0.)
         self.X = X
         self.P = np.diag(np.square(dX.flat))
+        self.eye = np.eye(self.X.size)
         self.is_enable = True
     
     def prediction(self, u, model, t, **kwargs):
@@ -23,10 +24,10 @@ class Ekf(object):
         returns dot_X, F_X, B and noise Q. """
         Ts = t - self.time
         self.time = t
-        dot_X, F_X, B, Q = model(self.X, u, **kwargs)
-        Phi  = np.eye(self.X.size) + Ts*F_X
-        self.X = self.X + Ts*dot_X
-        self.P = np.linalg.multi_dot([Phi, self.P, Phi.T]) + np.linalg.multi_dot([B, Q, B.T])*Ts
+        F_X, B, Q = model.fmat(self.X, u, **kwargs)
+        Phi  = self.eye + Ts * F_X
+        self.X = self.X + Ts * model.f(self.X, u)
+        self.P = np.linalg.multi_dot([Phi, self.P, Phi.T]) + np.dot(B, np.dot(Q, B.T))*Ts
     
     def correction(self, y, model, **kwargs):
         """ This module makes a correction of the estimated state

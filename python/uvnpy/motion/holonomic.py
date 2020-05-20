@@ -4,8 +4,9 @@
 @author: fran
 """
 import numpy as np
+from uvnpy.motion.dynamic import DynamicModel
 
-class VelocityModel(object):
+class VelocityModel(DynamicModel):
     """ Esta clase implementa un modelo de cinemática de control
     de velocidad de un robot. """
     def __init__(self, *args, **kwargs):
@@ -13,72 +14,53 @@ class VelocityModel(object):
         dof: nro. de grados de libertad del robot
         ctrl_gain: controlador interno del modelo de movimiento
         Los parametros del modelo de error de la dinamica: 
-        alpha[0]: std. dev. en la accion de los actuadores
-        alpha[1]: std. dev. en la medicion interna de la velocidad
+        sigma[0]: std. dev. en la accion de los actuadores
+        sigma[1]: std. dev. en la medicion interna de la velocidad
         """
-        self.dof = kwargs.get('dof', 3)
-        self.ti = kwargs.get('ti', 0.)
-        self.time = self.ti
-        self.vi = kwargs.get('vi', np.zeros((self.dof, 1)))
-        self.xi = kwargs.get('xi', np.zeros((self.dof, 1)))
-        self.X = np.vstack((self.vi, self.xi))
+        self.dof = kwargs.get('dof', 1)
+        pi = kwargs.get('pi',  np.zeros((self.dof, 1)))
+        vi = kwargs.get('vi',  np.zeros((self.dof, 1)))
+        kwargs['xi'] = np.vstack((vi, pi))
+        kwargs['r'] = np.zeros((self.dof, 1))
+        kwargs['u'] = np.zeros((self.dof, 1))
+        super(VelocityModel, self).__init__(*args, **kwargs)
         self.ctrl_gain = kwargs.get('ctrl_gain', 1.)
-        self.alphas = kwargs.get('alphas', [[0.,0.,0.],[0.,0.,0.]])
         I = np.eye(self.dof)
         Z = np.zeros_like(I)
         #   controller matrix
         self.K = np.diag(np.broadcast_to(self.ctrl_gain, self.dof))
         #   state transition matrix
-        self.G_X = np.block([[-self.K, Z],
+        self.F_x = np.block([[-self.K, Z],
                              [      I, Z]])
         #   input transition matrix
-        self.G_v = np.block([[self.K],
+        self.F_r = np.block([[self.K],
                              [     Z]])
         #   disturbances
         self.B = np.block([[I, -self.K],
                            [Z,       Z]])
         #   noise matrix
-        self.Q = np.diag(np.square(self.alphas[0]+self.alphas[1]))
+        self.Q = np.diag(np.square(self.sigma))
 
     def __str__(self):
         return 'VelocityModel(dof={})'.format(self.dof)
 
-    def restart(self):
-        """ Return all values to initial conditions. """
-        self.time = self.ti
-        self.X = np.vstack((self.vi, self.xi))
-        
-    def step(self, v, t):
-        """Implementa un sistema de doble integrador con lazo 
-        cerrado en velocidad. Como parametros toma comandos de velocidad,
-        el tiempo actual en segundos. Devuelve una muestra de la futura 
-        posicion y velocidad en base al modelo de perturbacion.
-        """
-        Ts = t - self.time
-        self.time = t
-        #   noise in control actuators
-        n1 = np.random.normal(0., np.array(self.alphas[0]).reshape(-1,1))
-        #   noise in internal velocity sensing 
-        n2 = np.random.normal(0., np.array(self.alphas[1]).reshape(-1,1))
-        #   Discrete state matrix
-        Ad = np.eye(*self.G_X.shape) + Ts*self.G_X
-        #   Discrete state-input matrix
-        Bd = Ts*np.block([self.G_v, self.B])
-        #   system input
-        u = np.block([[ v],
-                      [n1],
-                      [n2]])
-        #   New estimate
-        self.X = np.dot(Ad, self.X) + np.dot(Bd, u)        
-        v_meas = self.X[:3] + n2
-        accel = np.dot(self.K, v-v_meas) + n1
-        return accel
+    def fmat(self, x, r, **kwargs):
+        return self.F_x, self.B, self.Q
 
-    def f(self, mean, v):
-        """ This function takes mean and covariance of a gaussian
-        proccess, an input and generates values needed for prediction."""
-        dot_X = np.dot(self.G_X, mean) + np.dot(self.G_v, v) 
-        return dot_X, self.G_X, self.B, self.Q
+    def f(self, x, r, **kwargs):
+        """ This function represents the dynamics of the closed loop model """
+        self.r = r
+        v_meas = x[:3] + self.e[3:]
+        self.u = np.dot(self.K, r-v_meas)
+        return np.dot(self.F_x, x) + np.dot(self.F_r, r)
+        
+    def dot_x(self, x, r, **kwargs):
+        """ This function takes reference r and returns
+        a state derivative noisy sample """
+        return self.f(self.x, r, **kwargs) + np.dot(self.B, self.e)
+
+    def accel(self):
+        return self.u + self.e[:3]
 
 
 class VRW(object):
@@ -98,14 +80,14 @@ class VRW(object):
         return 2*self.N
 
     def f(self, mean, u):
-        v = mean[:self.N]
-        dot_v = np.random.normal(0., self.sigma * np.ones_like(v))
-        dot_x = v
-        dot_X = np.vstack((dot_v, dot_x)) 
+        u = mean[:self.N]
+        dot_v = np.random.normal(0., self.sigma * np.ones_like(u))
+        dot_x = u
+        dot_x = np.vstack((dot_v, dot_x)) 
         I = np.eye(self.N)
         Z = np.zeros_like(I)
-        F_X = np.block([[Z, Z],
+        F_x = np.block([[Z, Z],
                         [I, Z]])
         B = np.block([[I],
                       [Z]])
-        return dot_X, F_X, B, self.Q
+        return dot_x, F_x, B, self.Q

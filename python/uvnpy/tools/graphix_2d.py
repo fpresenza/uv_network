@@ -13,7 +13,7 @@ from matplotlib.patches import Ellipse
 import uvnpy.tools.tools as tools
 
 def ellipse(ax, mu, sigma, **kwargs):
-	""" Draws ellipse from xy mean and covariance matrix """
+	""" Draw ellipse from xy mean and covariance matrix """
 	sigmas = kwargs.get('sigmas', 1.)
 	color = kwargs.get('color', 'k')
 	alpha = kwargs.get('alpha', 0.2)
@@ -26,14 +26,15 @@ def ellipse(ax, mu, sigma, **kwargs):
 	ax.add_artist(ellipse)
 	return ellipse
 
- 
-class Plot(object):
+
+class Plot2D(object):
 	def __init__(self, *args, **kwargs):
 		self.nrows = kwargs.get('nrows', 1)
 		self.ncols = kwargs.get('ncols', 1)
-		title = kwargs.get('title', 'Plot')
-		self.color = kwargs.get('color', 'b')
-		self.ls = kwargs.get('ls', '-')
+		if not hasattr(self, 'title'): self.title = kwargs.get('title', 'Plot')
+		if not hasattr(self, 'color'): self.color = kwargs.get('color', 'b')
+		if not hasattr(self, 'label'): self.label = kwargs.get('label', '')
+		if not hasattr(self, 'ls'): self.ls = kwargs.get('ls', '-')
 		self.marker = kwargs.get('marker', '')
 		self.aspect = kwargs.get('aspect', 'auto')
 		xlabel = kwargs.get('xlabel', np.full((self.nrows, self.ncols), '$t\,[s]$'))
@@ -42,7 +43,7 @@ class Plot(object):
 		ylim = kwargs.get('ylim', False)
 		self.fig, axes = plt.subplots(self.nrows, self.ncols)
 		self.axes = np.array(axes).reshape(self.nrows, self.ncols)
-		self.fig.suptitle(title)
+		self.fig.suptitle(self.title)
 		for c in range(self.ncols):
 			for r in range(self.nrows):
 				self.axes[r][c].set_aspect(self.aspect)
@@ -55,6 +56,7 @@ class Plot(object):
 					self.axes[r][c].autoscale()
 				self.axes[r][c].minorticks_on()
 				self.axes[r][c].grid(True)
+				# self.axes[r][c].legend()
 		self.show = plt.show
 
 	def clear(self):
@@ -62,13 +64,19 @@ class Plot(object):
 			for r in range(self.nrows):
 				self.axes[r][c].clear()
 
+	def savefig(self, name, dir='/tmp/'):
+		plt.savefig('{}{}'.format(dir, name))
 
-class TimePlot(Plot):
+
+class TimePlot(Plot2D):
 	def __init__(self, time, line_array, **kwargs):
 		line_array = np.array(line_array)
 		kwargs['nrows'] = line_array.shape[0]
 		kwargs['ncols'] = line_array.shape[1]
-		kwargs['title'] = 'Time Plot'
+		self.title = kwargs.get('title', 'Time Plot')
+		self.color = kwargs.get('color', [[['b' for val in c] for c in r] for r in line_array])
+		self.label = kwargs.get('label', [[['' for val in c] for c in r] for r in line_array])
+		self.ls = kwargs.get('ls', [[['-' for val in c] for c in r] for r in line_array])
 		super(TimePlot, self).__init__(line_array, **kwargs)
 		self.time = time
 		self.draw(line_array)
@@ -76,11 +84,17 @@ class TimePlot(Plot):
 	def draw(self, line_array):
 		for c in range(self.ncols):
 			for r in range(self.nrows):
-				for line in line_array[r][c]:
-					self.axes[r][c].plot(self.time, line, color=self.color)
+				for i in range(len(line_array[r][c])):
+					if self.label[r][c][i] == '':
+						self.axes[r][c].plot(self.time, line_array[r][c][i],\
+						 ls=self.ls[r][c][i], color=self.color[r][c][i])
+					else:
+						self.axes[r][c].plot(self.time, line_array[r][c][i],\
+						 ls=self.ls[r][c][i], color=self.color[r][c][i], label=self.label[r][c][i])
+				self.axes[r][c].legend()
 
 
-class ScatterPlot(Plot):
+class ScatterPlot(Plot2D):
 	def __init__(self, *args, **kwargs):
 		nrows = kwargs.get('nrows', 1)
 		ncols = kwargs.get('ncols', 1)
@@ -149,12 +163,12 @@ class ComplexPlane(ScatterPlot):
 
 
 class GraphPlotter(object):
-	def __init__(self, *args, **kwargs):
-		self.time = args[0]
+	def __init__(self, t, V, P, E, **kwargs):
+		self.time = t
 		self.frames = range(len(self.time))
-		self.V = args[1]
-		self.P = args[2]
-		self.E = args[3]
+		self.V = V
+		self.P = P
+		self.E = E
 		self.save = kwargs.get('save', False)
 		self.points = [tools.Vec3(*tools.from_arrays([p[i] for p in self.P.values()])) for i in self.frames]
 		self.show = lambda: plt.show()

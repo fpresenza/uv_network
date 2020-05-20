@@ -25,15 +25,15 @@ class UnmannedVehicleGraph(gt.Graph):
 
 	def __set_robot_as_vp(self, nv, **kwargs):
 		obj = kwargs.get('object', self.vobj)
-		xi = kwargs.get('xi', None)
+		pi = kwargs.get('pi', None)
 		nv = nv if iterable(nv) else [nv]
 		for v in nv:
 			try:
 				id = np.max([r.id for r in self.vp.robots if hasattr(r, 'id')]) + 1
 			except ValueError:
 				id = 1
-			if xi is not None:
-				self.vp.robots[v] = obj(id, xi=xi())
+			if pi is not None:
+				self.vp.robots[v] = obj(id, pi=pi())
 			else: 
 				self.vp.robots[v] = obj(id)
 

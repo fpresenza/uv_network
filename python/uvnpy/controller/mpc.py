@@ -1,8 +1,11 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+""" Created on Wed May 20 14:27:16 2020
+@author: fran
+"""
 import numpy as np
 import scipy.optimize
 import scipy.integrate as integrate
-import collections
 import recordclass
 
 Cost = recordclass.recordclass('Cost', 'cmd conn', defaults=(0,0))

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import matplotlib.pyplot as plt
 import numpy as np
-from uvnpy.network.vehicles import Rover
+from uvnpy.motion.vehicles import Rover
 import uvnpy.tools.graphix as graphix
 from uvnpy.navigation.filters import Ekf
 from uvnpy.tools.ros import Vector3
@@ -10,7 +10,7 @@ import uvnpy.tools.tools as tools
 cmd_vel = np.array([[1.],[1.], [0.]])
 Ts = 0.2
 time = np.arange(0, 99, Ts)
-N = 10 # number of episodes
+N = 50 # number of episodes
 
 fig1 = plt.figure(1)
 tgraph = fig1.add_subplot(111)
@@ -32,10 +32,10 @@ for _ in range(N):
     p = [np.zeros((3,1))]
 
     for t in time[1:]:
-        acc = r.motion.step(cmd_vel, t)
-        a.append(acc)
-        v.append(r.motion.X[:3])
-        p.append(r.motion.X[3:])
+        r.motion.step(cmd_vel, t)
+        a.append(r.motion.accel())
+        v.append(r.motion.x[:3])
+        p.append(r.motion.x[3:])
 
     r.motion.restart()
 
@@ -58,13 +58,12 @@ for _ in range(N):
     points = [[pos.x[0],pos.x[-1]], [pos.y[0], pos.y[-1]]]
     xygraph.scatter(*points, s=1.5)
 
-
-X = r.motion.X
-dX = 0.5*r.motion.X
+X = r.motion.x
+dX = 0.5*r.motion.x
 ekf = Ekf()
 ekf.begin(X, dX)
 for t in time[1:]:
-    ekf.prediction(cmd_vel, r.motion.f, t)
+    ekf.prediction(cmd_vel, r.motion, t)
 
 center = ekf.X[3:5]
 sigma = ekf.P[3:5,3:5]

@@ -14,8 +14,7 @@ class UnmannedVehicle(object):
     def __init__(self, id, *args, **kwargs):
         self.id = id
         self.type = kwargs.get('type', 'UnmannedVehicle')
-        self.vertex = kwargs.get('vertex', None)
-        self.motion = kwargs.get('motion', VelocityModel())
+        if not hasattr(self, 'motion'): self.motion = kwargs.get('motion', None)
         self.filter = kwargs.get('filter', Ekf())
 
     def __str__(self):
@@ -25,14 +24,14 @@ class UnmannedVehicle(object):
 class Rover(UnmannedVehicle):
     def __init__(self, id, *args, **kwargs):
         kwargs['type'] = 'Rover'
-        kwargs['dof'] = 3
-        kwargs['ctrl_gain'] = (1.,1.,0.2)
-        kwargs['alphas'] = [[0.2,0.2,0.1],[0.1,0.1,0.05]]
-        kwargs['motion'] = VelocityModel(**kwargs)
+        kwargs['dof'] =  3
+        kwargs['ctrl_gain'] = (1., 1., 0.2)
+        kwargs['sigma'] = np.array([0.2, 0.2, 0.1, 0.1, 0.1, 0.05])
+        self.motion = VelocityModel(**kwargs)
         super(Rover, self).__init__(id, *args, **kwargs)
 
     def xy(self):
-        return self.motion.X[3:5]
+        return self.motion.x[3:5]
 
     def vxy(self):
-        return self.motion.X[:2]
+        return self.motion.x[:2]
