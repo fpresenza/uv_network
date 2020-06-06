@@ -1,16 +1,15 @@
 #!/usr/bin/env python
 import matplotlib.pyplot as plt
 import numpy as np
-from uvnpy.motion.vehicles import Rover
-import uvnpy.tools.graphix as graphix
-from uvnpy.navigation.filters import Ekf
-from uvnpy.tools.ros import Vector3
-import uvnpy.tools.tools as tools
+from uvnpy.vehicles.rover import Rover
+import uvnpy.graphix.planar as graphix
+from uvnpy.navigation.kalman import Ekf
+from uvnpy.toolkit.linalg import vector
 
-cmd_vel = np.array([[1.],[1.], [0.]])
-Ts = 0.2
+cmd_vel = (1., 1., 0.5)
+Ts = 0.05
 time = np.arange(0, 99, Ts)
-N = 50 # number of episodes
+N = 40 # number of episodes
 
 fig1 = plt.figure(1)
 tgraph = fig1.add_subplot(111)
@@ -24,49 +23,41 @@ xygraph.set_xlabel('$X\,[\mathrm{m}]$')
 xygraph.set_ylabel('$Y\,[\mathrm{m}]$')
 xygraph.grid(True)
 
-r = Rover(1)
 
+r = Rover(1)
 for _ in range(N):
     a = [np.zeros((3,1))]
     v = [np.zeros((3,1))]
     p = [np.zeros((3,1))]
 
     for t in time[1:]:
-        r.motion.step(cmd_vel, t)
-        a.append(r.motion.accel())
-        v.append(r.motion.x[:3])
-        p.append(r.motion.x[3:])
+        r.step(cmd_vel, t)
+        a.append(r.accel())
+        v.append(r.vel())
+        p.append(r.pose())
 
     r.motion.restart()
 
-    accel = Vector3(*tools.from_arrays(a))
-    vel = Vector3(*tools.from_arrays(v)) 
-    pos = Vector3(*tools.from_arrays(p)) 
+    accel = vector.vec3(*np.hstack(a))
+    vel = vector.vec3(*np.hstack(v)) 
+    pos = vector.vec3(*np.hstack(p)) 
 
     tgraph.plot(time, accel.x)
-    # tgraph.plot(time, ay)
-    # tgraph.plot(time, ath)
 
     tgraph.plot(time, vel.x)
-    # tgraph.plot(time, vy)
-    # tgraph.plot(time, vth)
 
     tgraph.plot(time, pos.x)
-    # tgraph.plot(time, py)
-    # tgraph.plot(time, pth)
 
     points = [[pos.x[0],pos.x[-1]], [pos.y[0], pos.y[-1]]]
     xygraph.scatter(*points, s=1.5)
 
-X = r.motion.x
-dX = 0.5*r.motion.x
 ekf = Ekf()
-ekf.begin(X, dX)
+ekf.begin(r.motion.x, 0.5*r.motion.x)
 for t in time[1:]:
-    ekf.prediction(cmd_vel, r.motion, t)
+    ekf.prediction(r.extend(cmd_vel), r.motion, t)
 
-center = ekf.X[3:5]
-sigma = ekf.P[3:5,3:5]
+center = ekf.X[6:8]
+sigma = ekf.P[6:8,6:8]
 graphix.ellipse(xygraph, center, sigma)
 xygraph.set_aspect('equal')
 xygraph.grid(1)

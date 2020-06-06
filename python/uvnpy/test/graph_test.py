@@ -1,11 +1,9 @@
 #!/usr/bin/env python
 import numpy as np
 import matplotlib.pyplot as plt
-from uvnpy.network.graph import UnmannedVehicleGraph, RoverGraph
-from uvnpy.tools.ros import Vector3
-from uvnpy.network.vehicles import UnmannedVehicle, Rover
+from uvnpy.network.graph import RoverGraph
 import uvnpy.tools.tools as tools
-import uvnpy.tools.graphix as graphix
+import uvnpy.graphix.planar as graphix
 
 def run():
 	g = RoverGraph(directed=False)
@@ -42,9 +40,10 @@ def run():
 	return time, V, P, E
 
 if __name__ == '__main__':
+	
 	time, V, P, E = run()
 	plotter = graphix.Plotter(time, V, P, E)
-	# v = Vector3(*tools.from_arrays(V[1]))
-	# p = Vector3(*tools.from_arrays(P[1]))
+	# v = tools.Vec3(*np.hstack(V[1]))
+	# p = tools.Vec3(*np.hstack(P[1]))
 	# plotter.timeplot(time, v.x, v.y, p.x, p.y)
 	plotter.animation2d(xlim=[-100,100], ylim=[-100,100])

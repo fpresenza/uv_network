@@ -4,13 +4,8 @@
 @author: fran
 """
 import numpy as np
-
-# class ROSmsg(object):
-# 	def __init__(self, *args, **kwargs):
-
-# 	def __repr__(self):
-# 		return self.str
-
+from uvnpy.toolkit.linalg import vector
+import copy
 
 class Point(object):
     def __init__(self, *args, **kwargs):
@@ -44,10 +39,28 @@ class Quaternion(object):
 
 
 class Pose(object):
-	def __init__(self, *args, **kwargs):
+	def __init__(self, **kwargs):
 		self.pose = kwargs.get('pose', Point())
 		self.orientation = kwargs.get('orientation', Quaternion())
 
 	def __str__(self):
 		return 'Pose:\n{}\n{}'.format(self.pose.__str__(), self.orientation.__str__())
+
+class PositionAndRange(object):
+    def __init__(self, **kwargs):
+        self.id = kwargs.get('id')
+        self.point = kwargs.get('point', vector.vec3())
+        self.covariance = kwargs.get('covariance', np.zeros(9))
+        self.range = kwargs.get('range', 1.)
+
+    def __str__(self):
+        return 'id: {}\nPoint:\nx: {}\ny: {}\nz: {}\ncovariance: {}\nrange: {}'.format(
+            self.id,
+            *self.point,
+            self.covariance,
+            self.range)
+
+    def copy(self):
+        return copy.deepcopy(self)
+
 

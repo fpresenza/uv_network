@@ -15,6 +15,7 @@ setuptools.setup(
     long_description_content_type="text/rst",
     url='https://gitlab.com/fpresenza/uv_network',
     packages=setuptools.find_packages(),
+    package_data={'uvnpy': ['config/*.yaml']},
 #    install_requires=["numpy >= ??",
 #                      "scipy >= ??"]
     classifiers=[

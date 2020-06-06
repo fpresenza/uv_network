@@ -5,14 +5,16 @@
 """
 import numpy as np
 import recordclass
-from uvnpy.motion.dynamic import DynamicModel, EqPoint, ss
+from uvnpy.model.discrete import DiscreteModel
 from uvnpy.controller.lqr import LQR
 from gpsic.controladores.pid import PIDController
+
+Equilibrium = recordclass.recordclass('Equilibrium', 'x u')
 g = 9.81
 
 Ctrl = recordclass.recordclass('Ctrl', 'attitude, velocity')
 
-class Multicopter(DynamicModel):
+class Multicopter(DiscreteModel):
     def __init__(self, *args, **kwargs):
         """
         Esta clase implementa la dinámica a lazo cerrado de un
@@ -28,10 +30,11 @@ class Multicopter(DynamicModel):
         wi = np.array(kwargs.get('wi', (0.,0.,0.))).reshape(-1,1)
         xi = np.vstack((pi, vi, ai, wi))
         ui = np.zeros((4,1))
-
-        kwargs['xi'] = xi
-        kwargs['r'] = np.zeros((4,1))
-        kwargs['u'] = np.zeros((4,1))
+        kwargs.update({
+            'xi':xi,
+            'r':np.zeros((4,1)),
+            'u':np.zeros((4,1))
+        })
         super(Multicopter, self).__init__(*args, **kwargs)
 
         # Parámetros extra del modelo
@@ -40,11 +43,11 @@ class Multicopter(DynamicModel):
         else:
             self.model = self.nonlinear_model
 
-        self.m = kwargs.get('m', 1)
-        self.Ix = kwargs.get('Ix', 10e-3)
-        self.Iy = kwargs.get('Iy', 10e-3)
-        self.Iz = kwargs.get('Iz', 20e-3)
-        self.eq = EqPoint(np.vstack((pi, np.zeros((9,1)))), np.array([[self.m*g],[0],[0],[0]]))
+        self.m = kwargs.get('m', 1.5)
+        self.Ix = kwargs.get('Ix', 29e-3)
+        self.Iy = kwargs.get('Iy', 29e-3)
+        self.Iz = kwargs.get('Iz', 55e-3)
+        self.eq = Equilibrium(np.vstack((pi, np.zeros((9,1)))), np.array([[self.m*g],[0],[0],[0]]))
         self.B = np.zeros_like(xi)
 
         # Variable generales de control
@@ -154,14 +157,14 @@ class Multicopter(DynamicModel):
         cr, sr = np.cos(er), np.sin(er)
         cp, sp = np.cos(ep), np.sin(ep)
         cy, sy = np.cos(ey), np.sin(ey)
-
+        tp = np.tan(ep)
         return np.array([[vx],
                          [vy],
                          [vz],
                          [Ft*(sp*cy*cr + sy*sr + Dx + Wx)/m],
                          [Ft*(sp*sy*cr - sr*cy + Dy + Wy)/m],
                          [-g + (Ft*cp*cr + Dz + Wz)/m],
-                         [wx + wy*sr*np.tan(ep) + wz*cr*np.tan(ep)],
+                         [wx + wy*sr*tp + wz*cr*tp],
                          [wy*cr - wz*sr],
                          [wy*sr/cp + wz*cr/cp],
                          [(Iy*wy*wz - Iz*wy*wz + Tx)/Ix],
@@ -206,10 +209,13 @@ class Multicopter(DynamicModel):
         self.u = self.pid(x, r, **kwargs)
         return self.model(x, self.u, **kwargs) 
         
-    def dot_x(self, x, r, **kwargs):
+    def dot_x(self, x, r, e, **kwargs):
         """ This function takes an input u and returns 
         a state derivative noisy sample """
         return self.f(x, r, **kwargs) + np.dot(self.B, self.e)
+
+    def set(self, pi=(0.,0.,0.), vi=(0.,0.,0.,), ai=(0.,0.,0.), wi=(0.,0.,0.)):
+        self.x = np.hstack([pi, vi, ai, wi]).reshape(-1,1)
 
     def xyzyaw(self):
         return self.x[[0,1,2,8]].flatten()
@@ -225,6 +231,9 @@ class Multicopter(DynamicModel):
 
     def euler(self):
         return self.x[[6,7,8]]
+
+    def rp(self):
+        return self.x[[6,7]]
 
     def w(self):
         return self.x[[9,10,11]]

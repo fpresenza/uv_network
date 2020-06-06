@@ -5,9 +5,9 @@
 """
 import argparse
 import numpy as np
-from uvnpy.motion.cluster import R2DOF4
-from uvnpy.tools.graphix_2d import TimePlot
-from uvnpy.tools.graphix_3d import Animation3D
+from uvnpy.model.cluster import R2DOF4
+from uvnpy.graphix.planar import TimePlot
+from uvnpy.graphix.spatial import Animation3D
 
 def run(arg):
 
@@ -21,6 +21,7 @@ def run(arg):
 
     P, V, A, W, R, U = ([],[]), ([],[]), ([],[]), ([],[]), ([],[]), ([],[])
     C, Cv, Cr = [], [], []
+    G = ([],[])
     
     for t in time:
         wind = (0., 0., 0.)
@@ -36,6 +37,7 @@ def run(arg):
         W[0].append(cluster.uav_1.w())
         R[0].append(cluster.uav_1.ref())
         U[0].append(cluster.uav_1.ctrl_eff())
+        G[0].append(np.array([0., np.radians(20), 0.]))
 
         P[1].append(cluster.uav_2.p())
         V[1].append(cluster.uav_2.v())
@@ -43,8 +45,9 @@ def run(arg):
         W[1].append(cluster.uav_2.w())
         R[1].append(cluster.uav_2.ref())
         U[1].append(cluster.uav_2.ctrl_eff())
+        G[1].append(np.array([0., np.radians(20), 0.]))
 
-    return time, C, Cv, Cr, P, V, A, W, R, U
+    return time, C, Cv, Cr, P, V, A, W, R, U, G
 
 def plot_cluster(C, Cv, Cr):
     # Cluster state position plot
@@ -110,20 +113,21 @@ if __name__ == '__main__':
     parser.add_argument('-g', '--save', default=False, action='store_true', help='flag para guardar los videos')
     arg = parser.parse_args()
 
-    time, C, Cv, Cr, P, V, A, W, R, U = run(arg)
+    time, C, Cv, Cr, P, V, A, W, R, U, G = run(arg)
 
     # cluster plot
     plot_cluster(C, Cv, Cr)
     # uav 1 plot
     #    
     plot_uav_state('1', P[0], V[0], A[0], W[0], R[0])
-    plot_uav_ctrl('1', U[0])
+    # plot_uav_ctrl('1', U[0])
     # uav 2 plot
     #
     plot_uav_state('2', P[1], V[1], A[1], W[1], R[1])
-    plot_uav_ctrl('2', U[1])
+    # plot_uav_ctrl('2', U[1])
+
 
     # Animation
-    # ani = Animation3D(time[::50], xlim=(-5,5), ylim=(-5,5), zlim=(0,10), save=arg.save)
-    # ani.add_quadrotor((P[0][::50],A[0][::50]), (P[1][::50],A[1][::50]))
-    # ani.run()
+    ani = Animation3D(time, xlim=(-5,5), ylim=(-5,5), zlim=(0,10), save=arg.save, slice=50)
+    ani.add_quadrotor((P[0],A[0]), (P[1],A[1]), camera=True, attached=True, gimbal=(G[0],G[1]))
+    ani.run()
