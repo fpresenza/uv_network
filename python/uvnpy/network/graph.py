@@ -9,7 +9,7 @@ import graph_tool as gt
 from uvnpy.vehicles.unmanned_vehicle import UnmannedVehicle
 from uvnpy.vehicles.rover import Rover
 from uvnpy.network.links import CommunicationLink
-from uvnpy.toolkit.linalg import vector
+import uvnpy.toolkit.linalg as linalg
 from uvnpy.toolkit.pytools import iterable
 
 def proximity(graph, i, range):
@@ -18,6 +18,17 @@ def proximity(graph, i, range):
 		dist = graph.dist(i, j)
 		if dist <= range and [i,j] not in all_links:
 			graph.add_link(i,j)
+		elif dist > range and [i,j] in all_links:
+			graph.remove_link(i,j)
+
+def selective_proximity(graph, i, range):
+	""" Connect only rover 1 to uav, and all rovers between"""
+	all_links = graph.get_links().tolist()
+	for j in graph.get_robots()[i:]:
+		dist = graph.dist(i, j)
+		if dist <= range and [i,j] not in all_links:
+			if graph.r(i).id == 1 or graph.r(j).type is not 'Drone':
+				graph.add_link(i,j)
 		elif dist > range and [i,j] in all_links:
 			graph.remove_link(i,j)
 
@@ -38,10 +49,8 @@ class UnmannedVehicleGraph(gt.Graph):
 		self.vertex_properties['robots'] = self.new_vertex_property('object')
 		self.edge_properties['links'] = self.new_edge_property('object')
 
-	def __set_robot_as_vp(self, nv, **kwargs):
+	def __set_robot_as_vp(self, nv, obj, deploy, motion_kw, sensor_kw):
 		""" Set robot class to new vertex added """
-		obj = kwargs.get('object', self.vertex_obj)
-		deploy = kwargs.get('deploy')
 		nv = nv if iterable(nv) else [nv]
 		for v in nv:
 			try:
@@ -49,10 +58,10 @@ class UnmannedVehicleGraph(gt.Graph):
 			except ValueError:
 				id = 1
 			try:
-				kwargs.update({'pi':deploy(id)})
+				motion_kw.update(pi=deploy(id))
 			except TypeError:
 				raise TypeError('A function for pose deployment must be passed')
-			self.vp.robots[v] = obj(id, **kwargs)
+			self.vp.robots[v] = obj(id, motion_kw=motion_kw.copy(), sensor_kw=sensor_kw.copy())
 
 	def __set_link_as_ep(self, ne, s, t, obj):
 		""" Set communication link class to new edge added """
@@ -76,11 +85,13 @@ class UnmannedVehicleGraph(gt.Graph):
 		list of robot ids """		
 		return [self.__ids[idx] for idx in indices]
 
-	def add_robots(self, N, **kwargs):
+	def add_robots(self, N, motion_kw={}, sensor_kw={}, **kwargs):
 		""" Add N vertices to the graph with a robot as
 		a vertex property """
+		obj = kwargs.pop('object', self.vertex_obj)
+		deploy = kwargs.pop('deploy')
 		new_vertices = self.add_vertex(N)
-		self.__set_robot_as_vp(new_vertices, **kwargs)
+		self.__set_robot_as_vp(new_vertices, obj, deploy, motion_kw, sensor_kw)
 		self.__updt_hash()
 		return new_vertices
 
@@ -180,18 +191,14 @@ class UnmannedVehicleGraph(gt.Graph):
 
 	def dist(self, i, j):
 		""" returns the euclidean distance between two robots """
-		return vector.distance(self.r(i).xyz(), self.r(j).xyz())
+		return linalg.distance(self.r(i).p(), self.r(j).p())
 
 	def connect(self, *args):
 		return self.wrapper(self, *args)
 
 	def share_msgs(self):
 		for link in self.links():
-			r = link.range_measurement()
-			link.s.msg.range = r
-			link.t.msg.range = r
-			link.s.inbox.append(link.t.msg.copy())
-			link.t.inbox.append(link.s.msg.copy())
+			link.exchange()
 
 	def share_between(self, i, j):
 		if [i,j] in self.get_links().tolist():

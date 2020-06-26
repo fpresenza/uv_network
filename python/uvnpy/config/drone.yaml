@@ -1,0 +1,5 @@
+m: 1.5            # kg
+Ix: 0.029             # kg*m2  
+Iy: 0.029             # kg*m2 
+Iz: 0.055             # kg*m2 
+f_ctrl: 50.                  # Hz

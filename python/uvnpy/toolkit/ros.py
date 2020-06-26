@@ -4,7 +4,7 @@
 @author: fran
 """
 import numpy as np
-from uvnpy.toolkit.linalg import vector
+import uvnpy.toolkit.linalg as linalg
 import copy
 
 class Point(object):
@@ -47,11 +47,12 @@ class Pose(object):
 		return 'Pose:\n{}\n{}'.format(self.pose.__str__(), self.orientation.__str__())
 
 class PositionAndRange(object):
-    def __init__(self, **kwargs):
-        self.id = kwargs.get('id')
-        self.point = kwargs.get('point', vector.vec3())
-        self.covariance = kwargs.get('covariance', np.zeros(9))
-        self.range = kwargs.get('range', 1.)
+    def __init__(self, id, x=0., y=0., z=0., source='Unknown'):
+        self.source = source
+        self.id = id
+        self.point = linalg.vec3(x, y, z)
+        self.covariance = np.zeros(9)
+        self.range = range
 
     def __str__(self):
         return 'id: {}\nPoint:\nx: {}\ny: {}\nz: {}\ncovariance: {}\nrange: {}'.format(

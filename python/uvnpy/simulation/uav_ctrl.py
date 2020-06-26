@@ -6,17 +6,19 @@
 import argparse
 import numpy as np
 from uvnpy.model.multicopter import Multicopter
-from uvnpy.graphix.planar import TimePlot
+from uvnpy.sensor.camera import Camera
+from uvnpy.graphix.planar import GridPlot
 from uvnpy.graphix.spatial import Animation3D
 
 def run(arg):
     uav = (
-        Multicopter(ti=arg.ti, pi=(2.,0.,5.), vi=(0.,0.,0.), ai=(0.,0.,0.), f_ctrl=arg.f_ctrl),
-        Multicopter(ti=arg.ti, pi=(-2.,0.,5.), vi=(0.,0.,0.), ai=(0.,0.,0.), f_ctrl=arg.f_ctrl)
+        Multicopter(ti=arg.ti, pi=(0.,3.,5.), vi=(0.,0.,0.), ai=(0.,0.,0.), f_ctrl=arg.f_ctrl),
+        Multicopter(ti=arg.ti, pi=(0.,-3.,5.), vi=(0.,0.,0.), ai=(0.,0.,np.pi/2), f_ctrl=arg.f_ctrl)
     )
     time = np.arange(arg.ti+arg.h, arg.tf, arg.h)
 
     P, V, A, W, R, U = ([],[]), ([],[]), ([],[]), ([],[]), ([],[]), ([],[])
+    G = ([],[])
     
     for t in time:
         wind = (0., 0., 0.)
@@ -30,8 +32,9 @@ def run(arg):
         W[0].append(uav[0].w())
         R[0].append(uav[0].ref())
         U[0].append(uav[0].ctrl_eff())
+        G[0].append(np.array([0,np.pi/4,0]))
 
-        r = (1*np.sin(t/2), -1*np.cos(t/2), 1., 0) #(vx, vy, vz, yaw)
+        r = (0,2*np.sin(t/2),0.,0.) #(vx, vy, vz, yaw)
         # r = (0.,0.,0.,0.)
         uav[1].step(r, t, fw=wind)
         P[1].append(uav[1].p())
@@ -40,8 +43,9 @@ def run(arg):
         W[1].append(uav[1].w())
         R[1].append(uav[1].ref())
         U[1].append(uav[1].ctrl_eff())
+        G[1].append(np.array([0,np.pi/7,0]))
 
-    return time, P, V, A, W, R, U
+    return time, P, V, A, W, R, U, G
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
@@ -54,49 +58,54 @@ if __name__ == '__main__':
 
     arg = parser.parse_args()
 
-    time, P, V, A, W, R, U = run(arg)
+    time, P, V, A, W, R, U, G = run(arg)
 
-    px, py, pz = np.hstack(P[0])
-    vx, vy, vz = np.hstack(V[0])
-    ar, ap, ay = np.hstack(A[0])
-    wx, wy, wz = np.hstack(W[0])
-    rvx, rvy, rvz, rwz = np.hstack(R[0])
-    lines = [[[px, py, pz],[ar, ap, ay]],[[vx, vy, vz, rvx, rvy, rvz],[wx, wy, wz, rwz]]]
-    color = [[['b', 'r', 'g'],['b', 'r', 'g']],[['b', 'r', 'g', 'b', 'r', 'g'],['b', 'r', 'g', 'g']]]
-    label = [[['$x$', '$y$', '$z$'],['$\phi$', '$\Theta$', '$\psi$']],
-             [['$v_x$', '$v_y$', '$v_z$', '', '', ''],['$\omega_x$', '$\omega_y$', '$\omega_z$', '']]]
-    ls = [[['-', '-', '-'],['-', '-', '-']],[['-', '-', '-', 'dotted', 'dotted', 'dotted'],['-', '-', '-', 'dotted']]]
-    xp1 = TimePlot(time, lines, title='Multicopter 1 - state', color=color, label=label, ls=ls)
+    plot = []
+    p = np.vstack(P[0]).T
+    v = np.vstack(V[0]).T
+    e = np.vstack(A[0]).T
+    w = np.vstack(W[0]).T
+    r = np.vstack(R[0]).T
+    lines = p, e, [*v, *r], w
+    color = ['b', 'r', 'g'],['b', 'r', 'g'],['b', 'r', 'g', 'b', 'r', 'g'],['b', 'r', 'g', 'g']
+    label = ['$x$', '$y$', '$z$'],['$\phi$', '$\Theta$', '$\psi$'],\
+    ['$v_x$', '$v_y$', '$v_z$', '', '', ''],['$\omega_x$', '$\omega_y$', '$\omega_z$', '']
+    ls = ['-', '-', '-'],['-', '-', '-'],['-', '-', '-', 'dotted', 'dotted', 'dotted'],['-', '-', '-', 'dotted']
+    plot += [GridPlot(shape=(2,2), title='Multicopter 1 - state')]
+    plot[0].draw(time, lines, color=color, label=label, ls=ls)
 
-    px, py, pz = np.hstack(P[1])
-    vx, vy, vz = np.hstack(V[1])
-    ar, ap, ay = np.hstack(A[1])
-    wx, wy, wz = np.hstack(W[1])
-    rvx, rvy, rvz, rwz = np.hstack(R[1])
-    lines = [[[px, py, pz],[ar, ap, ay]],[[vx, vy, vz, rvx, rvy, rvz],[wx, wy, wz, rwz]]]
-    xp2 = TimePlot(time, lines, title='Multicopter 2 - state', color=color, label=label, ls=ls)
+    p = np.vstack(P[1]).T
+    v = np.vstack(V[1]).T
+    e = np.vstack(A[1]).T
+    w = np.vstack(W[1]).T
+    r = np.vstack(R[1]).T
+    lines = p, e, [*v, *r], w
+    plot += [GridPlot(shape=(2,2), title='Multicopter 2 - state')]
+    plot[1].draw(time, lines, color=color, label=label, ls=ls)
 
-    Ft, Tx, Ty, Tz = np.hstack(U[0])
-    lines = [[[Ft],[Tx]],[[Ty],[Tz]]]
-    label = [[['$F_t$'],['$T_x$']],[['$T_y$'],['$T_z$']]]
-    up1 = TimePlot(time, lines, title='Multicopter 1 - control effort', label=label)
+    Ft, Tx, Ty, Tz = np.vstack(U[0]).T
+    lines = [Ft],[Tx],[Ty],[Tz]
+    label = ['$F_t$'],['$T_x$'],['$T_y$'],['$T_z$']
+    plot += [GridPlot(shape=(2,2), title='Multicopter 1 - control effort')]
+    plot[2].draw(time, lines, label=label)
 
-    Ft, Tx, Ty, Tz = np.hstack(U[1])
-    lines = [[[Ft],[Tx]],[[Ty],[Tz]]]
-    up2 = TimePlot(time, lines, title='Multicopter 2 - control effort', label=label)
+    Ft, Tx, Ty, Tz = np.vstack(U[1]).T
+    lines = [Ft],[Tx],[Ty],[Tz]
+    label = ['$F_t$'],['$T_x$'],['$T_y$'],['$T_z$']
+    plot += [GridPlot(shape=(2,2), title='Multicopter 2 - control effort')]
+    plot[3].draw(time, lines, label=label)
 
     if arg.save:
-        xp1.savefig('uav_1_s_robot')
-        xp2.savefig('uav_2_s_robot')
-        up1.savefig('uav_1_u')
-        up2.savefig('uav_2_u')
+        plot[0].savefig('uav_1_s_robot')
+        plot[1].savefig('uav_2_s_robot')
+        plot[2].savefig('uav_1_u')
+        plot[3].savefig('uav_2_u')
     else: 
-        xp1.show()
-        xp2.show()
-        up1.show()
-        up2.show()
+        plot[0].show()
 
     if arg.animate:
-        ani = Animation3D(time, xlim=(-15,15), ylim=(-15,15), zlim=(0,10), save=arg.save, slice=50)
-        ani.add_quadrotor((P[0],A[0]), (P[1],A[1]), camera=True, attached=True)
+        ani = Animation3D(time, xlim=(-15,15), ylim=(-15,15), zlim=(0,15), save=arg.save, slice=50)
+        ani.add_drone(1, P[0], A[0], (A[0], G[0]), camera=Camera())
+        ani.add_drone(2, P[1], A[1], (A[1], G[1]), camera=Camera())
+        ani.add_sphere([np.array([0,10,0]) for k in P[0]], [1 for k in P[0]])
         ani.run()

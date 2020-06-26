@@ -8,9 +8,9 @@ import numpy as np
 import collections
 
 class Neighborhood(object):
-    def __init__(self, **kwargs):
-        self.size = kwargs.get('size', 5)
-        self.dof = kwargs.get('dof', 3)
+    def __init__(self, size=1, dof=1):
+        self.size = size
+        self.dof = dof
         self.dim = self.size * self.dof
         self.neighbors = collections.OrderedDict()
 

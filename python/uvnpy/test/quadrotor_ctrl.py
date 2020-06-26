@@ -47,6 +47,7 @@ C = np.array([[0., -1, 0],
               [ 0,  0, 1]])  
 Rxyz = Rzyx.T
 M = C @ Rxyz @ np.array([[ux],[uy],[uz]])
+print('M:')
 print(M[0])
 print(M[1])
 print(M[2])

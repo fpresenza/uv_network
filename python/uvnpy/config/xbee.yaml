@@ -1,2 +1,2 @@
 range:
-    sigma: 3.   # position noise spectral density [m]
+    sigma: 5.   # position noise spectral density [m]

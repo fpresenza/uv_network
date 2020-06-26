@@ -7,19 +7,18 @@ Created on Tue June 23 14:27:46 2020
 import numpy as np
 import yaml
 from types import SimpleNamespace
-from uvnpy.toolkit.linalg import vector
+import uvnpy.toolkit.linalg as linalg
 
 class RangeSensor(object):
     """ This class implements model of a Range Sensor """
-    def __init__(self, name, **kwargs):
+    def __init__(self, cnfg_file='../config/xbee.yaml'):
         # read config file
-        config_dict = yaml.load(open('../config/{}.yaml'.format(name)))
+        config_dict = yaml.load(open(cnfg_file))
         config = SimpleNamespace(**config_dict)
-        self.range = SimpleNamespace(**config.range)
+        self.sigma = config.range['sigma']
         #  Noise covariance matrices
-        self.R = np.diag(np.square([self.range.sigma]))
+        self.R = np.diag([np.square(self.sigma)])
 
     def measurement(self, p, q):
-        """ Calculates the diantance range based on two robot's position.
-        """
-        return (vector.distance(p, q) + np.random.normal(0, self.range.sigma)).item()
+        """ Calculates the diantance range based on two robot's position. """
+        return linalg.distance(p, q) + np.random.normal(0, self.sigma)

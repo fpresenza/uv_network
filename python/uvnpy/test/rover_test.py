@@ -4,7 +4,7 @@ import numpy as np
 from uvnpy.vehicles.rover import Rover
 import uvnpy.graphix.planar as graphix
 from uvnpy.navigation.kalman import Ekf
-from uvnpy.toolkit.linalg import vector
+from uvnpy.toolkit.linalg import vec3
 
 cmd_vel = (1., 1., 0.5)
 Ts = 0.05
@@ -38,9 +38,9 @@ for _ in range(N):
 
     r.motion.restart()
 
-    accel = vector.vec3(*np.hstack(a))
-    vel = vector.vec3(*np.hstack(v)) 
-    pos = vector.vec3(*np.hstack(p)) 
+    accel = vec3(*np.hstack(a))
+    vel = vec3(*np.hstack(v)) 
+    pos = vec3(*np.hstack(p)) 
 
     tgraph.plot(time, accel.x)
 

@@ -3,7 +3,7 @@ import numpy as np
 from uvnpy.experimental.parser import interpolate
 from uvnpy.graphix.planar import TimePlot
 from uvnpy.graphix.spatial import Animation3D
-from uvnpy.tools.linalg import rotation
+import uvnpy.toolkit.linalg as la
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
@@ -50,13 +50,13 @@ if __name__ == '__main__':
     P, A, G = ([],[]), ([],[]), ([],[])
     R = []
     for t in time:
-        x, y, z, *q = uav1(t)
+        x, y, z, qx, qy, qz, qw = uav1(t)
         P[0].append(np.array([x,y,z]))
-        A[0].append(rotation.quaternion.to_euler(q))
+        A[0].append(la.quaternion.to_euler(np.quaternion(qw, qx, qy, qz)))
         G[0].append(np.array([0., np.radians(20), 0.]))
-        x, y, z, *q = uav2(t)
+        x, y, z, qx, qy, qz, qw = uav2(t)
         P[1].append(np.array([x,y,z]))
-        A[1].append(rotation.quaternion.to_euler(q))
+        A[1].append(la.quaternion.to_euler(np.quaternion(qw, qx, qy, qz)))
         G[1].append(np.array([0., np.radians(20), 0.]))
         try:
             R.append(rover(t))

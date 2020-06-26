@@ -5,6 +5,7 @@
 """
 import numpy as np
 import scipy.linalg
+import quaternion
 
 def skew(w): 
     return np.array([[    0, -w[2],  w[1]], 
@@ -14,209 +15,260 @@ def skew(w):
 def block_diag(*m):
     return scipy.linalg.block_diag(*m)
 
-class vector(object):
-    class vec3(object):
-        def __init__(self, x=0., y=0., z=0.):
-            self.x = x
-            self.y = y
-            self.z = z
+def multi_matmul(*mats): 
+    M = mats[-1] 
+    for mat in reversed(mats[:-1]): 
+        M = np.matmul(mat, M) 
+    return M 
 
-        def __call__(self):
-            return (self.x, self.y, self.z) 
-     
-        def __getitem__(self, key): 
-           return self()[key] 
+def norm(v):
+    return np.sqrt(np.inner(v,v)) 
 
-        def __add__(self, value):
-            return np.add(self(), value)
+def normalize(v):
+    return np.divide(v, norm(v))
 
-        def __sub__(self, value):
-            return np.subtract(self(), value)
+def distance(u, v):
+    return norm(np.subtract(u, v))
 
-        def __str__(self):
-            return 'vec3(x={}, y={}, z={})'.format(self.x, self.y, self.z)
+def angle_between(u, v):
+    i = np.inner(u, v)
+    n  = norm(u) * norm(v)
+    return np.arccos(i/n)
 
-        def __repr__(self):
-            return self.__str__()
+def heading(v):
+    return np.arctan2(v[1], v[0])
+
+def line(u, v, t):
+    return u + t * np.subtract(v,u)
+
+def proj(u, v):
+    v = np.asarray(v)
+    return np.divide(np.inner(u,v), np.inner(v, v)) * v
+
+
+class vec3(object):
+    def __init__(self, x=0., y=0., z=0.):
+        self.x = x
+        self.y = y
+        self.z = z
+
+    def __call__(self):
+        return (self.x, self.y, self.z) 
+ 
+    def __getitem__(self, key): 
+       return self()[key] 
+
+    def __add__(self, value):
+        return np.add(self(), value)
+
+    def __sub__(self, value):
+        return np.subtract(self(), value)
+
+    def __str__(self):
+        return 'vec3(x={}, y={}, z={})'.format(self.x, self.y, self.z)
+
+    def __repr__(self):
+        return self.__str__()
+
+
+class rm(object):
+    """ This class implements basic rotation matrix 
+    algorithms in a 3d euclidean space """
+    @staticmethod
+    def check(R):
+        """ returns True if R is an orthogonal matrix, False otherwise """
+        try: 
+            return np.allclose(np.matmul(R,R.T), np.eye(3)) 
+        except (AttributeError, ValueError): 
+            return False 
+
+    @staticmethod
+    def Rx(roll):
+        cr = np.cos(roll)
+        sr = np.sin(roll)
+        return np.array([[1,  0,   0],
+                         [0, cr, -sr],
+                         [0, sr,  cr]])
+
+    @staticmethod
+    def Ry(pitch):
+        cp = np.cos(pitch)
+        sp = np.sin(pitch)
+        return np.array([[ cp,  0, sp],
+                         [  0,  1,  0],
+                         [-sp,  0, cp]])
+
+    @staticmethod
+    def Rz(yaw):
+        cy = np.cos(yaw)
+        sy = np.sin(yaw)
+        return np.array([[cy, -sy, 0],
+                         [sy,  cy, 0],
+                         [ 0,   0, 1]])
+
+    @classmethod
+    def ZYX(cls, e):
+        return np.matmul(cls.Rz(e[2]), np.matmul(cls.Ry(e[1]), cls.Rx(e[0])))
+
+    @staticmethod
+    def from_vec(n, t):
+        """ Rodrigues rotation formula """
+        S = skew(normalize(n))
+        return np.eye(3) + np.sin(t)*S + (1-np.cos(t))*np.dot(S,S)
+
+    @classmethod
+    def from_any(cls, *rotations):
+        matrix = np.eye(3)
+        for rot in reversed(rotations):
+            if cls.check(rot):
+                matrix = np.matmul(rot, matrix)
+            elif isinstance(rot, np.quaternion):
+                matrix = np.matmul(quaternion.as_rotation_matrix(rot), matrix)
+            elif len(rot)==3:
+                matrix = np.matmul(cls.ZYX(rot), matrix)
+            elif len(rot)==2:
+                matrix = np.matmul(cls.from_vec(rot[0],rot[1]), matrix)
+        return matrix
+
+
+class quat(object):
+    """ This class implements basic quaternion
+    algorithms in a 3d euclidean space """
+    @staticmethod
+    def normalize(q):
+        # make the scalar part always positive 
+        if q.w < 0:  
+            q *= -1
+        return q.normalized()
+
+    @staticmethod
+    def qx(roll):
+        chr = np.cos(roll/2)
+        shr = np.sin(roll/2)
+        return np.quaternion(chr, shr, 0, 0)
     
     @staticmethod
-    def norm(v):
-        return np.sqrt(np.inner(v,v)) 
+    def qy(pitch):
+        chp = np.cos(pitch/2)
+        shp = np.sin(pitch/2)
+        return np.quaternion(chp, 0, shp, 0)
+    
+    @staticmethod
+    def qz(yaw):
+        chy = np.cos(yaw/2)
+        shy = np.sin(yaw/2)
+        return np.quaternion(chy, 0, 0, shy)
+
+    @classmethod
+    def ZYX(cls, e):
+        return cls.qz(e[2]) * cls.qy(e[1]) * cls.qx(e[0])
+
+    @classmethod
+    def to_ZYX(cls, q):
+        q = cls.normalize(q)
+        return np.array([np.arctan2(2 * (q.w*q.x + q.y*q.z), 1 - 2*(q.x**2 + q.y**2)),
+                         np.arcsin(2 * (q.w*q.y - q.z*q.x)),
+                         np.arctan2(2 * (q.w*q.z + q.x*q.y), 1 - 2*(q.y**2 + q.z**2))])
+
+
+class orthogonal(object):
+    """ This class implements methods for orthogonal
+    projections in R3 to subspace S (usually
+    a plane). """
+    @staticmethod
+    def complement(n):
+        """ Orthogonal complement of a 1-D subspace """
+        p1 = np.cross([0.4236548 , 0.64589411, 0.43758721], n)
+        p2 = np.cross(p1, n)
+        return np.vstack([normalize(p1), normalize(p2)]).T
 
     @staticmethod
-    def normalize(v):
-        return np.divide(v, vector.norm(v))
+    def projection(S):
+        """ Orthogonal projection to a given Subspace """
+        A = np.array(S).T
+        S = np.linalg.inv(np.matmul(A.T, A))
+        return np.matmul(A, np.matmul(S, A.T))
 
     @staticmethod
-    def distance(u, v):
-        return vector.norm(np.subtract(u, v).flatten())
+    def projection_to_xy():
+        """ Orthogonal projection to xy plane """
+        return np.diag([1.,1.,0.])
 
     @staticmethod
-    def angle_between(u, v):
-        i = np.inner(u, v)
-        n  = vector.norm(u) * vector.norm(v)
-        return np.arccos(i/n)
+    def projection_to_yz():
+        """ Orthogonal projection to yz plane """
+        return np.diag([0.,1.,1.]) 
 
     @staticmethod
-    def heading(v):
-        return np.arctan2(v[1], v[0])
+    def projection_to_zx():
+        """ Orthogonal projection to zx plane """
+        return np.diag([1.,0.,1.])
+
+
+class oblique(object):
+    """ This class implements methods for oblique
+    projections in R3 to to_subspace S (usually
+    a plane) in the direction of n. """
+    @staticmethod
+    def projection(S1, S2): 
+        M = np.vstack([*S1, *S2]).T
+        P, r = np.zeros_like(M), len(S1)
+        P[:r,:r] = np.eye(r)            
+        return np.matmul(M, np.matmul(P, np.linalg.inv(M)))
+
+    @classmethod
+    def projection_to_xy(cls, n):
+        """ Projection to xy plane in
+        the direction of n"""
+        return cls.projection(([1,0,0],[0,1,0]), (n,))
+
+    @classmethod
+    def projection_to_yz(cls, n):
+        """ Projection to a given Subspace in
+        the direction of n"""
+        cls.projection(([0,1,0],[0,0,1]), (n,))
+
+    @classmethod
+    def projection_to_zx(cls, n):
+        """ Projection to a given Subspace in
+        the direction of n"""
+        return cls.projection(([1,0,0],[0,0,1]), (n,))
+
+
+class ht(object):
+    """ This class implements basic functions of homogeneous
+    transformation in R2 or R3. """
+    @staticmethod
+    def _aug(x):
+        return np.hstack([*x, 1])
 
     @staticmethod
-    def rect(u, v, t):
-        return u*(1-t) + v*t
+    def _red(x):
+        return x[:-1]
+
+    @classmethod
+    def dot(cls, T, x):
+        return cls._red(np.matmul(T, cls._aug(x)))
 
     @staticmethod
-    def proj(u, v): 
-        return np.divide(np.inner(u,v), np.inner(v, v)) * v
+    def matrix(R, t):
+        t = np.reshape(t, (-1,1))
+        z = np.zeros_like(t).flatten()
+        return np.block([[R, t],
+                         [z, 1]])
 
+    @classmethod
+    def inv_matrix(cls, R, t):
+        return cls.matrix(R.T, np.matmul(-R.T, t))
 
-class rotation(object):
-    class matrix(object):
-        """ This class implements basic rotation matrix 
-        algorithms in a 3d euclidean space """
-        @staticmethod
-        def Rx(roll):
-            cr = np.cos(roll)
-            sr = np.sin(roll)
-            return np.array([[1,  0,   0],
-                             [0, cr, -sr],
-                             [0, sr,  cr]])
+    @classmethod
+    def apply(cls, R, t, x):
+        return cls._red(np.matmul(cls.matrix(R, t), cls._aug(x)))
 
-        @staticmethod
-        def Ry(pitch):
-            cp = np.cos(pitch)
-            sp = np.sin(pitch)
-            return np.array([[ cp,  0, sp],
-                             [  0,  1,  0],
-                             [-sp,  0, cp]])
+    @classmethod
+    def inv_apply(cls, R, t, x):
+        return cls._red(np.matmul(cls.inv_matrix(R, t), cls._aug(x)))
 
-        @staticmethod
-        def Rz(yaw):
-            cy = np.cos(yaw)
-            sy = np.sin(yaw)
-            return np.array([[cy, -sy, 0],
-                             [sy,  cy, 0],
-                             [ 0,   0, 1]])
-
-        @classmethod
-        def RZYX(cls, r, p, y):
-            return cls.Rz(y) @ cls.Ry(p) @ cls.Rx(r)
-
-        @staticmethod
-        def from_vector_angle(t):
-            """ Rodrigues rotation formula """
-            angle = vector.norm(t)
-            t_n = t/angle
-            S = skew(t_n)
-            return np.eye(3) + np.sin(angle)*S + (1-np.cos(angle))*np.dot(S,S)
-
-        @staticmethod
-        def from_quat(q):
-            q = rotation.quaternion.normalize(q)
-            S = skew(q[:3])
-            return np.eye(3) + 2*q[3]*S + 2*np.dot(S, S)
-
-
-    class quaternion(object):
-        """ This class implements basic quaternion
-        algorithms in a 3d euclidean space """
-        @staticmethod
-        def normalize(q):
-            q = np.asarray(q) 
-            # make the scalar part always positive 
-            if q[3] < 0:  
-                q *= -1 
-            # norm equal to 1 
-            return q/vector.norm(q)
-
-        @staticmethod
-        def from_euler(euler):
-            chy, shy = np.cos(euler[2]/2), np.sin(euler[2]/2)
-            chp, shp = np.cos(euler[1]/2), np.sin(euler[1]/2)
-            chr, shr = np.cos(euler[0]/2), np.sin(euler[0]/2)
-            q = (chy*chp*shr - shy*shp*chr,
-                 chy*shp*chr + shy*chp*shr,
-                 shy*chp*chr - chy*shp*shr,
-                 chy*chp*chr + shy*shp*shr)
-            return rotation.quaternion.normalize(q)
-
-        @staticmethod
-        def to_euler(q):
-            qx, qy, qz, qw = rotation.quaternion.normalize(q)
-            r = np.arctan2(2 * (qw*qx + qy*qz), 1 - 2*(qx**2 + qy**2))
-            p = np.arcsin(2 * (qw*qy - qz*qx))
-            y = np.arctan2(2 * (qw*qz + qx*qy), 1 - 2*(qy**2 + qz**2))
-            return np.array([r, p, y])
-
-
-class projection(object):
-    class orthogonal(object):
-        """ This class implements methods for orthogonal
-        projections in R3 to to_subspace S (usually
-        a plane) in the direction of n. """
-        @staticmethod
-        def complement(n):
-            """ Orthogonal complement of a given vector """
-            np.random.seed(0)
-            p1 = np.cross(np.random.randn(3), n)
-            p2 = np.cross(p1, n)
-            return np.vstack([vector.normalize(p1), vector.normalize(p2)]).T
-
-        @staticmethod
-        def to_subspace(S):
-            """ Orthogonal projection to a given Subspace """
-            A = np.array(S).T
-            return A @ np.linalg.inv(A.T@A) @ A.T
-
-        @staticmethod
-        def to_xy():
-            """ Orthogonal projection to xy plane """
-            return np.diag([1.,1.,0.])
-
-        @staticmethod
-        def to_yz():
-            """ Orthogonal projection to yz plane """
-            return np.diag([0.,1.,1.]) 
-
-        @staticmethod
-        def to_zx():
-            """ Orthogonal projection to zx plane """
-            return np.diag([1.,0.,1.])
-
-    class oblique(object):
-        """ This class implements methods for oblique
-        projections in R3 to to_subspace S (usually
-        a plane) in the direction of n. """
-        @staticmethod
-        def from_subspaces(S1, S2): 
-            b1 = np.vstack(S1).T 
-            b2 = np.vstack(S2).T 
-            M = np.hstack([b1, b2]) 
-            P = np.zeros_like(M) 
-            r = len(S1) 
-            P[:r,:r] = np.eye(r)            
-            return M@P@np.linalg.inv(M)
-
-        @staticmethod
-        def to_xy(n):
-            """ Projection to a given Subspace in
-            the direction of n"""
-            A = np.array([[1.,0.,0.],[0.,1.,0.]]).T
-            B = projection.orthogonal.complement(n)
-            return A @ np.linalg.inv(B.T@A) @ B.T
-
-        @staticmethod
-        def to_yz(n):
-            """ Projection to a given Subspace in
-            the direction of n"""
-            A = np.array([[0.,1.,0.],[0.,0.,1.]]).T
-            B = projection.orthogonal.complement(n)
-            return A @ np.linalg.inv(B.T@A) @ B.T
-
-        @staticmethod
-        def to_zx(n):
-            """ Projection to a given Subspace in
-            the direction of n"""
-            A = np.array([[1.,0.,0.],[0.,0.,1.]]).T
-            B = projection.orthogonal.complement(n)
-            return A @ np.linalg.inv(B.T@A) @ B.T
+    @staticmethod
+    def split(T):
+        return T[:-1,:-1], T[:,-1][:-1]

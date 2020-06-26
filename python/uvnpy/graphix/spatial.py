@@ -8,8 +8,9 @@ import numpy as np
 import collections
 import matplotlib as mpl
 import matplotlib.animation
-from uvnpy.toolkit.linalg import vector, rotation, projection
-import uvnpy.sensor.camera
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+import uvnpy.toolkit.linalg as linalg
+from uvnpy.graphix.planar import CameraImage
 
 def circle3D(center, normal, radius, **kwargs):
     """ Get sample points that belong to a circle placed on a 3D space
@@ -19,7 +20,7 @@ def circle3D(center, normal, radius, **kwargs):
     """
     center = np.asarray(center)
     step = kwargs.get('step', 0.2)
-    tx, ty = projection.orthogonal.complement(normal).T
+    tx, ty = linalg.orthogonal.complement(normal).T
     tx, ty = np.multiply(radius, [tx, ty])
     parameter = np.hstack((np.arange(0, 2*np.pi, step), 0))
     centered_circle = [np.cos(t)*tx + np.sin(t)*ty for t in parameter]
@@ -34,8 +35,8 @@ def ellipse3D(center, basis, **kwargs):
     Vector direction give rotation of ellipse
     """
     center = np.asarray(center)
+    tx, ty = np.asarray(basis)
     step = kwargs.get('step', 0.2)
-    tx, ty = basis
     parameter = np.hstack((np.arange(0, 2*np.pi, step), 0))
     centered_ellipse = [np.cos(t)*tx + np.sin(t)*ty for t in parameter]
     return (center + centered_ellipse).T
@@ -61,16 +62,45 @@ def ellipsoid(center, M):
     """ 
     return sphere(center, M)
 
-def surface_plot(ax, generator, *args, **kwargs):
+def quadrotor(center, attitude, split=False, **kwargs):
+    """ Sample points that belong to a quadrotor
+    center: center of geometry
+    attitude: rotation matrix
+    """
+    center = np.asarray(center).reshape(-1,1)
+    tx, ty, tz = np.matmul(attitude, linalg.rm.Rz(-np.pi/4)).T
+    arm = kwargs.get('arm', 0.235)  # meters
+    prop = kwargs.get('prop', 0.08) # meters
+    v = (np.add(center, arm * tx.reshape(-1,1)),
+         np.add(center, arm * ty.reshape(-1,1)),
+         np.add(center, arm * -tx.reshape(-1,1)),
+         np.add(center, arm * -ty.reshape(-1,1)))
+    linsp = np.linspace(0,1,10)
+    ellipse = ellipse3D((0.,0.,0.), (prop * tx, prop * ty))
+    patches = [np.hstack([linalg.line(v[0], center, t) for t in linsp] + [linalg.line(center, v[1], t) for t in linsp]),
+               np.hstack([linalg.line(v[2], center, t) for t in linsp] + [linalg.line(center, v[3], t) for t in linsp]),
+               np.add(v[0], ellipse),
+               np.add(v[1], ellipse),
+               np.add(v[2], ellipse),
+               np.add(v[3], ellipse)]
+    if split:
+        return patches
+    else:
+        return np.hstack(patches)
+
+def surface_plot(ax, generator, *args, points=False, **kwargs):
     """ Add surface plot of given shape to ax:
     generator: 
-        function that takes *args and **kwargs as parameter
+        function that takes *args as parameter
         and returns a sample of points belonging to the surface.
     """
     x, y, z = generator(*args)
     n = int(np.sqrt(x.size))
     kwargs.update(shade=1)
-    return ax.plot_surface(x.reshape(n,n), y.reshape(n,n), z.reshape(n,n), **kwargs)
+    if points:
+        return ax.plot_surface(x.reshape(n,n), y.reshape(n,n), z.reshape(n,n), **kwargs), np.vstack([x, y, z])
+    else:
+        return ax.plot_surface(x.reshape(n,n), y.reshape(n,n), z.reshape(n,n), **kwargs)
 
 
 class Plot3D(object):
@@ -139,28 +169,34 @@ class Plot3D(object):
 
 class ScatterPlot(Plot3D):
     def __init__(self, **kwargs):
-        kwargs['ls'] = ''
-        kwargs['marker'] = 'o'
-        kwargs['title'] = '3D Scatter Plot'
+        kwargs.update(
+            ls='',
+            marker='o',
+            title='3D Scatter Plot'
+        )
         super(ScatterPlot, self).__init__(**kwargs)
 
 
 class QuadrotorArtist(object):
-    def __init__(self, ax, **kwargs):
+    def __init__(self, ax, pos, attitude, quad_kw={}, **kwargs):
         """ Draw simplistic quadcopter model in 3D """
         self.ax = ax
-        self.arm_len = kwargs.get('arm_length', 0.235)
-        self.prop_rad = kwargs.get('prop_rad', 0.08)
+        self.pos = pos
+        self.attitude = attitude
+        try:
+            self.al = quad_kw['arm_length']
+        except KeyError:
+            self.al = 0.235
+        try:
+            self.pr = quad_kw['propeller_radius']
+        except KeyError:
+            self.pr = 0.08
         # body
         self.body = self.__add_body(colors=('r', 'b', '0.3'))
         # shadow
         self.shadow = self.__add_body(colors=('0.3', '0.3', '0.3'), alpha=0.3, lw=2)
-        # camera
-        self.has_cam = kwargs.get('camera', False)
-        self.attached_cam = kwargs.get('attached', False)
-        self.view = []
-        if self.has_cam:
-            self.__add_camera(**kwargs)
+        # points
+        self.points = np.array([])
 
     def __add_body(self, **kwargs):
         self.Patch = collections.namedtuple('Patch', 'arm propeller')
@@ -179,26 +215,18 @@ class QuadrotorArtist(object):
         p.propeller.append(self.ax.plot([], [], [], color=colors[2], alpha=alpha, lw=lw)[0])
         return p
 
-    def __draw_body(self, patch, pos, R, **kwargs):
-        P = kwargs.get('projection', np.eye(3))
-        alpha = kwargs.get('alpha', None)
-        tf = P @ R
-        pos = P @ pos
-        tx, ty, tz = tf.T
-        vertex = (
-            np.add(pos, self.arm_len * tx).reshape(-1,1),
-            np.add(pos, self.arm_len * ty).reshape(-1,1),
-            np.add(pos, self.arm_len * -tx).reshape(-1,1),
-            np.add(pos, self.arm_len * -ty).reshape(-1,1),
-        )
-        patch.arm[0].set_data_3d(*zip(vertex[0], pos, vertex[1]))
-        patch.arm[1].set_data_3d(*zip(vertex[2], pos, vertex[3]))
-        ellipse = ellipse3D((0.,0.,0.), (self.prop_rad * tx, self.prop_rad * ty))
-        patch.propeller[0].set_data_3d(*np.add(vertex[0], ellipse))
-        patch.propeller[2].set_data_3d(*np.add(vertex[1], ellipse))
-        patch.propeller[3].set_data_3d(*np.add(vertex[2], ellipse))
-        patch.propeller[1].set_data_3d(*np.add(vertex[3], ellipse))
-
+    def __draw_body(self, patch, pos, R, points=False, projection=np.eye(3), alpha=None):
+        tf = np.matmul(projection, R)
+        pos = np.matmul(projection, pos)
+        arm_1, arm_2, *p = quadrotor(pos, tf, split=True, arm=self.al, prop=self.pr)
+        patch.arm[0].set_data_3d(*arm_1)
+        patch.arm[1].set_data_3d(*arm_2)
+        patch.propeller[0].set_data_3d(*p[0])
+        patch.propeller[1].set_data_3d(*p[1])
+        patch.propeller[2].set_data_3d(*p[2])
+        patch.propeller[3].set_data_3d(*p[3])
+        if points:
+            self.points = np.hstack([arm_1, arm_2, *p])
         if alpha is not None:
             patch.arm[0].set_alpha(alpha)
             patch.arm[1].set_alpha(alpha)
@@ -207,63 +235,150 @@ class QuadrotorArtist(object):
             patch.propeller[2].set_alpha(alpha)
             patch.propeller[3].set_alpha(alpha)
 
-    def __add_camera(self, **kwargs):
-        self.cam = uvnpy.sensor.camera.Camera(
-            color=kwargs.get('color', 'b')
-        )
-        self.view = self.cam.view(self.ax)
-
-    def __draw_camera(self, **kwargs):
-        self.view[0].remove()
-        self.view[1].remove()
-        self.view = self.cam.view(self.ax)
-        self.view[0]._facecolors2d = self.view[0]._facecolors3d
-        self.view[0]._edgecolors2d = self.view[0]._edgecolors3d
-
-    def draw(self, pos, euler, **kwargs):
-        R = rotation.matrix.RZYX(*euler)
+    def draw(self, k):
+        pos = self.pos[k]
+        R = linalg.rm.from_any(self.attitude[k])
         # draw body of quadcopter
-        self.__draw_body(self.body, pos, R)
+        self.__draw_body(self.body, pos, R, points=True)
         # draw shadow of quadcopter
-        P = projection.oblique.to_xy((-0.15,-0.15,-1))
+        P = linalg.oblique.projection_to_xy((-0.15,-0.15,-1))
         a = np.clip(1-pos[2]/13., 0., 0.8) # alpha decreases with heigth
         self.__draw_body(self.shadow, pos, R, projection=P, alpha=a)
-        # draw camera fov
-        if self.has_cam:
-            self.cam.position(pos)
-            C = R if self.attached_cam else np.eye(3)
-            self.cam.direction(C, **kwargs)
-            self.__draw_camera()
-        return self.collection()
+        return self.collection(), self.collect_points()
 
     def collection(self):
-        return self.body.arm + self.body.propeller + self.shadow.arm + self.shadow.propeller + self.view
+        return self.body.arm + self.body.propeller + self.shadow.arm + self.shadow.propeller
+
+    def collect_points(self):
+        return self.points
+
+
+class CameraArtist(object):
+    def __init__(self, ax, pos, attitude, camera, **kwargs):
+        self.ax = ax
+        self.pos = pos
+        self.attitude = attitude
+        self.cam = camera
+        self.color = kwargs.pop('color', 'gray')
+        self.id = kwargs.get('id', 0)
+        self.image = CameraImage(camera, **kwargs)
+        self.alpha = 0.3
+        self.footprint = self.field_of_view(3)
+
+    def field_of_view(self, zoom):
+        """ Plot a prisma representing field of field_of_view and footprint on xy plane """
+        # params
+        # prisma
+        nx, ny, nz = self.cam.attitude.T
+        tx = nx * zoom
+        ty = ny * zoom * np.tan(np.radians(self.cam.hfov[0]))
+        tz = nz * zoom * np.tan(np.radians(self.cam.hfov[1]))
+        corners = self.cam.pos + tx + np.array([ty+tz, ty-tz, -ty-tz, -ty+tz])
+        prisma = [[self.cam.pos, corners[0], corners[1]],
+                  [self.cam.pos, corners[0], corners[3]],
+                  [self.cam.pos, corners[1], corners[2]],
+                  [self.cam.pos, corners[3], corners[2]]]
+        verts = prisma
+
+        # footprint
+        def get_t(u, v):
+            """ returns the scalar "t" that gives the a vector included in
+            the rect that joins vectors "u" and "v" with z-value equal to 
+            90% of self.cam.pos """
+            if v[2] != u[2]:
+                c = self.cam.pos[2]-0.1
+                return np.divide(c-u[2], v[2]-u[2])
+            else:
+                return -1
+
+        def below(v):
+            """ return True if vector "v" is below self.cam.pos """
+            return v[2] < self.cam.pos[2]
+
+        vertices = []
+        for i,j in [(0,1),(1,2),(2,3),(3,0)]:
+            if below(corners[i]):
+                vertices += [corners[i]]
+            t = get_t(corners[i], corners[j])
+            if (t>0 and t<1):
+                vertices += [linalg.line(corners[i], corners[j], t)]
+
+        def ftp(v):
+            return np.matmul(linalg.oblique.projection_to_xy(v), self.cam.pos)
+
+        if len(vertices)>0:
+            vertices = np.subtract(vertices, self.cam.pos)
+            footprint = [[ftp(v) for v in vertices]]
+            verts += footprint
+        field_of_view = Poly3DCollection(verts, color=self.color, lw=0.3, alpha=self.alpha)
+        self.ax.add_collection3d(field_of_view)
+
+        # center of image on plane xy
+        if nx[2]<0:
+            center = ftp(nx)
+            circle = circle3D(center, (0,0,1), 0.35)
+            circle = np.delete(circle, 2, axis=0).T
+            
+            yaw = linalg.heading(nx)
+            Rz = linalg.rm.Rz(yaw)[:2,:2]
+            x = Rz[:,1]
+            points = [center[:2] + [x, 0.5*x], center[:2] + [-0.5*x, -x]] + \
+            [circle[i:i+2] for i in range(len(circle)) if len(circle[i:i+2])==2]
+            marker = mpl.collections.LineCollection(points, color=self.color, lw=0.8)
+            self.ax.add_collection3d(marker)
+        else:
+            marker = mpl.collections.LineCollection([])
+            self.ax.add_collection3d(marker)
+
+        return [field_of_view, marker]
+
+    def draw(self, k, zoom=3):
+        self.footprint[0].remove()
+        self.footprint[1].remove()
+        self.cam.update_pose(self.pos[k], self.attitude[k])
+        self.footprint = self.field_of_view(zoom)
+        self.footprint[0]._facecolors2d = self.footprint[0]._facecolors3d
+        self.footprint[0]._edgecolors2d = self.footprint[0]._edgecolors3d
+        return self.collection()
+
+    def render_image(self, time, points, k):
+        self.cam.update_pose(self.pos[k], self.attitude[k])
+        self.image.set_text((0,0), 't = {:.1f} secs'.format(time))
+        self.image.render(*points)
+
+    def collection(self):
+        return self.footprint
 
 
 class SurfaceArtist(object):
-    def __init__(self, ax, generator, **kwargs):
+    def __init__(self, ax, generator, args, **kwargs):
         """ Draw sphere in 3D """
         self.ax = ax
+        self.args = args
         self.generator = generator
         self.color = kwargs.get('color', 'b')
         self.alpha = kwargs.get('alpha', 1)
-        # self.radius = kwargs.get('radius', 0.5)
-        self.body = []
-        # self.body = [surface_plot(self.ax, self.generator, (0.,0.,0.), self.radius)]
+        self.surf = []
+        self.points = np.array([])
 
-    def draw(self, *args, **kwargs):
+    def draw(self, k, **kwargs):
         try:
-            self.body[0].remove()
+            self.surf[0].remove()
         except IndexError:
             pass
         kwargs.update(color=self.color, alpha=self.alpha)
-        self.body = [surface_plot(self.ax, self.generator, *args, **kwargs)]
-        self.body[0]._facecolors2d = self.body[0]._facecolors3d
-        self.body[0]._edgecolors2d = self.body[0]._edgecolors3d
-        return self.collection()
+        surf, points = surface_plot(self.ax, self.generator, *self.args[k], points=True, **kwargs)
+        self.surf = [surf]
+        self.surf[0]._facecolors2d = self.surf[0]._facecolors3d
+        self.surf[0]._edgecolors2d = self.surf[0]._edgecolors3d
+        self.points = points
+        return self.collection(), self.collect_points()
 
     def collection(self):
-        return self.body
+        return self.surf
+
+    def collect_points(self):
+        return self.points
 
 
 class Animation3D(object):
@@ -272,55 +387,82 @@ class Animation3D(object):
         self.slice = slice(0, -1, kwargs.get('slice'))
         if self.save: mpl.use('Agg')
         print('Matplotlib backend: {}'.format(mpl.get_backend()))
-        self.world = Plot3D(**kwargs)
+        self.plot3d = Plot3D(**kwargs)
         self.time = t[self.slice]
         self.collection = []
         self.frames = range(len(self.time))
         self.quads = []
+        self.cams = dict()
         self.spheres = []
         self.ellipsoids = []
-        self.colors = ('indianred', 'cornflowerblue', 'purple', 'orange', 'springgreen')
+        self.all_points_history = []
+        self.colors = ('indianred', 'cornflowerblue', 'purple', 'orange', 'springgreen', 'r', 'b', 'g', 'y')
 
-    def add_quadrotor(self, *args, **kwargs):
-        Q = collections.namedtuple('Q', 'artist p e g')
-        g = kwargs.get('gimbal', [[np.array((0.,np.pi/4,0.)) for _ in args[0][0]] for _ in range(2)])
-        self.quads = [Q(QuadrotorArtist(self.world.ax, color=self.colors[i], **kwargs),\
-         p[self.slice], e[self.slice], g[i][self.slice]) for i,(p,e) in enumerate(args)]
+    def add_quadrotor(self, pos, attitude, quad_kw={}, **kwargs):
+        Qart = QuadrotorArtist(self.plot3d.ax, pos[self.slice], attitude[self.slice], quad_kw, **kwargs)
+        self.quads.append(Qart)
 
-    def add_sphere(self, P, **kwargs):
-        S = collections.namedtuple('S', 'artist p radius')
-        radius = kwargs.get('radius', 1.)
+    def add_camera(self, pos, attitude, camera=None, extras={}, id=None):
+        if id is None:
+            id = len(self.cams)
+        params = dict(
+            id=id,
+            color=self.colors[len(self.cams)],
+            extras=extras
+            )
+        att_zipped = list(zip(*attitude))
+        Cart = CameraArtist(self.plot3d.ax, pos[self.slice], att_zipped[self.slice], camera, **params)
+        self.cams[id] = Cart
+
+    def add_drone(self, id, pos, quad_att, cam_att, camera, extras={}, **kwargs):
+        self.add_quadrotor(pos, quad_att, **kwargs)
+        self.add_camera(pos, cam_att, camera=camera, extras=extras, id=id)
+
+    def add_sphere(self, pos, radius, **kwargs):
         if not 'color' in kwargs:
             kwargs.update(color=self.colors[len(self.spheres)])
-        self.spheres.append(S(SurfaceArtist(self.world.ax, sphere, **kwargs), P[self.slice], radius))
+        args_zipped = list(zip(pos, radius))
+        Sart = SurfaceArtist(self.plot3d.ax, sphere, args_zipped[self.slice], **kwargs)
+        self.spheres.append(Sart)
 
-    def add_ellipsoid(self, P, M, **kwargs):
-        E = collections.namedtuple('E', 'artist p cov')
+    def add_ellipsoid(self, pos, cov, **kwargs):
         if not 'color' in kwargs:
             kwargs.update(color=self.colors[len(self.ellipsoids)])
-        self.ellipsoids.append(E(SurfaceArtist(self.world.ax, ellipsoid, **kwargs), P[self.slice], M[self.slice]))
+        args_zipped = list(zip(pos, cov))
+        Eart = SurfaceArtist(self.plot3d.ax, ellipsoid, args_zipped[self.slice], **kwargs)
+        self.ellipsoids.append(Eart)
 
-    def run(self, **kwargs):
+    def run_anim3d(self, **kwargs):
         interval = np.diff(self.time).mean()
         fps = interval**-1
-        print('Frames per second: {}'.format(fps))
+        print('3D Animation\nFrames per second: {}'.format(fps))
 
         def init():
             return self.collection
 
         def update(k):
-            self.world.text.set_text(r'%.2f secs'%(self.time[k]))
-            self.collection = [self.world.text]
-            self.collection += [artist for quad in self.quads for artist in\
-             quad.artist.draw(quad.p[k].flatten(), quad.e[k].flatten(), gimbal=quad.g[k].flatten())]
-            self.collection += [artist for sphere in self.spheres for artist in\
-             sphere.artist.draw(sphere.p[k].flatten(), sphere.radius)]
-            self.collection += [artist for ellipsoid in self.ellipsoids for artist in\
-             ellipsoid.artist.draw(ellipsoid.p[k].flatten(), ellipsoid.cov[k])]
+            self.plot3d.text.set_text(r'%.2f secs'%(self.time[k]))
+            self.collection = [self.plot3d.text]
+            all_points = []
+            for q in self.quads:
+                q_art, q_points = q.draw(k)
+                self.collection += q_art
+                all_points.append(q_points) 
+            for s in self.spheres:
+                s_art, s_points = s.draw(k)
+                self.collection += s_art
+                all_points.append(s_points) 
+            for e in self.ellipsoids:
+                e_art, e_points = e.draw(k)
+                self.collection += e_art
+                all_points.append(e_points)
+            for c in self.cams.values():
+                self.collection += c.draw(k)
+            self.all_points_history.append(np.hstack(all_points).T)
             return self.collection
 
-        animation = matplotlib.animation.FuncAnimation(
-            self.world.fig, 
+        animation3d = matplotlib.animation.FuncAnimation(
+            self.plot3d.fig, 
             update, 
             frames=self.frames, 
             init_func=init, 
@@ -329,6 +471,38 @@ class Animation3D(object):
         )
 
         if self.save:
-            animation.save('/tmp/anim.mp4', fps=fps, dpi=200, extra_args=['-vcodec', 'libx264'])
+            animation3d.save('/tmp/world3d.mp4', fps=fps, dpi=200, extra_args=['-vcodec', 'libx264'])
         else:
             mpl.pyplot.show()
+
+    def run_camera_image(self, id):
+        interval = np.diff(self.time).mean()
+        fps = interval**-1
+        print('Camera {} View\nFrames per second: {}'.format(id, fps))
+        cart = self.cams[id]
+
+        def init():
+            return cart.image.collection()
+
+        def update(k):
+            cart.render_image(self.time[k], self.all_points_history[k], k)
+            return cart.image.collection()
+
+        animation2d = matplotlib.animation.FuncAnimation(
+            cart.image.fig, 
+            update, 
+            frames=self.frames, 
+            init_func=init, 
+            interval=1000*interval, 
+            blit=True
+        )
+
+        if self.save:
+            animation2d.save('/tmp/cam_{}_image.mp4'.format(id), fps=fps, dpi=200, extra_args=['-vcodec', 'libx264'])
+        else:
+            mpl.pyplot.show()
+
+    def run(self, **kwargs):
+        self.run_anim3d(**kwargs)
+        for id in self.cams:
+            self.run_camera_image(id)
