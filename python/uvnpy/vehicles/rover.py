@@ -67,19 +67,19 @@ class Rover(UnmannedVehicle):
             self.w(),
             self.euler()
         )
-        self.filter.prediction(accel, self.f_imu, t, q)
+        self.filter.prediction(self.f_imu, t, accel, q)
         if self.gps:
             p, v = self.gps_measurement()
             y = np.hstack([p, v])
-            self.filter.correction(y, self.h_gps)
+            self.filter.correction(self.h_gps, y)
         for msg in self.inbox:
             if msg.source is 'Rover':
                 self.N.update(msg.id)
                 y = np.array([*msg.point, msg.range])
-                self.filter.correction(y, self.h_range, msg.id, msg.covariance)
+                self.filter.correction(self.h_range, y, msg.id, msg.covariance)
             elif msg.source is 'Drone':
                 y = np.array([*msg.point])
-                self.filter.correction(y, self.h_pos, msg.covariance)
+                self.filter.correction(self.h_pos, y, msg.covariance)
         self.inbox.clear()
         self.set_msg(self.filter.x, self.filter.P)
 
@@ -129,7 +129,7 @@ class Rover(UnmannedVehicle):
             v = np.random.normal(self.motion.x[[6,7,8]], sigma_v)
             return p, v
 
-    def f_imu(self, x, u, t, q):
+    def f_imu(self, x, t, u, q):
         """ this functions represents the prediction model
         x = [p, v, Mp, Mv, p]^T
         u = [uf]
@@ -190,8 +190,8 @@ class Rover(UnmannedVehicle):
         #   Noise
         Cov = np.reshape(cov, (3,3))
         R = linalg.block_diag(Cov, self.range.R)
-        if self.id == 1:
-            print(id, hat_y)
+        # if self.id == 1:
+        #     print(id, hat_y)
         return hat_y, H, R
 
     def h_pos(self, x, cov_p):

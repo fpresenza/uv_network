@@ -4,11 +4,50 @@
 @author: fran
 """
 import numpy as np
-from uvnpy.model.discrete import DiscreteModel
+from gpsic.modelos.discreto import SistemaDiscreto
 
-class VelocityModel(DiscreteModel):
-    """ Esta clase implementa un modelo de cinemática de control
-    de velocidad de un robot. """
+class Integrador(SistemaDiscreto):
+    """ Esta clase implementa un modelo de cinemática de posición y 
+    velocidad, con control por realimentación de estados. """
+    def __init__(self, ti=0., dof=1, **kwargs):
+        """ Para inicializar una instancia se debe ingresar:
+        dof: nro. de grados de libertad del robot
+        Los parametros del modelo de error de la dinamica: 
+        sigma: std. dev. en la entrada del integrador
+        """
+        pi = kwargs.get('pi',  np.zeros(dof))
+        vi = kwargs.get('vi',  np.zeros(dof))
+        self._v = vi
+        self.sigma = kwargs.get('sigma', np.zeros(dof))
+        super(Integrador, self).__init__(ti=ti, xi=pi)
+        self.dof = dof
+        #   matrices del sistema
+        self.G_x = np.zeros([dof, dof])
+        self.G_r = self.G_z = np.identity(dof)
+        #   matriz de covarianza del ruido
+        self.Q = np.diag(np.square(self.sigma))
+    
+    @property
+    def p(self):
+        return self._x.copy()
+    
+    @property
+    def v(self):
+        return self._v.copy()
+    
+    def dinamica(self, x, t, r):
+        z = np.random.normal(0, self.sigma)
+        dot_x = np.matmul(self.G_r, r) + np.matmul(self.G_z, z)
+        self._v = dot_x
+        return dot_x
+
+    def salida(self, x, t, r):
+        return x
+
+
+class ControlVelocidad(SistemaDiscreto):
+    """ Esta clase implementa un modelo de cinemática de posición y 
+    velocidad, con control por realimentación de estados. """
     def __init__(self, ti=0., dof=1, **kwargs):
         """ Para inicializar una instancia se debe ingresar:
         dof: nro. de grados de libertad del robot
@@ -19,59 +58,74 @@ class VelocityModel(DiscreteModel):
         """
         pi = kwargs.get('pi',  np.zeros(dof))
         vi = kwargs.get('vi',  np.zeros(dof))
-        super(VelocityModel, self).__init__(ti=ti, xi=np.hstack([pi, vi]))
+        super(ControlVelocidad, self).__init__(ti=ti, xi=np.hstack([pi, vi]))
         self.dof = dof
+        self._v = vi
         self.a = np.zeros(dof)
         self.sigma = kwargs.get('sigma', np.zeros(2*dof))
-        I = np.eye(dof)
-        Z = np.zeros_like(I)
+        I = np.identity(dof)
+        O = np.zeros_like(I)
         #   controller matrix
         K = np.copy(kwargs.get('ctrl_matrix', I))
-        #   state transition matrix
-        self.F_x = np.block([[Z,  I],
-                             [Z, -K]])
-        #   input transition matrix
-        self.F_r = np.block([[Z],
+        #   matrices del sistema
+        self.G_x = np.block([[O,  I],
+                             [O, -K]])
+        self.G_r = np.block([[O],
                              [K]])
-        #   disturbances
-        self.B = np.block([[Z,  Z],
-                           [I, -K]])
-        #   noise matrix
+        self.G_z = np.block([[O,  O],
+                             [I, -K]])
+        #   matriz de covarianza del ruido
         self.Q = np.diag(np.square(self.sigma))
 
-    def __str__(self):
-        return 'VelocityModel(dof={})'.format(self.dof)
-
-    def f(self, x, r):
-        """ This function represents the dynamics of the closed loop model """
-        dot_x = np.matmul(self.F_x, x) + np.matmul(self.F_r, r)
-        return dot_x, self.F_x, self.B, self.Q
+    @property
+    def p(self):
+        return self._x[:2].copy()
+    
+    @property
+    def v(self):
+        return self._x[2:].copy()
         
-    def dot_x(self, x, r, t):
-        """ This function takes reference r and returns
-        a state derivative noisy sample """
-        e = np.random.normal(0, self.sigma)
-        dot_x = np.matmul(self.F_x, x) + np.matmul(self.F_r, r) + np.matmul(self.B, e)
+    def dinamica(self, x, t, r):
+        z = np.random.normal(0, self.sigma)
+        dot_x = np.matmul(self.G_x, x) + np.matmul(self.G_r, r) + np.matmul(self.G_z, z)
         self.a = dot_x[self.dof:]
         return dot_x
 
+    def salida(self, x, t, r):
+        return x
+        
 
-class VelocityRandomWalk(DiscreteModel):
-    """ This class emulates a Wiener proccess dynamic
+class VelocityRandomWalk(SistemaDiscreto):
+    """ Esta clase simula un proceso aleatorio de Wiener
     """
-    def __init__(self, ti=0., dim=1, sigma=1.):
-        self.dim = dim
-        self.sigma = np.ones(dim)*sigma
-        super(VelocityRandomWalk, self).__init__(ti=ti, xi=np.zeros(2*dim))
+    def __init__(self, ti=0., dof=1, **kwargs):
+        pi = kwargs.get('pi', np.zeros(dof))
+        vi = kwargs.get('vi', np.zeros(dof))
+        self.dof = dof
+        self.p = pi
+        self.v = vi
+        self.sigma = kwargs.get('sigma', np.zeros(dof))
+        I = np.identity(dof)
+        O = np.zeros_like(I)
+        #   matrices del sistema
+        self.G_x = np.block([[O, I],
+                             [O, O]])
+        self.G_z = np.block([[O],
+                             [I]])
+        #   matriz de covarianza del ruido e
         self.Q = np.diag(np.square(self.sigma))
-        I = np.eye(dim)
-        Z = np.zeros_like(I)
-        self.F_x = np.block([[Z, I],
-                             [Z, Z]])
-        self.B = np.block([[Z],
-                           [I]])
 
-    def dot_x(self, x, u, t):
-        #        self.F_x @ x + self.B @ e
+    def dinamica(self, x, t, u):
+        #        self.G_x @ x + self.G_z @ e
         e = np.random.normal(0, self.sigma)
-        return np.hstack([x[self.dim:], e])
+        return np.hstack([x[self.dof:], e])
+
+    def salida(self, x, t, u):
+        self.p, self.v = x[:self.dof], x[self.dof:]
+        return x
+
+    def f(self, x, t, u):
+        """ Esta función retorna las variables necesarias para el paso de 
+        predicción de un EKF """
+        dot_x = np.matmul(self.G_x, x)
+        return dot_x, self.G_x, self.G_z, self.Q

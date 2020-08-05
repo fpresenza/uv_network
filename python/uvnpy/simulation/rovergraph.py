@@ -2,10 +2,10 @@
 import argparse
 import numpy as np
 import collections
-import uvnpy.toolkit.linalg as linalg
+import gpsic.toolkit.linalg as linalg
+from gpsic.plotting.planar import GridPlot, GraphPlotter
+from gpsic.plotting.spatial import Animation3D
 import uvnpy.network.graph as graph
-from uvnpy.graphix.planar import GridPlot, GraphPlotter
-from uvnpy.graphix.spatial import Animation3D
 from uvnpy.navigation.metrics import metrics
 
 def random_uniform_on_xy(dist):
@@ -75,9 +75,9 @@ if __name__ == '__main__':
            4:[ 10., -10, 10, 0, 0, 0],
            5:[  5.,  -5, 20, 0, 0, 0]}
 
-    for i, p in pos.items():
-        for j, q in pos.items():
-            print('d({},{})={}'.format(i, j, linalg.distance(p,q)))
+    # for i, p in pos.items():
+    #     for j, q in pos.items():
+    #         print('d({},{})={}'.format(i, j, linalg.distance(p,q)))
 
     t_ctr, P, L, hat_P, hat_Cov, debug = run(arg)
 
@@ -129,18 +129,18 @@ if __name__ == '__main__':
 
     if arg.save:
         plot[0].savefig('rover_filter_pos')
-        plot[1].savefig('rover_filter_param')
+        # plot[1].savefig('rover_filter_param')
     else:
         plot[0].show()
-        plot[1].show()
+        # plot[1].show()
 
-    plotter = GraphPlotter(t_ctr, P, L, save=arg.save)
+    plotter = GraphPlotter(t_ctr, P, L, save=arg.save, landmarks=[(0,-10),(0,10),(-10,0)])
     plotter.links()
     if arg.animate:
-        plotter.animation2d(xlim=[-100,100], ylim=[-100,100], slice=2)
-        ani = Animation3D(t_ctr, xlim=(-50,50), ylim=(-50,50), zlim=(0,30), save=arg.save, slice=2)
+        plotter.animation2d(step=2, plot_kw={'xlim':[-20,20], 'ylim':[-20,20]})
+        # ani = Animation3D(t_ctr, step=2, save=True, plot_kw={'xlim':(-50,50), 'ylim':(-50,50), 'zlim':(0,30)})
         # ani.add_quadrotor((P[0],A[0]), (P[1],A[1]), camera=True, attached=True, gimbal=(G[0],G[1]))
-        for id in range(1, arg.n+1):
+        # for id in range(1, arg.n+1):
             # ani.add_sphere(P[id], [1 for k in t_ctr])
-            ani.add_ellipsoid(hat_P[id], hat_Cov[id])
-        ani.run()
+            # ani.add_ellipsoid(hat_P[id], hat_Cov[id])
+        # ani.run()

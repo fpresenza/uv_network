@@ -1,5 +1,0 @@
-agregue funciones al data_logger para escribir pose de los n vehiculos en un .csv
-
-falta hacer script de python que levante ese archivo luego de la simulacion y genere un video.
-
-al nodo data_logger agregar la capcidad de hacer un grafico xy en tiempo real.

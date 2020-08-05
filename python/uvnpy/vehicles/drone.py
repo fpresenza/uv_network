@@ -47,21 +47,21 @@ class Drone(UnmannedVehicle):
         self.inbox = collections.deque(maxlen=10)
 
     def sim_step(self, u, t, fw=(0.,0.,0.)):
-        self.motion.step(u, t, fw=fw)
+        self.motion.step(u, t, d_kw={'fw':fw})
 
     def ctrl_step(self, t, points):
         self.cam.update_pose(self.motion.p(), (self.motion.euler(), self.gimbal))
         pose = self.noisy_pose()
-        self.filter.prediction(None, self.f_vrw, t)
+        self.filter.prediction(self.f_vrw, t, None)
         if len(points) != 0:
             pixels = self.cam.view(*points)
             if len(pixels) != 0:
-                self.filter.correction(pixels.flatten(), self.h_cam, *pose)
+                self.filter.correction(self.h_cam, pixels.flatten(), *pose)
         for msg in self.inbox:
             if msg.source is 'Rover':
                 self.N.update(msg.id)
                 y = np.array([msg.range])
-                self.filter.correction(y, self.h_range, msg.id, *pose[:2])
+                self.filter.correction(self.h_range, y, msg.id, *pose[:2])
         self.inbox.clear()
         self.set_msg(self.filter.x, self.filter.P)
 
@@ -81,8 +81,8 @@ class Drone(UnmannedVehicle):
         cov_att = np.diag(np.square([sigma_att]*3))
         return p, cov_p, att, cov_att
 
-    def f_vrw(self, x, u, t):
-        return self.vrw.dot_x(x, u, t), self.vrw.F_x, self.vrw.B, self.vrw.Q
+    def f_vrw(self, x, t, u):
+        return self.vrw.dot_x(x, u, t), self.vrw.F_x, self.vrw.F_e, self.vrw.Q
 
     def h_cam(self, x, p, cov_p, att, cov_att):
         K = self.cam.intrinsic[:3,:3]

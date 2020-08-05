@@ -112,7 +112,7 @@ if __name__ == '__main__':
         plot[0].show()
 
     if arg.animate:
-        ani = Animation3D(tctrl, xlim=(-15,15), ylim=(-15,15), zlim=(0,15), save=arg.save, slice=1)
+        ani = Animation3D(tctrl, step=1, save=True, plot_kw={'xlim':(-15,15), 'ylim':(-15,15), 'zlim':(0,15)})
         ani.add_drone(uav[0].id, P[0], A[0], (G[0],), camera=uav[0].cam)
         ani.add_drone(uav[1].id, P[1], A[1], (G[1],), camera=uav[1].cam)
         ani.add_sphere([rover[0] for k in P[0]], [1 for k in P[0]])

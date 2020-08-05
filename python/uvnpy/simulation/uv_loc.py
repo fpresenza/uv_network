@@ -6,13 +6,12 @@
 import argparse
 import numpy as np
 import collections
+import gpsic.plotting.planar as planar
+import gpsic.plotting.spatial as spatial
 from uvnpy.vehicles.drone import Drone
 from uvnpy.vehicles.rover import Rover
-import uvnpy.graphix.planar as planar
-import uvnpy.graphix.spatial as spatial
 import uvnpy.network.graph as graph
 from uvnpy.navigation.metrics import metrics
-from uvnpy.graphix.spatial import Animation3D
 
 def random_uniform_on_xy(dist):
     b = np.array([dist, dist, dist, 0., 0., 0.])
@@ -160,7 +159,7 @@ if __name__ == '__main__':
     # # plotter.links()
     if arg.animate:
         # plotter.animation2d(xlim=[-100,100], ylim=[-100,100], slice=2)
-        ani = Animation3D(t_ctr, xlim=(-35,35), ylim=(-35,35), zlim=(0,20), save=arg.save, slice=3)
+        ani = spatial.Animation3D(t_ctr, xlim=(-35,35), ylim=(-35,35), zlim=(0,20), save=arg.save, slice=3)
         ani.add_drone(g.r(5).id, P[5], A[5], (Cam[5],), camera=g.r(5).cam)
         for id in range(1, arg.g+1):
             # ani.add_sphere(P[id], [1 for k in t_ctr])

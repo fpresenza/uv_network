@@ -5,15 +5,15 @@
 """
 import argparse
 import numpy as np
-from uvnpy.model.multicopter import Multicopter
-from uvnpy.sensor.camera import Camera
-from uvnpy.graphix.planar import GridPlot
-from uvnpy.graphix.spatial import Animation3D
+from gpsic.modelos.multicoptero import Multicoptero
+from gpsic.modelos.camera import Camera
+from gpsic.plotting.planar import GridPlot
+from gpsic.plotting.spatial import Animation3D
 
 def run(arg):
     uav = (
-        Multicopter(ti=arg.ti, pi=(0.,3.,5.), vi=(0.,0.,0.), ai=(0.,0.,0.), f_ctrl=arg.f_ctrl),
-        Multicopter(ti=arg.ti, pi=(0.,-3.,5.), vi=(0.,0.,0.), ai=(0.,0.,np.pi/2), f_ctrl=arg.f_ctrl)
+        Multicoptero(ti=arg.ti, pi=(0.,3.,5.), vi=(0.,0.,0.), ei=(0.,0.,0.), f_ctrl=arg.f_ctrl),
+        Multicoptero(ti=arg.ti, pi=(0.,-3.,5.), vi=(0.,0.,0.), ei=(0.,0.,np.pi/2), f_ctrl=arg.f_ctrl)
     )
     time = np.arange(arg.ti+arg.h, arg.tf, arg.h)
 
@@ -24,25 +24,25 @@ def run(arg):
         wind = (0., 0., 0.)
 
         # r = (2*np.sin(t/2), 0., 0., 0.) #(vx, vy, vz, yaw)
-        r = (0,0,0,0.5)
-        uav[0].step(r, t, fw=wind)
-        P[0].append(uav[0].p())
-        V[0].append(uav[0].v())
-        A[0].append(uav[0].euler())
-        W[0].append(uav[0].w())
-        R[0].append(uav[0].ref())
-        U[0].append(uav[0].ctrl_eff())
+        r = (1,0,0,0.5)
+        uav[0].step(t, r, din_args=(wind,))
+        P[0].append(uav[0].p)
+        V[0].append(uav[0].v)
+        A[0].append(uav[0].euler)
+        W[0].append(uav[0].w)
+        R[0].append(r)
+        U[0].append(uav[0].u)
         G[0].append(np.array([0,np.pi/4,0]))
 
         r = (0,2*np.sin(t/2),0.,0.) #(vx, vy, vz, yaw)
         # r = (0.,0.,0.,0.)
-        uav[1].step(r, t, fw=wind)
-        P[1].append(uav[1].p())
-        V[1].append(uav[1].v())
-        A[1].append(uav[1].euler())
-        W[1].append(uav[1].w())
-        R[1].append(uav[1].ref())
-        U[1].append(uav[1].ctrl_eff())
+        uav[1].step(t, r, din_args=(wind,))
+        P[1].append(uav[1].p)
+        V[1].append(uav[1].v)
+        A[1].append(uav[1].euler)
+        W[1].append(uav[1].w)
+        R[1].append(r)
+        U[1].append(uav[1].u)
         G[1].append(np.array([0,np.pi/7,0]))
 
     return time, P, V, A, W, R, U, G
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     e = np.vstack(A[0]).T
     w = np.vstack(W[0]).T
     r = np.vstack(R[0]).T
-    lines = p, e, [*v, *r], w
+    lines = p, e, [*v, *r[:3]], [*w, r[3]]
     color = ['b', 'r', 'g'],['b', 'r', 'g'],['b', 'r', 'g', 'b', 'r', 'g'],['b', 'r', 'g', 'g']
     label = ['$x$', '$y$', '$z$'],['$\phi$', '$\Theta$', '$\psi$'],\
     ['$v_x$', '$v_y$', '$v_z$', '', '', ''],['$\omega_x$', '$\omega_y$', '$\omega_z$', '']
@@ -79,7 +79,7 @@ if __name__ == '__main__':
     e = np.vstack(A[1]).T
     w = np.vstack(W[1]).T
     r = np.vstack(R[1]).T
-    lines = p, e, [*v, *r], w
+    lines = p, e, [*v, *r[:3]], [*w, r[3]]
     plot += [GridPlot(shape=(2,2), title='Multicopter 2 - state')]
     plot[1].draw(time, lines, color=color, label=label, ls=ls)
 
@@ -104,7 +104,7 @@ if __name__ == '__main__':
         plot[0].show()
 
     if arg.animate:
-        ani = Animation3D(time, xlim=(-15,15), ylim=(-15,15), zlim=(0,15), save=arg.save, slice=50)
+        ani = Animation3D(time, step=100, save=True, plot_kw={'xlim':(-15,15), 'ylim':(-15,15), 'zlim':(0,15)})
         ani.add_drone(1, P[0], A[0], (A[0], G[0]), camera=Camera())
         ani.add_drone(2, P[1], A[1], (A[1], G[1]), camera=Camera())
         ani.add_sphere([np.array([0,10,0]) for k in P[0]], [1 for k in P[0]])
