@@ -7,19 +7,24 @@ Created on Sun Jul 05 17:59:12 2020
 import numpy as np
 import collections
 import yaml
-from uvnpy.vehicles.unmanned_vehicle import UnmannedVehicle
-from uvnpy.model.multicopter import Multicopter
-from uvnpy.model.holonomic import VelocityRandomWalk
-from uvnpy.navigation.kalman import Ekf
-from uvnpy.sensor.range import RangeSensor
-from uvnpy.sensor.camera import Camera
-from uvnpy.toolkit.ros import PositionAndRange
-import uvnpy.toolkit.linalg as linalg
+
+from uvnpy.modelos.unmanned_vehicle import UnmannedVehicle
+from gpsic.modelos.multicopter import Multicopter
+from gpsic.modelos.camara import Camera
+import gpsic.toolkit.linalg as linalg
+from uvnpy.modelos.holonomic import VelocityRandomWalk
+from uvnpy.filtering.kalman import EKF
+from uvnpy.sensor.rango import Rango
 from uvnpy.network.neighborhood import Neighborhood
+from uvnpy.toolkit.ros import PositionAndRange
+
+multi_dot = linalg.multi_dot
+
 
 class Drone(UnmannedVehicle):
-    def __init__(self, id, cnfg_file='../config/drone.yaml',
-        motion_kw={}, cam_kw={}):
+    def __init__(
+      self, id, cnfg_file='../config/drone.yaml',
+      motion_kw={}, cam_kw={}):
         super(Drone, self).__init__(id, type='Drone')
         # read config file
         config = yaml.load(open(cnfg_file))
@@ -27,7 +32,7 @@ class Drone(UnmannedVehicle):
         # motion model
         self.motion = Multicopter(**motion_kw)
         # sensors
-        self.range = RangeSensor()
+        self.range = Rango()
         self.gimbal = cam_kw.get('gimbal', linalg.rm.Ry(np.pi/2))
         self.cam = Camera(
             pos=self.motion.p(),
@@ -38,19 +43,23 @@ class Drone(UnmannedVehicle):
         self.N = Neighborhood(size=1, dof=3)
         self.vrw = VelocityRandomWalk(dim=3, sigma=0.25)
         # filter
-        xi = np.hstack([np.random.normal(0, 20, self.N.dim), np.zeros(self.N.dim)])
+        xi = np.hstack(
+          [np.random.normal(0, 20, self.N.dim), np.zeros(self.N.dim)]
+        )
         dxi = np.hstack([20*np.ones(self.N.dim), np.ones(self.N.dim)])
-        self.filter = Ekf(xi, dxi)
+        self.filter = EKF(xi, dxi)
         # information sharing
         self.msg = PositionAndRange(id=self.id, source='Drone')
         self.set_msg(self.filter.x, self.filter.P)
         self.inbox = collections.deque(maxlen=10)
 
-    def sim_step(self, u, t, fw=(0.,0.,0.)):
-        self.motion.step(u, t, d_kw={'fw':fw})
+    def sim_step(self, u, t, fw=(0., 0., 0.)):
+        self.motion.step(u, t, d_kw={'fw': fw})
 
     def ctrl_step(self, t, points):
-        self.cam.update_pose(self.motion.p(), (self.motion.euler(), self.gimbal))
+        self.cam.update_pose(
+          self.motion.p(), (self.motion.euler(), self.gimbal)
+        )
         pose = self.noisy_pose()
         self.filter.prediction(self.f_vrw, t, None)
         if len(points) != 0:
@@ -58,7 +67,7 @@ class Drone(UnmannedVehicle):
             if len(pixels) != 0:
                 self.filter.correction(self.h_cam, pixels.flatten(), *pose)
         for msg in self.inbox:
-            if msg.source is 'Rover':
+            if msg.source == 'Rover':
                 self.N.update(msg.id)
                 y = np.array([msg.range])
                 self.filter.correction(self.h_range, y, msg.id, *pose[:2])
@@ -69,7 +78,7 @@ class Drone(UnmannedVehicle):
         self.msg.point.x = x[0]
         self.msg.point.y = x[1]
         self.msg.point.z = x[2]
-        self.msg.covariance = P[0:3,0:3].flatten()
+        self.msg.covariance = P[0:3, 0:3].flatten()
 
     def noisy_pose(self):
         sigma_p = 0.3
@@ -77,7 +86,7 @@ class Drone(UnmannedVehicle):
         cov_p = np.diag(np.square([sigma_p]*3))
         sigma_att = 0.15
         n, t = np.random.normal(0, 1, 3), np.random.normal(0, sigma_att)
-        att = linalg.rm.from_any((n,t), self.motion.euler())
+        att = linalg.rm.from_any((n, t), self.motion.euler())
         cov_att = np.diag(np.square([sigma_att]*3))
         return p, cov_p, att, cov_att
 
@@ -85,18 +94,18 @@ class Drone(UnmannedVehicle):
         return self.vrw.dot_x(x, u, t), self.vrw.F_x, self.vrw.F_e, self.vrw.Q
 
     def h_cam(self, x, p, cov_p, att, cov_att):
-        K = self.cam.intrinsic[:3,:3]
+        K = self.cam.intrinsic[:3, :3]
         C = linalg.rm.from_any(att, self.gimbal)
-        n = np.reshape(x[:3]-p, (-1,1))
+        n = np.reshape(x[:3] - p, (-1, 1))
         P = np.matmul(K, C.T)
-        zs_inv = np.matmul(P[2,:], n)**-1
-        A = zs_inv * P[:2,:]
+        zs_inv = np.matmul(P[2, :], n)**-1
+        A = zs_inv * P[:2, :]
         m = np.matmul(A, n)
-        Hn = A - zs_inv * np.matmul(m, P[[2],:])
+        Hn = A - zs_inv * np.matmul(m, P[[2], :])
         Ht = np.matmul(Hn, linalg.skew(n.flatten()))
         Rc = self.cam.sigma**2 * np.eye(2)
-        R = linalg.multi_matmul(Hn, cov_p, Hn.T) + linalg.multi_matmul(Ht, cov_att, Ht.T) + Rc
-        H = np.block([Hn, np.zeros([2,3])])
+        R = multi_dot([Hn, cov_p, Hn.T]) + multi_dot([Ht, cov_att, Ht.T]) + Rc
+        H = np.block([Hn, np.zeros([2, 3])])
         return m.flatten(), H, R
 
     def h_range(self, x, id, p, cov_p):
@@ -104,16 +113,16 @@ class Drone(UnmannedVehicle):
         covariance to compute expected range measurement, and jacobians
         """
         #   Expected measurement
-        pj = x[[0,1,2]]
+        pj = x[[0, 1, 2]]
         dist = linalg.distance(p, pj)
         hat_y = np.hstack([dist])
         #   Jacobian
         H = np.zeros([1, 2*self.N.dim])
-        jac = np.subtract(p,pj)/dist
-        H[0,0:3] = -jac
+        jac = np.subtract(p, pj)/dist
+        H[0, 0:3] = -jac
         #   Noise
         Hi = np.array([jac])
-        R = linalg.multi_matmul(Hi, cov_p, Hi.T) + self.range.R
+        R = multi_dot([Hi, cov_p, Hi.T]) + self.range.R
         return hat_y, H, R
 
     # def h_cam_test_2(self, pi, pj, t):
@@ -138,4 +147,4 @@ class Drone(UnmannedVehicle):
         return self.filter.x[:3]
 
     def cov_mp(self):
-        return np.copy(self.filter.P[:3,:3])
+        return np.copy(self.filter.P[:3, :3])

@@ -8,17 +8,21 @@ import numpy as np
 import collections
 import yaml
 import quaternion
-import uvnpy.toolkit.linalg as linalg
-from uvnpy.vehicles.unmanned_vehicle import UnmannedVehicle
-from uvnpy.model.holonomic import VelocityModel, VelocityRandomWalk
-from uvnpy.navigation.kalman import Ekf
+
+import gpsic.toolkit.linalg as linalg
+from uvnpy.modelos.uv import UnmannedVehicle
+from uvnpy.modelos.holonomic import VelocityModel, VelocityRandomWalk
+from uvnpy.filtering.kalman import EKF
 from uvnpy.sensor.imu import Imu
-from uvnpy.sensor.range import RangeSensor
-from uvnpy.toolkit.ros import PositionAndRange
+from uvnpy.sensor.rango import Rango
 from uvnpy.network.neighborhood import Neighborhood
+from uvnpy.toolkit.ros import PositionAndRange
+
 
 class Rover(UnmannedVehicle):
-    def __init__(self, id, cnfg_file='../config/rover.yaml', motion_kw={}, sensor_kw={}):
+    def __init__(
+      self, id, cnfg_file='../config/rover.yaml',
+      motion_kw={}, sensor_kw={}):
         super(Rover, self).__init__(id, type='Rover')
         # read config file
         config = yaml.load(open(cnfg_file))
@@ -27,15 +31,19 @@ class Rover(UnmannedVehicle):
         self.motion = VelocityModel(**motion_kw)
         # sensors
         self.imu = Imu()
-        self.range = RangeSensor()
+        self.range = Rango()
         self.gps = sensor_kw.get('gps', False)
         # neighborhood
         self.N = Neighborhood(size=8, dof=3)
         self.nbh = VelocityRandomWalk(dim=self.N.dim, sigma=0.25)
         # filter
         self.dim = 6 + 2*self.N.dim + 3
-        self.Q = linalg.block_diag(self.imu.Q[:3,:3], self.nbh.Q, self.imu.Q[6:9,6:9])
-        self.param = 3 # parameters
+        self.Q = linalg.block_diag(
+          self.imu.Q[:3, :3], self.nbh.Q, self.imu.Q[6:9, 6:9]
+        )
+        # parameters
+        self.param = 3
+        # filtro
         xi = np.hstack([self.p(),
                         self.v(),
                         np.random.normal(np.tile(self.p(), self.N.size), 20.),
@@ -46,7 +54,7 @@ class Rover(UnmannedVehicle):
                          20*np.ones(self.N.dim),
                          np.ones(self.N.dim),
                          self.imu.accel.bias])
-        self.filter = Ekf(xi, dxi)
+        self.filter = EKF(xi, dxi)
         # information sharing
         self.msg = PositionAndRange(id=self.id, source='Rover')
         self.set_msg(self.filter.x, self.filter.P)
@@ -56,7 +64,7 @@ class Rover(UnmannedVehicle):
         return '{}({})'.format(self.type, self.id)
 
     def to6dof(self, u):
-        return np.insert(u, [2,2,2], 0)
+        return np.insert(u, [2, 2, 2], 0)
 
     def sim_step(self, u, t):
         self.motion.step(self.to6dof(u), t)
@@ -73,30 +81,30 @@ class Rover(UnmannedVehicle):
             y = np.hstack([p, v])
             self.filter.correction(self.h_gps, y)
         for msg in self.inbox:
-            if msg.source is 'Rover':
+            if msg.source == 'Rover':
                 self.N.update(msg.id)
-                y = np.array([*msg.point, msg.range])
+                y = np.hstack([msg.point, msg.range])
                 self.filter.correction(self.h_range, y, msg.id, msg.covariance)
-            elif msg.source is 'Drone':
-                y = np.array([*msg.point])
+            elif msg.source == 'Drone':
+                y = np.hstack([msg.point])
                 self.filter.correction(self.h_pos, y, msg.covariance)
         self.inbox.clear()
         self.set_msg(self.filter.x, self.filter.P)
 
     def p(self):
-        return self.motion.x[[0,1,2]]
+        return self.motion.x[[0, 1, 2]]
 
     def euler(self):
-        return self.motion.x[[3,4,5]]
+        return self.motion.x[[3, 4, 5]]
 
     def v(self):
-        return self.motion.x[[6,7,8]]
+        return self.motion.x[[6, 7, 8]]
 
     def w(self):
-        return self.motion.x[[9,10,11]]
+        return self.motion.x[[9, 10, 11]]
 
     def linear_accel(self):
-        return self.motion.a[[0,1,2]]
+        return self.motion.a[[0, 1, 2]]
 
     def hat_p(self):
         return self.filter.x[:3]
@@ -105,37 +113,37 @@ class Rover(UnmannedVehicle):
         return self.filter.x[3:6]
 
     def hat_mp(self):
-        return self.filter.x[6:6+self.N.dim]
+        return self.filter.x[6:6 + self.N.dim]
 
     def hat_mv(self):
-        return self.filter.x[6+self.N.dim:6+2*self.N.dim]
+        return self.filter.x[6 + self.N.dim:6 + 2*self.N.dim]
 
     def hat_param(self):
-        return self.filter.x[6+2*self.N.dim:]
+        return self.filter.x[6 + 2*self.N.dim:]
 
     def cov_p(self):
-        return np.copy(self.filter.P[:3,:3])
+        return np.copy(self.filter.P[:3, :3])
 
     def set_msg(self, x, P):
         self.msg.point.x = x[0]
         self.msg.point.y = x[1]
         self.msg.point.z = x[2]
-        self.msg.covariance = P[0:3,0:3].flatten()
+        self.msg.covariance = P[0:3, 0:3].flatten()
 
     def gps_measurement(self):
-            sigma_p = 0.3
-            p = np.random.normal(self.motion.x[[0,1,2]], sigma_p)
-            sigma_v = 0.15
-            v = np.random.normal(self.motion.x[[6,7,8]], sigma_v)
-            return p, v
+        sigma_p = 0.3
+        p = np.random.normal(self.motion.x[[0, 1, 2]], sigma_p)
+        sigma_v = 0.15
+        v = np.random.normal(self.motion.x[[6, 7, 8]], sigma_v)
+        return p, v
 
     def f_imu(self, x, t, u, q):
         """ this functions represents the prediction model
         x = [p, v, Mp, Mv, p]^T
         u = [uf]
         """
-        p, v = x[:3], x[3:6]
-        mp, mv = x[6:6+self.N.dim], x[6+self.N.dim:6+2*self.N.dim]
+        _, v = x[:3], x[3:6]
+        _, mv = x[6:6 + self.N.dim], x[6+self.N.dim:6 + 2*self.N.dim]
         bf = x[6+2*self.N.dim:]
         R = quaternion.as_rotation_matrix(q)
         f = np.block([v,
@@ -146,17 +154,20 @@ class Rover(UnmannedVehicle):
 
         B = np.zeros([self.dim, 6+self.N.dim])
         B[3:6, 0:3] = R
-        B[6+self.N.dim:6+2*self.N.dim, 3:3+self.N.dim] = np.eye(self.N.dim)
-        B[6+2*self.N.dim:, 3+self.N.dim:] = np.eye(3)  
+        Id = np.eye(self.N.dim)
+        B[6 + self.N.dim:6 + 2*self.N.dim, 3:3 + self.N.dim] = Id
+        B[6 + 2*self.N.dim:, 3 + self.N.dim:] = np.eye(3)
 
-        sigma = np.hstack([np.zeros(3), self.nbh.sigma, self.imu.accel.bias_drift])
+        sigma = np.hstack(
+          [np.zeros(3), self.nbh.sigma, self.imu.accel.bias_drift]
+        )
         e = np.random.normal(0, sigma)
         dot_x = f + np.matmul(B, e)
 
         F_x = np.zeros([self.dim, self.dim])
-        F_x[0:3,3:6] = np.eye(3) 
-        F_x[3:6,6+2*self.N.dim:] = -R
-        F_x[6:6+self.N.dim,6+self.N.dim:6+2*self.N.dim] = np.eye(self.N.dim)
+        F_x[0:3, 3:6] = np.eye(3)
+        F_x[3:6, 6+2*self.N.dim:] = -R
+        F_x[6:6 + self.N.dim, 6 + self.N.dim:6 + 2*self.N.dim] = Id
 
         return dot_x, F_x, B, self.Q
 
@@ -178,17 +189,17 @@ class Rover(UnmannedVehicle):
         """
         slice_p, slice_v = self.N.index(id, start=self.motion.dof)
         #   Expected measurement
-        pi, pj = x[[0,1,2]], x[slice_p]
+        pi, pj = x[[0, 1, 2]], x[slice_p]
         dist = linalg.distance(pi, pj)
         hat_y = np.hstack([pj, dist])
         #   Jacobian
         H = np.zeros([4, self.dim])
-        jac = np.subtract(pi,pj)/dist
-        H[0:3,slice_p] = np.eye(3)
-        H[3,0:3] = jac
-        H[3,slice_p] = -jac
+        jac = np.subtract(pi, pj)/dist
+        H[0:3, slice_p] = np.eye(3)
+        H[3, 0:3] = jac
+        H[3, slice_p] = -jac
         #   Noise
-        Cov = np.reshape(cov, (3,3))
+        Cov = np.reshape(cov, (3, 3))
         R = linalg.block_diag(Cov, self.range.R)
         # if self.id == 1:
         #     print(id, hat_y)
@@ -196,10 +207,10 @@ class Rover(UnmannedVehicle):
 
     def h_pos(self, x, cov_p):
         #   Expected measurement
-        hat_y = x[[0,1,2]]
+        hat_y = x[[0, 1, 2]]
         #   Jacobian
         H = np.zeros([3, self.dim])
-        H[:3,:3] = np.eye(3)
+        H[:3, :3] = np.eye(3)
         #   Noise
-        R = np.reshape(cov_p, (3,3))
+        R = np.reshape(cov_p, (3, 3))
         return hat_y, H, R
