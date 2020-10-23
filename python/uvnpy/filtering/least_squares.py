@@ -6,7 +6,21 @@
 @date jue oct 22 14:18:35 -03 2020
 """
 import numpy as np
-from numpy.linalg import multi_dot, inv  # noqa
+from numpy.linalg import multi_dot, inv, pinv  # noqa
+
+
+def wlstsq(A, b, Q=None):
+    """ Cuadrados mínimos con pesos.
+
+    La matriz de coeficientes A debe tener columnas
+    linealmente independientes
+    """
+    if Q is None:
+        Q = np.identity(b.size)
+    P = inv(multi_dot([A.T, Q, A]))
+    A_pinv = multi_dot([P, A.T, Q])
+    x = np.matmul(A_pinv, b)
+    return x, P
 
 
 def normalizar_pesos(pesos):
@@ -31,25 +45,4 @@ def ajustar_gaussiana(muestras, pesos=None):
     media = np.matmul(pesos, muestras)
     error = np.subtract(muestras, media)
     cov = sum([p * np.outer(e, e) for p, e in zip(pesos, error)]) * N / (N - 1)
-    return media, cov
-
-
-def weigthed_least_squares(muestras, pesos):
-    """ Estimador de cuadrados mínimos de una variable aleatoria
-
-    A partir de una secuencia de muestras independientes
-    con pesos, obtiene media y covarianza estimada.
-
-    Argumentos:
-        muestras = (m_1, ..., m_n)
-        pesos = (W_1, ..., W_n)
-    """
-    inv_sum_Wi = inv(sum(pesos))
-    sum_Wi_xi = sum([np.matmul(W, x) for x, W in zip(muestras, pesos)])
-    media = np.matmul(inv_sum_Wi, sum_Wi_xi)
-    error = np.subtract(muestras, media)
-    sum_Wi_ei2 = sum(
-      [np.matmul(W, np.outer(e, e)) for e, W in zip(error, pesos)]
-    )
-    cov = np.matmul(inv_sum_Wi, sum_Wi_ei2)
     return media, cov

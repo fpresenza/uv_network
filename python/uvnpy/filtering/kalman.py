@@ -7,36 +7,30 @@ import numpy as np
 from numpy.linalg import multi_dot, inv
 
 
-def fusion(x, P):
-    """ Fusion de Kalman de dos distribuiones gaussianas. """
-    inv_sum_P = inv(sum(P))
-    W = [
-      np.matmul(P[1], inv_sum_P),
-      np.matmul(P[0], inv_sum_P),
-    ]
-    media = np.matmul(W[0], x[0]) + np.matmul(W[1], x[1])
-    covar = multi_dot([P[1], inv_sum_P, P[0]])
-    return media, covar
+def transformar(v, M):
+    """ Transformación de similaridad.
+
+    Transforma un vector y una matriz p.d. entre el espacio
+    de los estados y el espacio de la información, en ambos
+    sentidos.
+    """
+    C = inv(M)
+    u = np.matmul(C, v)
+    return u, C
 
 
-def multifusion(observaciones):
-    """ Fusion de Kalman de múltimples distribuciones gaussianas.
+def fusionar(informacion):
+    """ Fusion de Kalman.
 
-    A partir de una secuencia de muestras independientes,
-    asumidas gaussianas con media y covarianza conocida,
-    estimar el MLE junto con su covarianza
+    Fusión de una secuencia de distribuciones gaussianas
+    parametrizadas en el espacio de información (fischer).
 
     Argumentos:
-        observaciones = ([mean_1, covar_1], ..., [mean_n, covar_n])
+
+        informacion = ([y_1, I_1], ..., [y_n, I_n])
     """
-    x, P = observaciones[0]
-    for x_new, P_new in observaciones[1:]:
-        dx = np.subtract(x_new, x)
-        inv_sum_P = inv(np.add(P, P_new))
-        K = np.matmul(P, inv_sum_P)
-        x = x + np.matmul(K, dx)
-        P = P - np.matmul(K, P)
-    return x, P
+    y_s, F_s = zip(*informacion)
+    return sum(y_s), sum(F_s)
 
 
 class EKF(object):
@@ -53,8 +47,8 @@ class EKF(object):
         Argumentos:
 
             t: tiempo
-            w: señal de excitación del modelo
-            sensor: nombre de función de medición introceptiva
+            w: señal de excitación del modelo (lista o array)
+            sensor: nombre de función de medición introceptiva (str)
         """
         Ts = t - self.time
         self.time = t
@@ -71,8 +65,8 @@ class EKF(object):
 
         Argumentos:
 
-            y: medición
-            sensor: key de función de medición exoceptiva
+            y: medición (lista o array)
+            sensor: nombre de función de medición exoceptiva (str)
         """
         h = eval('self.' + sensor)
         hat_y, H, R = h(*args)
