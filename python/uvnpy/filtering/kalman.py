@@ -37,9 +37,9 @@ class EKF(object):
     def __init__(self, x, dx, ti=0.):
         """ Filtro extendido de Kalman. """
         self.time = ti
-        self.x = np.copy(x)
-        self.P = np.diag(np.square(dx))
-        self.Id = np.identity(self.x.size)
+        self._x = np.copy(x)
+        self._P = np.diag(np.square(dx))
+        self.Id = np.identity(self._x.size)
 
     def prediccion(self, t, w, sensor, *args):
         """ Paso de predicción:
@@ -54,11 +54,11 @@ class EKF(object):
         self.time = t
         f = eval('self.' + sensor)
         dot_x, F_x, F_e, Q = f(t, w, *args)
-        self.x = self.x + Ts * dot_x
+        self._x = self._x + Ts * dot_x
         Phi = self.Id + Ts * F_x
-        Phi_P_Phi = [Phi, self.P, Phi.T]
+        Phi_P_Phi = [Phi, self._P, Phi.T]
         F_e_Q_F_e = [F_e, Q, F_e.T]
-        self.P = multi_dot(Phi_P_Phi) + multi_dot(F_e_Q_F_e) * (Ts**2)
+        self._P = multi_dot(Phi_P_Phi) + multi_dot(F_e_Q_F_e) * (Ts**2)
 
     def correccion(self, y, sensor, *args):
         """ Paso de corrección
@@ -71,7 +71,15 @@ class EKF(object):
         h = eval('self.' + sensor)
         hat_y, H, R = h(*args)
         self.dy = np.subtract(y, hat_y)
-        P_dy = multi_dot([H, self.P, H.T]) + R
-        K = multi_dot([self.P, H.T, inv(P_dy)])
-        self.x = self.x + np.matmul(K, self.dy)
-        self.P = self.P - multi_dot([K, H, self.P])
+        P_dy = multi_dot([H, self._P, H.T]) + R
+        K = multi_dot([self._P, H.T, inv(P_dy)])
+        self._x = self._x + np.matmul(K, self.dy)
+        self._P = self._P - multi_dot([K, H, self._P])
+
+    @property
+    def x(self):
+        return self._x[:]
+
+    @property
+    def P(self):
+        return self._P[:]

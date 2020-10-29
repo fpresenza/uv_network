@@ -6,6 +6,7 @@ Created on Mon Apr 06 12:41:07 2020
 """
 import numpy as np
 import yaml
+from types import SimpleNamespace
 
 from gpsic.toolkit import linalg
 from gpsic.modelos.discreto import SistemaDiscreto
@@ -35,6 +36,11 @@ class point_loc_ekf(kalman.EKF):
                              [Id, -K]])
         self.Q = Q
         self.R = R
+        self.log_dict = SimpleNamespace(
+          t=[self.time],
+          x=[self.x],
+          dvst=[metricas.sqrt_diagonal(self.P)],
+          eigs=[metricas.eigvalsh(self.P)])
 
     @property
     def p(self):
@@ -60,12 +66,19 @@ class point_loc_ekf(kalman.EKF):
         R = self.R * np.identity(len(landmarks))
         return hat_y, H, R
 
+    def guardar(self):
+        """Guarda los últimos datos. """
+        self.log_dict.t.append(self.time)
+        self.log_dict.x.append(self.x)
+        self.log_dict.dvst.append(
+          metricas.sqrt_diagonal(self.P))
+        self.log_dict.eigs.append(
+                metricas.eigvalsh(self.P))
+
+    @property
     def logs(self):
-        """ Historia del filtro. """
-        return [self.time,
-                self.x,
-                metricas.sqrt_diagonal(self.P),
-                metricas.eigvalsh(self.P)]
+        """Historia del filtro. """
+        return self.log_dict
 
 
 class point(vehiculo):
@@ -120,7 +133,3 @@ class point(vehiculo):
             range_meas = [self.rango(self.kin.p, lm) for lm in landmarks]
             self.filtro.correccion(range_meas, 'rango', landmarks)
         self.control.update(self.filtro.p, t, (landmarks, self.rango.sigma))
-        return self.control.u
-
-    def kin_step(self, t):
-        self.kin.step(t, self.control.u)
