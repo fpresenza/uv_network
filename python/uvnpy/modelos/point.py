@@ -6,20 +6,23 @@ Created on Mon Apr 06 12:41:07 2020
 """
 import numpy as np
 import yaml
-import gpsic.toolkit.linalg as linalg
+
+from gpsic.toolkit import linalg
 from gpsic.modelos.discreto import SistemaDiscreto
-from uvnpy.vehicles.uv import UnmannedVehicle
-from uvnpy.model.holonomic import ControlVelocidad
-import uvnpy.navigation.kalman as kalman
-from uvnpy.sensor.rango import Rango
-from uvnpy.navigation.control import MPCInformativo
-import uvnpy.navigation.metricas as metricas
+
+from . import vehiculo, control_velocidad
+from uvnpy.sensores import rango
+from uvnpy.filtering import kalman, metricas
+from uvnpy.control import mpc_informativo
 
 
-class PointLocalization(kalman.EKF):
+__all__ = ['point']
+
+
+class point_loc_ekf(kalman.EKF):
     def __init__(self, x, dx, Q, R, ti=0.):
-        """ Filtro de localización de un vehículo ControlVelocidad """
-        super(PointLocalization, self).__init__(x, dx, ti=0.)
+        """ Filtro de localización de un vehículo control_velocidad """
+        super(point_loc_ekf, self).__init__(x, dx, ti=0.)
         self.dof = int(len(x) / 2)
         Id = np.identity(2)
         Z = np.zeros_like(Id)
@@ -51,7 +54,7 @@ class PointLocalization(kalman.EKF):
         p = self.p
         hat_y = [linalg.dist(p, lm) for lm in landmarks]
         #   Jacobiano
-        Hp = np.vstack([Rango.gradiente(p, lm) for lm in landmarks])
+        Hp = np.vstack([rango.gradiente(p, lm) for lm in landmarks])
         H = np.hstack([Hp, np.zeros_like(Hp)])
         #   Ruido
         R = self.R * np.identity(len(landmarks))
@@ -65,44 +68,45 @@ class PointLocalization(kalman.EKF):
                 metricas.eigvalsh(self.P)]
 
 
-class Point(UnmannedVehicle):
+class point(vehiculo):
     def __init__(
             self, name,
             config_dir='/tmp/', config_file='point.yaml',
-            mov_kw={}, sensor_kw={}):
-        super(Point, self).__init__(name, type='Point')
+            kin_kw={}, sensor_kw={}):
+        super(point, self).__init__(name, type='point')
 
         # leer archivo de configuración
         file_path = '{}{}'.format(config_dir, config_file)
         config = yaml.load(open(file_path))
 
         # dinamica del vehiculo
-        freq = mov_kw.get('freq', 1.)
+        freq = kin_kw.get('freq', 1.)
         sigma = config.get('sigma')
         config.update(
             sigma=np.multiply(freq**0.5, sigma)
         )
-        mov_kw.update(config)
-        self.mov = ControlVelocidad(**mov_kw)
+        kin_kw.update(config)
+        self.kin = control_velocidad(**kin_kw)
 
         # sensores
         range_file = sensor_kw.get('range_file', 'xbee.yaml')
         file_path = '{}{}'.format(config_dir, range_file)
         config = yaml.load(open(file_path))
         sensor_kw.update(config)
-        self.rango = Rango(**sensor_kw)
+        self.rango = rango.sensor(**sensor_kw)
 
         # filtro
-        x0 = self.c
+        x0 = self.kin.x
         dx0 = np.ones(4)
-        self.filtro = PointLocalization(
+        self.filtro = point_loc_ekf(
             x0, dx0,
-            self.mov.Q,
+            self.kin.Q,
             self.rango.R
         )
 
         # control
-        self.control = MPCInformativo(
+        self.control = mpc_informativo.controlador(
+            mpc_informativo.det_delta_informacion,
             (1, 4.5, -2000),
             (np.eye(2), np.eye(2), np.eye(2)),
             SistemaDiscreto,
@@ -110,17 +114,13 @@ class Point(UnmannedVehicle):
             horizonte=np.linspace(0.1, 1, 10)
         )
 
-    @property
-    def c(self):
-        return np.hstack([self.mov.p, self.mov.v])
-
     def control_step(self, t, landmarks=[]):
         self.filtro.prediccion(t, self.control.u, 'control')
         if len(landmarks) > 0:
-            range_meas = [
-              self.rango.measurement(self.mov.p, lm) for lm in landmarks]
+            range_meas = [self.rango(self.kin.p, lm) for lm in landmarks]
             self.filtro.correccion(range_meas, 'rango', landmarks)
         self.control.update(self.filtro.p, t, (landmarks, self.rango.sigma))
+        return self.control.u
 
-    def mov_step(self, t):
-        self.mov.step(t, self.control.u)
+    def kin_step(self, t):
+        self.kin.step(t, self.control.u)

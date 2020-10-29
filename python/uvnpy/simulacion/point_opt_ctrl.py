@@ -6,8 +6,10 @@
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
+
 import gpsic.plotting.planar as plotting
-from uvnpy.vehicles.point import Point
+
+from uvnpy.modelos import point
 
 
 def run(tiempo, points, landmarks):
@@ -16,15 +18,15 @@ def run(tiempo, points, landmarks):
     u = [points[0].control.u]
     f_t, f_x, f_dvst, f_eig = points[0].filtro.logs()
     f = ([f_x], [f_dvst], [np.flip(f_eig)])
-    P = dict([(point.id, [point.c[:2]]) for point in points])
+    P = dict([(point.id, [point.kin.p]) for point in points])
 
     for t in tiempo[1:]:
         for point in points:
-            point.mov_step(t)
+            point.kin_step(t)
             point.control_step(t, landmarks=landmarks)
-            P[point.id].append(point.c[:2])
+            P[point.id].append(point.kin.p)
             if point.id == points[0].id:
-                x.append(point.c)
+                x.append(point.kin.x)
                 u.append(point.control.u)
                 f_t, f_x, f_dvst, f_eig = point.filtro.logs()
                 f[0].append(f_x)
@@ -71,10 +73,10 @@ if __name__ == '__main__':
     #              [-13.76694731, -2.34360965],
     #              [-3.2733689, 18.90361114]]
 
-    def make_mov_kw():
-        # mov_kw={'pi': [0.1, 0.1], 'freq':) arg.h**(-1)}
-        return {'pi': np.random.uniform(-10, 10, 2), 'freq': arg.h**(-1)}
-    points = [Point(i, mov_kw=make_mov_kw()) for i in range(arg.agents)]
+    def make_kin_kw():
+        # return {'pi': np.random.uniform(-10, 10, 2), 'freq': arg.h**(-1)}
+        return {'pi': [0.1, 0.], 'freq': arg.h**(-1)}
+    points = [point(i, kin_kw=make_kin_kw()) for i in range(arg.agents)]
 
     tiempo = np.arange(arg.ti, arg.tf, arg.h)
 
@@ -95,7 +97,7 @@ if __name__ == '__main__':
     # Plotting
     # ------------------------------------------------------------------
     fig = plt.figure(figsize=(13, 5))
-    fig.subplots_adjust(hspace=0.5, wspace=0.2)
+    fig.subplots_adjust(hspace=0.5, wspace=0.25)
     gs = fig.add_gridspec(2, 3)
     # posición
     ax_pos = plotting.agregar_ax(

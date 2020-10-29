@@ -9,15 +9,18 @@ import quaternion
 import yaml
 from types import SimpleNamespace
 
-import gpsic.toolkit.linalg as linalg
-
 g = 9.81
 
+__all__ = [
+  'acelerometro',
+  'giroscopo',
+  'magnetometro',
+  'IMU']
 
-class Accelerometer(object):
-    """ This class is intended to save information
-    about a generic accelerometer """
+
+class acelerometro(object):
     def __init__(self, **kwargs):
+        """ Modelo de acelerómetro. """
         self.config = SimpleNamespace(**kwargs)
         bw = 0.5 * self.config.rate
         accel_bias_xy_mks = self.config.bias_xy * g * 0.001
@@ -31,10 +34,9 @@ class Accelerometer(object):
           0.05 * accel_bias_z_mks)
 
 
-class Gyroscope(object):
-    """ This class is intended to save information
-    about a generic gyroscope """
+class giroscopo(object):
     def __init__(self, **kwargs):
+        """ Modelo de giróscopo. """
         self.config = SimpleNamespace(**kwargs)
         bw = 0.5 * self.config.rate
         gyro_bias_xyz = self.config.bias * (np.pi / 180)
@@ -47,19 +49,17 @@ class Gyroscope(object):
           0.1 * gyro_bias_xyz)
 
 
-class Compass(object):
-    """ This class is intended to save information
-    about a generic compass """
+class magnetometro(object):
     def __init__(self, **kwargs):
+        """ Modelo de magnetómetro. """
         self.config = SimpleNamespace(**kwargs)
         bw = 0.5 * self.config.rate
         sigma = self.config.nsd * np.sqrt(2 * bw)  # microT
         self.sigma = (sigma, sigma, sigma)
 
 
-class Imu(object):
-    """ This class implements model of a Inertial
-    Measurement Unit (IMU) """
+class IMU(object):
+    """ Modelo de IMU = Accel + Giro + Mag. """
     def __init__(
       self, cnfg_file='/tmp/MPU9250.yaml', accel_kw={}, gyro_kw={}, mag_kw={}):
         # read config file
@@ -67,11 +67,11 @@ class Imu(object):
         config = SimpleNamespace(**config_dict)
         # set components
         config.accel.update(accel_kw)
-        self.accel = Accelerometer(**config.accel)
+        self.accel = acelerometro(**config.accel)
         config.gyro.update(gyro_kw)
-        self.gyro = Gyroscope(**config.gyro)
+        self.gyro = giroscopo(**config.gyro)
         config.mag.update(mag_kw)
-        self.mag = Compass(**config.mag)
+        self.mag = magnetometro(**config.mag)
         #  Noise covariance matrices
         self.Q = np.diag(np.square(np.hstack([
             self.accel.sigma,
@@ -80,21 +80,24 @@ class Imu(object):
             self.gyro.bias_drift])))
         self.R = np.diag(np.square(self.mag.sigma))
 
-    def measurement(self, a, w, e):
-        """ This module takes as parameter accel, vel
-        and pose of a vehicle and simulates an imu
-        biased and noisy measurement """
+    def __call__(self, a, w, q):
+        """ Simular medición de una IMU.
+
+        Argumentos:
+
+            a: aceleración en terna global
+            w: velocidad angular en terna global
+            q: actitud (cuaternion)
+        """
         accel = np.copy(a)
         w = np.copy(w)
-        r, p, y = np.copy(e)
-        #   accelerometer
-        q = linalg.euler2quat(r, p, y)
+        #  accelerometro
         q_conj = q.conj()
         accel_body = quaternion.rotate_vectors(q_conj, accel)
         accel_noise = np.random.normal(self.accel.sigma)
         accel_meas = accel_body + self.accel.bias + accel_noise
-        #   gyroscope
+        #  giróscopo
         gyro_body = quaternion.rotate_vectors(q_conj, w)
         gyro_noise = np.random.normal(self.gyro.sigma)
         gyro_meas = gyro_body + self.gyro.bias + gyro_noise
-        return accel_meas, gyro_meas, q
+        return accel_meas, gyro_meas

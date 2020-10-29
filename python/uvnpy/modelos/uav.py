@@ -8,12 +8,12 @@ import numpy as np
 import collections
 import yaml
 
-from uvnpy.modelos.unmanned_vehicle import UnmannedVehicle
-from gpsic.modelos.multicopter import Multicopter
+from gpsic.modelos.multicoptero import MulticopteroLTI
 from gpsic.modelos.camara import Camera
-import gpsic.toolkit.linalg as linalg
-from uvnpy.modelos.holonomic import VelocityRandomWalk
-from uvnpy.filtering.kalman import EKF
+from gpsic.toolkit import linalg
+
+from . import vehiculo, velocidad_rw
+from uvnpy.filtering import kalman
 from uvnpy.sensor.rango import Rango
 from uvnpy.network.neighborhood import Neighborhood
 from uvnpy.toolkit.ros import PositionAndRange
@@ -21,16 +21,16 @@ from uvnpy.toolkit.ros import PositionAndRange
 multi_dot = linalg.multi_dot
 
 
-class Drone(UnmannedVehicle):
+class uav(vehiculo):
     def __init__(
-      self, id, cnfg_file='../config/drone.yaml',
+      self, id, cnfg_file='/tmp/uav.yaml',
       motion_kw={}, cam_kw={}):
-        super(Drone, self).__init__(id, type='Drone')
+        super(uav, self).__init__(id, type='uav')
         # read config file
         config = yaml.load(open(cnfg_file))
         motion_kw.update(config)
         # motion model
-        self.motion = Multicopter(**motion_kw)
+        self.motion = MulticopteroLTI(**motion_kw)
         # sensors
         self.range = Rango()
         self.gimbal = cam_kw.get('gimbal', linalg.rm.Ry(np.pi/2))
@@ -41,15 +41,15 @@ class Drone(UnmannedVehicle):
         )
         # neighborhood
         self.N = Neighborhood(size=1, dof=3)
-        self.vrw = VelocityRandomWalk(dim=3, sigma=0.25)
+        self.vrw = velocidad_rw(dim=3, sigma=0.25)
         # filter
         xi = np.hstack(
           [np.random.normal(0, 20, self.N.dim), np.zeros(self.N.dim)]
         )
         dxi = np.hstack([20*np.ones(self.N.dim), np.ones(self.N.dim)])
-        self.filter = EKF(xi, dxi)
+        self.filter = kalman.EKF(xi, dxi)
         # information sharing
-        self.msg = PositionAndRange(id=self.id, source='Drone')
+        self.msg = PositionAndRange(id=self.id, source='uav')
         self.set_msg(self.filter.x, self.filter.P)
         self.inbox = collections.deque(maxlen=10)
 

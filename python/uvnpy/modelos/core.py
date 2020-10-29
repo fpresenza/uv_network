@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-""" Created on Tue May 06 11:15:10 2020
+"""
+Created on Mon Apr 06 12:11:56 2020
 @author: fran
 """
 import numpy as np
@@ -8,7 +9,18 @@ import numpy as np
 from gpsic.modelos.discreto import SistemaDiscreto
 
 
-class Integrador(SistemaDiscreto):
+class vehiculo(object):
+    """ This class implements a unmanned vehicle instance
+    to use as node in a graph. """
+    def __init__(self, nombre, tipo='vehiculo', **kwargs):
+        self.id = nombre
+        self.tipo = tipo
+
+    def __str__(self):
+        return '{}({})'.format(self.tipo, self.id)
+
+
+class integrador(SistemaDiscreto):
     def __init__(self, ti=0., dof=1, **kwargs):
         """ Modelo de vehículo integrador de primer orden.
 
@@ -19,7 +31,7 @@ class Integrador(SistemaDiscreto):
             sigma: <list o tuple o array> std. dev. en señal de entrada
         """
         pi = kwargs.get('pi',  np.zeros(dof))
-        super(Integrador, self).__init__(ti=ti, xi=pi)
+        super(integrador, self).__init__(ti=ti, xi=pi)
         self._v = np.zeros(dof)
         self.sigma = kwargs.get('sigma', np.zeros(dof))
         self.dof = dof
@@ -45,7 +57,7 @@ class Integrador(SistemaDiscreto):
         return dot_x
 
 
-class ControlVelocidad(SistemaDiscreto):
+class control_velocidad(SistemaDiscreto):
     def __init__(self, ti=0., dof=1, **kwargs):
         """ Modelo de cinemática con control de velocidad.
 
@@ -60,7 +72,7 @@ class ControlVelocidad(SistemaDiscreto):
         """
         pi = kwargs.get('pi',  np.zeros(dof))
         vi = kwargs.get('vi',  np.zeros(dof))
-        super(ControlVelocidad, self).__init__(ti=ti, xi=np.hstack([pi, vi]))
+        super(control_velocidad, self).__init__(ti=ti, xi=np.hstack([pi, vi]))
         self.dof = dof
         self._v = vi
         self._a = np.zeros(dof)
@@ -92,6 +104,10 @@ class ControlVelocidad(SistemaDiscreto):
     def a(self):
         return self._a.copy()
 
+    @property
+    def x(self):
+        return self._x.copy()
+
     def dinamica(self, x, t, u):
         z = np.random.normal(0, self.sigma)
         dot_x = np.matmul(self.G_x, x) + \
@@ -100,7 +116,7 @@ class ControlVelocidad(SistemaDiscreto):
         return dot_x
 
 
-class VelocityRandomWalk(SistemaDiscreto):
+class velocidad_rw(SistemaDiscreto):
     def __init__(self, ti=0., dof=1, **kwargs):
         """ Modelo de proceso de caminata aleatoria o Wiener en velocidad.
 
@@ -133,6 +149,10 @@ class VelocityRandomWalk(SistemaDiscreto):
     @property
     def v(self):
         return self._x[self.dof:].copy()
+
+    @property
+    def x(self):
+        return self._x.copy()
 
     def dinamica(self, x, t, u):
         z = np.random.normal(0, self.sigma)

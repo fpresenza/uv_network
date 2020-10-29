@@ -9,33 +9,33 @@ import collections
 import yaml
 import quaternion
 
-import gpsic.toolkit.linalg as linalg
-from uvnpy.modelos.uv import UnmannedVehicle
-from uvnpy.modelos.holonomic import VelocityModel, VelocityRandomWalk
-from uvnpy.filtering.kalman import EKF
+from gpsic.toolkit import linalg
+
+from . import vehiculo, control_velocidad, velocidad_rw
+from uvnpy.filtering import kalman
 from uvnpy.sensor.imu import Imu
 from uvnpy.sensor.rango import Rango
 from uvnpy.network.neighborhood import Neighborhood
 from uvnpy.toolkit.ros import PositionAndRange
 
 
-class Rover(UnmannedVehicle):
+class rover(vehiculo):
     def __init__(
-      self, id, cnfg_file='../config/rover.yaml',
+      self, id, cnfg_file='/tmp/rover.yaml',
       motion_kw={}, sensor_kw={}):
-        super(Rover, self).__init__(id, type='Rover')
+        super(rover, self).__init__(id, type='rover')
         # read config file
         config = yaml.load(open(cnfg_file))
         motion_kw.update(config)
         # motion model
-        self.motion = VelocityModel(**motion_kw)
+        self.motion = control_velocidad(**motion_kw)
         # sensors
         self.imu = Imu()
         self.range = Rango()
         self.gps = sensor_kw.get('gps', False)
         # neighborhood
         self.N = Neighborhood(size=8, dof=3)
-        self.nbh = VelocityRandomWalk(dim=self.N.dim, sigma=0.25)
+        self.nbh = velocidad_rw(dim=self.N.dim, sigma=0.25)
         # filter
         self.dim = 6 + 2*self.N.dim + 3
         self.Q = linalg.block_diag(
@@ -54,9 +54,9 @@ class Rover(UnmannedVehicle):
                          20*np.ones(self.N.dim),
                          np.ones(self.N.dim),
                          self.imu.accel.bias])
-        self.filter = EKF(xi, dxi)
+        self.filter = kalman.EKF(xi, dxi)
         # information sharing
-        self.msg = PositionAndRange(id=self.id, source='Rover')
+        self.msg = PositionAndRange(id=self.id, source='rover')
         self.set_msg(self.filter.x, self.filter.P)
         self.inbox = collections.deque(maxlen=8)
 
@@ -81,7 +81,7 @@ class Rover(UnmannedVehicle):
             y = np.hstack([p, v])
             self.filter.correction(self.h_gps, y)
         for msg in self.inbox:
-            if msg.source == 'Rover':
+            if msg.source == 'rover':
                 self.N.update(msg.id)
                 y = np.hstack([msg.point, msg.range])
                 self.filter.correction(self.h_range, y, msg.id, msg.covariance)
