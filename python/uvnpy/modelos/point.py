@@ -94,20 +94,20 @@ class point(vehiculo):
         config = cargar_yaml(arxiv)
 
         # dinamica del vehiculo
-        kin_kw = ajustar_sigma(config['kin'])
-        kin_kw.update(pi=pi, vi=vi)
-        self.kin = control_velocidad(**kin_kw)
+        din_kw = ajustar_sigma(config['din'])
+        din_kw.update(pi=pi, vi=vi)
+        self.din = control_velocidad(**din_kw)
 
         # sensores
         rango_kw = config['sensor']['rango']
         self.rango = rango.sensor(**rango_kw)
 
         # filtro
-        x0 = self.kin.x
+        x0 = self.din.x
         dx0 = np.ones(4)
         self.filtro = point_loc_ekf(
             x0, dx0,
-            self.kin.Q,
+            self.din.Q,
             self.rango.R
         )
 
@@ -123,25 +123,37 @@ class point(vehiculo):
 
         # intercambio de información
         self.promedio = consenso.promedio()
+        self.lpf = consenso.lpf()
         self.inbox = collections.deque(maxlen=10)
-        self.outbox = {
-          'id': self.id,
-          'avg': self.promedio.x}
+        self.outbox = {'id': self.id}
 
     def control_step(self, t, landmarks=[]):
         self.filtro.prediccion(t, self.control.u, 'control')
         if len(landmarks) > 0:
-            range_meas = [self.rango(self.kin.p, lm) for lm in landmarks]
+            range_meas = [self.rango(self.din.p, lm) for lm in landmarks]
             self.filtro.correccion(range_meas, 'rango', landmarks)
         self.control.update(self.filtro.p, t, (landmarks, self.rango.sigma))
 
-    def iniciar_consenso(self, avg):
-        self.promedio.iniciar(avg)
+    def iniciar_consenso(self, avg=None, lpf=None):
+        if avg is not None:
+            self.promedio.iniciar(avg)
+            self.outbox.update(avg=avg)
+        if lpf is not None:
+            self.lpf.iniciar(lpf['x'])
+            self.outbox.update(lpf=lpf)
         self.inbox.clear()
-        self.outbox.update(avg=avg)
 
-    def consenso_step(self, t):
-        x_j = [msg['avg'] for msg in self.inbox]
-        self.promedio(t, x_j)
+    def consenso_step(self, t, u=None):
+        avg_x_j = [msg.get('avg') for msg in self.inbox]
+        if not np.isin(None, avg_x_j):
+            self.promedio(t, avg_x_j)
+            self.outbox.update(avg=self.promedio.x)
+        if u is not None:
+            lpf_x_j = [msg['lpf']['x'] for msg in self.inbox]
+            lpf_u_j = [msg['lpf']['u'] for msg in self.inbox]
+            self.lpf(t, u, lpf_x_j, lpf_u_j)
+            self.outbox.update(
+                lpf={
+                    'x': self.lpf.x,
+                    'u': u})
         self.inbox.clear()
-        self.outbox.update(avg=self.promedio.x)

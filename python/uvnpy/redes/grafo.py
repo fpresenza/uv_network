@@ -16,7 +16,7 @@ __all__ = [
 
 
 def proximidad(v_i, v_j, rango_max):
-    p_i, p_j = v_i.kin.p, v_j.kin.p
+    p_i, p_j = v_i.din.p, v_j.din.p
     dist = norm(p_i - p_j)
     return dist <= rango_max
 
@@ -80,7 +80,7 @@ class grafo(Graph):
 
     def iniciar_dinamica(self, pi, vi={}, ti=0.):
         for v in self.vehiculos:
-            v.kin.iniciar(pi[v.id], vi=vi.get(v.id), ti=ti)
+            v.din.iniciar(pi[v.id], vi=vi.get(v.id), ti=ti)
 
     def reconectar(self, condicion, *args):
         vehiculos = self.vehiculos
@@ -118,6 +118,6 @@ class grafo(Graph):
             v_i.inbox.append(msg_j)
             v_j.inbox.append(msg_i)
 
-    def iniciar_consenso(self, avg):
+    def iniciar_consenso(self, avg={}, lpf={}):
         for v in self.vehiculos:
-            v.iniciar_consenso(avg[v.id])
+            v.iniciar_consenso(avg.get(v.id), lpf.get(v.id))
