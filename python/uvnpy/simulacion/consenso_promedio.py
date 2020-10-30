@@ -14,30 +14,25 @@ from uvnpy.modelos import point
 from uvnpy.redes import grafo, proximidad
 
 
-desplegar = np.random.uniform
-
-
 def run(tiempo, red, rango_max):
     # logs
-    # x = [points[0].kin.x]
-    # u = [points[0].control.u]
     P = dict([(v.id, [v.kin.p]) for v in red.vehiculos])
-    V = dict([(v.id, np.random.normal(0, 1, 2)) for v in red.vehiculos])
+    cmd = dict([(v.id, np.zeros(2)) for v in red.vehiculos])
+    avg = dict([(v.id, [v.promedio.x]) for v in red.vehiculos])
     E = [red.enlaces]
 
     for t in tiempo[1:]:
-        for v in red.vehiculos:
-            v.kin.step(t, V[v.id])
-            # point.control_step(t)
-            P[v.id].append(v.kin.p)
-
         red.reconectar(proximidad, rango_max)
         E.append(red.enlaces)
-        # x.append(points[0].kin.x)
-        # u.append(points[0].control.u)
-        # points[0].filtro.guardar()
+        red.intercambiar()
+        for v in red.vehiculos:
+            v.kin.step(t, cmd[v.id])
+            v.consenso_step(t)
+            # point.control_step(t)
+            P[v.id].append(v.kin.p)
+            avg[v.id].append(v.promedio.x)
 
-    return P, E
+    return P, E, avg
 
 
 if __name__ == '__main__':
@@ -69,30 +64,49 @@ if __name__ == '__main__':
     # ------------------------------------------------------------------
     # Configuración
     # ------------------------------------------------------------------
-    N = arg.agents
-    agentes = [point(i, pi=desplegar(-1, 1, 2)) for i in range(N)]
-    red = grafo(directed=False)
-    red.agregar_vehiculos(agentes)
-
     tiempo = np.arange(arg.ti, arg.tf, arg.h)
 
-    rango_max = 10.
+    N = arg.agents
+    red = grafo(directed=False)
+    red.agregar_vehiculos([point(i) for i in range(N)])
+    red.iniciar_dinamica({
+      0: [0, 0.],
+      1: [15., 0],
+      2: [-10, 15.]
+    })
+    red.iniciar_consenso({
+      0: [10.],
+      1: [30.],
+      2: [50.]
+    })
+
+    rango_max = np.sqrt(20.**2 + 20.**2)
 
     # ------------------------------------------------------------------
     # Simulación
     # ------------------------------------------------------------------
-    P, E = run(tiempo, red, rango_max)
+    P, E, avg = run(tiempo, red, rango_max)
     t = tiempo
-    # variables
-    # x = np.vstack(x)
-    # f_x = np.vstack(f.x)
-    # f_dvst = np.vstack(f.dvst)
-    # f_eigs = np.vstack(f.eigs)
-    # u = np.vstack(u)
 
     # ------------------------------------------------------------------
     # Plotting
     # ------------------------------------------------------------------
+    fig = plt.figure()
+    # fig.subplots_adjust(hspace=0.5, wspace=0.25)
+    gs = fig.add_gridspec(1, 1)
+    ax_avg = plotting.agregar_ax(
+      gs[0, 0],
+      title='Consenso - Promedio', title_kw={'fontsize': 11},
+      xlabel='t [seg]', ylabel='', label_kw={'fontsize': 10})
+    plotting.agregar_linea(ax_avg, t, avg[0], color='r', label='$0$')
+    plotting.agregar_linea(ax_avg, t, avg[1], color='g', label='$1$')
+    plotting.agregar_linea(ax_avg, t, avg[2], color='b', label='$2$')
+
+    if arg.save:
+        fig.savefig('/tmp/consenso_promedio.pdf', format='pdf')
+    else:
+        plt.show()
+
     graph_plotter = plotting.GraphPlotter(
       t, P, E, save=arg.save)
     if arg.animate:

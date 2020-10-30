@@ -78,10 +78,14 @@ class grafo(Graph):
         uvs = self.vp.uvs
         return [[uvs[s].id, uvs[t].id] for (s, t) in self.get_edges()]
 
+    def iniciar_dinamica(self, pi, vi={}, ti=0.):
+        for v in self.vehiculos:
+            v.kin.iniciar(pi[v.id], vi=vi.get(v.id), ti=ti)
+
     def reconectar(self, condicion, *args):
         vehiculos = self.vehiculos
         for v_i in vehiculos:
-            resto = vehiculos[:]
+            resto = vehiculos.copy()
             resto.remove(v_i)
             id_i = v_i.id
             for v_j in resto:
@@ -113,3 +117,7 @@ class grafo(Graph):
             msg_j = v_j.outbox.copy()
             v_i.inbox.append(msg_j)
             v_j.inbox.append(msg_i)
+
+    def iniciar_consenso(self, avg):
+        for v in self.vehiculos:
+            v.iniciar_consenso(avg[v.id])

@@ -14,7 +14,8 @@ from gpsic.modelos.discreto import SistemaDiscreto
 
 from . import vehiculo, control_velocidad
 from uvnpy.sensores import rango
-from uvnpy.filtering import kalman, metricas
+from uvnpy.filtering import consenso, kalman, metricas
+from uvnpy.filtering import ajustar_sigma
 from uvnpy.control import mpc_informativo
 
 
@@ -38,7 +39,7 @@ class point_loc_ekf(kalman.EKF):
         self.Q = Q
         self.R = R
         self.log_dict = SimpleNamespace(
-          t=[self.time],
+          t=[self.t],
           x=[self.x],
           dvst=[metricas.sqrt_diagonal(self.P)],
           eigs=[metricas.eigvalsh(self.P)])
@@ -69,7 +70,7 @@ class point_loc_ekf(kalman.EKF):
 
     def guardar(self):
         """Guarda los últimos datos. """
-        self.log_dict.t.append(self.time)
+        self.log_dict.t.append(self.t)
         self.log_dict.x.append(self.x)
         self.log_dict.dvst.append(
           metricas.sqrt_diagonal(self.P))
@@ -93,12 +94,7 @@ class point(vehiculo):
         config = cargar_yaml(arxiv)
 
         # dinamica del vehiculo
-        kin_kw = config['kin']
-        freq = kin_kw['freq']
-        sigma = kin_kw['sigma']
-        kin_kw.update(
-            sigma=np.multiply(freq**0.5, sigma)
-        )
+        kin_kw = ajustar_sigma(config['kin'])
         kin_kw.update(pi=pi, vi=vi)
         self.kin = control_velocidad(**kin_kw)
 
@@ -126,8 +122,11 @@ class point(vehiculo):
         )
 
         # intercambio de información
+        self.promedio = consenso.promedio()
         self.inbox = collections.deque(maxlen=10)
-        self.outbox = {'id': self.id}
+        self.outbox = {
+          'id': self.id,
+          'avg': self.promedio.x}
 
     def control_step(self, t, landmarks=[]):
         self.filtro.prediccion(t, self.control.u, 'control')
@@ -135,3 +134,14 @@ class point(vehiculo):
             range_meas = [self.rango(self.kin.p, lm) for lm in landmarks]
             self.filtro.correccion(range_meas, 'rango', landmarks)
         self.control.update(self.filtro.p, t, (landmarks, self.rango.sigma))
+
+    def iniciar_consenso(self, avg):
+        self.promedio.iniciar(avg)
+        self.inbox.clear()
+        self.outbox.update(avg=avg)
+
+    def consenso_step(self, t):
+        x_j = [msg['avg'] for msg in self.inbox]
+        self.promedio(t, x_j)
+        self.inbox.clear()
+        self.outbox.update(avg=self.promedio.x)

@@ -58,29 +58,27 @@ class integrador(SistemaDiscreto):
 
 
 class control_velocidad(SistemaDiscreto):
-    def __init__(self, ti=0., dof=1, **kwargs):
+    def __init__(
+            self,
+            pi=[0.], vi=None, ti=0.,
+            K=[1.], sigma=[[0.], [0.]]):
         """ Modelo de cinemática con control de velocidad.
 
         Argumentos:
 
-            dof: <int> grados de libertad
-            pi, vi: <list o tuple o array> posición, velocidad inicial
-            ctrl_matrix: <list o array> controlador interno
-            sigma: <list o tuple o array>
-                (std. dev. en la acción de los actuadores,
-                 std. dev. en la medicion la velocidad)
+            dof: grados de libertad
+            pi, vi:  posición, velocidad inicial
+            ctrl_matrix:  controlador interno
+            sigma: (std. dev. en la acción de los actuadores,
+                    std. dev. en la medicion la velocidad)
         """
-        pi = kwargs.get('pi',  np.zeros(dof))
-        vi = kwargs.get('vi',  np.zeros(dof))
-        super(control_velocidad, self).__init__(ti=ti, xi=np.hstack([pi, vi]))
-        self.dof = dof
-        self._a = np.zeros(dof)
-        sigma = kwargs.get('sigma', (np.zeros(dof), np.zeros(dof)))
+        self.iniciar(pi, vi=vi, ti=ti)
+        self.dof = len(pi)
+        self._a = np.zeros_like(pi)
         self.sigma = np.hstack(sigma)
-        Id = np.identity(dof)
+        Id = np.identity(self.dof)
         Z = np.zeros_like(Id)
-        #   matriz del controlador
-        K = np.copy(kwargs.get('ctrl_matrix', Id))
+        K = np.asarray(K)
         #   matrices del sistema
         self.G_x = np.block([[Z, Id],
                              [Z, -K]])
@@ -90,6 +88,12 @@ class control_velocidad(SistemaDiscreto):
                              [Id, -K]])
         #   matriz de covarianza del ruido
         self.Q = np.diag(np.square(self.sigma))
+
+    def iniciar(self, pi, vi=None, ti=0.):
+        if vi is None:
+            vi = np.zeros_like(pi)
+        xi = np.hstack([pi, vi])
+        super(control_velocidad, self).iniciar(xi=xi, ti=ti)
 
     @property
     def p(self):

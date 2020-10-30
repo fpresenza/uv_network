@@ -7,18 +7,6 @@ import numpy as np
 from numpy.linalg import multi_dot, inv
 
 
-def transformar(v, M):
-    """ Transformación de similaridad.
-
-    Transforma un vector y una matriz p.d. entre el espacio
-    de los estados y el espacio de la información, en ambos
-    sentidos.
-    """
-    C = inv(M)
-    u = np.matmul(C, v)
-    return u, C
-
-
 def fusionar(informacion):
     """ Fusion de Kalman.
 
@@ -34,26 +22,26 @@ def fusionar(informacion):
 
 
 class EKF(object):
-    def __init__(self, x, dx, ti=0.):
+    def __init__(self, xi, dxi, ti=0.):
         """ Filtro extendido de Kalman. """
-        self.time = ti
-        self._x = np.copy(x)
-        self._P = np.diag(np.square(dx))
+        self.t = ti
+        self._x = np.copy(xi)
+        self._P = np.diag(np.square(dxi))
         self.Id = np.identity(self._x.size)
 
-    def prediccion(self, t, w, sensor, *args):
+    def prediccion(self, t, u, sensor, *args):
         """ Paso de predicción:
 
         Argumentos:
 
             t: tiempo
-            w: señal de excitación del modelo (lista o array)
+            u: señal de excitación del modelo (lista o array)
             sensor: nombre de función de medición introceptiva (str)
         """
-        Ts = t - self.time
-        self.time = t
+        Ts = t - self.t
+        self.t = t
         f = eval('self.' + sensor)
-        dot_x, F_x, F_e, Q = f(t, w, *args)
+        dot_x, F_x, F_e, Q = f(t, u, *args)
         self._x = self._x + Ts * dot_x
         Phi = self.Id + Ts * F_x
         Phi_P_Phi = [Phi, self._P, Phi.T]

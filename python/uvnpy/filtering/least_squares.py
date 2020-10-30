@@ -8,6 +8,8 @@
 import numpy as np
 from numpy.linalg import multi_dot, inv, pinv  # noqa
 
+from . import normalizar_pesos
+
 
 def wlstsq(A, b, Q=None):
     """ Cuadrados mínimos con pesos.
@@ -21,11 +23,6 @@ def wlstsq(A, b, Q=None):
     A_pinv = multi_dot([P, A.T, Q])
     x = np.matmul(A_pinv, b)
     return x, P
-
-
-def normalizar_pesos(pesos):
-    """ Devuelve un vector de pesos que suman 1. """
-    return np.divide(pesos, sum(pesos))
 
 
 def ajustar_gaussiana(muestras, pesos=None):
