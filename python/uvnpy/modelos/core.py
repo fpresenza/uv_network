@@ -74,7 +74,6 @@ class control_velocidad(SistemaDiscreto):
         vi = kwargs.get('vi',  np.zeros(dof))
         super(control_velocidad, self).__init__(ti=ti, xi=np.hstack([pi, vi]))
         self.dof = dof
-        self._v = vi
         self._a = np.zeros(dof)
         sigma = kwargs.get('sigma', (np.zeros(dof), np.zeros(dof)))
         self.sigma = np.hstack(sigma)

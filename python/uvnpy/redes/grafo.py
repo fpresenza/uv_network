@@ -10,12 +10,12 @@ from graph_tool import Graph
 from uvnpy.toolkit import iterable
 
 __all__ = [
-  'proximity',
+  'proximidad',
   'grafo'
 ]
 
 
-def proximity(v_i, v_j, rango_max):
+def proximidad(v_i, v_j, rango_max):
     p_i, p_j = v_i.kin.p, v_j.kin.p
     dist = norm(p_i - p_j)
     return dist <= rango_max
@@ -47,7 +47,7 @@ class grafo(Graph):
 
     def remover_vehiculos(self, ids):
         """Elimina una lista de vehículos. """
-        idx = [self._map[id] for id in ids]
+        idx = [self._map[i] for i in ids]
         self.remove_vertex(idx)
         self.__actualizar_mapa()
 
@@ -55,13 +55,13 @@ class grafo(Graph):
     def vehiculos(self):
         return list(self.vp.uvs)
 
-    def uv(self, id):
-        return self.vp.uvs[self._map[id]]
+    def vehiculo(self, i):
+        return self.vp.uvs[self._map[i]]
 
     def agregar_enlace(self, i, j):
         """ Agregar un enlace entre dos vehículos. """
         s, t = self._map[i], self._map[j]
-        edges = self.get_edges()
+        edges = self.get_edges().tolist()
         if [s, t] not in edges and [t, s] not in edges:
             nuevo_enlace = self.add_edge(s, t, add_missing=False)
             return nuevo_enlace
@@ -90,3 +90,26 @@ class grafo(Graph):
                     self.agregar_enlace(id_i, id_j)
                 else:
                     self.remover_enlace(id_i, id_j)
+
+    def vecinos(self, i):
+        vertex = self.vertex(self._map[i])
+        neighbors = vertex.all_neighbors()
+        return [self.vp.uvs[n] for n in neighbors]
+
+    def compartir(self, i):
+        """Compartir mensaje con sus vecinos. """
+        vehiculo = self.vehiculo(i)
+        vecinos = self.vecinos(i)
+        msg = vehiculo.outbox.copy()
+        return [v.inbox.append(msg) for v in vecinos]
+
+    def intercambiar(self):
+        """Intercambiar mensajes entre vecinos. """
+        edges = self.get_edges()
+        for s, t in edges:
+            v_i = self.vp.uvs[s]
+            v_j = self.vp.uvs[t]
+            msg_i = v_i.outbox.copy()
+            msg_j = v_j.outbox.copy()
+            v_i.inbox.append(msg_j)
+            v_j.inbox.append(msg_i)

@@ -8,7 +8,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import gpsic.plotting.planar as plotting
-
 from uvnpy.modelos import point
 
 
@@ -67,10 +66,7 @@ if __name__ == '__main__':
     #              [-13.76694731, -2.34360965],
     #              [-3.2733689, 18.90361114]]
 
-    def make_kin_kw():
-        # return {'pi': np.random.uniform(-10, 10, 2), 'freq': arg.h**(-1)}
-        return {'pi': [0.1, 0.], 'freq': arg.h**(-1)}
-    points = [point(i, kin_kw=make_kin_kw()) for i in range(arg.agents)]
+    points = [point(i, pi=[0.1, 0.]) for i in range(arg.agents)]
 
     tiempo = np.arange(arg.ti, arg.tf, arg.h)
 

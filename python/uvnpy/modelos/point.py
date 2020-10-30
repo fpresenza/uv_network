@@ -5,9 +5,10 @@ Created on Mon Apr 06 12:41:07 2020
 @author: fran
 """
 import numpy as np
-import yaml
+import collections
 from types import SimpleNamespace
 
+from gpsic.analisis.core import cargar_yaml
 from gpsic.toolkit import linalg
 from gpsic.modelos.discreto import SistemaDiscreto
 
@@ -83,30 +84,27 @@ class point_loc_ekf(kalman.EKF):
 
 class point(vehiculo):
     def __init__(
-            self, name,
-            config_dir='/tmp/', config_file='point.yaml',
-            kin_kw={}, sensor_kw={}):
-        super(point, self).__init__(name, type='point')
+      self, nombre,
+      arxiv='/tmp/point.yaml',
+      pi=np.zeros(2), vi=np.zeros(2)):
+        super(point, self).__init__(nombre, tipo='point')
 
         # leer archivo de configuración
-        file_path = '{}{}'.format(config_dir, config_file)
-        config = yaml.load(open(file_path))
+        config = cargar_yaml(arxiv)
 
         # dinamica del vehiculo
-        freq = kin_kw.get('freq', 1.)
-        sigma = config.get('sigma')
-        config.update(
+        kin_kw = config['kin']
+        freq = kin_kw['freq']
+        sigma = kin_kw['sigma']
+        kin_kw.update(
             sigma=np.multiply(freq**0.5, sigma)
         )
-        kin_kw.update(config)
+        kin_kw.update(pi=pi, vi=vi)
         self.kin = control_velocidad(**kin_kw)
 
         # sensores
-        range_file = sensor_kw.get('range_file', 'xbee.yaml')
-        file_path = '{}{}'.format(config_dir, range_file)
-        config = yaml.load(open(file_path))
-        sensor_kw.update(config)
-        self.rango = rango.sensor(**sensor_kw)
+        rango_kw = config['sensor']['rango']
+        self.rango = rango.sensor(**rango_kw)
 
         # filtro
         x0 = self.kin.x
@@ -126,6 +124,10 @@ class point(vehiculo):
             control_dim=2,
             horizonte=np.linspace(0.1, 1, 10)
         )
+
+        # intercambio de información
+        self.inbox = collections.deque(maxlen=10)
+        self.outbox = {'id': self.id}
 
     def control_step(self, t, landmarks=[]):
         self.filtro.prediccion(t, self.control.u, 'control')

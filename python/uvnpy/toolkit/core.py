@@ -6,9 +6,14 @@
 from types import SimpleNamespace
 
 __all__ = [
+  'invertir_dic',
   'iterable',
   'RecursiveNamespace'
 ]
+
+
+def invertir_dic(dic):
+    return {v: k for k, v in dic.items()}
 
 
 def iterable(obj):
