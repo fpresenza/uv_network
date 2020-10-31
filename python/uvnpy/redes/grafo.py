@@ -121,3 +121,11 @@ class grafo(Graph):
     def iniciar_consenso(self, avg={}, lpf={}):
         for v in self.vehiculos:
             v.iniciar_consenso(avg.get(v.id), lpf.get(v.id))
+
+    def iniciar_consenso_promedio(self, avg):
+        for v in self.vehiculos:
+            v.iniciar_consenso_promedio(avg[v.id])
+
+    def iniciar_consenso_lpf(self, lpf):
+        for v in self.vehiculos:
+            v.iniciar_consenso_lpf(lpf[v.id])

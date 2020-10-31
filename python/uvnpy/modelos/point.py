@@ -124,7 +124,7 @@ class point(vehiculo):
         # intercambio de información
         self.promedio = consenso.promedio()
         self.lpf = consenso.lpf()
-        self.inbox = collections.deque(maxlen=10)
+        self.inbox = collections.deque(maxlen=30)
         self.outbox = {'id': self.id}
 
     def control_step(self, t, landmarks=[]):
@@ -134,26 +134,28 @@ class point(vehiculo):
             self.filtro.correccion(range_meas, 'rango', landmarks)
         self.control.update(self.filtro.p, t, (landmarks, self.rango.sigma))
 
-    def iniciar_consenso(self, avg=None, lpf=None):
-        if avg is not None:
-            self.promedio.iniciar(avg)
-            self.outbox.update(avg=avg)
-        if lpf is not None:
-            self.lpf.iniciar(lpf['x'])
-            self.outbox.update(lpf=lpf)
+    def iniciar_consenso_promedio(self, avg):
+        self.promedio.iniciar(avg)
+        self.outbox.update(avg=avg)
         self.inbox.clear()
 
-    def consenso_step(self, t, u=None):
+    def iniciar_consenso_lpf(self, lpf):
+        self.lpf.iniciar(lpf['x'])
+        self.outbox.update(lpf=lpf)
+        self.inbox.clear()
+
+    def consenso_promedio_step(self, t):
         avg_x_j = [msg.get('avg') for msg in self.inbox]
-        if not np.isin(None, avg_x_j):
-            self.promedio(t, avg_x_j)
-            self.outbox.update(avg=self.promedio.x)
-        if u is not None:
-            lpf_x_j = [msg['lpf']['x'] for msg in self.inbox]
-            lpf_u_j = [msg['lpf']['u'] for msg in self.inbox]
-            self.lpf(t, u, lpf_x_j, lpf_u_j)
-            self.outbox.update(
-                lpf={
-                    'x': self.lpf.x,
-                    'u': u})
+        self.promedio(t, avg_x_j)
+        self.outbox.update(avg=self.promedio.x)
+        self.inbox.clear()
+
+    def consenso_lpf_step(self, t, u):
+        lpf_x_j = [msg['lpf']['x'] for msg in self.inbox]
+        lpf_u_j = [msg['lpf']['u'] for msg in self.inbox]
+        self.lpf(t, u, lpf_x_j, lpf_u_j)
+        self.outbox.update(
+            lpf={
+                'x': self.lpf.x,
+                'u': u})
         self.inbox.clear()
