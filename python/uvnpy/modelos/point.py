@@ -140,7 +140,7 @@ class point(vehiculo):
         self.inbox.clear()
 
     def iniciar_consenso_lpf(self, xi, ui, ti=0.):
-        self.lpf.iniciar(xi, ti=0.)
+        self.lpf.iniciar(xi, ti)
         self.outbox.update(lpf={'x': xi, 'u': ui})
         self.inbox.clear()
 

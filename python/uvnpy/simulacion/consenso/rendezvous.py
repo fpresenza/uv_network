@@ -26,11 +26,15 @@ def run(tiempo, red, rango_max):
         E.append(red.enlaces)
         red.intercambiar()
         for v in red.vehiculos:
-            v.consenso_promedio_step(t)
-            cmd[v.id] = v.promedio.x
+            x_j = [msg['avg'] for msg in v.inbox]
+            cmd_i = v.promedio.dinamica(v.din.p, t, x_j)
+            v.outbox.update(avg=v.din.p)
+            v.inbox.clear()
+            cmd[v.id] = 0.25 * cmd_i
             v.din.step(t, cmd[v.id])
+
             P[v.id].append(v.din.p)
-            avg[v.id].append(v.promedio.x)
+            avg[v.id].append(v.din.p)
 
     return P, E, avg
 
@@ -71,13 +75,13 @@ if __name__ == '__main__':
     N = arg.agents
     red = grafo(directed=False)
     red.agregar_vehiculos([point(i) for i in range(N)])
-    pi = dict([(v.id, np.random.uniform(-10, 10, 2)) for v in red.vehiculos])
+    pi = dict([(v.id, np.random.uniform(-15, 15, 2)) for v in red.vehiculos])
     vi = dict([(v.id, np.random.normal(0, 5, 2)) for v in red.vehiculos])
 
     red.iniciar_dinamica(
         pi=pi,
         vi=vi)
-    red.iniciar_consenso_promedio(vi)
+    red.iniciar_consenso_promedio(pi)
 
     rango_max = np.sqrt(10.**2 + 10.**2)
 
