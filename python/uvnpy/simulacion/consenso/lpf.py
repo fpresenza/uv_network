@@ -79,18 +79,19 @@ if __name__ == '__main__':
     N = arg.agents
     red = grafo(directed=False)
     red.agregar_vehiculos([point(i) for i in range(N)])
+
     pi = dict([(v.id, np.random.uniform(-5, 5, 2)) for v in red.vehiculos])
     vi = dict([(v.id, [0., 0.]) for v in red.vehiculos])
     ui = dict([(v.id, signal(0, v.id)) for v in red.vehiculos])
-
-    red.iniciar_dinamica(
-        pi=pi,
-        vi=vi)
     lpfi = dict([
         (v.id, {
             'x': np.zeros_like(ui[v.id]),
             'u': ui[v.id]})
         for v in red.vehiculos])
+
+    red.iniciar_dinamica(
+        pi=pi,
+        vi=vi)
     red.iniciar_consenso_lpf(lpfi)
 
     rango_max = np.sqrt(10.**2 + 10.**2)

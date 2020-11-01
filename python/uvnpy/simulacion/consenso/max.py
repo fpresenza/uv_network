@@ -17,8 +17,9 @@ from uvnpy.redes import grafo, proximidad
 def run(tiempo, red, rango_max):
     # logs
     P = dict([(v.id, [v.din.p]) for v in red.vehiculos])
-    cmd = dict([(v.id, np.zeros(2)) for v in red.vehiculos])
-    avg = dict([(v.id, [v.promedio.x]) for v in red.vehiculos])
+    max_x = dict([(v.id, [v.comparador.x]) for v in red.vehiculos])
+    max_u = dict([(v.id, [v.comparador.u]) for v in red.vehiculos])
+    max_flag = dict([(v.id, [v.comparador.flag]) for v in red.vehiculos])
     E = [red.enlaces]
 
     for t in tiempo[1:]:
@@ -26,13 +27,13 @@ def run(tiempo, red, rango_max):
         E.append(red.enlaces)
         red.intercambiar()
         for v in red.vehiculos:
-            v.din.step(t, cmd[v.id])
-            v.consenso_step(t)
-            # point.control_step(t)
+            v.consenso_comparador_step()
             P[v.id].append(v.din.p)
-            avg[v.id].append(v.promedio.x)
+            max_x[v.id].append(v.comparador.x)
+            max_u[v.id].append(v.comparador.u)
+            max_flag[v.id].append(v.comparador.flag)
 
-    return P, E, avg
+    return P, E, max_x, max_u, max_flag
 
 
 if __name__ == '__main__':
@@ -71,41 +72,58 @@ if __name__ == '__main__':
     N = arg.agents
     red = grafo(directed=False)
     red.agregar_vehiculos([point(i) for i in range(N)])
-    red.iniciar_dinamica({
-        0: [0, 0.],
-        1: [15., 0],
-        2: [-10, 15.]
-    })
-    red.iniciar_consenso({
-        0: [10.],
-        1: [30.],
-        2: [50.]
-    })
+
+    pi = dict([(v.id, np.random.uniform(-25, 25, 2)) for v in red.vehiculos])
+    print([(i, np.linalg.norm(p)) for i, p in pi.items()])
+    vi = dict([(v.id, np.random.normal(0, 5, 2)) for v in red.vehiculos])
+    compi = dict([
+        (v.id, {
+            'x': [np.linalg.norm(pi[v.id])],
+            'u': pi[v.id]})
+        for v in red.vehiculos])
+
+    red.iniciar_dinamica(
+        pi=pi,
+        vi=vi)
+    red.iniciar_consenso_comparador(compi, max)
 
     rango_max = np.sqrt(20.**2 + 20.**2)
 
     # ------------------------------------------------------------------
     # Simulación
     # ------------------------------------------------------------------
-    P, E, avg = run(tiempo, red, rango_max)
+    P, E, max_x, max_u, max_flag = run(tiempo, red, rango_max)
     t = tiempo
 
     # ------------------------------------------------------------------
     # Plotting
     # ------------------------------------------------------------------
     fig = plt.figure()
-    # fig.subplots_adjust(hspace=0.5, wspace=0.25)
-    gs = fig.add_gridspec(1, 1)
-    ax_avg = plotting.agregar_ax(
+    fig.subplots_adjust(hspace=0.5, wspace=0.25)
+    gs = fig.add_gridspec(3, 1)
+    fig.suptitle('Consenso - max')
+    ax_x = plotting.agregar_ax(
         gs[0, 0],
-        title='Consenso - Promedio', title_kw={'fontsize': 11},
-        xlabel='t [seg]', ylabel='', label_kw={'fontsize': 10})
-    plotting.agregar_linea(ax_avg, t, avg[0], color='r', label='$0$')
-    plotting.agregar_linea(ax_avg, t, avg[1], color='g', label='$1$')
-    plotting.agregar_linea(ax_avg, t, avg[2], color='b', label='$2$')
+        xlabel='t [seg]', ylabel='$x$', label_kw={'fontsize': 10})
+    for key, value in max_x.items():
+        for x_i in zip(*value):
+            plotting.agregar_linea(ax_x, t, x_i)
+
+    ax_u = plotting.agregar_ax(
+        gs[1, 0],
+        xlabel='t [seg]', ylabel='$u$', label_kw={'fontsize': 10})
+    for key, value in max_u.items():
+        for u_i in zip(*value):
+            plotting.agregar_linea(ax_u, t, u_i)
+
+    ax_flag = plotting.agregar_ax(
+        gs[2, 0],
+        xlabel='t [seg]', ylabel='$flag$', label_kw={'fontsize': 10})
+    for i, flag in max_flag.items():
+        plotting.agregar_linea(ax_flag, t, flag, label=i)
 
     if arg.save:
-        fig.savefig('/tmp/consenso_promedio.pdf', format='pdf')
+        fig.savefig('/tmp/max.pdf', format='pdf')
     else:
         plt.show()
 

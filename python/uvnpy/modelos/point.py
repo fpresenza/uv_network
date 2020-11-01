@@ -122,10 +122,11 @@ class point(vehiculo):
         )
 
         # intercambio de información
-        self.promedio = consenso.promedio()
-        self.lpf = consenso.lpf()
         self.inbox = collections.deque(maxlen=30)
         self.outbox = {'id': self.id}
+        self.promedio = consenso.promedio()
+        self.lpf = consenso.lpf()
+        self.comparador = consenso.comparador()
 
     def control_step(self, t, landmarks=[]):
         self.filtro.prediccion(t, self.control.u, 'control')
@@ -139,15 +140,15 @@ class point(vehiculo):
         self.outbox.update(avg=xi)
         self.inbox.clear()
 
-    def iniciar_consenso_lpf(self, xi, ui, ti=0.):
-        self.lpf.iniciar(xi, ti)
-        self.outbox.update(lpf={'x': xi, 'u': ui})
-        self.inbox.clear()
-
     def consenso_promedio_step(self, t):
         x_j = [msg['avg'] for msg in self.inbox]
         self.promedio.step(t, ([x_j], ))
         self.outbox.update(avg=self.promedio.x)
+        self.inbox.clear()
+
+    def iniciar_consenso_lpf(self, xi, ui, ti=0.):
+        self.lpf.iniciar(xi, ti)
+        self.outbox.update(lpf={'x': xi, 'u': ui})
         self.inbox.clear()
 
     def consenso_lpf_step(self, t, u):
@@ -158,4 +159,19 @@ class point(vehiculo):
             lpf={
                 'x': self.lpf.x,
                 'u': u})
+        self.inbox.clear()
+
+    def iniciar_consenso_comparador(self, xi, ui, funcion):
+        self.comparador.iniciar(xi, ui, funcion)
+        self.outbox.update(comparador={'x': xi, 'u': ui})
+        self.inbox.clear()
+
+    def consenso_comparador_step(self):
+        x_j = [msg['comparador']['x'] for msg in self.inbox]
+        u_j = [msg['comparador']['u'] for msg in self.inbox]
+        self.comparador.step(x_j, u_j)
+        self.outbox.update(
+            comparador={
+                'x': self.comparador.x,
+                'u': self.comparador.u})
         self.inbox.clear()

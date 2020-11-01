@@ -3,7 +3,7 @@
 """
 @author Francisco Presenza
 @institute LAR - FIUBA, Universidad de Buenos Aires, Argentina
-@date vie oct 30 15:12:32 -03 2020
+@date jue oct 29 17:09:54 -03 2020
 """
 import argparse
 import numpy as np
@@ -17,7 +17,7 @@ from uvnpy.redes import grafo, proximidad
 def run(tiempo, red, rango_max):
     # logs
     P = dict([(v.id, [v.din.p]) for v in red.vehiculos])
-    cmd = dict([(v.id, v.promedio.x) for v in red.vehiculos])
+    cmd = dict([(v.id, np.zeros(2)) for v in red.vehiculos])
     avg = dict([(v.id, [v.promedio.x]) for v in red.vehiculos])
     E = [red.enlaces]
 
@@ -26,15 +26,10 @@ def run(tiempo, red, rango_max):
         E.append(red.enlaces)
         red.intercambiar()
         for v in red.vehiculos:
-            x_j = [msg['avg'] for msg in v.inbox]
-            cmd_i = v.promedio.dinamica(v.din.p, t, x_j)
-            v.outbox.update(avg=v.din.p)
-            v.inbox.clear()
-            cmd[v.id] = 0.25 * cmd_i
             v.din.step(t, cmd[v.id])
-
+            v.consenso_promedio_step(t)
             P[v.id].append(v.din.p)
-            avg[v.id].append(v.din.p)
+            avg[v.id].append(v.promedio.x)
 
     return P, E, avg
 
@@ -75,15 +70,18 @@ if __name__ == '__main__':
     N = arg.agents
     red = grafo(directed=False)
     red.agregar_vehiculos([point(i) for i in range(N)])
-    pi = dict([(v.id, np.random.uniform(-15, 15, 2)) for v in red.vehiculos])
-    vi = dict([(v.id, np.random.normal(0, 5, 2)) for v in red.vehiculos])
+    red.iniciar_dinamica({
+        0: [0, 0.],
+        1: [15., 0],
+        2: [-10, 15.]
+    })
+    red.iniciar_consenso_promedio({
+        0: [10.],
+        1: [30.],
+        2: [50.]
+    })
 
-    red.iniciar_dinamica(
-        pi=pi,
-        vi=vi)
-    red.iniciar_consenso_promedio(pi)
-
-    rango_max = np.sqrt(10.**2 + 10.**2)
+    rango_max = np.sqrt(20.**2 + 20.**2)
 
     # ------------------------------------------------------------------
     # Simulación
@@ -95,22 +93,18 @@ if __name__ == '__main__':
     # Plotting
     # ------------------------------------------------------------------
     fig = plt.figure()
-    fig.subplots_adjust(hspace=0.5, wspace=0.25)
-    gs = fig.add_gridspec(2, 1)
-    fig.suptitle('Consenso - rendezvous')
-    avg_x = plotting.agregar_ax(
+    # fig.subplots_adjust(hspace=0.5, wspace=0.25)
+    gs = fig.add_gridspec(1, 1)
+    ax_avg = plotting.agregar_ax(
         gs[0, 0],
-        xlabel='t [seg]', ylabel='$v_x$ [m/s]', label_kw={'fontsize': 10})
-    avg_y = plotting.agregar_ax(
-        gs[1, 0],
-        xlabel='t [seg]', ylabel='$v_y$ [m/s]', label_kw={'fontsize': 10})
-    for key, value in avg.items():
-        x, y = zip(*value)
-        plotting.agregar_linea(avg_x, t, x)
-        plotting.agregar_linea(avg_y, t, y)
+        title='Consenso - Promedio', title_kw={'fontsize': 11},
+        xlabel='t [seg]', ylabel='', label_kw={'fontsize': 10})
+    plotting.agregar_linea(ax_avg, t, avg[0], color='r', label='$0$')
+    plotting.agregar_linea(ax_avg, t, avg[1], color='g', label='$1$')
+    plotting.agregar_linea(ax_avg, t, avg[2], color='b', label='$2$')
 
     if arg.save:
-        fig.savefig('/tmp/rendezvous.pdf', format='pdf')
+        fig.savefig('/tmp/consenso_promedio.pdf', format='pdf')
     else:
         plt.show()
 

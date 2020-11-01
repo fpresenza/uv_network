@@ -118,10 +118,15 @@ class grafo(Graph):
             v_i.inbox.append(msg_j)
             v_j.inbox.append(msg_i)
 
-    def iniciar_consenso_promedio(self, avg):
+    def iniciar_consenso_promedio(self, dic):
         for v in self.vehiculos:
-            v.iniciar_consenso_promedio(avg[v.id])
+            v.iniciar_consenso_promedio(dic[v.id])
 
-    def iniciar_consenso_lpf(self, lpf):
+    def iniciar_consenso_lpf(self, dic):
         for v in self.vehiculos:
-            v.iniciar_consenso_lpf(lpf[v.id]['x'], lpf[v.id]['u'])
+            v.iniciar_consenso_lpf(dic[v.id]['x'], dic[v.id]['u'])
+
+    def iniciar_consenso_comparador(self, dic, func):
+        for v in self.vehiculos:
+            v.iniciar_consenso_comparador(
+                dic[v.id]['x'], dic[v.id]['u'], func)
