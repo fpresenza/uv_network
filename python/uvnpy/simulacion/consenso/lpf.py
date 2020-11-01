@@ -71,9 +71,9 @@ if __name__ == '__main__':
     sigma = 0.25
 
     def signal(t, v_id):
-        # f = [np.cos(t), np.sin(t)]
+        f = [np.cos(t), np.sin(t)]
         # f = [np.sin(t)]
-        f = [v_id + 1.]
+        # f = [v_id + 1.]
         return np.random.normal(f, sigma)
 
     N = arg.agents

@@ -139,9 +139,9 @@ class point(vehiculo):
         self.outbox.update(avg=xi)
         self.inbox.clear()
 
-    def iniciar_consenso_lpf(self, lpfi, ti=0.):
-        self.lpf.iniciar(lpfi['x'], ti=0.)
-        self.outbox.update(lpf=lpfi)
+    def iniciar_consenso_lpf(self, xi, ui, ti=0.):
+        self.lpf.iniciar(xi, ti=0.)
+        self.outbox.update(lpf={'x': xi, 'u': ui})
         self.inbox.clear()
 
     def consenso_promedio_step(self, t):

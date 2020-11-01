@@ -124,4 +124,4 @@ class grafo(Graph):
 
     def iniciar_consenso_lpf(self, lpf):
         for v in self.vehiculos:
-            v.iniciar_consenso_lpf(lpf[v.id])
+            v.iniciar_consenso_lpf(lpf[v.id]['x'], lpf[v.id]['u'])
