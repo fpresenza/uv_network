@@ -71,7 +71,7 @@ if __name__ == '__main__':
     N = arg.agents
     red = grafo(directed=False)
     red.agregar_vehiculos([point(i) for i in range(N)])
-    pi = dict([(v.id, np.random.uniform(-20, 20, 2)) for v in red.vehiculos])
+    pi = dict([(v.id, np.random.uniform(-10, 10, 2)) for v in red.vehiculos])
     vi = dict([(v.id, np.random.normal(0, 5, 2)) for v in red.vehiculos])
 
     red.iniciar_dinamica(

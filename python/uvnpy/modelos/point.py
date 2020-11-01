@@ -134,26 +134,26 @@ class point(vehiculo):
             self.filtro.correccion(range_meas, 'rango', landmarks)
         self.control.update(self.filtro.p, t, (landmarks, self.rango.sigma))
 
-    def iniciar_consenso_promedio(self, avg):
-        self.promedio.iniciar(avg)
-        self.outbox.update(avg=avg)
+    def iniciar_consenso_promedio(self, xi, ti=0.):
+        self.promedio.iniciar(xi, ti)
+        self.outbox.update(avg=xi)
         self.inbox.clear()
 
-    def iniciar_consenso_lpf(self, lpf):
-        self.lpf.iniciar(lpf['x'])
-        self.outbox.update(lpf=lpf)
+    def iniciar_consenso_lpf(self, lpfi, ti=0.):
+        self.lpf.iniciar(lpfi['x'], ti=0.)
+        self.outbox.update(lpf=lpfi)
         self.inbox.clear()
 
     def consenso_promedio_step(self, t):
-        avg_x_j = [msg.get('avg') for msg in self.inbox]
-        self.promedio(t, avg_x_j)
+        x_j = [msg['avg'] for msg in self.inbox]
+        self.promedio.step(t, ([x_j], ))
         self.outbox.update(avg=self.promedio.x)
         self.inbox.clear()
 
     def consenso_lpf_step(self, t, u):
-        lpf_x_j = [msg['lpf']['x'] for msg in self.inbox]
-        lpf_u_j = [msg['lpf']['u'] for msg in self.inbox]
-        self.lpf(t, u, lpf_x_j, lpf_u_j)
+        x_j = [msg['lpf']['x'] for msg in self.inbox]
+        u_j = [msg['lpf']['u'] for msg in self.inbox]
+        self.lpf.step(t, ([u, x_j, u_j], ))
         self.outbox.update(
             lpf={
                 'x': self.lpf.x,

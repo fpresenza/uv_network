@@ -26,7 +26,7 @@ def run(tiempo, red, rango_max, ui, signal):
         E.append(red.enlaces)
         red.intercambiar()
         for v in red.vehiculos:
-            u = signal(t)
+            u = signal(t, v.id)
             v.consenso_lpf_step(t, u)
             P[v.id].append(v.din.p)
             U[v.id].append(u)
@@ -68,12 +68,12 @@ if __name__ == '__main__':
     # ------------------------------------------------------------------
     tiempo = np.arange(arg.ti, arg.tf, arg.h)
 
-    sigma = 0.5
+    sigma = 0.25
 
-    def signal(t):
-        f = [np.cos(t), np.sin(t)]
+    def signal(t, v_id):
+        # f = [np.cos(t), np.sin(t)]
         # f = [np.sin(t)]
-        # f = [1.]
+        f = [v_id + 1.]
         return np.random.normal(f, sigma)
 
     N = arg.agents
@@ -81,7 +81,7 @@ if __name__ == '__main__':
     red.agregar_vehiculos([point(i) for i in range(N)])
     pi = dict([(v.id, np.random.uniform(-5, 5, 2)) for v in red.vehiculos])
     vi = dict([(v.id, [0., 0.]) for v in red.vehiculos])
-    ui = dict([(v.id, signal(0)) for v in red.vehiculos])
+    ui = dict([(v.id, signal(0, v.id)) for v in red.vehiculos])
 
     red.iniciar_dinamica(
         pi=pi,
