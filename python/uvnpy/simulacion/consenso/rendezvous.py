@@ -26,10 +26,10 @@ def run(tiempo, red, rango_max):
         E.append(red.enlaces)
         red.intercambiar()
         for v in red.vehiculos:
-            x_j = [msg['avg'] for msg in v.inbox]
+            x_j = v.box.extraer('avg')
             cmd_i = v.promedio.dinamica(v.din.p, t, x_j)
-            v.outbox.update(avg=v.din.p)
-            v.inbox.clear()
+            v.box.actualizar_salida(avg=v.din.p)
+            v.box.limpiar_entrada()
             cmd[v.id] = 0.25 * cmd_i
             v.din.step(t, cmd[v.id])
 
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     N = arg.agents
     red = grafo(directed=False)
     red.agregar_vehiculos([point(i) for i in range(N)])
-    pi = dict([(v.id, np.random.uniform(-15, 15, 2)) for v in red.vehiculos])
+    pi = dict([(v.id, np.random.uniform(-10, 10, 2)) for v in red.vehiculos])
     vi = dict([(v.id, np.random.normal(0, 5, 2)) for v in red.vehiculos])
 
     red.iniciar_dinamica(
@@ -100,10 +100,10 @@ if __name__ == '__main__':
     fig.suptitle('Consenso - rendezvous')
     avg_x = plotting.agregar_ax(
         gs[0, 0],
-        xlabel='t [seg]', ylabel='$v_x$ [m/s]', label_kw={'fontsize': 10})
+        xlabel='t [seg]', ylabel='$p_x$ [m]', label_kw={'fontsize': 10})
     avg_y = plotting.agregar_ax(
         gs[1, 0],
-        xlabel='t [seg]', ylabel='$v_y$ [m/s]', label_kw={'fontsize': 10})
+        xlabel='t [seg]', ylabel='$p_y$ [m]', label_kw={'fontsize': 10})
     for key, value in avg.items():
         x, y = zip(*value)
         plotting.agregar_linea(avg_x, t, x)

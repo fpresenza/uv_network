@@ -10,8 +10,8 @@ from graph_tool import Graph
 from uvnpy.toolkit import iterable
 
 __all__ = [
-  'proximidad',
-  'grafo'
+    'proximidad',
+    'grafo'
 ]
 
 
@@ -104,8 +104,8 @@ class grafo(Graph):
         """Compartir mensaje con sus vecinos. """
         vehiculo = self.vehiculo(i)
         vecinos = self.vecinos(i)
-        msg = vehiculo.outbox.copy()
-        return [v.inbox.append(msg) for v in vecinos]
+        msg = vehiculo.box.salida
+        return [v.box.recibir(msg) for v in vecinos]
 
     def intercambiar(self):
         """Intercambiar mensajes entre vecinos. """
@@ -113,20 +113,22 @@ class grafo(Graph):
         for s, t in edges:
             v_i = self.vp.uvs[s]
             v_j = self.vp.uvs[t]
-            msg_i = v_i.outbox.copy()
-            msg_j = v_j.outbox.copy()
-            v_i.inbox.append(msg_j)
-            v_j.inbox.append(msg_i)
+            msg_i = v_i.box.salida
+            msg_j = v_j.box.salida
+            v_i.box.recibir(msg_j)
+            v_j.box.recibir(msg_i)
 
-    def iniciar_consenso_promedio(self, dic):
+    def iniciar_consenso_promedio(self, dic, ti=0.):
         for v in self.vehiculos:
-            v.iniciar_consenso_promedio(dic[v.id])
+            v.promedio.iniciar(dic[v.id], ti)
+            v.box.actualizar_salida(avg=dic[v.id])
 
-    def iniciar_consenso_lpf(self, dic):
+    def iniciar_consenso_lpf(self, dic, ti=0.):
         for v in self.vehiculos:
-            v.iniciar_consenso_lpf(dic[v.id]['x'], dic[v.id]['u'])
+            v.lpf.iniciar(dic[v.id]['x'], ti)
+            v.box.actualizar_salida(lpf=dic[v.id])
 
-    def iniciar_consenso_comparador(self, dic, func):
+    def iniciar_consenso_comparador(self, dic, funcion):
         for v in self.vehiculos:
-            v.iniciar_consenso_comparador(
-                dic[v.id]['x'], dic[v.id]['u'], func)
+            v.comparador.iniciar(dic[v.id]['x'], dic[v.id]['u'], funcion)
+            v.box.actualizar_salida(comparador=dic[v.id])

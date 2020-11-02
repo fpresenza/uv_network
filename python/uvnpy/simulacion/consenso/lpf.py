@@ -28,6 +28,8 @@ def run(tiempo, red, rango_max, ui, signal):
         for v in red.vehiculos:
             u = signal(t, v.id)
             v.consenso_lpf_step(t, u)
+            v.box.limpiar_entrada()
+
             P[v.id].append(v.din.p)
             U[v.id].append(u)
             lpf[v.id].append(v.lpf.x)
@@ -71,9 +73,9 @@ if __name__ == '__main__':
     sigma = 0.25
 
     def signal(t, v_id):
-        f = [np.cos(t), np.sin(t)]
+        # f = [np.cos(t), np.sin(t)]
         # f = [np.sin(t)]
-        # f = [v_id + 1.]
+        f = [v_id + 1.]
         return np.random.normal(f, sigma)
 
     N = arg.agents

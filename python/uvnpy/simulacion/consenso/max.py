@@ -28,6 +28,8 @@ def run(tiempo, red, rango_max):
         red.intercambiar()
         for v in red.vehiculos:
             v.consenso_comparador_step()
+            v.box.limpiar_entrada()
+
             P[v.id].append(v.din.p)
             max_x[v.id].append(v.comparador.x)
             max_u[v.id].append(v.comparador.u)

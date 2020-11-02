@@ -5,7 +5,6 @@ Created on Mon Apr 06 12:41:07 2020
 @author: fran
 """
 import numpy as np
-import collections
 from types import SimpleNamespace
 
 from gpsic.analisis.core import cargar_yaml
@@ -17,6 +16,7 @@ from uvnpy.sensores import rango
 from uvnpy.filtering import consenso, kalman, metricas
 from uvnpy.filtering import ajustar_sigma
 from uvnpy.control import mpc_informativo
+from uvnpy.redes import mensajeria
 
 
 __all__ = ['point']
@@ -122,8 +122,7 @@ class point(vehiculo):
         )
 
         # intercambio de información
-        self.inbox = collections.deque(maxlen=30)
-        self.outbox = {'id': self.id}
+        self.box = mensajeria.box(out={'id': self.id}, maxlen=30)
         self.promedio = consenso.promedio()
         self.lpf = consenso.lpf()
         self.comparador = consenso.comparador()
@@ -135,43 +134,25 @@ class point(vehiculo):
             self.filtro.correccion(range_meas, 'rango', landmarks)
         self.control.update(self.filtro.p, t, (landmarks, self.rango.sigma))
 
-    def iniciar_consenso_promedio(self, xi, ti=0.):
-        self.promedio.iniciar(xi, ti)
-        self.outbox.update(avg=xi)
-        self.inbox.clear()
-
     def consenso_promedio_step(self, t):
-        x_j = [msg['avg'] for msg in self.inbox]
+        x_j = self.box.extraer('avg')
         self.promedio.step(t, ([x_j], ))
-        self.outbox.update(avg=self.promedio.x)
-        self.inbox.clear()
-
-    def iniciar_consenso_lpf(self, xi, ui, ti=0.):
-        self.lpf.iniciar(xi, ti)
-        self.outbox.update(lpf={'x': xi, 'u': ui})
-        self.inbox.clear()
+        self.box.actualizar_salida(avg=self.promedio.x)
 
     def consenso_lpf_step(self, t, u):
-        x_j = [msg['lpf']['x'] for msg in self.inbox]
-        u_j = [msg['lpf']['u'] for msg in self.inbox]
+        x_j = self.box.extraer('lpf', 'x')
+        u_j = self.box.extraer('lpf', 'u')
         self.lpf.step(t, ([u, x_j, u_j], ))
-        self.outbox.update(
+        self.box.actualizar_salida(
             lpf={
                 'x': self.lpf.x,
                 'u': u})
-        self.inbox.clear()
-
-    def iniciar_consenso_comparador(self, xi, ui, funcion):
-        self.comparador.iniciar(xi, ui, funcion)
-        self.outbox.update(comparador={'x': xi, 'u': ui})
-        self.inbox.clear()
 
     def consenso_comparador_step(self):
-        x_j = [msg['comparador']['x'] for msg in self.inbox]
-        u_j = [msg['comparador']['u'] for msg in self.inbox]
+        x_j = self.box.extraer('comparador', 'x')
+        u_j = self.box.extraer('comparador', 'u')
         self.comparador.step(x_j, u_j)
-        self.outbox.update(
+        self.box.actualizar_salida(
             comparador={
                 'x': self.comparador.x,
                 'u': self.comparador.u})
-        self.inbox.clear()
