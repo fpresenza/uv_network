@@ -9,11 +9,11 @@ from numpy.linalg import norm
 
 
 __all__ = [
-  'distancia',
-  'gradiente',
-  'delta_informacion',
-  'delta_informacion_sum',
-  'sensor'
+    'distancia',
+    'gradiente',
+    'delta_informacion',
+    'delta_informacion_sum',
+    'sensor'
 ]
 
 
@@ -41,7 +41,7 @@ class sensor(object):
     """Modelo de sensor de rango. """
     def __init__(self, sigma=1.):
         self.sigma = sigma
-        self.R = np.diag([np.square(self.sigma)])
+        self.R = self.sigma**2
 
     def __call__(self, p, q):
         """Simula una medición ruidosa. """

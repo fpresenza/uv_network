@@ -13,16 +13,16 @@ from uvnpy.modelos import point
 
 def run(tiempo, points, landmarks):
     # logs
-    x = [points[0].kin.x]
+    x = [points[0].din.x]
     u = [points[0].control.u]
-    P = dict([(point.id, [point.kin.p]) for point in points])
+    P = dict([(point.id, [point.din.p]) for point in points])
 
     for t in tiempo[1:]:
         for point in points:
-            point.kin.step(t, point.control.u)
+            point.din.step(t, point.control.u)
             point.control_step(t, landmarks=landmarks)
-            P[point.id].append(point.kin.p)
-        x.append(points[0].kin.x)
+            P[point.id].append(point.din.p)
+        x.append(points[0].din.x)
         u.append(points[0].control.u)
         points[0].filtro.guardar()
 
@@ -35,23 +35,24 @@ if __name__ == '__main__':
     # ------------------------------------------------------------------
     parser = argparse.ArgumentParser(description='')
     parser.add_argument(
-      '-s', '--step',
-      dest='h', default=50e-3, type=float, help='paso de simulación')
+        '-s', '--step',
+        dest='h', default=50e-3, type=float, help='paso de simulación')
     parser.add_argument(
-      '-t', '--ti',
-      metavar='T0', default=0.0, type=float, help='tiempo inicial')
+        '-t', '--ti',
+        metavar='T0', default=0.0, type=float, help='tiempo inicial')
     parser.add_argument(
-      '-e', '--tf',
-      default=1.0, type=float, help='tiempo final')
+        '-e', '--tf',
+        default=1.0, type=float, help='tiempo final')
     parser.add_argument(
-      '-g', '--save',
-      default=False, action='store_true', help='flag para guardar los videos')
+        '-g', '--save',
+        default=False, action='store_true',
+        help='flag para guardar los videos')
     parser.add_argument(
-      '-a', '--animate',
-      default=False, action='store_true', help='flag para generar animacion')
+        '-a', '--animate',
+        default=False, action='store_true', help='flag para generar animacion')
     parser.add_argument(
-      '-n', '--agents',
-      default=1, type=int, help='cantidad de agentes')
+        '-n', '--agents',
+        default=1, type=int, help='cantidad de agentes')
 
     arg = parser.parse_args()
 
@@ -91,9 +92,9 @@ if __name__ == '__main__':
     gs = fig.add_gridspec(2, 3)
     # posición
     ax_pos = plotting.agregar_ax(
-      gs[0, 0],
-      title='Pos. (verdadero vs. estimado)', title_kw={'fontsize': 11},
-      xlabel='t [seg]', ylabel='posición [m]', label_kw={'fontsize': 10})
+        gs[0, 0],
+        title='Pos. (verdadero vs. estimado)', title_kw={'fontsize': 11},
+        xlabel='t [seg]', ylabel='posición [m]', label_kw={'fontsize': 10})
     plotting.agregar_linea(ax_pos, t, x[:, 0], color='r', label='$p_x$')
     plotting.agregar_linea(ax_pos, t, x[:, 1], color='g', label='$p_y$')
     plotting.agregar_linea(ax_pos, t, f_x[:, 0], color='r', ls='dotted')
@@ -101,9 +102,9 @@ if __name__ == '__main__':
 
     # velocidad
     ax_vel = plotting.agregar_ax(
-      gs[0, 1],
-      title='Vel. (verdadero vs. estimado)', title_kw={'fontsize': 11},
-      xlabel='t [seg]', ylabel=r'velocidad [m/s]', label_kw={'fontsize': 10})
+        gs[0, 1],
+        title='Vel. (verdadero vs. estimado)', title_kw={'fontsize': 11},
+        xlabel='t [seg]', ylabel=r'velocidad [m/s]', label_kw={'fontsize': 10})
     plotting.agregar_linea(ax_vel, t, x[:, 2], color='r', label='$v_x$')
     plotting.agregar_linea(ax_vel, t, x[:, 3], color='g', label='$v_y$')
     plotting.agregar_linea(ax_vel, t, f_x[:, 2], color='r', ls='dotted')
@@ -111,23 +112,23 @@ if __name__ == '__main__':
 
     # control
     ax_ctr = plotting.agregar_ax(
-      gs[0, 2],
-      title='Esfuerzo de control', title_kw={'fontsize': 11},
-      xlabel='t [seg]', ylabel=r'velocidad [m/s]', label_kw={'fontsize': 10})
+        gs[0, 2],
+        title='Esfuerzo de control', title_kw={'fontsize': 11},
+        xlabel='t [seg]', ylabel=r'velocidad [m/s]', label_kw={'fontsize': 10})
     plotting.agregar_linea(ax_ctr, t, u[:, 0], color='r', label='$v_x$')
     plotting.agregar_linea(ax_ctr, t, u[:, 1], color='g', label='$v_y$')
 
     # error posición
     ax_ep = plotting.agregar_ax(
-      gs[1, 0],
-      title='Pos. (error vs. std. dev.)', title_kw={'fontsize': 11},
-      xlabel='t [seg]', ylabel='posición [m]', label_kw={'fontsize': 10})
+        gs[1, 0],
+        title='Pos. (error vs. std. dev.)', title_kw={'fontsize': 11},
+        xlabel='t [seg]', ylabel='posición [m]', label_kw={'fontsize': 10})
     plotting.agregar_linea(
-      ax_ep, t, x[:, 0] - f_x[:, 0],
-      color='r', label='$e_x$')
+        ax_ep, t, x[:, 0] - f_x[:, 0],
+        color='r', label='$e_x$')
     plotting.agregar_linea(
-      ax_ep, t, x[:, 1] - f_x[:, 1],
-      color='g', label='$e_y$')
+        ax_ep, t, x[:, 1] - f_x[:, 1],
+        color='g', label='$e_y$')
     plotting.agregar_linea(ax_ep, t, f_dvst[:, 0], color='r', ls='dotted')
     plotting.agregar_linea(ax_ep, t, f_dvst[:, 1], color='g', ls='dotted')
     plotting.agregar_linea(ax_ep, t, -f_dvst[:, 0], color='r', ls='dotted')
@@ -135,14 +136,14 @@ if __name__ == '__main__':
 
     # error velocidad
     ax_ev = plotting.agregar_ax(
-      gs[1, 1],
-      title='Vel. (error vs. std. dev.)', title_kw={'fontsize': 11},
-      xlabel='t [seg]', ylabel=r'velocidad [m/s]',
-      label_kw={'fontsize': 10})
+        gs[1, 1],
+        title='Vel. (error vs. std. dev.)', title_kw={'fontsize': 11},
+        xlabel='t [seg]', ylabel=r'velocidad [m/s]',
+        label_kw={'fontsize': 10})
     plotting.agregar_linea(
-      ax_ev, t, x[:, 2] - f_x[:, 2], color='r', label='$e_{v_x}$')
+        ax_ev, t, x[:, 2] - f_x[:, 2], color='r', label='$e_{v_x}$')
     plotting.agregar_linea(
-      ax_ev, t, x[:, 3] - f_x[:, 3], color='g', label='$e_{v_y}$')
+        ax_ev, t, x[:, 3] - f_x[:, 3], color='g', label='$e_{v_y}$')
     plotting.agregar_linea(ax_ev, t, f_dvst[:, 2], color='r', ls='dotted')
     plotting.agregar_linea(ax_ev, t, f_dvst[:, 3], color='g', ls='dotted')
     plotting.agregar_linea(ax_ev, t, -f_dvst[:, 2], color='r', ls='dotted')
@@ -150,19 +151,19 @@ if __name__ == '__main__':
 
     # Valores singulares
     ax_sv = plotting.agregar_ax(
-      gs[1, 2],
-      title=r'Valores singulares: $\sigma(P_x)$', title_kw={'fontsize': 11},
-      xlabel='t [seg]', ylabel='', label_kw={'fontsize': 10})
+        gs[1, 2],
+        title=r'Valores singulares: $\sigma(P_x)$', title_kw={'fontsize': 11},
+        xlabel='t [seg]', ylabel='', label_kw={'fontsize': 10})
     plotting.agregar_linea(
-      ax_sv, t, np.sqrt(f_eigs[:, 3]),
-      color='m', label=r'$\sqrt{\sigma_{\rm{max}}}$')
+        ax_sv, t, np.sqrt(f_eigs[:, 3]),
+        color='m', label=r'$\sqrt{\sigma_{\rm{max}}}$')
     plotting.agregar_linea(
-      ax_sv, t, np.sqrt(f_eigs[:, 2]), color='0.5', label='')
+        ax_sv, t, np.sqrt(f_eigs[:, 2]), color='0.5', label='')
     plotting.agregar_linea(
-      ax_sv, t, np.sqrt(f_eigs[:, 1]), color='0.5', label='')
+        ax_sv, t, np.sqrt(f_eigs[:, 1]), color='0.5', label='')
     plotting.agregar_linea(
-      ax_sv, t, np.sqrt(f_eigs[:, 0]),
-      color='c', label=r'$\sqrt{\sigma_{\rm{min}}}$')
+        ax_sv, t, np.sqrt(f_eigs[:, 0]),
+        color='c', label=r'$\sqrt{\sigma_{\rm{min}}}$')
 
     if arg.save:
         fig.savefig('/tmp/point_opt_ctrl.pdf', format='pdf')
@@ -171,7 +172,7 @@ if __name__ == '__main__':
 
     E = [[] for _ in t]
     graph_plotter = plotting.GraphPlotter(
-      t, P, E, save=arg.save, landmarks=landmarks)
+        t, P, E, save=arg.save, landmarks=landmarks)
     if arg.animate:
         graph_plotter.animation2d(
-          step=1, plot_kw={'xlim': [-40, 40], 'ylim': [-40, 40]})
+            step=1, plot_kw={'xlim': [-40, 40], 'ylim': [-40, 40]})

@@ -17,57 +17,81 @@ def fusionar(informacion):
 
         informacion = ([y_1, I_1], ..., [y_n, I_n])
     """
-    y_s, F_s = zip(*informacion)
-    return sum(y_s), sum(F_s)
+    v_s, I_s = zip(*informacion)
+    return sum(v_s), sum(I_s)
 
 
-class EKF(object):
+class kalman(object):
     def __init__(self, xi, dxi, ti=0.):
-        """ Filtro extendido de Kalman. """
+        """Filtros de Kalman. """
         self.t = ti
         self._x = np.copy(xi)
         self._P = np.diag(np.square(dxi))
-        self.Id = np.identity(self._x.size)
 
-    def prediccion(self, t, u, sensor, *args):
-        """ Paso de predicción:
+    @property
+    def x(self):
+        return self._x.copy()
+
+    @property
+    def P(self):
+        return self._P.copy()
+
+    def prediccion(self, t, *args):
+        """Paso de predicción
 
         Argumentos:
 
             t: tiempo
-            u: señal de excitación del modelo (lista o array)
-            sensor: nombre de función de medición introceptiva (str)
         """
-        Ts = t - self.t
+        dt = t - self.t
         self.t = t
-        f = eval('self.' + sensor)
-        dot_x, F_x, F_e, Q = f(t, u, *args)
-        self._x = self._x + Ts * dot_x
-        Phi = self.Id + Ts * F_x
-        Phi_P_Phi = [Phi, self._P, Phi.T]
-        F_e_Q_F_e = [F_e, Q, F_e.T]
-        self._P = multi_dot(Phi_P_Phi) + multi_dot(F_e_Q_F_e) * (Ts**2)
+        self._x, self._P = self.f(dt, *args)
 
-    def correccion(self, y, sensor, *args):
-        """ Paso de corrección
+
+class KF(kalman):
+    def __init__(self, xi, dxi, ti=0.):
+        super(KF, self).__init__(xi, dxi, ti=0.)
+        self._dz = None
+
+    @property
+    def dz(self):
+        return self._dz
+
+    def correccion(self, h, z, *args):
+        """Paso de corrección
 
         Argumentos:
 
-            y: medición (lista o array)
-            sensor: nombre de función de medición exoceptiva (str)
+            h: modelo de medición exoceptiva
+            z: medición
         """
-        h = eval('self.' + sensor)
-        hat_y, H, R = h(*args)
-        self.dy = np.subtract(y, hat_y)
-        P_dy = multi_dot([H, self._P, H.T]) + R
-        K = multi_dot([self._P, H.T, inv(P_dy)])
-        self._x = self._x + np.matmul(K, self.dy)
+        hat_z, H, R = h(*args)
+        self._dz = np.subtract(z, hat_z)
+        P_z = multi_dot([H, self._P, H.T]) + R
+        K = multi_dot([self._P, H.T, inv(P_z)])
+        self._x = self._x + np.matmul(K, self._dz)
         self._P = self._P - multi_dot([K, H, self._P])
 
-    @property
-    def x(self):
-        return self._x[:]
+
+class IF(kalman):
+    def __init__(self, xi, dxi, ti=0.):
+        super(IF, self).__init__(xi, dxi, ti=0.)
+        self._dy = None
 
     @property
-    def P(self):
-        return self._P[:]
+    def dy(self):
+        return self._dy
+
+    def correccion(self, h, z, *args):
+        """Paso de corrección
+
+        Argumentos:
+
+            h: modelo de medición exoceptiva
+            z: medición
+        """
+        dy, Y = h(*args)
+        self._dy = dy
+        I_prior = inv(self._P)
+        self._P = inv(I_prior + Y)
+        self._x = self._x + np.matmul(self._P, self._dy)

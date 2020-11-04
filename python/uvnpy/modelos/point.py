@@ -22,23 +22,23 @@ from uvnpy.redes import mensajeria
 __all__ = ['point']
 
 
-class point_loc_ekf(kalman.EKF):
+class point_loc_ekf(kalman.KF):
     def __init__(self, x, dx, Q, R, ti=0.):
         """ Filtro de localización de un vehículo control_velocidad """
         super(point_loc_ekf, self).__init__(x, dx, ti=0.)
-        self.dof = int(len(x) / 2)
-        Id = np.identity(2)
+        self.Id = np.identity(4)
+        Id = self.Id[:2, :2]
         Z = np.zeros_like(Id)
         K = 3 * Id
         self.F_x = np.block([[Z, Id],
                              [Z, -K]])
         self.F_u = np.block([[Z],
                              [K]])
-        self.F_z = np.block([[Z, Z],
-                             [Id, -K]])
-        self.Q = Q
+        B = np.block([[Z, Z],
+                      [Id, -K]])
+        self.Q = np.linalg.multi_dot([B, Q, B.T])
         self.R = R
-        self.log_dict = SimpleNamespace(
+        self._logs = SimpleNamespace(
           t=[self.t],
           x=[self.x],
           dvst=[metricas.sqrt_diagonal(self.P)],
@@ -46,41 +46,45 @@ class point_loc_ekf(kalman.EKF):
 
     @property
     def p(self):
-        return self.x[:self.dof]
+        return self.x[:2]
 
     @property
     def v(self):
-        return self.x[self.dof:]
+        return self.x[2:]
 
-    def control(self, t, u):
-        x = self.x
+    def f(self, dt, u):
+        x = self._x
+        P = self._P
         dot_x = np.matmul(self.F_x, x) + np.matmul(self.F_u, u)
-        return dot_x, self.F_x, self.F_z, self.Q
+        Phi = self.Id + dt * self.F_x
+        x_prior = x + dt * dot_x
+        P_prior = np.matmul(Phi, np.matmul(P, Phi.T)) + self.Q * (dt**2)
+        return x_prior, P_prior
 
     def rango(self, landmarks):
         #   medición esperada
         p = self.p
-        hat_y = [linalg.dist(p, lm) for lm in landmarks]
+        hat_z = [linalg.dist(p, lm) for lm in landmarks]
         #   Jacobiano
         Hp = np.vstack([rango.gradiente(p, lm) for lm in landmarks])
         H = np.hstack([Hp, np.zeros_like(Hp)])
         #   Ruido
-        R = self.R * np.identity(len(landmarks))
-        return hat_y, H, R
+        R = np.diag([self.R for _ in landmarks])
+        return hat_z, H, R
 
     def guardar(self):
         """Guarda los últimos datos. """
-        self.log_dict.t.append(self.t)
-        self.log_dict.x.append(self.x)
-        self.log_dict.dvst.append(
+        self._logs.t.append(self.t)
+        self._logs.x.append(self.x)
+        self._logs.dvst.append(
           metricas.sqrt_diagonal(self.P))
-        self.log_dict.eigs.append(
+        self._logs.eigs.append(
                 metricas.eigvalsh(self.P))
 
     @property
     def logs(self):
         """Historia del filtro. """
-        return self.log_dict
+        return self._logs
 
 
 class point(vehiculo):
@@ -128,10 +132,11 @@ class point(vehiculo):
         self.comparador = consenso.comparador()
 
     def control_step(self, t, landmarks=[]):
-        self.filtro.prediccion(t, self.control.u, 'control')
+        self.filtro.prediccion(t, self.control.u)
         if len(landmarks) > 0:
-            range_meas = [self.rango(self.din.p, lm) for lm in landmarks]
-            self.filtro.correccion(range_meas, 'rango', landmarks)
+            rango_med = [self.rango(self.din.p, lm) for lm in landmarks]
+            h = self.filtro.rango
+            self.filtro.correccion(h, rango_med, landmarks)
         self.control.update(self.filtro.p, t, (landmarks, self.rango.sigma))
 
     def consenso_promedio_step(self, t):
