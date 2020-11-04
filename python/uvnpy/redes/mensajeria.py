@@ -30,8 +30,8 @@ class box(object):
         self._in.append(msg)
         return 1
 
-    def actualizar_salida(self, **msg):
-        self._out.update(**msg)
+    def actualizar_salida(self, key, value):
+        self._out[key] = value
 
     def limpiar_entrada(self):
         self._in.clear()

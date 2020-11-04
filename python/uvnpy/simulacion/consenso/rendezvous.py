@@ -17,8 +17,8 @@ from uvnpy.redes import grafo, proximidad
 def run(tiempo, red, rango_max):
     # logs
     P = dict([(v.id, [v.din.p]) for v in red.vehiculos])
-    cmd = dict([(v.id, v.promedio.x) for v in red.vehiculos])
-    avg = dict([(v.id, [v.promedio.x]) for v in red.vehiculos])
+    cmd = dict([(v.id, v.promedio[0].x) for v in red.vehiculos])
+    avg = dict([(v.id, [v.promedio[0].x]) for v in red.vehiculos])
     E = [red.enlaces]
 
     for t in tiempo[1:]:
@@ -26,9 +26,9 @@ def run(tiempo, red, rango_max):
         E.append(red.enlaces)
         red.intercambiar()
         for v in red.vehiculos:
-            x_j = v.box.extraer('avg')
-            cmd_i = v.promedio.dinamica(v.din.p, t, x_j)
-            v.box.actualizar_salida(avg=v.din.p)
+            x_j = v.box.extraer(('avg', 0))
+            cmd_i = v.promedio[0].dinamica(v.din.p, t, x_j)
+            v.box.actualizar_salida(('avg', 0), v.din.p)
             v.box.limpiar_entrada()
             cmd[v.id] = 0.25 * cmd_i
             v.din.step(t, cmd[v.id])

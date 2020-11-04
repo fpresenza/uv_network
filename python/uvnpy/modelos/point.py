@@ -127,7 +127,8 @@ class point(vehiculo):
 
         # intercambio de información
         self.box = mensajeria.box(out={'id': self.id}, maxlen=30)
-        self.promedio = consenso.promedio()
+        # self.promedio = consenso.promedio()
+        self.promedio = []
         self.lpf = consenso.lpf()
         self.comparador = consenso.comparador()
 
@@ -139,25 +140,22 @@ class point(vehiculo):
             self.filtro.correccion(h, rango_med, landmarks)
         self.control.update(self.filtro.p, t, (landmarks, self.rango.sigma))
 
-    def consenso_promedio_step(self, t):
-        x_j = self.box.extraer('avg')
-        self.promedio.step(t, ([x_j], ))
-        self.box.actualizar_salida(avg=self.promedio.x)
+    def consenso_promedio_step(self, num, t):
+        promedio = self.promedio[num]
+        x_j = self.box.extraer(('avg', num))
+        promedio.step(t, ([x_j], ))
+        self.box.actualizar_salida(('avg', num), promedio.x)
 
     def consenso_lpf_step(self, t, u):
         x_j = self.box.extraer('lpf', 'x')
         u_j = self.box.extraer('lpf', 'u')
         self.lpf.step(t, ([u, x_j, u_j], ))
         self.box.actualizar_salida(
-            lpf={
-                'x': self.lpf.x,
-                'u': u})
+            'lpf', {'x': self.lpf.x, 'u': u})
 
     def consenso_comparador_step(self):
         x_j = self.box.extraer('comparador', 'x')
         u_j = self.box.extraer('comparador', 'u')
         self.comparador.step(x_j, u_j)
         self.box.actualizar_salida(
-            comparador={
-                'x': self.comparador.x,
-                'u': self.comparador.u})
+            'comparador', {'x': self.comparador.x, 'u': self.comparador.u})

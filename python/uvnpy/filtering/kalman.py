@@ -82,16 +82,16 @@ class IF(kalman):
     def dy(self):
         return self._dy
 
-    def correccion(self, h, z, *args):
+    def correccion(self, h, y, *args):
         """Paso de corrección
 
         Argumentos:
 
             h: modelo de medición exoceptiva
-            z: medición
+            y: medición en espacio de información
         """
-        dy, Y = h(*args)
-        self._dy = dy
+        hat_y, Y = h(*args)
+        self._dy = np.subtract(y, hat_y)
         I_prior = inv(self._P)
         self._P = inv(I_prior + Y)
         self._x = self._x + np.matmul(self._P, self._dy)

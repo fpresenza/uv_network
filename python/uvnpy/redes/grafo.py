@@ -8,6 +8,7 @@ from numpy.linalg import norm
 from graph_tool import Graph
 
 from uvnpy.toolkit import iterable
+from uvnpy.filtering import consenso
 
 __all__ = [
     'proximidad',
@@ -120,15 +121,16 @@ class grafo(Graph):
 
     def iniciar_consenso_promedio(self, dic, ti=0.):
         for v in self.vehiculos:
-            v.promedio.iniciar(dic[v.id], ti)
-            v.box.actualizar_salida(avg=dic[v.id])
+            num = len(v.promedio)
+            v.promedio.append(consenso.promedio(dic[v.id], ti))
+            v.box.actualizar_salida(('avg', num), dic[v.id])
 
     def iniciar_consenso_lpf(self, dic, ti=0.):
         for v in self.vehiculos:
             v.lpf.iniciar(dic[v.id]['x'], ti)
-            v.box.actualizar_salida(lpf=dic[v.id])
+            v.box.actualizar_salida('lpf', dic[v.id])
 
     def iniciar_consenso_comparador(self, dic, funcion):
         for v in self.vehiculos:
             v.comparador.iniciar(dic[v.id]['x'], dic[v.id]['u'], funcion)
-            v.box.actualizar_salida(comparador=dic[v.id])
+            v.box.actualizar_salida('comparador', dic[v.id])
