@@ -6,6 +6,7 @@ Created on Mon Apr 06 12:11:56 2020
 """
 import numpy as np
 
+from gpsic.integradores import EulerExplicito
 from gpsic.modelos.discreto import SistemaDiscreto
 
 
@@ -20,27 +21,23 @@ class vehiculo(object):
         return '{}({})'.format(self.tipo, self.id)
 
 
-class integrador(SistemaDiscreto):
-    def __init__(self, ti=0., dof=1, **kwargs):
-        """ Modelo de vehículo integrador de primer orden.
+class integrador(EulerExplicito):
+    def __init__(self, xi, ti=0., Q=None):
+        """ Modelo de vehículo integrador.
 
         Argumentos:
 
-            dof: <int> grados de libertad
-            pi: <list o tuple o array> posición inicial
-            sigma: <list o tuple o array> std. dev. en señal de entrada
+            dof: grados de libertad
+            xi: posición inicial
+            Q: matriz de covarianza del ruido
+                a la entrada.
         """
-        pi = kwargs.get('pi',  np.zeros(dof))
-        super(integrador, self).__init__(ti=ti, xi=pi)
-        self._v = np.zeros(dof)
-        self.sigma = kwargs.get('sigma', np.zeros(dof))
-        self.dof = dof
-        #   matrices del sistema
-        self.G_x = np.zeros([dof, dof])
-        self.G_u = np.identity(dof)
-        self.G_z = np.identity(dof)
-        #   matriz de covarianza del ruido
-        self.Q = np.diag(np.square(self.sigma))
+        super(integrador, self).__init__(xi=xi, ti=ti)
+        self._v = np.zeros_like(xi)
+        if Q is None:
+            n = len(xi)
+            Q = np.zeros((n, n))
+        self.Q = Q
 
     @property
     def p(self):
@@ -51,10 +48,11 @@ class integrador(SistemaDiscreto):
         return self._v.copy()
 
     def dinamica(self, x, t, u):
-        z = np.random.normal(0, self.sigma)
-        dot_x = np.matmul(self.G_u, u) + np.matmul(self.G_z, z)
-        self._v = dot_x
-        return dot_x
+        self._v = np.random.multivariate_normal(u, self.Q)
+        return self._v
+
+    def step(self, t, u):
+        super(integrador, self).step(t, ([u], ))
 
 
 class control_velocidad(SistemaDiscreto):

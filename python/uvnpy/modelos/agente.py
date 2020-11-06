@@ -1,41 +1,38 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Created on Mon Apr 06 12:41:07 2020
-@author: fran
+@author Francisco Presenza
+@institute LAR - FIUBA, Universidad de Buenos Aires, Argentina
+@date nov  4 12:21:01 -03 2020
 """
 import numpy as np
 from types import SimpleNamespace
 
 from gpsic.analisis.core import cargar_yaml
-from gpsic.toolkit import linalg
+from gpsic.toolkit import linalg  # noqa
 from gpsic.modelos.discreto import SistemaDiscreto
 
 from . import vehiculo, control_velocidad
 from uvnpy.sensores import rango
-from uvnpy.filtering import consenso, kalman, metricas
+from uvnpy.filtering import consenso, kalman, metricas  # noqa
 from uvnpy.filtering import ajustar_sigma
 from uvnpy.control import mpc_informativo
 from uvnpy.redes import mensajeria
 
 
-__all__ = ['point']
+__all__ = ['agente']
 
 
-class point_loc_ekf(kalman.KF):
+class dkfce(kalman.DKF):
     def __init__(self, x, dx, Q, R, ti=0.):
-        """ Filtro de localización de un vehículo control_velocidad """
-        super(point_loc_ekf, self).__init__(x, dx, ti=0.)
+        super(dkfce, self).__init__(x, dx, ti=0.)
         self.Id = np.identity(4)
         Id = self.Id[:2, :2]
         Z = np.zeros_like(Id)
-        K = 3 * Id
         self.F_x = np.block([[Z, Id],
-                             [Z, -K]])
-        self.F_u = np.block([[Z],
-                             [K]])
-        B = np.block([[Z, Z],
-                      [Id, -K]])
+                             [Z, Z]])
+        B = np.block([[Z],
+                      [Id]])
         self.Q = np.linalg.multi_dot([B, Q, B.T])
         self.R = R
         self._logs = SimpleNamespace(
@@ -52,22 +49,27 @@ class point_loc_ekf(kalman.KF):
     def v(self):
         return self.x[2:]
 
-    def f(self, dt, x, u):
+    def f(self, dt, u):
+        x = self._x
+        P = self._P
         Phi = self.Id + dt * self.F_x
-        x_prior = np.matmul(Phi, x) + np.matmul(self.F_u, u) * dt
-        Q = self.Q * (dt**2)
-        return x_prior, Phi, Q
+        x_prior = np.matmul(Phi, x)
+        P_prior = np.matmul(Phi, np.matmul(P, Phi.T)) + self.Q * (dt**2)
+        return x_prior, P_prior
 
-    def modelo_rango(self, landmarks):
-        #   medición esperada
-        p = self.x[:2]
-        hat_z = [linalg.dist(p, lm) for lm in landmarks]
-        #   Jacobiano
-        Hp = np.vstack([rango.gradiente(p, lm) for lm in landmarks])
-        H = np.hstack([Hp, np.zeros_like(Hp)])
-        #   Ruido
-        R = np.diag([self.R for _ in landmarks])
-        return H, R, hat_z
+    # def h(self, observaciones):
+        """Modelo de observación.
+
+        args:
+            observaciones = [(j, rango_j, y_j, Y_j, x_j)]
+        """
+        # p = self.p
+        # hat_z = [linalg.dist(p, pv) for pv in vecinos]
+        # y_i =
+        # Hp = np.vstack([rango.gradiente(p, pv) for pv in vecinos])
+        # H = np.hstack([Hp, np.zeros_like(Hp)])
+        # R = np.diag([self.R for _ in vecinos])
+        # return hat_y, Y
 
     def guardar(self):
         """Guarda los últimos datos. """
@@ -84,12 +86,12 @@ class point_loc_ekf(kalman.KF):
         return self._logs
 
 
-class point(vehiculo):
+class agente(vehiculo):
     def __init__(
-      self, nombre,
-      arxiv='/tmp/point.yaml',
+      self, nombre, num_vec,
+      arxiv='/tmp/agente.yaml',
       pi=np.zeros(2), vi=np.zeros(2)):
-        super(point, self).__init__(nombre, tipo='point')
+        super(agente, self).__init__(nombre, tipo='agente')
 
         # leer archivo de configuración
         config = cargar_yaml(arxiv)
@@ -104,9 +106,11 @@ class point(vehiculo):
         self.rango = rango.sensor(**rango_kw)
 
         # filtro
-        x0 = self.din.x
-        dx0 = np.ones(4)
-        self.filtro = point_loc_ekf(
+        # x0 = self.din.x
+        x0 = np.zeros(4 * num_vec)
+        dx0 = 20 * np.ones(4 * num_vec)
+        # Q = np.diag([])
+        self.filtro = dkfce(
             x0, dx0,
             self.din.Q,
             self.rango.R
@@ -124,35 +128,12 @@ class point(vehiculo):
 
         # intercambio de información
         self.box = mensajeria.box(out={'id': self.id}, maxlen=30)
-        # self.promedio = consenso.promedio()
         self.promedio = []
-        self.lpf = consenso.lpf()
-        self.comparador = consenso.comparador()
 
     def control_step(self, t, landmarks=[]):
         self.filtro.prediccion(t, self.control.u)
         if len(landmarks) > 0:
-            rangos = [self.rango(self.din.p, lm) for lm in landmarks]
-            modelo_rango = self.filtro.modelo_rango(landmarks)
-            self.filtro.actualizacion(rangos, *modelo_rango)
+            rango_med = [self.rango(self.din.p, lm) for lm in landmarks]
+            h = self.filtro.rango
+            self.filtro.actualizacion(h, rango_med, landmarks)
         self.control.update(self.filtro.p, t, (landmarks, self.rango.sigma))
-
-    def consenso_promedio_step(self, num, t):
-        promedio = self.promedio[num]
-        x_j = self.box.extraer(('avg', num))
-        promedio.step(t, ([x_j], ))
-        self.box.actualizar_salida(('avg', num), promedio.x)
-
-    def consenso_lpf_step(self, t, u):
-        x_j = self.box.extraer('lpf', 'x')
-        u_j = self.box.extraer('lpf', 'u')
-        self.lpf.step(t, ([u, x_j, u_j], ))
-        self.box.actualizar_salida(
-            'lpf', {'x': self.lpf.x, 'u': u})
-
-    def consenso_comparador_step(self):
-        x_j = self.box.extraer('comparador', 'x')
-        u_j = self.box.extraer('comparador', 'u')
-        self.comparador.step(x_j, u_j)
-        self.box.actualizar_salida(
-            'comparador', {'x': self.comparador.x, 'u': self.comparador.u})
