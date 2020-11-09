@@ -10,8 +10,8 @@ from gpsic.controladores.mpc import MPC, Control
 from uvnpy.sensores import rango
 
 
-def det_delta_informacion(u, y_p, Q, landmarks, sigma):
-    cm_set = [rango.delta_informacion_sum(y, landmarks, sigma) for y in y_p]
+def det_matriz_innovacion(u, y_p, Q, landmarks, sigma):
+    cm_set = [rango.matriz_innovacion_suma(y, landmarks, sigma) for y in y_p]
     return sum([det(cm) for cm in cm_set])
 
 

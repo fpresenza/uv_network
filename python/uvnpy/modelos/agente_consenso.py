@@ -9,23 +9,20 @@ from types import SimpleNamespace
 
 from gpsic.analisis.core import cargar_yaml
 from gpsic.toolkit import linalg
-from gpsic.modelos.discreto import SistemaDiscreto
 
 from . import vehiculo, control_velocidad
 from uvnpy.sensores import rango
 from uvnpy.filtering import consenso, kalman, metricas
-from uvnpy.filtering import ajustar_sigma
-from uvnpy.control import mpc_informativo
 from uvnpy.redes import mensajeria
 
 
-__all__ = ['point']
+__all__ = ['agente_consenso']
 
 
-class point_loc_ekf(kalman.KF):
+class EKF(kalman.KF):
     def __init__(self, x, dx, Q, R, ti=0.):
         """ Filtro de localización de un vehículo control_velocidad """
-        super(point_loc_ekf, self).__init__(x, dx, ti=0.)
+        super(EKF, self).__init__(x, dx, ti=0.)
         self.Id = np.identity(4)
         Id = self.Id[:2, :2]
         Z = np.zeros_like(Id)
@@ -84,18 +81,18 @@ class point_loc_ekf(kalman.KF):
         return self._logs
 
 
-class point(vehiculo):
+class agente_consenso(vehiculo):
     def __init__(
       self, nombre,
-      arxiv='/tmp/point.yaml',
+      arxiv='/tmp/agente_consenso.yaml',
       pi=np.zeros(2), vi=np.zeros(2)):
-        super(point, self).__init__(nombre, tipo='point')
+        super(agente_consenso, self).__init__(nombre, tipo='agente_consenso')
 
         # leer archivo de configuración
         config = cargar_yaml(arxiv)
 
         # dinamica del vehiculo
-        din_kw = ajustar_sigma(config['din'])
+        din_kw = config['din']
         din_kw.update(pi=pi, vi=vi)
         self.din = control_velocidad(**din_kw)
 
@@ -106,36 +103,16 @@ class point(vehiculo):
         # filtro
         x0 = self.din.x
         dx0 = np.ones(4)
-        self.filtro = point_loc_ekf(
+        self.filtro = EKF(
             x0, dx0,
             self.din.Q,
             self.rango.R
         )
-
-        # control
-        self.control = mpc_informativo.controlador(
-            mpc_informativo.det_delta_informacion,
-            (1, 4.5, -2000),
-            (np.eye(2), np.eye(2), np.eye(2)),
-            SistemaDiscreto,
-            control_dim=2,
-            horizonte=np.linspace(0.1, 1, 10)
-        )
-
-        # intercambio de información
+        # intercambio de mensajes
         self.box = mensajeria.box(out={'id': self.id}, maxlen=30)
-        # self.promedio = consenso.promedio()
         self.promedio = []
         self.lpf = consenso.lpf()
         self.comparador = consenso.comparador()
-
-    def control_step(self, t, landmarks=[]):
-        self.filtro.prediccion(t, self.control.u)
-        if len(landmarks) > 0:
-            rangos = [self.rango(self.din.p, lm) for lm in landmarks]
-            modelo_rango = self.filtro.modelo_rango(landmarks)
-            self.filtro.actualizacion(rangos, *modelo_rango)
-        self.control.update(self.filtro.p, t, (landmarks, self.rango.sigma))
 
     def consenso_promedio_step(self, num, t):
         promedio = self.promedio[num]

@@ -27,7 +27,6 @@ class integrador(EulerExplicito):
 
         Argumentos:
 
-            dof: grados de libertad
             xi: posición inicial
             Q: matriz de covarianza del ruido
                 a la entrada.

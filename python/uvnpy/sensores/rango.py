@@ -43,8 +43,8 @@ class sensor(object):
         self.sigma = sigma
         self.R = sigma**2
 
-    def __call__(self, p, q):
+    def __call__(self, p, qs):
         """Simula una medición ruidosa. """
-        diff = np.subtract(p, q)
-        dist = norm(diff)
-        return np.random.normal(dist, self.sigma)
+        return np.random.normal(
+            [distancia(p, q) for q in qs],
+            self.sigma)
