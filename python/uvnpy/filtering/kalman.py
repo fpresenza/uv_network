@@ -100,20 +100,15 @@ class KFi(kalman):
     def dy(self):
         return self._dy
 
-    def actualizacion(self, y, Y, hat_y=None):
+    def actualizacion(self, dy, Y):
         """Paso de corrección
 
         args:
 
-            y: contribuciones en espacio de información
-            Y: matriz de contribución
-            hat_y: predicción de las contribuciones,
-                usar solamente para EKFi.
+            dy: innovacón en espacio de información
+            Y: matriz de innovación
         """
         x, P = self._x, self._P
-        if hat_y is None:
-            hat_y = matmul(Y, x)
-        self._dy = dy = np.subtract(y, hat_y)
         F_prior = inv(P)
         self._P = P = inv(F_prior + Y)
         self._x = x + matmul(P, dy)

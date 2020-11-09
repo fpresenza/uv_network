@@ -4,14 +4,20 @@
 import numpy as np
 import control.matlab as cm
 import sympy as sym
-cm.use_numpy_matrix(False) 
+cm.use_numpy_matrix(False)
 
-s = lambda x: sym.sin(x)
-c = lambda x: sym.cos(x)
-t = lambda x: sym.tan(x)
-cross = lambda x, y: np.cross(x, y, axis=0)
+s = sym.sin
+c = sym.cos
+t = sym.tan
 
-px, py, pz, vx, vy, vz, er, ep, ey, wx, wy, wz = sym.symbols('px, py, pz, vx, vy, vz, 𝜙, 𝜃, 𝜓, wx, wy, wz', real=True)
+
+def cross(x, y):
+    return np.cross(x, y, axis=0)
+
+
+px, py, pz, vx, vy, vz, er, ep, ey, wx, wy, wz = sym.symbols(
+    'px, py, pz, vx, vy, vz, 𝜙, 𝜃, 𝜓, wx, wy, wz',
+    real=True)
 
 p = np.array([[px], [py], [pz]])
 v = np.array([[vx], [vy], [vz]])
@@ -19,20 +25,20 @@ e = np.array([[er], [ep], [ey]])
 w = np.array([[wx], [wy], [wz]])
 
 # Kinematics
-Rx = np.array([[1,     0,      0],
+Rx = np.array([[1, 0,     0],
                [0, c(er), -s(er)],
-               [0, s(er),  c(er)]])
+               [0, s(er), c(er)]])
 
-Ry = np.array([[ c(ep), 0, s(ep)],
-               [     0, 1,     0],
+Ry = np.array([[c(ep),  0, s(ep)],
+               [0,      1, 0],
                [-s(ep), 0, c(ep)]])
 
 Rz = np.array([[c(ey), -s(ey), 0],
-               [s(ey),  c(ey), 0],
-               [    0,      0, 1]])
+               [s(ey), c(ey),  0],
+               [0,     0,      1]])
 
 # rotation from body to earth
-Rzyx = Rz @ Ry @ Rx
+Rzyx = np.matmul(Rz, np.mamtul(Ry, Rx))
 
 # Rotate global control actions for velocity to Ft, Tx, Ty
 ux, uy, uz = sym.symbols('ux, uy, uz', real=True)
@@ -43,10 +49,11 @@ ux, uy, uz = sym.symbols('ux, uy, uz', real=True)
 # print(N[2])
 
 C = np.array([[0., -1, 0],
-              [ 1,  0, 0],
-              [ 0,  0, 1]])  
+              [1,  0,  0],
+              [0,  0,  1]])
 Rxyz = Rzyx.T
-M = C @ Rxyz @ np.array([[ux],[uy],[uz]])
+u = np.array([[ux], [uy], [uz]])
+M = np.mamtul(C, np.matmul(Rxyz, u))
 print('M:')
 print(M[0])
 print(M[1])
@@ -54,32 +61,38 @@ print(M[2])
 
 # transformation angular velocity to euler angles derivative
 T = np.array([[1, s(er)*t(ep), c(er)*t(ep)],
-              [0,       c(er),      -s(er)],
+              [0, c(er),      -s(er)],
               [0, s(er)/c(ep), c(er)/c(ep)]])
 
 dp = v
-de = T @ w
+de = np.mamtul(T, w)
 
 # Dynamics
-m, g, Ix, Iy, Iz, Ft, Tx, Ty, Tz = sym.symbols('m, g, Ix, Iy, Iz, Ft, 𝛵x, 𝛵y, 𝛵z', real=True)
-I = np.diag([Ix, Iy, Iz])
-F = - m * np.array([[0],[0],[g]]) + Rzyx @ np.array([[0],[0],[Ft]]) # positive z downwards
+m, g, Ix, Iy, Iz, Ft, Tx, Ty, Tz = sym.symbols(
+    'm, g, Ix, Iy, Iz, Ft, 𝛵x, 𝛵y, 𝛵z',
+    real=True)
+I = np.diag([Ix, Iy, Iz])  # noqa
+Fg = np.array([[0], [0], [g]])
+Fthrust = np.array([[0], [0], [Ft]])
+F = - m * Fg + np.matmul(Rzyx, Fthrust)
 dv = F / m
 
-T = np.array([[Tx],[Ty],[Tz]])
-dw = np.diag([1/Ix, 1/Iy, 1/Iz]) @ (T - cross(w, I @ w))
+T = np.array([[Tx], [Ty], [Tz]])
+Iw = np.mamtul(I, w)
+Iinv = np.diag([1/Ix, 1/Iy, 1/Iz])
+dw = np.matmul(Iinv, (T - cross(w, Iw)))
 
 x = np.vstack((p, v, e, w))
 dx = np.vstack((dp, dv, de, dw))
-u = np.array([[Ft],[Tx],[Ty],[Tz]])
+u = np.array([[Ft], [Tx], [Ty], [Tz]])
 
 f = sym.Matrix(dx)
 F_x = f.jacobian(x)
 F_u = f.jacobian(u)
 
 # equilibrium point
-x_eq = np.vstack((p, np.zeros((9,1))))
-u_eq = np.array([[m*g],[0],[0],[0]])
+x_eq = np.vstack((p, np.zeros((9, 1))))
+u_eq = np.array([[m * g], [0], [0], [0]])
 eq_point = list(zip(x.flat, x_eq.flat)) + list(zip(u.flat, u_eq.flat))
 F_x_eq = F_x.subs(eq_point)
 F_u_eq = F_u.subs(eq_point)
@@ -87,10 +100,10 @@ F_u_eq = F_u.subs(eq_point)
 A = np.array(F_x_eq.tolist())
 B = np.array(F_u_eq.tolist())
 
-f_eq = np.array(f.subs(eq_point).tolist()) # this should always be equal to zero
-if not np.all(f_eq==0):
-  raise ValueError('That\'s not an equilibrium point!')
-dx_lin = f_eq + A@(x-x_eq) + B@(u-u_eq)
+f_eq = np.array(f.subs(eq_point).tolist())  # siempre igual a cero
+if not np.all(f_eq == 0):
+    raise ValueError('That\'s not an equilibrium point!')
+dx_lin = f_eq + np.matmul(A, (x-x_eq)) + np.matmul(B, (u-u_eq))
 
 # F_x_eq = F_x_eq.subs(g, 9.81)
 # F_u_eq = F_u_eq.subs([(m, 1), (Ix, 10e-3), (Iy, 10e-3), (Iz, 20e-3)])
@@ -103,7 +116,7 @@ dx_lin = f_eq + A@(x-x_eq) + B@(u-u_eq)
 # Cab = cm.ctrb(A,B)
 # print(np.linalg.matrix_rank(Cab))
 
-### print eqs ###
+""" print eqs """
 print('Non-linear model:')
 for c, dc in zip(x, dx):
     print('d{}/dt = {}'.format(c[0], dc[0]))
@@ -156,15 +169,15 @@ print('B:\n{}'.format(B))
 #  [0 0 0 0 0 0  0 0 0 0 0 0]
 #  [0 0 0 0 0 0  0 0 0 0 0 0]]
 # B:
- # [[0   0    0       0]
- #  [0   0    0       0]
- #  [0   0    0       0]
- #  [0   0    0       0]
- #  [0   0    0       0]
- #  [1/m 0    0       0]
- #  [0   0    0       0]
- #  [0   0    0       0]
- #  [0   0    0       0]
- #  [0   1/Ix 0       0]
- #  [0   0    1/Iy    0]
- #  [0   0    0    1/Iz]]
+# [[0   0    0       0]
+#  [0   0    0       0]
+#  [0   0    0       0]
+#  [0   0    0       0]
+#  [0   0    0       0]
+#  [1/m 0    0       0]
+#  [0   0    0       0]
+#  [0   0    0       0]
+#  [0   0    0       0]
+#  [0   1/Ix 0       0]
+#  [0   0    1/Iy    0]
+#  [0   0    0    1/Iz]]

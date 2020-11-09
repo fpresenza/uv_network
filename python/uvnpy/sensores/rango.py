@@ -11,8 +11,8 @@ from numpy.linalg import norm
 __all__ = [
     'distancia',
     'gradiente',
-    'delta_informacion',
-    'delta_informacion_sum',
+    'matriz_innovacion',
+    'matriz_innovacion_suma',
     'sensor'
 ]
 
@@ -27,13 +27,13 @@ def gradiente(u, v):
     return diff / norm(diff)
 
 
-def delta_informacion(u, v, sigma):
+def matriz_innovacion(u, v, sigma):
     h = gradiente(u, v)
     return sigma**(-2) * np.outer(h, h)
 
 
-def delta_informacion_sum(u, vs, sigma):
-    d_i = [delta_informacion(u, v, sigma) for v in vs]
+def matriz_innovacion_suma(u, vs, sigma):
+    d_i = [matriz_innovacion(u, v, sigma) for v in vs]
     return sum(d_i)
 
 
@@ -41,9 +41,10 @@ class sensor(object):
     """Modelo de sensor de rango. """
     def __init__(self, sigma=1.):
         self.sigma = sigma
-        self.R = self.sigma**2
+        self.R = sigma**2
 
     def __call__(self, p, q):
         """Simula una medición ruidosa. """
-        dist = distancia(p, q)
+        diff = np.subtract(p, q)
+        dist = norm(diff)
         return np.random.normal(dist, self.sigma)

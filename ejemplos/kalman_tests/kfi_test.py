@@ -42,28 +42,31 @@ class kfi_test(kalman.KFi):
         return x_prior, Phi, Q
 
     def modelo_gps(self, z):
+        p = self.x
         Rinv = self.Rinv_gps
-        y = np.matmul(Rinv, z)
+        dz = np.subtract(z, p)
+        dy = np.matmul(Rinv, dz)
         Y = Rinv
-        return y, Y
+        return dy, Y
 
     def modelo_xbee_i(self, z_i, p, lm):
+        p = self.x
         Rinv = self.Rinv_xbee
         diff = np.subtract(p, lm)
         dist = norm(diff)
         h_i = diff / dist
         HtRinv = Rinv * h_i
-        y = HtRinv * z_i
+        dz = np.subtract(z_i, dist)
+        dy = HtRinv * dz
         Y = np.outer(HtRinv, h_i)
-        hat_y = HtRinv * dist
-        return y, Y, hat_y
+        return dy, Y
 
     def modelo_xbee(self, z, landmarks):
         p = self.x
         xbee_i = self.modelo_xbee_i
-        info = [xbee_i(z_i, p, lm_i) for z_i, lm_i in zip(z, landmarks)]
-        y, Y, hat_y = list(zip(*info))
-        return sum(y), sum(Y), sum(hat_y)
+        innov = [xbee_i(z_i, p, lm_i) for z_i, lm_i in zip(z, landmarks)]
+        dy, Y = list(zip(*innov))
+        return sum(dy), sum(Y)
 
 
 if __name__ == '__main__':

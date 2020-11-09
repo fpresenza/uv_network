@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from uvnpy.sensor.rango import  Rango
+
+from uvnpy.sensores import rango
 
 fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 fig.suptitle('Recolección de información a través de landmarks', fontsize=15)
@@ -17,7 +18,7 @@ iter = range(len(t))
 for i in iter:
     for j in iter:
         p = [X[i, j], Y[i, j]]
-        D = Rango.collection_matrix(p, landmarks, 1.)
+        D = rango.matriz_innovacion_suma(p, landmarks, 1.)
         Z[i, j] = np.linalg.det(D)
 
 cbar = axes[0].contourf(X, Y, Z, levels=20, cmap=cw)
@@ -31,7 +32,7 @@ landmarks = [(0, -1), (0, 1), (-1, 0)]
 for i in iter:
     for j in iter:
         p = [X[i, j], Y[i, j]]
-        D = Rango.collection_matrix(p, landmarks, 1.)
+        D = rango.matriz_innovacion_suma(p, landmarks, 1.)
         Z[i, j] = np.linalg.det(D)
 
 cbar = axes[1].contourf(X, Y, Z, levels=20, cmap=cw)
@@ -39,7 +40,7 @@ fig.colorbar(cbar, ax=axes[1], fraction=0.046, pad=0.04)
 axes[1].scatter(*zip(*landmarks), marker='*', color='k')
 axes[1].set_title('($m = 3$)')
 
-for ax in axes: 
+for ax in axes:
     ax.set_aspect('equal')
     ax.set_xlabel('x [m]')
     ax.set_ylabel('y [m]')

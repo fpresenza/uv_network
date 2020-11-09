@@ -33,7 +33,10 @@
 # # print('M=\n{}\n'.format(M))
 # # print('p_c = M*x=\n{}\n'.format(M@x))
 # # K = sym.Matrix(M[:3]).inv()
-# # print('K = M^-1=\n{}\n{}\n{}\n'.format(K[0,:].tolist(), K[1,:].tolist(), K[2,:].tolist()))
+# # print(
+#        'K = M^-1=\n{}\n{}\n{}\n'.format(
+#           K[0,:].tolist(),
+#           K[1,:].tolist(), K[2,:].tolist()))
 
 # # Kc = np.array([[fh,  0, ch, 0],
 # #                [ 0, fv, cv, 0],
@@ -66,7 +69,7 @@
 
 # tx, ty, tz = sym.symbols('𝜙, 𝜃, 𝜓', real=True)
 # # t = sym.sqrt(tx**2+ty**2+tz**2)
-# S = la.skew([tx, ty, tz])
+# S = linalg.skew([tx, ty, tz])
 # # C = np.eye(3) + sym.s(t)*S/(t**2) + (1-sym.cos(t))*np.dot(S,S)/(t**2)
 
 
@@ -91,35 +94,39 @@
 
 
 import numpy as np
-from uvnpy.vehicles.drone import Drone
-import uvnpy.toolkit.linalg as la
 
-pi = np.array([-10,2,3])
+from gpsic.toolkit import linalg
+from uvnpy.modelos import uav
+
+pi = np.array([-10, 2, 3])
 dpi = np.multiply([-0.05, 0.1, 0.07], pi)
-ei = np.array([0,1,-0.5])
-uav = Drone(1, pi=pi, ai=ei)
+ei = np.array([0, 1, -0.5])
+uav = uav(1, pi=pi, ai=ei)
 # print(uav.cam.extrinsic)s
 
 # for t in np.arange(0.1,5,0.1):
 #     uav.step((0,0,1,0), t)
 #     print(uav.motion.xyzyaw().flatten())
 
-pj = np.array([2,1,1.1])
+pj = np.array([2, 1, 1.1])
 dpj = np.multiply([-0.05, 0.1, 0.07], pj)
 # print(pj)
 # print(uav.cam.to_pixel(pj))
 # print(pj+dpj)
 t = 0.1
-a = la.vector.normalize(np.array([1,1,1]))
-# a = la.vector.normalize(pj+dpj-pi-dpi)
+a = linalg.normalizar([1, 1, 1])
+# a = linalg.vector.normalize(pj+dpj-pi-dpi)
 phi = a*t
-dC = la.rotation_matrix.from_vector_angle(a, t)
+dC = linalg.rodriguez(a, t)
 # print(dC)
 
 uav.cam.update_pose(pi, ei)
 check_y = uav.cam.to_pixel(pj)
 print('y_medida = {}'.format(check_y))
-m, H = uav.h_cam_test(pi+dpi, pj+dpj, (dC, ei))
+m, H = uav.h_cam_test(pi + dpi, pj + dpj, (dC, ei))
 print('y_pred = {}'.format(m.flatten()))
-print('dy = {}'.format(check_y-m.flatten()))
-print('dy_est = {}'.format(-H@(dpj-dpi) - H@la.skew(pj-pi)@phi))
+dy = check_y - m.flatten()
+print('dy = {}'.format(dy))
+dy_est = -np.matmul(H, (dpj - dpi)) - \
+    np.matmul(H, np.matmul(linalg.skew(pj - pi), phi))
+print('dy_est = {}'.format(dy_est))
