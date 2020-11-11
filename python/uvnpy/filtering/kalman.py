@@ -94,24 +94,24 @@ class KFi(kalman):
     def __init__(self, xi, dxi, ti=0.):
         """Filtro de Kalman en forma alternativa. """
         super(KFi, self).__init__(xi, dxi, ti=0.)
-        self._dy = None
+        self._y = None
 
     @property
-    def dy(self):
-        return self._dy
+    def y(self):
+        return self._y
 
-    def actualizacion(self, dy, Y):
+    def actualizacion(self, y, Y):
         """Paso de corrección
 
         args:
 
-            dy: innovacón en espacio de información
+            y: innovacón en espacio de información
             Y: matriz de innovación
         """
         x, P = self._x, self._P
         F_prior = inv(P)
         self._P = P = inv(F_prior + Y)
-        self._x = x + matmul(P, dy)
+        self._x = x + matmul(P, y)
 
 
 class IF(object):

@@ -9,16 +9,25 @@ import numpy as np
 from types import SimpleNamespace
 
 from gpsic.analisis.core import cargar_yaml
-from gpsic.modelos.discreto import SistemaDiscreto
 
 from . import vehiculo, integrador
 from uvnpy.sensores import rango
 from uvnpy.filtering import kalman, metricas
-from uvnpy.control import mpc_informativo
+from uvnpy.control.informativo import minimizar
 from uvnpy.redes import mensajeria
 
 
 __all__ = ['punto']
+
+
+class integrador_ruidoso(integrador):
+    def __init__(self, xi, Q, ti=0.):
+        super(integrador_ruidoso, self).__init__(xi, ti)
+        self.Q = np.asarray(Q)
+
+    def dinamica(self, x, t, u):
+        self._dx = np.random.multivariate_normal(u, self.Q)
+        return self._dx
 
 
 class ekf_autonomo(kalman.KF):
@@ -28,7 +37,7 @@ class ekf_autonomo(kalman.KF):
         self.Id = np.identity(2)
         self.Q = Q
         self.R = R
-        self._logs = SimpleNamespace(
+        self.logs = SimpleNamespace(
             t=[self.t],
             x=[self.x],
             dvst=[metricas.sqrt_diagonal(self.P)],
@@ -38,11 +47,6 @@ class ekf_autonomo(kalman.KF):
     def p(self):
         return self.x
 
-    @property
-    def logs(self):
-        """Historia del filtro. """
-        return self._logs
-
     def f(self, dt, x, u):
         Phi = self.Id
         x_prior = x + np.multiply(dt, u)
@@ -51,9 +55,9 @@ class ekf_autonomo(kalman.KF):
 
     def modelo_rango(self, landmarks):
         p = self.x
-        hat_z = [rango.distancia(p, lm) for lm in landmarks]
-        H = np.vstack([rango.gradiente(p, lm) for lm in landmarks])
-        R = np.diag([self.R for _ in landmarks])
+        hat_z = rango.distancia(p, landmarks)
+        H = rango.jacobiano(p, landmarks)
+        R = self.R * np.eye(len(landmarks))
         return H, R, hat_z
 
     def update(self, t, u, rangos, landmarks):
@@ -63,52 +67,51 @@ class ekf_autonomo(kalman.KF):
 
     def guardar(self):
         """Guarda los últimos datos. """
-        self._logs.t.append(self.t)
-        self._logs.x.append(self.x)
-        self._logs.dvst.append(
+        self.logs.t.append(self.t)
+        self.logs.x.append(self.x)
+        self.logs.dvst.append(
             metricas.sqrt_diagonal(self.P))
-        self._logs.eigs.append(
+        self.logs.eigs.append(
             metricas.eigvalsh(self.P))
 
 
-class mpc_informativo_scipy(mpc_informativo.controlador):
-    def __init__(self):
-        super(mpc_informativo_scipy, self).__init__(
-            mpc_informativo.det_matriz_innovacion,
-            (1, 4.5, -2000),
-            (np.eye(2), np.eye(2), np.eye(2)),
-            SistemaDiscreto,
-            control_dim=2,
-            horizonte=np.linspace(0.1, 1, 10)
-        )
+det_innovacion = {
+    'controlador': minimizar,
+    'modelo': integrador,
+    'metrica': metricas.det,
+    'matriz': rango.matriz_innovacion,
+    'Q': (np.eye(2), 4.5*np.eye(2), -100),
+    'dim': 2,
+    'horizonte': np.linspace(0.1, 1, 10)
+}
 
 
 class punto(vehiculo):
     def __init__(
             self, nombre,
-            filtro=None, controlador=None,
+            filtro=None, control=None,
             arxiv='/tmp/punto.yaml',
             pi=np.zeros(2)):
         super(punto, self).__init__(nombre, tipo='punto')
 
         # archivo de configuración
         config = cargar_yaml(arxiv)
-        S = config['din']['sigma']      # dinamica del vehiculo
-        self.din = integrador(pi, Q=np.matmul(S, S))
-        S = config['rango']['sigma']    # rango
-        self.rango = rango.sensor(sigma=S)
+        Q = config['din']['Q']      # dinamica del vehiculo
+        self.din = integrador_ruidoso(pi, Q)
+        sigma = config['rango']['sigma']    # rango
+        self.rango = rango.sensor(sigma)
 
-        # filtro
-        x0 = self.din.x
-        dx0 = np.ones(2)
-        self.filtro = filtro(
-            x0, dx0,
-            self.din.Q,
-            self.rango.R
-        )
+        if filtro is not None:
+            xi = self.din.x
+            dxi = np.ones(2)
+            Q = self.din.Q
+            R = self.rango.R
+            self.filtro = filtro(xi, dxi, Q, R)
 
-        # control
-        self.control = controlador()
+        if control is not None:
+            kwargs = control.copy()
+            controlador = kwargs.pop('controlador')
+            self.control = controlador(**kwargs)
 
         # intercambio de mensajes
         self.box = mensajeria.box(out={'id': self.id}, maxlen=30)

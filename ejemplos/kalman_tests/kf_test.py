@@ -6,22 +6,24 @@
 @date vie nov  6 15:24:28 -03 2020
 """
 import numpy as np
-from numpy.linalg import norm
-import matplotlib.pyplot as plt
 
-from gpsic.toolkit import linalg
 import gpsic.plotting.planar as plotting
 
 from uvnpy.modelos import integrador
 from uvnpy.filtering import kalman
-from uvnpy.sensores import rango
 
-GPS = np.random.multivariate_normal
+plt = plotting.matplotlib.pyplot
+GPS = wgn = np.random.multivariate_normal
 
 
 def xBee(p, landmarks, R):
-    d = [norm(np.subtract(p, lm)) for lm in landmarks]
+    d = norma(np.subtract(p, landmarks))
     return np.random.normal(d, R)
+
+
+def norma(v):
+    sqr_sum = np.multiply(v, v).sum(1)
+    return np.sqrt(sqr_sum)
 
 
 class kf_test(kalman.KF):
@@ -49,8 +51,9 @@ class kf_test(kalman.KF):
 
     def modelo_xbee(self, landmarks):
         p = self.x
-        hat_z = [linalg.dist(p, lm) for lm in landmarks]
-        H = np.vstack([rango.gradiente(p, lm) for lm in landmarks])
+        diff = np.subtract(p, landmarks)
+        hat_z = norma(diff)
+        H = diff / hat_z.reshape(-1, 1)
         R = np.diag([self.R_xbee for _ in landmarks])
         return H, R, hat_z
 
@@ -64,29 +67,6 @@ if __name__ == '__main__':
 
     landmarks = [(0., 0.), (0., 50.), (50., 0.)]
 
-    v = integrador(pi, Q=Q)
-
-    kf = kf_test(pi, dpi, Q, R_gps, R_xbee)
-    tiempo = np.arange(0.1, 50, 0.1)
-    p = [pi]
-    f_p = [pi]
-    for t in tiempo:
-        # u = [np.cos(t), np.sin(t)]
-        u = [0.5, 1.]
-        v.step(t, u)
-        kf.prediccion(t, u)
-
-        # z_gps = GPS(v.p, R_gps)
-        # kf.actualizacion(z_gps, *kf.modelo_gps())
-        z_xbee = xBee(v.p, landmarks, R_xbee)
-        kf.actualizacion(z_xbee, *kf.modelo_xbee(landmarks))
-        p.append(v.p)
-        f_p.append(kf.p)
-
-    t = np.hstack([0, tiempo])
-    p = np.vstack(p)
-    f_p = np.vstack(f_p)
-
     fig = plt.figure()
     gs = fig.add_gridspec(1, 1)
     # posición
@@ -94,9 +74,33 @@ if __name__ == '__main__':
         gs[0, 0],
         title='Pos. (verdadero vs. estimado)', title_kw={'fontsize': 11},
         xlabel='t [seg]', ylabel='posición [m]', label_kw={'fontsize': 10})
-    plotting.agregar_linea(pax, t, p[:, 0], color='r', label='$p_x$')
-    plotting.agregar_linea(pax, t, p[:, 1], color='g', label='$p_y$')
-    plotting.agregar_linea(pax, t, f_p[:, 0], color='r', ls='dotted')
-    plotting.agregar_linea(pax, t, f_p[:, 1], color='g', ls='dotted')
+
+    for i in range(10):
+        v = integrador(pi)
+
+        kf = kf_test(pi, dpi, Q, R_gps, R_xbee)
+        tiempo = np.arange(0.1, 50, 0.1)
+        p = [pi]
+        f_p = [pi]
+        for t in tiempo:
+            u = [0.5, 1.]
+            u = wgn(u, Q)
+            v.step(t, u)
+            x = v.x
+
+            kf.prediccion(t, u)
+            # z_gps = GPS(x, R_gps)
+            # kf.actualizacion(z_gps, *kf.modelo_gps())
+            z_xbee = xBee(x, landmarks, R_xbee)
+            kf.actualizacion(z_xbee, *kf.modelo_xbee(landmarks))
+            p.append(x)
+            f_p.append(kf.p)
+
+        t = np.hstack([0, tiempo])
+        p = np.vstack(p)
+        f_p = np.vstack(f_p)
+
+        plotting.agregar_linea(pax, t, p[:, 0] - f_p[:, 0], color='r')
+        plotting.agregar_linea(pax, t, p[:, 1] - f_p[:, 1], color='g')
 
     plt.show()

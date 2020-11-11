@@ -5,36 +5,37 @@ Created on Tue June 23 14:27:46 2020
 @author: fran
 """
 import numpy as np
-from numpy.linalg import norm
 
 
 __all__ = [
     'distancia',
-    'gradiente',
+    'jacobiano',
     'matriz_innovacion',
-    'matriz_innovacion_suma',
     'sensor'
 ]
 
 
-def distancia(u, v):
-    diff = np.subtract(u, v)
-    return norm(diff)
+def norma(v):
+    sqr_sum = np.multiply(v, v).sum(1)
+    return np.sqrt(sqr_sum)
 
 
-def gradiente(u, v):
-    diff = np.subtract(u, v)
-    return diff / norm(diff)
+def distancia(p, qs):
+    diff = np.subtract(p, qs)
+    return norma(diff)
 
 
-def matriz_innovacion(u, v, sigma):
-    h = gradiente(u, v)
-    return sigma**(-2) * np.outer(h, h)
+def jacobiano(p, qs):
+    diff = np.subtract(p, qs)
+    dist = norma(diff).reshape(-1, 1)
+    return diff / dist
 
 
-def matriz_innovacion_suma(u, vs, sigma):
-    d_i = [matriz_innovacion(u, v, sigma) for v in vs]
-    return sum(d_i)
+def matriz_innovacion(p, qs, sigma):
+    diff = np.subtract(p, qs)
+    dist = norma(diff).reshape(-1, 1)
+    H = diff / dist
+    return sigma**(-2) * np.matmul(H.T, H)
 
 
 class sensor(object):
@@ -45,6 +46,5 @@ class sensor(object):
 
     def __call__(self, p, qs):
         """Simula una medición ruidosa. """
-        return np.random.normal(
-            [distancia(p, q) for q in qs],
-            self.sigma)
+        d = distancia(p, qs)
+        return np.random.normal(d, self.sigma)

@@ -6,21 +6,24 @@
 @date vie nov  6 15:24:28 -03 2020
 """
 import numpy as np
-from numpy.linalg import norm
-import matplotlib.pyplot as plt
 
 import gpsic.plotting.planar as plotting
 
 from uvnpy.modelos import integrador
 from uvnpy.filtering import kalman
 
-
-GPS = np.random.multivariate_normal
+plt = plotting.matplotlib.pyplot
+GPS = wgn = np.random.multivariate_normal
 
 
 def xBee(p, landmarks, R):
-    d = [norm(np.subtract(p, lm)) for lm in landmarks]
+    d = norma(np.subtract(p, landmarks))
     return np.random.normal(d, R)
+
+
+def norma(v):
+    sqr_sum = np.multiply(v, v).sum(1)
+    return np.sqrt(sqr_sum)
 
 
 class kfi_test(kalman.KFi):
@@ -45,28 +48,20 @@ class kfi_test(kalman.KFi):
         p = self.x
         Rinv = self.Rinv_gps
         dz = np.subtract(z, p)
-        dy = np.matmul(Rinv, dz)
+        y = np.matmul(Rinv, dz)
         Y = Rinv
-        return dy, Y
-
-    def modelo_xbee_i(self, z_i, p, lm):
-        p = self.x
-        Rinv = self.Rinv_xbee
-        diff = np.subtract(p, lm)
-        dist = norm(diff)
-        h_i = diff / dist
-        HtRinv = Rinv * h_i
-        dz = np.subtract(z_i, dist)
-        dy = HtRinv * dz
-        Y = np.outer(HtRinv, h_i)
-        return dy, Y
+        return y, Y
 
     def modelo_xbee(self, z, landmarks):
         p = self.x
-        xbee_i = self.modelo_xbee_i
-        innov = [xbee_i(z_i, p, lm_i) for z_i, lm_i in zip(z, landmarks)]
-        dy, Y = list(zip(*innov))
-        return sum(dy), sum(Y)
+        Rinv = self.Rinv_xbee
+        diff = np.subtract(p, landmarks)
+        hat_z = norma(diff)
+        H = diff / hat_z.reshape(-1, 1)
+        dz = np.subtract(z, hat_z)
+        y = Rinv * np.matmul(H.T, dz)
+        Y = Rinv * np.matmul(H.T, H)
+        return y, Y
 
 
 if __name__ == '__main__':
@@ -78,29 +73,6 @@ if __name__ == '__main__':
 
     landmarks = [(0., 0.), (0., 50.), (50., 0.)]
 
-    v = integrador(pi, Q=Q)
-
-    kfi = kfi_test(pi, dpi, Q, R_gps, R_xbee)
-    tiempo = np.arange(0.1, 50, 0.1)
-    p = [pi]
-    f_p = [pi]
-    for t in tiempo:
-        # u = [np.cos(t), np.sin(t)]
-        u = [0.5, 1.]
-        v.step(t, u)
-        kfi.prediccion(t, u)
-
-        # z_gps = GPS(v.p, R_gps)
-        # kfi.actualizacion(*kfi.modelo_gps(z_gps))
-        z_xbee = xBee(v.p, landmarks, R_xbee)
-        kfi.actualizacion(*kfi.modelo_xbee(z_xbee, landmarks))
-        p.append(v.p)
-        f_p.append(kfi.p)
-
-    t = np.hstack([0, tiempo])
-    p = np.vstack(p)
-    f_p = np.vstack(f_p)
-
     fig = plt.figure()
     gs = fig.add_gridspec(1, 1)
     # posición
@@ -108,9 +80,32 @@ if __name__ == '__main__':
         gs[0, 0],
         title='Pos. (verdadero vs. estimado)', title_kw={'fontsize': 11},
         xlabel='t [seg]', ylabel='posición [m]', label_kw={'fontsize': 10})
-    plotting.agregar_linea(pax, t, p[:, 0], color='r', label='$p_x$')
-    plotting.agregar_linea(pax, t, p[:, 1], color='g', label='$p_y$')
-    plotting.agregar_linea(pax, t, f_p[:, 0], color='r', ls='dotted')
-    plotting.agregar_linea(pax, t, f_p[:, 1], color='g', ls='dotted')
+
+    for i in range(10):
+        v = integrador(pi)
+
+        kfi = kfi_test(pi, dpi, Q, R_gps, R_xbee)
+        tiempo = np.arange(0.1, 50, 0.1)
+        p = [pi]
+        f_p = [pi]
+        for t in tiempo:
+            u = [0.5, 1.]
+            u = wgn(u, Q)
+            v.step(t, u)
+            x = v.x
+
+            kfi.prediccion(t, u)
+            # z_gps = GPS(x, R_gps)
+            # kfi.actualizacion(*kfi.modelo_gps(z_gps))
+            z_xbee = xBee(x, landmarks, R_xbee)
+            kfi.actualizacion(*kfi.modelo_xbee(z_xbee, landmarks))
+            p.append(x)
+            f_p.append(kfi.p)
+
+        t = np.hstack([0, tiempo])
+        p = np.vstack(p)
+        f_p = np.vstack(f_p)
+        plotting.agregar_linea(pax, t, p[:, 0] - f_p[:, 0], color='r')
+        plotting.agregar_linea(pax, t, p[:, 1] - f_p[:, 1], color='g')
 
     plt.show()

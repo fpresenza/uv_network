@@ -9,7 +9,7 @@ import collections
 import yaml
 
 from gpsic.modelos.multicoptero import MulticopteroLTI
-from gpsic.modelos.camara import Camera
+from gpsic.modelos.camara import cam
 from gpsic.toolkit import linalg
 
 from . import vehiculo, velocidad_rw
@@ -34,7 +34,7 @@ class uav(vehiculo):
         # sensors
         self.range = Rango()
         self.gimbal = cam_kw.get('gimbal', linalg.rm.Ry(np.pi/2))
-        self.cam = Camera(
+        self.cam = cam(
             pos=self.motion.p(),
             attitude=(self.motion.euler(), self.gimbal),
             sigma=4
@@ -126,7 +126,7 @@ class uav(vehiculo):
         return hat_y, H, R
 
     # def h_cam_test_2(self, pi, pj, t):
-    #     cam = Camera(pos=pi, attitude=t)
+    #     cam = cam(pos=pi, attitude=t)
     #     K = cam.intrinsic[:3,:3]
     #     C = cam.attitude
     #     n = (pj-cam.pos).reshape(-1,1)

@@ -16,11 +16,11 @@ def run(tiempo, puntos, landmarks):
     r = puntos[0]
     x = [r.din.x]
     u = [r.control.u]
-    P = dict([(punto.id, [punto.din.p]) for punto in puntos])
+    P = dict([(punto.id, [punto.din.x]) for punto in puntos])
 
     for t in tiempo[1:]:
         for punto in puntos:
-            p = punto.din.p
+            p = punto.din.x
             hat_p = punto.filtro.p
             u_cmd = punto.control.update(
                 hat_p, t,
@@ -79,8 +79,8 @@ if __name__ == '__main__':
         punto.punto(
             i,
             filtro=punto.ekf_autonomo,
-            controlador=punto.mpc_informativo_scipy,
-            pi=np.random.uniform(-0.1, 0.1, 2))
+            control=punto.det_innovacion,
+            pi=np.random.uniform(-20, 20, 2))
         for i in range(arg.agents)]
 
     tiempo = np.arange(arg.ti, arg.tf, arg.h)
