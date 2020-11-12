@@ -94,24 +94,57 @@ class KFi(kalman):
     def __init__(self, xi, dxi, ti=0.):
         """Filtro de Kalman en forma alternativa. """
         super(KFi, self).__init__(xi, dxi, ti=0.)
-        self._y = None
 
-    @property
-    def y(self):
-        return self._y
-
-    def actualizacion(self, y, Y):
+    def actualizacion(self, dy, Y):
         """Paso de corrección
 
         args:
 
-            y: innovacón en espacio de información
+            dy: innovacón en espacio de información
             Y: matriz de innovación
         """
         x, P = self._x, self._P
         F_prior = inv(P)
-        self._P = P = inv(F_prior + Y)
-        self._x = x + matmul(P, y)
+        self._P = inv(F_prior + Y)
+        self._x = x + matmul(P, dy)
+
+
+class KCF(kalman):
+    def __init__(self, xi, dxi, ti=0.):
+        """Filtro de Kalman por Consenso
+
+        Ver:
+            Olfati-Saber,
+            ''Kalman-Consensus Filter: Optimality
+              Stability and Performance'',
+            IEEE Conference on Decision and Control (2009).
+        """
+        super(KCF, self).__init__(xi, dxi, ti=0.)
+        self.t_a = ti
+
+    def actualizacion(self, t, dy, Y, x_j):
+        """Paso de corrección
+
+        args:
+
+            t: tiempo
+            dy: innovacón en espacio de información
+            Y: matriz de innovación
+            x_j: tupla de estimados de los vecinos
+        """
+        dt = t - self.t_a
+        self.t_a = t
+        x, P = self._x, self._P
+        F_prior = inv(P)
+        P = inv(F_prior + Y)
+
+        d_i = len(x_j)
+        S = np.sum(x_j, axis=0) - d_i * x
+        norm_P = np.linalg.norm(P, 'fro')
+        c = dt / (norm_P + 1)
+
+        self._x = x + matmul(P, dy) + c * np.matmul(P, S)
+        self._P = P
 
 
 class IF(object):

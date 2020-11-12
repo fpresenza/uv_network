@@ -8,7 +8,6 @@
 import numpy as np
 
 import gpsic.plotting.planar as plotting
-
 from uvnpy.modelos import integrador
 from uvnpy.filtering import kalman
 
@@ -48,9 +47,9 @@ class kfi_test(kalman.KFi):
         p = self.x
         Rinv = self.Rinv_gps
         dz = np.subtract(z, p)
-        y = np.matmul(Rinv, dz)
+        dy = np.matmul(Rinv, dz)
         Y = Rinv
-        return y, Y
+        return dy, Y
 
     def modelo_xbee(self, z, landmarks):
         p = self.x
@@ -59,9 +58,9 @@ class kfi_test(kalman.KFi):
         hat_z = norma(diff)
         H = diff / hat_z.reshape(-1, 1)
         dz = np.subtract(z, hat_z)
-        y = Rinv * np.matmul(H.T, dz)
+        dy = Rinv * np.matmul(H.T, dz)
         Y = Rinv * np.matmul(H.T, H)
-        return y, Y
+        return dy, Y
 
 
 if __name__ == '__main__':
