@@ -8,7 +8,6 @@
 import numpy as np
 
 import gpsic.plotting.planar as plotting
-
 from uvnpy.modelos import integrador
 from uvnpy.filtering import kalman
 
@@ -16,14 +15,14 @@ plt = plotting.matplotlib.pyplot
 GPS = wgn = np.random.multivariate_normal
 
 
-def xBee(p, landmarks, R):
-    d = norma(np.subtract(p, landmarks))
-    return np.random.normal(d, R)
-
-
 def norma(v):
     sqr_sum = np.multiply(v, v).sum(1)
     return np.sqrt(sqr_sum)
+
+
+def xBee(p, landmarks, sigma):
+    d = norma(np.subtract(p, landmarks))
+    return np.random.normal(d, sigma)
 
 
 class if_test(kalman.IF):
@@ -35,14 +34,15 @@ class if_test(kalman.IF):
         self.Rinv_xbee = 1./R_xbee
 
     @property
-    def p(self):
-        return self.x
+    def x(self):
+        x, _ = self.transformar(self._v, self._F)
+        return x
 
-    def f(self, dt, x, u):
-        Phi = self.Id
-        x_prior = x + np.multiply(dt, u)
+    def prior(self, dt, x, P, u):
+        x = x + np.multiply(dt, u)
         Q = self.Q * (dt**2)
-        return x_prior, Phi, Q
+        P = P + Q
+        return x, P
 
     def modelo_gps(self, z):
         Rinv = self.Rinv_gps
@@ -56,8 +56,8 @@ class if_test(kalman.IF):
         diff = np.subtract(p, landmarks)
         hat_z = norma(diff)
         H = diff / hat_z.reshape(-1, 1)
-        dz = z - hat_z + np.matmul(H, p)
-        y = Rinv * np.matmul(H.T, dz)
+        z = z - hat_z + np.matmul(H, p)
+        y = Rinv * np.matmul(H.T, z)
         Y = Rinv * np.matmul(H.T, H)
         return y, Y
 
@@ -67,7 +67,8 @@ if __name__ == '__main__':
     dpi = [3., 3.]
     Q = 1. * np.eye(2)
     R_gps = 9 * np.eye(2)
-    R_xbee = 9.
+    sigma_xbee = 3.
+    R_xbee = sigma_xbee ** 2
 
     landmarks = [(0., 0.), (0., 50.), (50., 0.)]
 
@@ -88,17 +89,17 @@ if __name__ == '__main__':
         f_p = [pi]
         for t in tiempo:
             u = [0.5, 1.]
-            u = wgn(u, Q)
-            v.step(t, u)
+
+            v.step(t, wgn(u, Q))
             x = v.x
 
             ift.prediccion(t, u)
             # z_gps = GPS(x, R_gps)
             # ift.actualizacion(*ift.modelo_gps(z_gps))
-            z_xbee = xBee(x, landmarks, R_xbee)
+            z_xbee = xBee(x, landmarks, sigma_xbee)
             ift.actualizacion(*ift.modelo_xbee(z_xbee, landmarks))
             p.append(x)
-            f_p.append(ift.p)
+            f_p.append(ift.x)
 
         t = np.hstack([0, tiempo])
         p = np.vstack(p)
