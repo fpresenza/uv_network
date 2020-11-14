@@ -5,6 +5,7 @@ Created on Tue June 23 14:27:46 2020
 @author: fran
 """
 import numpy as np
+import scipy.linalg
 
 
 __all__ = [
@@ -25,10 +26,27 @@ def distancia(p, qs):
     return norma(diff)
 
 
+def distancias_grafo(p, D, n=2):
+    Dt = np.kron(D.T, np.eye(n))
+    diff = Dt.dot(p).reshape(-1, n)
+    sqrdiff = diff * diff
+    return np.sqrt(sqrdiff.sum(1))
+
+
 def jacobiano(p, qs):
     diff = np.subtract(p, qs)
     dist = norma(diff).reshape(-1, 1)
     return diff / dist
+
+
+def jacobiano_grafo(p, D, n=2):
+    Dt = np.kron(D.T, np.eye(n))
+    diff = Dt.dot(p).reshape(-1, n)
+    sqrdiff = diff * diff
+    dist = np.sqrt(sqrdiff.sum(1))
+    w = diff / dist.reshape(-1, 1)
+    W = scipy.linalg.block_diag(*w)
+    return W.dot(Dt)
 
 
 def matriz_innovacion(p, qs, sigma):
