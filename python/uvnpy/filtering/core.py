@@ -22,7 +22,7 @@ def similaridad(x, P):
     sentidos.
     """
     Pinv = inv(P)
-    y = np.matmul(Pinv, x)
+    y = Pinv.dot(x)
     return y, Pinv
 
 

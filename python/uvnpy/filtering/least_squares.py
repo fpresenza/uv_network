@@ -19,9 +19,10 @@ def wlstsq(A, b, Q=None):
     """
     if Q is None:
         Q = np.identity(b.size)
-    P = inv(multi_dot([A.T, Q, A]))
-    A_pinv = multi_dot([P, A.T, Q])
-    x = np.matmul(A_pinv, b)
+    At = A.T
+    P = inv(At.dot(Q).dot(A))
+    A_pinv = P.dot(At).dot(Q)
+    x = A_pinv.dot(b)
     return x, P
 
 
@@ -39,7 +40,7 @@ def ajustar_gaussiana(muestras, pesos=None):
     if pesos is None:
         pesos = np.ones(len(muestras))
     pesos = normalizar_pesos(pesos)
-    media = np.matmul(pesos, muestras)
+    media = pesos.dot(muestras)
     error = np.subtract(muestras, media)
     cov = sum([p * np.outer(e, e) for p, e in zip(pesos, error)]) * N / (N - 1)
     return media, cov

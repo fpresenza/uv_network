@@ -4,21 +4,41 @@
 Created on Mon Apr 06 12:41:07 2020
 @author: fran
 """
-from numpy.linalg import norm
+import numpy as np
+import scipy.linalg
 from graph_tool import Graph
 
 from uvnpy.toolkit import iterable
 from uvnpy.filtering import consenso
 
 __all__ = [
+    'distancia',
+    'distancia_jacobiano',
     'proximidad',
     'grafo'
 ]
 
 
+def distancia(p, D, n=2):
+    Dt = np.kron(D, np.eye(n)).T
+    diff = Dt.dot(p).reshape(-1, n)
+    sqrdiff = diff * diff
+    return np.sqrt(sqrdiff.sum(1))
+
+
+def distancia_jacobiano(p, D, n=2):
+    Dt = np.kron(D, np.eye(n)).T
+    diff = Dt.dot(p).reshape(-1, n)
+    sqrdiff = diff * diff
+    dist = np.sqrt(sqrdiff.sum(1))
+    h = diff / dist.reshape(-1, 1)
+    M = scipy.linalg.block_diag(*h)
+    return M.dot(Dt)
+
+
 def proximidad(v_i, v_j, rango_max):
     p_i, p_j = v_i.din.p, v_j.din.p
-    dist = norm(p_i - p_j)
+    dist = np.linalg.norm(p_i - p_j)
     return dist <= rango_max
 
 

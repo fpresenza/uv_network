@@ -4,9 +4,7 @@
 @author: fran
 """
 import numpy as np
-from numpy.linalg import multi_dot, inv
-
-matmul = np.matmul
+from numpy.linalg import inv
 
 
 def fusionar(v, Fisher):
@@ -68,10 +66,11 @@ class KF(kalman):
             R: covarianza del sensor
         """
         x, P = self._x, self._P
-        P_z = multi_dot([H, P, H.T]) + R
-        K = multi_dot([P, H.T, inv(P_z)])
-        self._x = x + matmul(K, dz)
-        self._P = P - multi_dot([K, H, P])
+        Pz = H.dot(P).dot(H.T) + R
+        Pz_inv = inv(Pz)
+        K = P.dot(H.T).dot(Pz_inv)
+        self._x = x + K.dot(dz)
+        self._P = P - K.dot(H).dot(P)
 
 
 class KFi(kalman):
@@ -90,7 +89,7 @@ class KFi(kalman):
         x, P = self._x, self._P
         I_prior = inv(P)
         self._P = inv(I_prior + Y)
-        self._x = x + matmul(P, dy)
+        self._x = x + P.dot(dy)
 
 
 class KCF(kalman):
@@ -130,7 +129,7 @@ class KCF(kalman):
         norm_P = np.linalg.norm(P, 'fro')
         c *= dt / (norm_P + 1)
 
-        self._x = x + matmul(P, dy + c*suma)
+        self._x = x + P.dot(dy + c*suma)
         self._P = P
 
 
@@ -150,11 +149,11 @@ class IF(object):
     def iniciar(self, xi, dxi, ti=0., f=None):
         self.t = ti
         self._I = np.diag(1./np.square(dxi))
-        self._v = matmul(self._I, xi)
+        self._v = self._I.dot(xi)
 
     def transformar(self, u, M):
         Minv = inv(M)
-        v = np.matmul(Minv, u)
+        v = Minv.dot(u)
         return v, Minv
 
     def prediccion(self, t, *args):

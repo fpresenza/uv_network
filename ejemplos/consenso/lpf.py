@@ -11,7 +11,9 @@ import matplotlib.pyplot as plt  # noqa
 
 import gpsic.plotting.planar as plotting
 from uvnpy.modelos import point
-from uvnpy.redes import grafo, proximidad
+from uvnpy.redes import grafo
+
+proximidad = grafo.proximidad
 
 
 def run(tiempo, red, rango_max, ui, signal):
@@ -79,7 +81,7 @@ if __name__ == '__main__':
         return np.random.normal(f, sigma)
 
     N = arg.agents
-    red = grafo(directed=False)
+    red = grafo.grafo(directed=False)
     red.agregar_vehiculos([point(i) for i in range(N)])
 
     pi = dict([(v.id, np.random.uniform(-5, 5, 2)) for v in red.vehiculos])
