@@ -10,20 +10,10 @@ import matplotlib.pyplot as plt
 
 import gpsic.plotting.planar as plotting
 from gpsic.analisis.core import cargar_yaml
-from uvnpy.modelos import vehiculo, integrador
+from uvnpy.modelos import vehiculo, lineal
 from uvnpy.filtering import kalman, metricas
 from uvnpy.control.informativo import minimizar
 from uvnpy.sensores import rango
-
-
-class integrador_ruidoso(integrador):
-    def __init__(self, xi, Q, ti=0.):
-        super(integrador_ruidoso, self).__init__(xi, ti)
-        self.Q = np.asarray(Q)
-
-    def dinamica(self, x, t, u):
-        self._dx = np.random.multivariate_normal(u, self.Q)
-        return self._dx
 
 
 class ekf(kalman.KF):
@@ -72,7 +62,7 @@ class ekf(kalman.KF):
 det_matriz_innovacion = {
     'metrica': metricas.det,
     'matriz': rango.matriz_innovacion,
-    'modelo': integrador,
+    'modelo': lineal.integrador,
     'Q': (np.eye(2), 4.5*np.eye(2), -100),
     'dim': 2,
     'horizonte': np.linspace(0.1, 1, 10)
@@ -157,7 +147,7 @@ if __name__ == '__main__':
         pi = np.random.uniform(-20, 20, 2)
         p = vehiculo(
             i,
-            din=integrador_ruidoso(pi, Q),
+            din=lineal.integrador_ruidoso(pi, Q),
             rango=rango.sensor(sigma),
             filtro=ekf(pi, np.ones(2), Q, R),
             control=minimizar(**det_matriz_innovacion))
