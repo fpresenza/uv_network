@@ -10,14 +10,19 @@ from gpsic.integradores import EulerExplicito
 
 
 class vehiculo(object):
-    """ This class implements a unmanned vehicle instance
-    to use as node in a graph. """
-    def __init__(self, nombre, tipo='vehiculo', **kwargs):
+    def __init__(self, nombre, **kwargs):
         self.id = nombre
-        self.tipo = tipo
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
     def __str__(self):
-        return '{}({})'.format(self.tipo, self.id)
+        try:
+            return '{}({})'.format(self.tipo, self.id)
+        except AttributeError:
+            return 'vehiculo({})'.format(self.id)
+
+    def __repr__(self):
+        return self.__str__()
 
 
 class integrador(EulerExplicito):

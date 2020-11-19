@@ -7,7 +7,7 @@ from gpsic.controladores.mpc import MPC, esfuerzo_control, incremento_control
 
 
 class minimizar(MPC):
-    def __init__(self, modelo, metrica, matriz, Q, **kwargs):
+    def __init__(self, metrica, matriz, modelo, Q, **kwargs):
         self.metrica = metrica
         self.matriz = matriz
         costos = (

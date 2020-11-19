@@ -4,11 +4,79 @@
 @author: fran
 """
 import argparse
+from types import SimpleNamespace
 import numpy as np
 import matplotlib.pyplot as plt
 
 import gpsic.plotting.planar as plotting
-from uvnpy.modelos import punto
+from gpsic.analisis.core import cargar_yaml
+from uvnpy.modelos import vehiculo, integrador
+from uvnpy.filtering import kalman, metricas
+from uvnpy.control.informativo import minimizar
+from uvnpy.sensores import rango
+
+
+class integrador_ruidoso(integrador):
+    def __init__(self, xi, Q, ti=0.):
+        super(integrador_ruidoso, self).__init__(xi, ti)
+        self.Q = np.asarray(Q)
+
+    def dinamica(self, x, t, u):
+        self._dx = np.random.multivariate_normal(u, self.Q)
+        return self._dx
+
+
+class ekf(kalman.KF):
+    def __init__(self, x, dx, Q, R, ti=0.):
+        """Filtro de localización. """
+        super(ekf, self).__init__(x, dx, ti=0.)
+        self.Q = np.asarray(Q)
+        self.R = np.asarray(R)
+        self.logs = SimpleNamespace(
+            t=[self.t],
+            x=[self.x],
+            dvst=[metricas.sqrt_diagonal(self.P)],
+            eigs=[metricas.eigvalsh(self.P)])
+
+    @property
+    def p(self):
+        return self.x
+
+    def prior(self, dt, u):
+        self._x = self._x + np.multiply(dt, u)
+        self._P = self._P + self.Q * (dt**2)
+
+    def modelo_rango(self, z, landmarks):
+        p = self.x
+        hat_z = rango.distancia(p, landmarks)
+        dz = z - hat_z
+        H = rango.jacobiano(p, landmarks)
+        R = self.R * np.eye(len(landmarks))
+        return dz, H, R
+
+    def update(self, t, u, rangos, landmarks):
+        self.prediccion(t, u)
+        dz, H, R = self.modelo_rango(rangos, landmarks)
+        self.actualizacion(dz, H, R)
+
+    def guardar(self):
+        """Guarda los últimos datos. """
+        self.logs.t.append(self.t)
+        self.logs.x.append(self.x)
+        self.logs.dvst.append(
+            metricas.sqrt_diagonal(self.P))
+        self.logs.eigs.append(
+            metricas.eigvalsh(self.P))
+
+
+det_matriz_innovacion = {
+    'metrica': metricas.det,
+    'matriz': rango.matriz_innovacion,
+    'modelo': integrador,
+    'Q': (np.eye(2), 4.5*np.eye(2), -100),
+    'dim': 2,
+    'horizonte': np.linspace(0.1, 1, 10)
+}
 
 
 def run(tiempo, puntos, landmarks):
@@ -51,6 +119,9 @@ if __name__ == '__main__':
         '-e', '--tf',
         default=1.0, type=float, help='tiempo final')
     parser.add_argument(
+        '-r', '--arxiv',
+        default='/tmp/punto.yaml', type=str, help='arhivo de configuración')
+    parser.add_argument(
         '-g', '--save',
         default=False, action='store_true',
         help='flag para guardar los videos')
@@ -67,6 +138,12 @@ if __name__ == '__main__':
     # ------------------------------------------------------------------
     # Configuración
     # ------------------------------------------------------------------
+    # archivo de configuración
+    config = cargar_yaml(arg.arxiv)
+    Q = config['din']['Q']
+    sigma = config['rango']['sigma']
+    R = sigma**2
+
     # landmarks
     landmarks = [(0, -10), (0, 10)]
     # landmarks = []
@@ -75,13 +152,16 @@ if __name__ == '__main__':
     #              [-13.76694731, -2.34360965],
     #              [-3.2733689, 18.90361114]]
 
-    puntos = [
-        punto.punto(
+    puntos = []
+    for i in range(arg.agents):
+        pi = np.random.uniform(-20, 20, 2)
+        p = vehiculo(
             i,
-            filtro=punto.ekf_autonomo,
-            control=punto.det_innovacion,
-            pi=np.random.uniform(-20, 20, 2))
-        for i in range(arg.agents)]
+            din=integrador_ruidoso(pi, Q),
+            rango=rango.sensor(sigma),
+            filtro=ekf(pi, np.ones(2), Q, R),
+            control=minimizar(**det_matriz_innovacion))
+        puntos.append(p)
 
     tiempo = np.arange(arg.ti, arg.tf, arg.h)
 
