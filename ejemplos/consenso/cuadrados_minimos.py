@@ -10,17 +10,52 @@ import numpy as np
 import matplotlib.pyplot as plt  # noqa
 
 import gpsic.plotting.planar as plotting
-from uvnpy.modelos import point
-from uvnpy.redes import grafo
+from uvnpy.modelos import vehiculo, integrador
+from uvnpy.filtering import consenso
+from uvnpy.redes import grafo, mensajeria
 from uvnpy.filtering import similaridad, kalman
 
-proximidad = grafo.proximidad
+normal = np.random.multivariate_normal
+
+
+def proximidad(v_i, v_j, rango_max):
+    p_i, p_j = v_i.din.x, v_j.din.x
+    diff = p_i - p_j
+    dist = np.sqrt(diff.dot(diff))
+    return dist <= rango_max
+
+
+def mensajes(v_i, v_j):
+    msg_i = v_i.box.salida
+    msg_j = v_j.box.salida
+    v_i.box.recibir(msg_j)
+    v_j.box.recibir(msg_i)
+
+
+class agente(vehiculo):
+    def __init__(self, nombre, xi=np.zeros(2)):
+        super(agente, self).__init__(nombre, tipo='agente')
+        # dinamica del vehiculo
+        self.din = integrador(xi=xi)
+        # intercambio de mensajes
+        self.box = mensajeria.box(out={'id': self.id}, maxlen=30)
+        self.vector = consenso.promedio()
+        self.matriz = consenso.promedio()
+
+    def step(self, t):
+        y_j = self.box.extraer('vector')
+        Y_j = self.box.extraer('matriz')
+        self.vector.step(t, ([y_j], ))
+        self.matriz.step(t, ([Y_j], ))
+        self.box.actualizar('vector', self.vector.x)
+        self.box.actualizar('matriz', self.matriz.x)
+        self.box.limpiar()
 
 
 def run(tiempo, red, rango_max):
     # logs
-    Pos = dict([(v.id, [v.din.p]) for v in red.vehiculos])
-    avg = dict([(v.id, [v.promedio[0].x]) for v in red.vehiculos])
+    Pos = dict([(v.id, [v.din.x]) for v in red.vehiculos])
+    avg = dict([(v.id, [v.vector.x]) for v in red.vehiculos])
     E = [red.enlaces]
 
     fig, ax = plt.subplots()
@@ -36,24 +71,22 @@ def run(tiempo, red, rango_max):
     for i, t in enumerate(tiempo[1:]):
         red.reconectar(proximidad, rango_max)
         E.append(red.enlaces)
-        red.intercambiar()
+        red.intercambiar(mensajes)
         color = ['0.3', '0.3', '0.3']
         xs = []
         Ps = []
         for v in red.vehiculos:
-            v.consenso_promedio_step(0, t)
-            v.consenso_promedio_step(1, t)
-            v.box.limpiar_entrada()
+            v.step(t)
 
-            y = N * v.promedio[0].x
-            Y = N * v.promedio[1].x
+            y = 3 * v.vector.x
+            Y = 3 * v.matriz.x
             x, P = similaridad(y, Y)
 
             xs.append(x)
             Ps.append(P)
 
-            Pos[v.id].append(v.din.p)
-            avg[v.id].append(v.promedio[0].x)
+            Pos[v.id].append(v.din.x)
+            avg[v.id].append(v.vector.x)
 
         ell = [
             plotting.ellipse(ax, x_i, P_i, alpha=0.4, color=c)
@@ -87,9 +120,6 @@ if __name__ == '__main__':
         '-a', '--animate',
         default=False, action='store_true',
         help='flag para generar animacion')
-    parser.add_argument(
-        '-n', '--agents',
-        default=1, type=int, help='cantidad de agentes')
 
     arg = parser.parse_args()
 
@@ -98,15 +128,12 @@ if __name__ == '__main__':
     # ------------------------------------------------------------------
     tiempo = np.arange(arg.ti, arg.tf, arg.h)
 
-    N = arg.agents
     red = grafo.grafo(directed=False)
-    red.agregar_vehiculos([point(i) for i in range(N)])
-
-    red.iniciar_dinamica({
-        0: [0, 0],
-        1: [15, 0],
-        2: [-10, 15]
-    })
+    red.agregar_vehiculos([
+        agente(0, xi=[0, 0.]),
+        agente(1, xi=[15, 0.]),
+        agente(2, xi=[-10, 15.])
+        ])
 
     p = [0, 0]
 
@@ -117,29 +144,29 @@ if __name__ == '__main__':
     P3 = np.array([[15,  5],
                    [5,  25]])**2
 
-    x1 = np.random.multivariate_normal(p, P1)
-    x2 = np.random.multivariate_normal(p, P2)
-    x3 = np.random.multivariate_normal(p, P3)
+    x1 = normal(p, P1)
+    x2 = normal(p, P2)
+    x3 = normal(p, P3)
     print('x\n', x1, '\n', x2, '\n', x3)
 
     y1, Y1 = similaridad(x1, P1)
     y2, Y2 = similaridad(x2, P2)
     y3, Y3 = similaridad(x3, P3)
+    yi = [y1, y2, y3]
+    Yi = [Y1, Y2, Y3]
 
     # print('v\n', y1, '\n', y2, '\n', y3)
-    yf, Yf = kalman.fusionar([(y1, Y1), (y2, Y2), (y3, Y3)])
+    yf, Yf = kalman.fusionar(yi, Yi)
     xf, Pf = similaridad(yf, Yf)
 
-    red.iniciar_consenso_promedio({
-        0: y1,
-        1: y2,
-        2: y3
-    })
-    red.iniciar_consenso_promedio({
-        0: Y1,
-        1: Y2,
-        2: Y3
-    })
+    for v in red.vehiculos:
+        y = yi[v.id]
+        Y = Yi[v.id]
+        v.vector.iniciar(y, 0.)
+        v.box.actualizar('vector', y)
+
+        v.matriz.iniciar(Y, 0.)
+        v.box.actualizar('matriz', Y)
 
     rango_max = np.sqrt(20.**2 + 20.**2)
 

@@ -14,7 +14,8 @@ class promedio(EulerExplicito):
     def __init__(self, xi=[0.], ti=0.):
         super(promedio, self).__init__(xi, ti)
 
-    def dinamica(self, x, t, x_j):
+    @staticmethod
+    def dinamica(x, t, x_j):
         d_i = len(x_j)
         return - d_i * x + np.sum(x_j, axis=0)
 
@@ -23,7 +24,8 @@ class lpf(EulerExplicito):
     def __init__(self, xi=[0.], ti=0.):
         super(lpf, self).__init__(xi, ti)
 
-    def dinamica(self, x, t, u_i, x_j, u_j):
+    @staticmethod
+    def dinamica(x, t, u_i, x_j, u_j):
         d_i = len(x_j)
         sum_xj = np.sum(x_j, axis=0)
         sum_uj = np.sum(u_j, axis=0)
@@ -58,3 +60,4 @@ class comparador(object):
         self._u = u_aug[f_idx]
         if not np.isclose(self._x, x):
             self.flag = False
+        return self._x, self._u, self.flag

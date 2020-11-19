@@ -10,32 +10,69 @@ import numpy as np
 import matplotlib.pyplot as plt  # noqa
 
 import gpsic.plotting.planar as plotting
-from uvnpy.modelos import point
-from uvnpy.redes import grafo
+from uvnpy.filtering import consenso
+from uvnpy.modelos import vehiculo, doble_integrador
+from uvnpy.redes import grafo, mensajeria
 
-proximidad = grafo.proximidad
+normal = np.random.multivariate_normal
+
+
+def proximidad(i, j, rango_max):
+    p_i, p_j = i.p, j.p
+    diff = p_i - p_j
+    dist = np.sqrt(diff.dot(diff))
+    return dist <= rango_max
+
+
+def mensajes(v_i, v_j):
+    msg_i = v_i.box.salida
+    msg_j = v_j.box.salida
+    v_i.box.recibir(msg_j)
+    v_j.box.recibir(msg_i)
+
+
+class agente(vehiculo):
+    def __init__(self, nombre, xi=np.zeros(2)):
+        super(agente, self).__init__(nombre, tipo='agente')
+        # dinamica del vehiculo
+        self.din = doble_integrador(xi=xi)
+        # intercambio de mensajes
+        self.box = mensajeria.box(out={'id': self.id}, maxlen=30)
+
+    @property
+    def p(self):
+        return self.din._x[:2]
+
+    @property
+    def v(self):
+        return self.din._x[2:]
+
+    def step(self, t):
+        v_i = self.din._x[2:]
+        v_j = self.box.extraer('flocking')
+        cmd_i = 0.2 * consenso.promedio.dinamica(v_i, t, v_j)
+        self.box.actualizar('flocking', v_i)
+        self.box.limpiar()
+        self.din.step(t, cmd_i)
 
 
 def run(tiempo, red, rango_max):
     # logs
-    P = dict([(v.id, [v.din.p]) for v in red.vehiculos])
-    avg = dict([(v.id, [v.promedio[0].x]) for v in red.vehiculos])
+    P = dict([(v.id, [v.p]) for v in red.vehiculos])
+    V = dict([(v.id, [v.v]) for v in red.vehiculos])
     E = [red.enlaces]
 
     for t in tiempo[1:]:
         red.reconectar(proximidad, rango_max)
         E.append(red.enlaces)
-        red.intercambiar()
+        red.intercambiar(mensajes)
         for v in red.vehiculos:
-            v.consenso_promedio_step(0, t)
-            v.box.limpiar_entrada()
-            cmd = v.promedio[0].x
-            v.din.step(t, cmd)
+            v.step(t)
 
-            P[v.id].append(v.din.p)
-            avg[v.id].append(v.promedio[0].x)
+            P[v.id].append(v.p)
+            V[v.id].append(v.v)
 
-    return P, E, avg
+    return P, E, V
 
 
 if __name__ == '__main__':
@@ -73,21 +110,19 @@ if __name__ == '__main__':
 
     N = arg.agents
     red = grafo.grafo(directed=False)
-    red.agregar_vehiculos([point(i) for i in range(N)])
-    pi = dict([(v.id, np.random.uniform(-10, 10, 2)) for v in red.vehiculos])
-    vi = dict([(v.id, np.random.normal(0, 5, 2)) for v in red.vehiculos])
+    med, cov = np.zeros(4), np.diag([15., 15., 9., 9.])
+    red.agregar_vehiculos(
+        [agente(i, xi=normal(med, cov)) for i in range(N)])
 
-    red.iniciar_dinamica(
-        pi=pi,
-        vi=vi)
-    red.iniciar_consenso_promedio(vi)
+    for v in red.vehiculos:
+        v.box.actualizar('flocking', v.v)
 
     rango_max = np.sqrt(10.**2 + 10.**2)
 
     # ------------------------------------------------------------------
     # Simulación
     # ------------------------------------------------------------------
-    P, E, avg = run(tiempo, red, rango_max)
+    P, E, V = run(tiempo, red, rango_max)
     t = tiempo
 
     # ------------------------------------------------------------------
@@ -97,16 +132,16 @@ if __name__ == '__main__':
     fig.subplots_adjust(hspace=0.5, wspace=0.25)
     gs = fig.add_gridspec(2, 1)
     fig.suptitle('Consenso - flocking')
-    avg_x = plotting.agregar_ax(
+    V_x = plotting.agregar_ax(
         gs[0, 0],
         xlabel='t [seg]', ylabel='$v_x$ [m/s]', label_kw={'fontsize': 10})
-    avg_y = plotting.agregar_ax(
+    V_y = plotting.agregar_ax(
         gs[1, 0],
         xlabel='t [seg]', ylabel='$v_y$ [m/s]', label_kw={'fontsize': 10})
-    for key, value in avg.items():
+    for key, value in V.items():
         x, y = zip(*value)
-        plotting.agregar_linea(avg_x, t, x)
-        plotting.agregar_linea(avg_y, t, y)
+        plotting.agregar_linea(V_x, t, x)
+        plotting.agregar_linea(V_y, t, y)
 
     if arg.save:
         fig.savefig('/tmp/flocking.pdf', format='pdf')

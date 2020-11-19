@@ -10,35 +10,63 @@ import numpy as np
 import matplotlib.pyplot as plt  # noqa
 
 import gpsic.plotting.planar as plotting
-from uvnpy.modelos import point
-from uvnpy.redes import grafo
+from uvnpy.filtering import consenso
+from uvnpy.modelos import vehiculo, integrador
+from uvnpy.redes import grafo, mensajeria
 
-proximidad = grafo.proximidad
+normal = np.random.multivariate_normal
+
+
+def proximidad(i, j, rango_max):
+    p_i, p_j = i.p, j.p
+    diff = p_i - p_j
+    dist = np.sqrt(diff.dot(diff))
+    return dist <= rango_max
+
+
+def mensajes(v_i, v_j):
+    msg_i = v_i.box.salida
+    msg_j = v_j.box.salida
+    v_i.box.recibir(msg_j)
+    v_j.box.recibir(msg_i)
+
+
+class agente(vehiculo):
+    def __init__(self, nombre, xi=np.zeros(2)):
+        super(agente, self).__init__(nombre, tipo='agente')
+        # dinamica del vehiculo
+        self.din = integrador(xi=xi)
+        # intercambio de mensajes
+        self.box = mensajeria.box(out={'id': self.id}, maxlen=30)
+
+    @property
+    def p(self):
+        return self.din._x
+
+    def step(self, t):
+        p_i = self.din.x
+        p_j = self.box.extraer('rendezvous')
+        cmd_i = 0.2 * consenso.promedio.dinamica(p_i, t, p_j)
+        self.box.actualizar('rendezvous', p_i)
+        self.box.limpiar()
+        self.din.step(t, cmd_i)
 
 
 def run(tiempo, red, rango_max):
     # logs
-    P = dict([(v.id, [v.din.p]) for v in red.vehiculos])
-    cmd = dict([(v.id, v.promedio[0].x) for v in red.vehiculos])
-    avg = dict([(v.id, [v.promedio[0].x]) for v in red.vehiculos])
+    P = dict([(v.id, [v.p]) for v in red.vehiculos])
     E = [red.enlaces]
 
     for t in tiempo[1:]:
         red.reconectar(proximidad, rango_max)
         E.append(red.enlaces)
-        red.intercambiar()
+        red.intercambiar(mensajes)
         for v in red.vehiculos:
-            x_j = v.box.extraer(('avg', 0))
-            cmd_i = v.promedio[0].dinamica(v.din.p, t, x_j)
-            v.box.actualizar_salida(('avg', 0), v.din.p)
-            v.box.limpiar_entrada()
-            cmd[v.id] = 0.25 * cmd_i
-            v.din.step(t, cmd[v.id])
+            v.step(t)
 
-            P[v.id].append(v.din.p)
-            avg[v.id].append(v.din.p)
+            P[v.id].append(v.p)
 
-    return P, E, avg
+    return P, E
 
 
 if __name__ == '__main__':
@@ -76,21 +104,20 @@ if __name__ == '__main__':
 
     N = arg.agents
     red = grafo.grafo(directed=False)
-    red.agregar_vehiculos([point(i) for i in range(N)])
-    pi = dict([(v.id, np.random.uniform(-10, 10, 2)) for v in red.vehiculos])
-    vi = dict([(v.id, np.random.normal(0, 5, 2)) for v in red.vehiculos])
+    med, cov = np.zeros(2), np.diag([40., 40.])
+    red.agregar_vehiculos(
+        [agente(i, xi=normal(med, cov)) for i in range(N)])
 
-    red.iniciar_dinamica(
-        pi=pi,
-        vi=vi)
-    red.iniciar_consenso_promedio(pi)
+    for v in red.vehiculos:
+        p_i = v.p
+        v.box.actualizar('rendezvous', p_i)
 
     rango_max = np.sqrt(10.**2 + 10.**2)
 
     # ------------------------------------------------------------------
     # Simulación
     # ------------------------------------------------------------------
-    P, E, avg = run(tiempo, red, rango_max)
+    P, E = run(tiempo, red, rango_max)
     t = tiempo
 
     # ------------------------------------------------------------------
@@ -100,16 +127,16 @@ if __name__ == '__main__':
     fig.subplots_adjust(hspace=0.5, wspace=0.25)
     gs = fig.add_gridspec(2, 1)
     fig.suptitle('Consenso - rendezvous')
-    avg_x = plotting.agregar_ax(
+    P_x = plotting.agregar_ax(
         gs[0, 0],
         xlabel='t [seg]', ylabel='$p_x$ [m]', label_kw={'fontsize': 10})
-    avg_y = plotting.agregar_ax(
+    P_y = plotting.agregar_ax(
         gs[1, 0],
         xlabel='t [seg]', ylabel='$p_y$ [m]', label_kw={'fontsize': 10})
-    for key, value in avg.items():
+    for key, value in P.items():
         x, y = zip(*value)
-        plotting.agregar_linea(avg_x, t, x)
-        plotting.agregar_linea(avg_y, t, y)
+        plotting.agregar_linea(P_x, t, x)
+        plotting.agregar_linea(P_y, t, y)
 
     if arg.save:
         fig.savefig('/tmp/rendezvous.pdf', format='pdf')

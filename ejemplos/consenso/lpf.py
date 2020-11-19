@@ -10,29 +10,60 @@ import numpy as np
 import matplotlib.pyplot as plt  # noqa
 
 import gpsic.plotting.planar as plotting
-from uvnpy.modelos import point
-from uvnpy.redes import grafo
+from uvnpy.modelos import vehiculo, integrador
+from uvnpy.filtering import consenso
+from uvnpy.redes import grafo, mensajeria
 
-proximidad = grafo.proximidad
+normal = np.random.multivariate_normal
 
 
-def run(tiempo, red, rango_max, ui, signal):
+def proximidad(i, j, rango_max):
+    p_i, p_j = i.din.x, j.din.x
+    diff = p_i - p_j
+    dist = np.sqrt(diff.dot(diff))
+    return dist <= rango_max
+
+
+def mensajes(v_i, v_j):
+    msg_i = v_i.box.salida
+    msg_j = v_j.box.salida
+    v_i.box.recibir(msg_j)
+    v_j.box.recibir(msg_i)
+
+
+class agente(vehiculo):
+    def __init__(self, nombre, xi=np.zeros(2)):
+        super(agente, self).__init__(nombre, tipo='agente')
+        # dinamica del vehiculo
+        self.din = integrador(xi=xi)
+        # intercambio de mensajes
+        self.box = mensajeria.box(out={'id': self.id}, maxlen=30)
+        self.lpf = consenso.lpf()
+
+    def step(self, t, u):
+        x_j = self.box.extraer('x')
+        u_j = self.box.extraer('u')
+        self.lpf.step(t, ([u, x_j, u_j], ))
+        self.box.actualizar('x', self.lpf.x)
+        self.box.actualizar('u', u)
+        self.box.limpiar()
+
+
+def run(tiempo, red, rango_max, U, signal):
     # logs
-    P = dict([(v.id, [v.din.p]) for v in red.vehiculos])
-    U = dict([(v.id, [ui[v.id]]) for v in red.vehiculos])
+    P = dict([(v.id, [v.din.x]) for v in red.vehiculos])
     lpf = dict([(v.id, [v.lpf.x]) for v in red.vehiculos])
     E = [red.enlaces]
 
     for t in tiempo[1:]:
         red.reconectar(proximidad, rango_max)
         E.append(red.enlaces)
-        red.intercambiar()
+        red.intercambiar(mensajes)
         for v in red.vehiculos:
             u = signal(t, v.id)
-            v.consenso_lpf_step(t, u)
-            v.box.limpiar_entrada()
+            v.step(t, u)
 
-            P[v.id].append(v.din.p)
+            P[v.id].append(v.din.x)
             U[v.id].append(u)
             lpf[v.id].append(v.lpf.x)
 
@@ -75,35 +106,33 @@ if __name__ == '__main__':
     sigma = 0.25
 
     def signal(t, v_id):
-        # f = [np.cos(t), np.sin(t)]
+        f = [np.cos(t), np.sin(t)]
         # f = [np.sin(t)]
-        f = [1.]
+        # f = [1.]
         return np.random.normal(f, sigma)
 
     N = arg.agents
     red = grafo.grafo(directed=False)
-    red.agregar_vehiculos([point(i) for i in range(N)])
+    med, cov = np.zeros(2), np.diag([10., 10.])
+    red.agregar_vehiculos(
+        [agente(i, xi=normal(med, cov)) for i in range(N)])
 
-    pi = dict([(v.id, np.random.uniform(-5, 5, 2)) for v in red.vehiculos])
-    vi = dict([(v.id, [0., 0.]) for v in red.vehiculos])
-    ui = dict([(v.id, signal(0, v.id)) for v in red.vehiculos])
-    lpfi = dict([
-        (v.id, {
-            'x': np.zeros_like(ui[v.id]),
-            'u': ui[v.id]})
-        for v in red.vehiculos])
+    U = {}
 
-    red.iniciar_dinamica(
-        pi=pi,
-        vi=vi)
-    red.iniciar_consenso_lpf(lpfi)
+    for v in red.vehiculos:
+        u = signal(0, v.id)
+        U[v.id] = [u]
+        x = np.zeros_like(u)
+        v.lpf.iniciar(x, 0.)
+        v.box.actualizar('x', x)
+        v.box.actualizar('u', u)
 
     rango_max = np.sqrt(10.**2 + 10.**2)
 
     # ------------------------------------------------------------------
     # Simulación
     # ------------------------------------------------------------------
-    P, E, U, lpf = run(tiempo, red, rango_max, ui, signal)
+    P, E, U, lpf = run(tiempo, red, rango_max, U, signal)
     t = tiempo
     # ------------------------------------------------------------------
     # Plotting

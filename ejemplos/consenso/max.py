@@ -10,15 +10,49 @@ import numpy as np
 import matplotlib.pyplot as plt  # noqa
 
 import gpsic.plotting.planar as plotting
-from uvnpy.modelos import point
-from uvnpy.redes import grafo
+from uvnpy.modelos import vehiculo, integrador
+from uvnpy.filtering import consenso
+from uvnpy.redes import grafo, mensajeria
 
-proximidad = grafo.proximidad
+normal = np.random.multivariate_normal
+
+
+def proximidad(i, j, rango_max):
+    p_i, p_j = i.din.x, j.din.x
+    diff = p_i - p_j
+    dist = np.sqrt(diff.dot(diff))
+    return dist <= rango_max
+
+
+def mensajes(v_i, v_j):
+    msg_i = v_i.box.salida
+    msg_j = v_j.box.salida
+    v_i.box.recibir(msg_j)
+    v_j.box.recibir(msg_i)
+
+
+class agente(vehiculo):
+    def __init__(self, nombre, xi=np.zeros(2)):
+        super(agente, self).__init__(nombre, tipo='agente')
+        # dinamica del vehiculo
+        self.din = integrador(xi=xi)
+        # intercambio de mensajes
+        self.box = mensajeria.box(out={'id': self.id}, maxlen=30)
+        self.comparador = consenso.comparador()
+
+    def step(self):
+        norma_j = self.box.extraer('norma')
+        p_j = self.box.extraer('p')
+        norma_max, p_max, flag = self.comparador.step(norma_j, p_j)
+        self.box.actualizar('norma', norma_max)
+        self.box.actualizar('p', p_max)
+        self.box.limpiar()
+        return norma_max, p_max, flag
 
 
 def run(tiempo, red, rango_max):
     # logs
-    P = dict([(v.id, [v.din.p]) for v in red.vehiculos])
+    P = dict([(v.id, [v.din.x]) for v in red.vehiculos])
     max_x = dict([(v.id, [v.comparador.x]) for v in red.vehiculos])
     max_u = dict([(v.id, [v.comparador.u]) for v in red.vehiculos])
     max_flag = dict([(v.id, [v.comparador.flag]) for v in red.vehiculos])
@@ -27,15 +61,14 @@ def run(tiempo, red, rango_max):
     for t in tiempo[1:]:
         red.reconectar(proximidad, rango_max)
         E.append(red.enlaces)
-        red.intercambiar()
+        red.intercambiar(mensajes)
         for v in red.vehiculos:
-            v.consenso_comparador_step()
-            v.box.limpiar_entrada()
+            norma_max, p_max, flag = v.step()
 
-            P[v.id].append(v.din.p)
-            max_x[v.id].append(v.comparador.x)
-            max_u[v.id].append(v.comparador.u)
-            max_flag[v.id].append(v.comparador.flag)
+            P[v.id].append(v.din.x)
+            max_x[v.id].append(norma_max)
+            max_u[v.id].append(p_max)
+            max_flag[v.id].append(flag)
 
     return P, E, max_x, max_u, max_flag
 
@@ -75,21 +108,17 @@ if __name__ == '__main__':
 
     N = arg.agents
     red = grafo.grafo(directed=False)
-    red.agregar_vehiculos([point(i) for i in range(N)])
+    med, cov = np.zeros(2), np.diag([10., 10.])
+    red.agregar_vehiculos(
+        [agente(i, xi=normal(med, cov)) for i in range(N)])
 
-    pi = dict([(v.id, np.random.uniform(-25, 25, 2)) for v in red.vehiculos])
-    print([(i, np.linalg.norm(p)) for i, p in pi.items()])
-    vi = dict([(v.id, np.random.normal(0, 5, 2)) for v in red.vehiculos])
-    compi = dict([
-        (v.id, {
-            'x': [np.linalg.norm(pi[v.id])],
-            'u': pi[v.id]})
-        for v in red.vehiculos])
-
-    red.iniciar_dinamica(
-        pi=pi,
-        vi=vi)
-    red.iniciar_consenso_comparador(compi, max)
+    for v in red.vehiculos:
+        p = v.din.x
+        norma = np.linalg.norm(p)
+        print(v.id, norma, p)
+        v.comparador.iniciar(norma, p, max)
+        v.box.actualizar('norma', norma)
+        v.box.actualizar('p', p)
 
     rango_max = np.sqrt(20.**2 + 20.**2)
 
@@ -110,8 +139,7 @@ if __name__ == '__main__':
         gs[0, 0],
         xlabel='t [seg]', ylabel='$x$', label_kw={'fontsize': 10})
     for key, value in max_x.items():
-        for x_i in zip(*value):
-            plotting.agregar_linea(ax_x, t, x_i)
+        plotting.agregar_linea(ax_x, t, value)
 
     ax_u = plotting.agregar_ax(
         gs[1, 0],

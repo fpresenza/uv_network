@@ -4,50 +4,29 @@
 Created on Mon Apr 06 12:41:07 2020
 @author: fran
 """
-import numpy as np
-import scipy.linalg
 from graph_tool import Graph
 
 from uvnpy.toolkit import iterable
-from uvnpy.filtering import consenso
 
 __all__ = [
-    'distancia',
-    'distancia_jacobiano',
-    'proximidad',
     'grafo'
 ]
-
-
-def distancia(p, D, n=2):
-    Dt = np.kron(D, np.eye(n)).T
-    diff = Dt.dot(p).reshape(-1, n)
-    sqrdiff = diff * diff
-    return np.sqrt(sqrdiff.sum(1))
-
-
-def distancia_jacobiano(p, D, n=2):
-    Dt = np.kron(D, np.eye(n)).T
-    diff = Dt.dot(p).reshape(-1, n)
-    sqrdiff = diff * diff
-    dist = np.sqrt(sqrdiff.sum(1))
-    h = diff / dist.reshape(-1, 1)
-    M = scipy.linalg.block_diag(*h)
-    return M.dot(Dt)
-
-
-def proximidad(v_i, v_j, rango_max):
-    p_i, p_j = v_i.din.p, v_j.din.p
-    dist = np.linalg.norm(p_i - p_j)
-    return dist <= rango_max
 
 
 class grafo(Graph):
     def __init__(self, *args, **kwargs):
         super(grafo, self).__init__(*args, **kwargs)
         self.vertex_properties['uvs'] = self.new_vertex_property('object')
-        # self.edge_properties['links'] = self.new_edge_property('object')
         self._map = {}
+
+    @property
+    def vehiculos(self):
+        return list(self.vp.uvs)
+
+    @property
+    def enlaces(self):
+        uvs = self.vp.uvs
+        return [[uvs[s].id, uvs[t].id] for (s, t) in self.get_edges()]
 
     def __actualizar_mapa(self):
         """ Actualiza el mapa de ids """
@@ -72,10 +51,6 @@ class grafo(Graph):
         self.remove_vertex(idx)
         self.__actualizar_mapa()
 
-    @property
-    def vehiculos(self):
-        return list(self.vp.uvs)
-
     def vehiculo(self, i):
         return self.vp.uvs[self._map[i]]
 
@@ -93,15 +68,6 @@ class grafo(Graph):
         enlace = self.edge(s, t)
         if enlace is not None:
             self.remove_edge(enlace)
-
-    @property
-    def enlaces(self):
-        uvs = self.vp.uvs
-        return [[uvs[s].id, uvs[t].id] for (s, t) in self.get_edges()]
-
-    def iniciar_dinamica(self, pi, vi={}, ti=0.):
-        for v in self.vehiculos:
-            v.din.iniciar(pi[v.id], vi=vi.get(v.id), ti=ti)
 
     def reconectar(self, condicion, *args):
         vehiculos = self.vehiculos
@@ -121,36 +87,18 @@ class grafo(Graph):
         neighbors = vertex.all_neighbors()
         return [self.vp.uvs[n] for n in neighbors]
 
-    def compartir(self, i):
-        """Compartir mensaje con sus vecinos. """
-        vehiculo = self.vehiculo(i)
-        vecinos = self.vecinos(i)
-        msg = vehiculo.box.salida
-        return [v.box.recibir(msg) for v in vecinos]
-
-    def intercambiar(self):
-        """Intercambiar mensajes entre vecinos. """
+    def intercambiar(self, swap, *args):
+        """Intercambio entre vecinos. """
         edges = self.get_edges()
         for s, t in edges:
             v_i = self.vp.uvs[s]
             v_j = self.vp.uvs[t]
-            msg_i = v_i.box.salida
-            msg_j = v_j.box.salida
-            v_i.box.recibir(msg_j)
-            v_j.box.recibir(msg_i)
+            swap(v_i, v_j, *args)
 
-    def iniciar_consenso_promedio(self, dic, ti=0.):
-        for v in self.vehiculos:
-            num = len(v.promedio)
-            v.promedio.append(consenso.promedio(dic[v.id], ti))
-            v.box.actualizar_salida(('avg', num), dic[v.id])
-
-    def iniciar_consenso_lpf(self, dic, ti=0.):
-        for v in self.vehiculos:
-            v.lpf.iniciar(dic[v.id]['x'], ti)
-            v.box.actualizar_salida('lpf', dic[v.id])
-
-    def iniciar_consenso_comparador(self, dic, funcion):
-        for v in self.vehiculos:
-            v.comparador.iniciar(dic[v.id]['x'], dic[v.id]['u'], funcion)
-            v.box.actualizar_salida('comparador', dic[v.id])
+    def compartir(self, i, share, *args):
+        """Compartir con vecinos. """
+        vehiculo = self.vehiculo(i)
+        vecinos = self.vecinos(i)
+        share(vehiculo, vecinos, *args)
+        # msg = vehiculo.box.salida
+        # return [v.box.recibir(msg) for v in vecinos]
