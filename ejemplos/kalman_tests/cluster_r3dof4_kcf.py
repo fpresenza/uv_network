@@ -10,7 +10,7 @@ import numpy as np
 
 import gpsic.plotting.planar as plotting
 import gpsic.cluster.r3dof4.kinematic_functions as r3dof4
-from uvnpy.modelos import integrador
+from uvnpy.modelos.lineal import integrador
 from uvnpy.filtering import kalman
 
 plt = plotting.matplotlib.pyplot

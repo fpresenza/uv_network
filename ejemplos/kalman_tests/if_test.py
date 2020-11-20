@@ -8,7 +8,7 @@
 import numpy as np
 
 import gpsic.plotting.planar as plotting
-from uvnpy.modelos import integrador
+from uvnpy.modelos.lineal import integrador
 from uvnpy.filtering import kalman
 
 plt = plotting.matplotlib.pyplot
@@ -35,7 +35,7 @@ class if_test(kalman.IF):
 
     @property
     def x(self):
-        x, _ = self.transformar(self._v, self._F)
+        x, _ = self.transformar(self._v, self._I)
         return x
 
     def prior(self, dt, x, P, u):

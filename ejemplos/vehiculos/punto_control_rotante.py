@@ -12,7 +12,6 @@ import gpsic.plotting.planar as plotting
 from gpsic.analisis.core import cargar_yaml
 from uvnpy.modelos import vehiculo, lineal
 from uvnpy.filtering import kalman, metricas
-from uvnpy.control.informativo import minimizar
 from uvnpy.sensores import rango
 
 
@@ -22,6 +21,8 @@ class ekf(kalman.KF):
         super(ekf, self).__init__(x, dx, ti=0.)
         self.Q = np.asarray(Q)
         self.R = np.asarray(R)
+        self.eye = np.eye(2)
+        self.Kc = 0.3 * np.array([[0., -1], [1, 0]])
         self.logs = SimpleNamespace(
             t=[self.t],
             x=[self.x],
@@ -33,8 +34,11 @@ class ekf(kalman.KF):
         return self.x
 
     def prior(self, dt, u):
-        self._x = self._x + np.multiply(dt, u)
-        self._P = self._P + self.Q * (dt**2)
+        # self._x += np.multiply(dt, u)
+        # self._P += self.Q * (dt**2)
+        F = self.eye + self.Kc * dt
+        self._x = F.dot(self._x)
+        self._P = F.dot(self._P).dot(F.T) + self.Q * (dt**2)
 
     def modelo_rango(self, z, landmarks):
         p = self.x
@@ -59,14 +63,18 @@ class ekf(kalman.KF):
             metricas.eigvalsh(self.P))
 
 
-det_matriz_innovacion = {
-    'metrica': metricas.det,
-    'matriz': rango.matriz_innovacion,
-    'modelo': lineal.integrador,
-    'Q': (np.eye(2), 4.5*np.eye(2), -100),
-    'dim': 2,
-    'horizonte': np.linspace(0.1, 1, 10)
-}
+class rotante(object):
+    def __init__(self, c=1.):
+        self.K = c * np.array([
+            [0., -1.],
+            [1., 0.]])
+        self.u = np.zeros(2)
+
+    def update(self, x):
+        # r = np.linalg.norm(x)
+        r = 1
+        self.u = 1/r * self.K.dot(x)
+        return self.u
 
 
 def run(tiempo, puntos, landmarks):
@@ -80,9 +88,7 @@ def run(tiempo, puntos, landmarks):
         for punto in puntos:
             p = punto.din.x
             hat_p = punto.filtro.p
-            u_cmd = punto.control.update(
-                hat_p, t,
-                (landmarks, punto.rango.sigma))
+            u_cmd = punto.control.update(hat_p)
             punto.din.step(t, u_cmd)
             rangos = punto.rango(p, landmarks)
             punto.filtro.update(t, u_cmd, rangos, landmarks)
@@ -134,23 +140,18 @@ if __name__ == '__main__':
     sigma = config['rango']['sigma']
     R = sigma**2
 
-    # landmarks
-    landmarks = [(0, -10), (0, 10)]
-    # landmarks = []
-    # landmarks = [[-15.90949736, 11.74311878],
-    #              [-5.21570337, -6.41701965],
-    #              [-13.76694731, -2.34360965],
-    #              [-3.2733689, 18.90361114]]
+    landmarks = [(0., 0.)]
 
     puntos = []
     for i in range(arg.agents):
-        pi = np.random.uniform(-20, 20, 2)
+        # pi = np.random.uniform(-20, 20, 2)
+        pi = [10., 0]
         p = vehiculo(
             i,
             din=lineal.integrador_ruidoso(pi, Q),
             rango=rango.sensor(sigma),
             filtro=ekf(pi, np.ones(2), Q, R),
-            control=minimizar(**det_matriz_innovacion))
+            control=rotante(c=0.3))
         puntos.append(p)
 
     tiempo = np.arange(arg.ti, arg.tf, arg.h)

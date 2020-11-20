@@ -19,6 +19,7 @@ class minimizar(MPC):
 
     def informacion(self, u, x_p, Q, *args):
         M = sum([self.matriz(x, *args) for x in x_p])
+        # print(Q * self.metrica(M))
         return Q * self.metrica(M)
 
     def update(self, x, t, args, ineq_args=(), eq_args=(), **kwargs):
