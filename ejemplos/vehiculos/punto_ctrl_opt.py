@@ -15,6 +15,82 @@ from uvnpy.filtering import kalman, metricas
 from uvnpy.control.informativo import minimizar
 from uvnpy.sensores import rango
 
+Yr = rango.matriz_innovacion
+
+
+def innovacion2(x_p, lm, sigma):
+    return sum([Yr(x, lm, sigma) for x in x_p])
+
+
+def inv_innovacion2(x_p, lm, sigma):
+    Y = sum([Yr(x, lm, sigma) for x in x_p])
+    a, b, c, d = Y.flat
+    return np.array([
+        [d, -b],
+        [-c, a]]) / (a*d - b*c)
+
+
+def informacion2(x_p, lm, sigma, Pi):
+    a, b, c, d = Pi.flat
+    Ii = np.array([
+        [d, -b],
+        [-c, a]]) / (a*d - b*c)
+    Y = sum([Yr(x, lm, sigma) for x in x_p])
+    return Ii + Y
+
+
+def covarianza2(x_p, lm, sigma, Pi):
+    a, b, c, d = Pi.flat
+    Ii = np.array([
+        [d, -b],
+        [-c, a]]) / (a*d - b*c)
+    Y = sum([Yr(x, lm, sigma) for x in x_p])
+    If = Ii + Y
+    a, b, c, d = If.flat
+    return np.array([
+        [d, -b],
+        [-c, a]]) / (a*d - b*c)
+
+
+det_innovacion = {
+    'metrica': metricas.det2,
+    'matriz': innovacion2,
+    'modelo': lineal.integrador,
+    'Q': (np.eye(2), 4.5*np.eye(2), -100),
+    'dim': 2,
+    'horizonte': np.linspace(0.1, 1, 10)
+}
+
+
+det_informacion = {
+    'metrica': metricas.det2,
+    'matriz': informacion2,
+    'modelo': lineal.integrador,
+    'Q': (np.eye(2), 4.5*np.eye(2), -15),
+    'dim': 2,
+    'horizonte': np.linspace(0.1, 1, 10)
+}
+
+
+traza_inv_innovacion = {
+    'metrica': metricas.traza2,
+    'matriz': inv_innovacion2,
+    'modelo': lineal.integrador,
+    'Q': (np.eye(2), 4.5*np.eye(2), 100),
+    'dim': 2,
+    'horizonte': np.linspace(0.1, 1, 10)
+}
+
+
+traza_covarianza = {
+    'metrica': metricas.traza2,
+    'matriz': covarianza2,
+    'modelo': lineal.integrador,
+    'Q': (np.eye(2), 4.5*np.eye(2), 5000),
+    'dim': 2,
+    'horizonte': np.linspace(0.1, 1, 10)
+}
+
 
 class ekf(kalman.KF):
     def __init__(self, x, dx, Q, R, ti=0.):
@@ -59,16 +135,6 @@ class ekf(kalman.KF):
             metricas.eigvalsh(self.P))
 
 
-det_matriz_innovacion = {
-    'metrica': metricas.det,
-    'matriz': rango.matriz_innovacion,
-    'modelo': lineal.integrador,
-    'Q': (np.eye(2), 4.5*np.eye(2), -100),
-    'dim': 2,
-    'horizonte': np.linspace(0.1, 1, 10)
-}
-
-
 def run(tiempo, puntos, landmarks):
     # logs
     r = puntos[0]
@@ -80,9 +146,11 @@ def run(tiempo, puntos, landmarks):
         for punto in puntos:
             p = punto.din.x
             hat_p = punto.filtro.p
+            hat_cov = punto.filtro.P
             u_cmd = punto.control.update(
                 hat_p, t,
-                (landmarks, punto.rango.sigma))
+                [landmarks, punto.rango.sigma, hat_cov]
+                )
             punto.din.step(t, u_cmd)
             rangos = punto.rango(p, landmarks)
             punto.filtro.update(t, u_cmd, rangos, landmarks)
@@ -135,8 +203,8 @@ if __name__ == '__main__':
     R = sigma**2
 
     # landmarks
-    landmarks = [(0., 0.)]
-    # landmarks = [(0, -10), (0, 10)]
+    # landmarks = [(0., 0.)]
+    landmarks = [(0, -10), (0, 10)]
     # landmarks = [[-15.90949736, 11.74311878],
     #              [-5.21570337, -6.41701965],
     #              [-13.76694731, -2.34360965],
@@ -144,14 +212,15 @@ if __name__ == '__main__':
 
     puntos = []
     for i in range(arg.agents):
-        # pi = np.random.uniform(-20, 20, 2)
-        pi = [10., 0.]
+        pi = np.random.uniform(-20, 20, 2)
+        # pi = [20., 20.]
+        # pi = [10., 0.]
         p = vehiculo(
             i,
             din=lineal.integrador_ruidoso(pi, Q),
             rango=rango.sensor(sigma),
-            filtro=ekf(pi, np.ones(2), Q, R),
-            control=minimizar(**det_matriz_innovacion))
+            filtro=ekf(pi, [1., 1.], Q, R),
+            control=minimizar(**det_informacion))
         puntos.append(p)
 
     tiempo = np.arange(arg.ti, arg.tf, arg.h)

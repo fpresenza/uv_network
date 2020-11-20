@@ -13,13 +13,12 @@ class minimizar(MPC):
         costos = (
             {'fun': esfuerzo_control, 'Q': Q[0]},
             {'fun': incremento_control, 'Q': Q[1]},
-            {'fun': self.informacion, 'Q': Q[2]}
+            {'fun': self.performance, 'Q': Q[2]}
         )
         super(minimizar, self).__init__(modelo, costos, **kwargs)
 
-    def informacion(self, u, x_p, Q, *args):
-        M = sum([self.matriz(x, *args) for x in x_p])
-        # print(Q * self.metrica(M))
+    def performance(self, u, x_p, Q, *args):
+        M = self.matriz(x_p, *args)
         return Q * self.metrica(M)
 
     def update(self, x, t, args, ineq_args=(), eq_args=(), **kwargs):
