@@ -92,9 +92,9 @@ class KFi(kalman):
         self._x = x + P.dot(dy)
 
 
-class KCF(kalman):
+class KCFE(kalman):
     def __init__(self, xi, dxi, ti=0.):
-        """Filtro de Kalman por Consenso
+        """Filtro de Kalman por Consenso en Estimaciones
 
         Ver:
             Olfati-Saber,
@@ -102,25 +102,23 @@ class KCF(kalman):
               Stability and Performance'',
             IEEE Conference on Decision and Control (2009).
         """
-        super(KCF, self).__init__(xi, dxi, ti=0.)
+        super(KCFE, self).__init__(xi, dxi, ti=0.)
         self.t_a = ti
 
-    def actualizacion(self, t, dy_i, Y_i, x_j, c=30.):
+    def actualizacion(self, t, dy, Y, x_j, c=30.):
         """Paso de corrección
 
         args:
 
             t: tiempo
-            dy_i: innovacones en espacio de información
-            Y_i: matrices de innovación
+            dy: innovacion en espacio de información
+            Y: matriz de innovacion
             x_j: tupla de estimados
         """
         dt = t - self.t_a
         self.t_a = t
         x, P = self._x, self._P
 
-        dy = np.sum(dy_i, axis=0)
-        Y = np.sum(Y_i, axis=0)
         I_prior = inv(P)
         P = inv(I_prior + Y)
 

@@ -3,7 +3,7 @@
 """
 @author Francisco Presenza
 @institute LAR - FIUBA, Universidad de Buenos Aires, Argentina
-@date mié nov 11 20:10:02 -03 2020
+@date mié nov 25 19:09:08 -03 2020
 """
 import argparse
 import numpy as np
@@ -96,9 +96,9 @@ def h_jac(r_c, i):
     return J_inv[r:r+4, :]
 
 
-class r3dof4_kcf(kalman.KCFE):
+class r3dof4_kfi(kalman.KFi):
     def __init__(self, i, x, dx, Q, R, ti=0.):
-        super(r3dof4_kcf, self).__init__(x, dx, ti=0.)
+        super(r3dof4_kfi, self).__init__(x, dx, ti=0.)
         self.Q = Q
         self.Rinv = np.linalg.inv(R)
         self.In = np.eye(12)
@@ -109,14 +109,21 @@ class r3dof4_kcf(kalman.KCFE):
         Q = self.Q * (dt**2)
         self._P = self._P + Q
 
-    def innovacion(self, z):
-        hat_z = h(self._x, self.i)
-        dz = np.subtract(z, hat_z)
-        H = h_jac(self._x, self.i)
-        HtRinv = H.T.dot(self.Rinv)
-        dy = HtRinv.dot(dz)
-        Y = HtRinv.dot(H)
+    def innovacion(self, z, y_j, I_j):
+        x = self._x
+        Rinv = self.Rinv
+        y = Rinv.dot(z) + sum(y_j)
+        Y = Rinv + sum(I_j)
+        dy = y - Y.dot(x)
         return dy, Y
+
+    def informacion(self, z):
+        # I_i = np.linalg.inv(self._P)
+        # y_i = I_i.dot(self._x)
+        Rinv = self.Rinv
+        y = Rinv.dot(z)
+        Y = Rinv
+        return y, Y
 
 
 if __name__ == '__main__':
@@ -147,9 +154,9 @@ if __name__ == '__main__':
         4., 5., np.pi/3]    # p, q, beta
     dci = [
         1., 1., 1.,         # x, y, z
-        0., 0., 0.,         # r, p, y
-        0., 0., 0.,         # phi_i
-        1., 1., 0.]         # p, q, beta
+        0.5, 0.5, 0.5,         # r, p, y
+        0.3, 0.3, 0.3,         # phi_i
+        1., 1., 0.3]         # p, q, beta
     # ci = wgn(hat_ci, np.diag(dci))
     ci = hat_ci
     Q = np.diag([
@@ -158,28 +165,30 @@ if __name__ == '__main__':
         0.1, 0.1, 0.1,        # phi_i
         1.5, 1.5, 0.1])      # p, q, beta
     R = np.diag([
-        4., 4., 4., 0.1,     # x, y, z, yaw
-        ])
-
+        2., 2., 2.,           # x, y, z
+        0.3, 0.3, 0.3,        # r, p, y
+        0.3, 0.3, 0.3,        # phi_i
+        2.5, 2.5, 0.3])      # p, q, beta
     cluster = integrador(ci)
     ref = integrador(ci)
 
-    kcf = [
-        r3dof4_kcf(0, hat_ci, dci, Q, R),
-        r3dof4_kcf(1, hat_ci, dci, Q, R),
-        r3dof4_kcf(2, hat_ci, dci, Q, R)]
+    kfi = [
+        r3dof4_kfi(0, hat_ci, dci, Q, R),
+        r3dof4_kfi(1, hat_ci, dci, Q, R),
+        r3dof4_kfi(2, hat_ci, dci, Q, R)]
 
     tiempo = np.arange(0, arg.tf, arg.h)
     c = [ci]
     r = [ci]
     f_c = [
-        [kcf[0].x],
-        [kcf[1].x],
-        [kcf[2].x]]
+        [kfi[0].x],
+        [kfi[1].x],
+        [kfi[2].x]]
     z = [None, None, None]
     dy = [None, None, None]
     Y = [None, None, None]
-    hat_x = [None, None, None]
+    y_j = [None, None, None]
+    I_j = [None, None, None]
 
     # ------------------------------------------------------------------
     # Simulación
@@ -198,38 +207,35 @@ if __name__ == '__main__':
             u = -dc
         else:
             u = np.zeros(12)
-        cluster.step(t, wgn(u, Q))
+        cluster.step(t, u)
         ref.step(t, u)
 
-        r_c = Kinv(cluster.x)
-        z[0] = GPS(r_c[:4], R)
-        z[1] = GPS(r_c[4:8], R)
-        z[2] = GPS(r_c[8:], R)
+        r_c = cluster.x
+        z[0] = GPS(r_c, R)
+        z[1] = GPS(r_c, R)
+        z[2] = GPS(r_c, R)
 
-        kcf[0].prediccion(t, u)
-        kcf[1].prediccion(t, u)
-        kcf[2].prediccion(t, u)
+        kfi[0].prediccion(t, u)
+        kfi[1].prediccion(t, u)
+        kfi[2].prediccion(t, u)
 
-        dy[0], Y[0] = kcf[0].innovacion(z[0])
-        dy[1], Y[1] = kcf[1].innovacion(z[1])
-        dy[2], Y[2] = kcf[2].innovacion(z[2])
-        hat_x[0] = kcf[0].x
-        hat_x[1] = kcf[1].x
-        hat_x[2] = kcf[2].x
+        y_j[0], I_j[0] = kfi[0].informacion(z[0])
+        y_j[1], I_j[1] = kfi[1].informacion(z[1])
+        y_j[2], I_j[2] = kfi[2].informacion(z[2])
 
-        kcf[0].actualizacion(t, sum(dy[:2]), sum(Y[:2]), [hat_x[1]], c=15)
-        kcf[1].actualizacion(t, sum(dy), sum(Y), [hat_x[0], hat_x[2]], c=15)
-        kcf[2].actualizacion(t, sum(dy[1:]), sum(Y[1:]), [hat_x[1]], c=15)
+        dy[0], Y[0] = kfi[0].innovacion(z[0], [y_j[1]], [I_j[1]])
+        dy[1], Y[1] = kfi[1].innovacion(z[1], [y_j[0]], [I_j[0]])
+        dy[2], Y[2] = kfi[2].innovacion(z[2], [], [])
 
-        # kcf[0].actualizacion(t, dy, Y, [])
-        # kcf[1].actualizacion(t, dy, Y, [])
-        # kcf[2].actualizacion(t, dy, Y, [])
+        kfi[0].actualizacion(dy[0], Y[0])
+        kfi[1].actualizacion(dy[1], Y[1])
+        kfi[2].actualizacion(dy[2], Y[2])
 
         c.append(cluster.x)
         r.append(ref.x)
-        f_c[0].append(kcf[0].x)
-        f_c[1].append(kcf[1].x)
-        f_c[2].append(kcf[2].x)
+        f_c[0].append(kfi[0].x)
+        f_c[1].append(kfi[1].x)
+        f_c[2].append(kfi[2].x)
 
     t = tiempo
     c = np.vstack(c)
@@ -369,8 +375,8 @@ if __name__ == '__main__':
         vax_3, t, f_c[:, [8, 20, 32]] * rad2deg, ls='dotted')
 
     if arg.save:
-        pfig.savefig('/tmp/cluster_r3dof4_kcf_p.pdf', format='pdf')
-        ofig.savefig('/tmp/cluster_r3dof4_kcf_o.pdf', format='pdf')
-        hfig.savefig('/tmp/cluster_r3dof4_kcf_h.pdf', format='pdf')
+        pfig.savefig('/tmp/cluster_r3dof4_kfi_p.pdf', format='pdf')
+        ofig.savefig('/tmp/cluster_r3dof4_kfi_o.pdf', format='pdf')
+        hfig.savefig('/tmp/cluster_r3dof4_kfi_h.pdf', format='pdf')
     else:
         plt.show()
