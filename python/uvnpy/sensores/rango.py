@@ -7,28 +7,9 @@ Created on Tue June 23 14:27:46 2020
 import numpy as np
 
 
-__all__ = [
-    'distancia',
-    'jacobiano',
-    'matriz_innovacion',
-    'sensor'
-]
-
-
 def norma(v):
     sqr_sum = np.multiply(v, v).sum(1)
     return np.sqrt(sqr_sum)
-
-
-def distancia(p, qs):
-    diff = np.subtract(p, qs)
-    return norma(diff)
-
-
-def jacobiano(p, qs):
-    diff = np.subtract(p, qs)
-    dist = norma(diff).reshape(-1, 1)
-    return diff / dist
 
 
 def matriz_innovacion(p, qs, sigma):
@@ -46,5 +27,6 @@ class sensor(object):
 
     def __call__(self, p, qs):
         """Simula una medición ruidosa. """
-        d = distancia(p, qs)
+        diff = np.subtract(p, qs)
+        d = norma(diff)
         return np.random.normal(d, self.sigma)
