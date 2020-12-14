@@ -6,12 +6,12 @@
 @date vie nov  6 15:24:28 -03 2020
 """
 import numpy as np
+import matplotlib.pyplot as plt
 
 import gpsic.plotting.planar as plotting
 from uvnpy.modelos.lineal import integrador
 from uvnpy.filtering import kalman
 
-plt = plotting.matplotlib.pyplot
 GPS = wgn = np.random.multivariate_normal
 
 

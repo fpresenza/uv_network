@@ -19,21 +19,20 @@ def distancia(p, qs):
     return norma(diff)
 
 
-def distancia_relativa(p, D, n=2):
-    Dt = np.kron(D, np.eye(n)).T
-    diff = Dt.dot(p).reshape(-1, n)
+def distancia_relativa(p, D):
+    diff = D.T.dot(p)
     sqrdiff = diff * diff
     return np.sqrt(sqrdiff.sum(1))
 
 
-def distancia_relativa_jac(p, D, n=2):
-    Dt = np.kron(D, np.eye(n)).T
-    diff = Dt.dot(p).reshape(-1, n)
+def distancia_relativa_jac(p, D):
+    diff = D.T.dot(p)
     sqrdiff = diff * diff
     dist = np.sqrt(sqrdiff.sum(1))
-    h = diff / dist.reshape(-1, 1)
-    M = scipy.linalg.block_diag(*h)
-    return M.dot(Dt)
+    r = diff / dist.reshape(-1, 1)
+    M = scipy.linalg.block_diag(*r)
+    Dn = np.kron(D, np.eye(p.shape[1]))
+    return M.dot(Dn.T)
 
 
 def disk_graph(p, d=1.):
