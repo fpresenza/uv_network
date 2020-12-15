@@ -11,9 +11,13 @@ import scipy.linalg
 import matplotlib.pyplot as plt  # noqa
 
 from uvnpy.modelos.lineal import integrador_ruidoso
-from uvnpy.filtering import kalman
+from uvnpy.filtering import kalman, metricas
 from uvnpy.redes.analisis import matriz_incidencia
 from gpsic.grafos.plotting import animar_grafo
+from gpsic.plotting.planar import agregar_ax, agregar_linea
+
+
+eigvalsh = metricas.eigvalsh
 
 
 def norma(v):
@@ -110,7 +114,7 @@ if __name__ == '__main__':
                [[6, 7], {'color': 'b', 'marker': 'o', 'markersize': '5',
                          'alpha': 0.4}])
 
-    tiempo = np.arange(arg.ti, arg.tf, arg.h)
+    t = np.arange(arg.ti, arg.tf, arg.h)
     formacion = integrador_ruidoso(xi, Q)
     filtro = ekf(xi, dxi, Q, sigma)
     V = range(n)
@@ -133,35 +137,90 @@ if __name__ == '__main__':
     p = np.reshape(formacion.x, (n, 2))
     p_est = np.reshape(filtro.x, (n, 2))
     p_aug = np.vstack([p, p_est])
-    X = [p]
-    Xest = [p_est]
+    X = [p_aug[:, [0]]]
+    Y = [p_aug[:, [1]]]
+    eigs = [eigvalsh(filtro.P)]
     cuadros = [(p_aug, E)]
-    for t in tiempo[1:]:
+    for tk in t[1:]:
         u = np.zeros(dim)
 
-        formacion.step(t, u)
+        formacion.step(tk, u)
         p = np.reshape(formacion.x, (n, 2))
-        X.append(p)
 
-        filtro.prediccion(t, u)
+        filtro.prediccion(tk, u)
         p_est = np.reshape(filtro.x, (n, 2))
-        Xest.append(p_est)
 
         z = medicion(p, E, sigma[0])
         obsv = filtro.observacion(z, E)
         filtro.actualizacion(*obsv)
+        eigs.append(eigvalsh(filtro.P))
 
         p_aug = np.vstack([p, p_est])
         cuadros.append((p_aug, E))
+        X.append(p_aug[:, [0]])
+        Y.append(p_aug[:, [1]])
 
+    X = np.hstack(X)
+    Y = np.hstack(Y)
+    sqrt_eigs = np.sqrt(eigs)
     # ------------------------------------------------------------------
     # Plotting
     # ------------------------------------------------------------------
-    fig, ax = plt.subplots()
-    ax.set_xlim(-10, 10)
-    ax.set_ylim(-10, 10)
-    ax.set_aspect('equal')
-    ax.grid(1)
-    ax.set_xlabel('$x$')
-    ax.set_ylabel('$y$')
-    animar_grafo(fig, ax, arg.h, equipos, cuadros, guardar=arg.save)
+    if arg.animate:
+        fig, ax = plt.subplots()
+        ax.set_xlim(-10, 10)
+        ax.set_ylim(-10, 10)
+        ax.set_aspect('equal')
+        ax.grid(1)
+        ax.set_xlabel('$x$')
+        ax.set_ylabel('$y$')
+        animar_grafo(fig, ax, arg.h, equipos, cuadros, guardar=arg.save)
+
+    fig = plt.figure(figsize=(13, 5))
+    fig.subplots_adjust(hspace=0.5, wspace=0.25)
+    gs = fig.add_gridspec(2, 2)
+    # posición
+    ax = [None, None, None, None]
+    ax[0] = agregar_ax(
+        gs[0, 0],
+        title='Pos. x (verdadero vs. estimado)', title_kw={'fontsize': 11},
+        xlabel='t [seg]', ylabel='x [m]', label_kw={'fontsize': 10})
+    ax[1] = agregar_ax(
+        gs[0, 1],
+        title='Pos. y (verdadero vs. estimado)', title_kw={'fontsize': 11},
+        xlabel='t [seg]', ylabel='y [m]', label_kw={'fontsize': 10})
+    ax[2] = agregar_ax(
+        gs[1, 0],
+        title='Pos. x (error)', title_kw={'fontsize': 11},
+        xlabel='t [seg]', ylabel='x [m]', label_kw={'fontsize': 10})
+    ax[3] = agregar_ax(
+        gs[1, 1],
+        title='Pos. y (error)', title_kw={'fontsize': 11},
+        xlabel='t [seg]', ylabel='y [m]', label_kw={'fontsize': 10})
+
+    for i in V:
+        l, = agregar_linea(ax[0], t, X[i], label=i)
+        agregar_linea(ax[0], t, X[i + n], ls='dotted', color=l.get_c())
+        l, = agregar_linea(ax[1], t, Y[i], label=i)
+        agregar_linea(ax[1], t, Y[i + n], ls='dotted', color=l.get_c())
+        agregar_linea(ax[2], t, X[i] - X[i + n], label=i)
+        agregar_linea(ax[3], t, Y[i] - Y[i + n], label=i)
+
+    fig = plt.figure()
+    gs = fig.add_gridspec(1, 1)
+    ax = agregar_ax(
+        gs[0, 0],
+        title='Valores singulares Covarianza $^{1/2}$',
+        title_kw={'fontsize': 11},
+        xlabel='t [seg]', ylabel='[m]', label_kw={'fontsize': 10})
+    agregar_linea(
+        ax, t, sqrt_eigs[:, 0], color='c', label=r'$\sqrt{\sigma_{\rm{min}}}$')
+    agregar_linea(ax, t, sqrt_eigs[:, 1:-1], color='0.5')
+    agregar_linea(
+        ax, t, sqrt_eigs[:, -1],
+        color='m', label=r'$\sqrt{\sigma_{\rm{max}}}$')
+
+    if arg.save:
+        fig.savefig('/tmp/rango_central_analisis.pdf', format='pdf')
+    else:
+        plt.show()

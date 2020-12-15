@@ -31,7 +31,7 @@ def distancia_relativa_jac(p, D):
     dist = np.sqrt(sqrdiff.sum(1))
     r = diff / dist.reshape(-1, 1)
     M = scipy.linalg.block_diag(*r)
-    Dn = np.kron(D, np.eye(p.shape[1]))
+    Dn = np.kron(D, np.eye(len(p[0])))
     return M.dot(Dn.T)
 
 
