@@ -97,7 +97,7 @@ if __name__ == '__main__':
     singvals = []
     for t in d:
         p[3, 1] = t
-        # E = np.array(conectar(p, 8.))
+        E = np.array(conectar(p, 8.))
         cuadros.append((p.copy(), E))
         D = matriz_incidencia(V, E)
         sv = svdvals(H(p, D))
@@ -119,27 +119,27 @@ if __name__ == '__main__':
         animar_grafo(fig, ax, arg.h, equipos, cuadros, guardar=arg.save)
 
     fig = plt.figure(figsize=(10, 5))
-    fig.suptitle('Topología conmutada')
+    fig.suptitle('Topología Dinámica')
     fig.subplots_adjust(hspace=0.5, wspace=0.25)
     gs = fig.add_gridspec(1, 2)
     ax = agregar_ax(
         gs[0, 0],
         title=r'Valores singulares $\sigma(H)$', title_kw={'fontsize': 11},
-        xlabel=r'$y_3$ [m]', label_kw={'fontsize': 10})
-    agregar_linea(
-        ax, d, singvals[:, 0],
-        color='m', label=r'$\sigma_{\rm{1}}$', ds='steps')
+        xlabel=r'$y_4$ [m]', label_kw={'fontsize': 10})
     agregar_linea(
         ax, d, singvals[:, 1],
         color='thistle', label=r'$\sigma_{\rm{2}}, ..., \sigma_{\rm{n}}$',
         ds='steps')
     agregar_linea(ax, d, singvals[:, 2:], color='thistle', ds='steps')
+    agregar_linea(
+        ax, d, singvals[:, 0],
+        color='m', label=r'$\sigma_{\rm{1}}$', ds='steps')
     ax.vlines([3., 6.2], 0, 2., color='0.5', ls='--')
 
     ax = agregar_ax(
         gs[0, 1],
         title='Funcionales $F(H)$', title_kw={'fontsize': 11},
-        xlabel=r'$y_3$ [m]', label_kw={'fontsize': 10})
+        xlabel=r'$y_4$ [m]', label_kw={'fontsize': 10})
     agregar_linea(
         ax, d, norma2(singvals),
         label=r'$\Vert H \Vert_{2}$', ds='steps')

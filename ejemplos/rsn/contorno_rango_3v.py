@@ -3,7 +3,7 @@
 """
 @author Francisco Presenza
 @institute LAR - FIUBA, Universidad de Buenos Aires, Argentina
-@date mar dic 15 10:53:03 -03 2020
+@date mié dic 16 10:13:17 -03 2020
 """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,7 +18,7 @@ conectar = analisis.disk_graph
 svdvals = metricas.svdvals
 
 fig, axes = plt.subplots(2, 2, figsize=(10, 8))
-fig.suptitle('$F(H)$ vs. $(x_4, y_4)$ (Topología Dinámica)', fontsize=15)
+fig.suptitle('$F(H)$ vs. $(x_3, y_3)$ (Topología Estática)', fontsize=15)
 fig.subplots_adjust(hspace=0.5)
 cw = plt.cm.get_cmap('coolwarm')
 
@@ -31,20 +31,18 @@ prod = np.empty_like(X)
 cond = np.empty_like(X)
 
 p = np.array([[-5, 0],
-              [0, -5],
-              [5., 0],
-              [0,  0]])
+              [0., 0],
+              [0,  5]])
 E = np.array([
     [0, 1],
     [1, 2],
-    [2, 3],
-    [3, 0]])
-V = range(4)
+    [2, 3]])
+V = range(3)
 
 for i in N:
     for j in N:
-        p[3] = X[i, j], Y[i, j]
-        E = np.array(conectar(p, 8.))
+        p[2] = X[i, j], Y[i, j]
+        # E = np.array(conectar(p, 8.))
         D = matriz_incidencia(V, E)
         H = jacobiano(p, D)
         sv = svdvals(H)
@@ -70,11 +68,11 @@ fig.colorbar(cbar, ax=axes[1, 1])
 axes[1, 1].set_title(r'$\prod_i \sigma_i$')
 
 for ax in axes.flat:
-    ax.scatter([-5, 0, 5], [0, -5, 0], marker='s', s=8, color='k')
+    ax.scatter([-5, 0], [0, 0], marker='s', s=8, color='k')
     ax.set_aspect('equal')
     ax.set_xlabel('x [m]')
     ax.set_ylabel('y [m]')
     ax.minorticks_on()
 
 plt.show()
-fig.savefig('/tmp/contorno_4v.png', format='png')
+fig.savefig('/tmp/contorno_3v.png', format='png')

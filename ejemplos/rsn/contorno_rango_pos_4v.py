@@ -3,7 +3,7 @@
 """
 @author Francisco Presenza
 @institute LAR - FIUBA, Universidad de Buenos Aires, Argentina
-@date mar dic 15 10:53:03 -03 2020
+@date mié dic 16 12:21:51 -03 2020
 """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,13 +12,13 @@ from uvnpy.redes import analisis
 from uvnpy.filtering import metricas
 
 
-jacobiano = analisis.distancia_relativa_jac
+jacobiano = analisis.rp_jac
 matriz_incidencia = analisis.matriz_incidencia
 conectar = analisis.disk_graph
 svdvals = metricas.svdvals
 
 fig, axes = plt.subplots(2, 2, figsize=(10, 8))
-fig.suptitle('$F(H)$ vs. $(x_4, y_4)$ (Topología Dinámica)', fontsize=15)
+fig.suptitle('$F(H)$ vs. $(x_2, y_2)$ (Topología Fija)', fontsize=15)
 fig.subplots_adjust(hspace=0.5)
 cw = plt.cm.get_cmap('coolwarm')
 
@@ -30,28 +30,30 @@ nuclear = np.empty_like(X)
 prod = np.empty_like(X)
 cond = np.empty_like(X)
 
+V = range(4)
 p = np.array([[-5, 0],
               [0, -5],
               [5., 0],
-              [0,  0]])
-E = np.array([
-    [0, 1],
-    [1, 2],
-    [2, 3],
-    [3, 0]])
-V = range(4)
+              [0,  5]])
+Er = conectar(p, 8.)
+Ep = [(0, 0), (1, 1)]
+Dr = matriz_incidencia(V, Er)
+Dp = matriz_incidencia(V, Ep)
 
 for i in N:
     for j in N:
-        p[3] = X[i, j], Y[i, j]
-        E = np.array(conectar(p, 8.))
-        D = matriz_incidencia(V, E)
-        H = jacobiano(p, D)
+        p[1] = X[i, j], Y[i, j]
+        # Er = conectar(p, 8.)
+        # Ep = [(0, 0), (1, 1)]
+        # Dr = matriz_incidencia(V, Er)
+        # Dp = matriz_incidencia(V, Ep)
+        H = jacobiano(p, Dr, Dp)
         sv = svdvals(H)
-        norma2[i, j] = sv[0]
-        nuclear[i, j] = sv.sum()
-        prod[i, j] = sv.prod()
-        cond[i, j] = sv[0] / sv[-1]
+        psv = sv[sv > 1e-3]
+        norma2[i, j] = psv[0]
+        nuclear[i, j] = psv.sum()
+        prod[i, j] = psv.prod()
+        cond[i, j] = psv[0] / psv[-1]
 
 cbar = axes[0, 0].contourf(X, Y, norma2, levels=20, cmap=cw)
 fig.colorbar(cbar, ax=axes[0, 0])
@@ -70,7 +72,8 @@ fig.colorbar(cbar, ax=axes[1, 1])
 axes[1, 1].set_title(r'$\prod_i \sigma_i$')
 
 for ax in axes.flat:
-    ax.scatter([-5, 0, 5], [0, -5, 0], marker='s', s=8, color='k')
+    ax.scatter([0, 5], [5, 0], marker='s', s=8, color='k')
+    ax.scatter([-5], [0], marker='*', s=15, color='g')
     ax.set_aspect('equal')
     ax.set_xlabel('x [m]')
     ax.set_ylabel('y [m]')

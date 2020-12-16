@@ -35,6 +35,19 @@ def distancia_relativa_jac(p, D):
     return M.dot(Dn.T)
 
 
+def rp_jac(p, Dr, Dp):
+    In = np.eye(len(p[0]))
+    diff = Dr.T.dot(p)
+    sqrdiff = diff * diff
+    dist = np.sqrt(sqrdiff.sum(1))
+    r = diff / dist.reshape(-1, 1)
+    M = scipy.linalg.block_diag(*r)
+    Dr = np.kron(Dr, In)
+    Hr = M.dot(Dr.T)
+    Hp = np.kron(Dp.T, In)
+    return np.vstack([Hr, Hp])
+
+
 def disk_graph(p, d=1.):
     """ Devuelve lista de enlaces por proximidad. """
     d2 = d**2
