@@ -12,6 +12,16 @@ from uvnpy.redes import analisis
 from uvnpy.filtering import metricas
 
 
+def completar(x, size):
+    t = size - len(x)
+    return np.pad(x, pad_width=(0, t), mode='constant')
+
+
+def sigma_cm(sv, s0):
+    d = sv - s0
+    return d.dot(d)
+
+
 jacobiano = analisis.distancia_relativa_jac
 matriz_incidencia = analisis.matriz_incidencia
 conectar = analisis.disk_graph
@@ -28,7 +38,7 @@ X, Y = np.meshgrid(t, t)
 norma2 = np.empty_like(X)
 nuclear = np.empty_like(X)
 prod = np.empty_like(X)
-cond = np.empty_like(X)
+mu = np.empty_like(X)
 
 p = np.array([[-5, 0],
               [0., 0],
@@ -38,6 +48,7 @@ E = np.array([
     [1, 2],
     [2, 3]])
 V = range(3)
+sigma_0 = np.sqrt(2/3)
 
 for i in N:
     for j in N:
@@ -49,15 +60,15 @@ for i in N:
         norma2[i, j] = sv[0]
         nuclear[i, j] = sv.sum()
         prod[i, j] = sv.prod()
-        cond[i, j] = sv[0] / sv[-1]
+        mu[i, j] = sigma_cm(completar(sv, 8), sigma_0)
 
 cbar = axes[0, 0].contourf(X, Y, norma2, levels=20, cmap=cw)
 fig.colorbar(cbar, ax=axes[0, 0])
 axes[0, 0].set_title('norma-2')
 
-cbar = axes[0, 1].contourf(X, Y, cond, levels=20, cmap=cw)
+cbar = axes[0, 1].contourf(X, Y, mu, levels=20, cmap=cw)
 fig.colorbar(cbar, ax=axes[0, 1])
-axes[0, 1].set_title(r'$\kappa = \sigma_1 / \sigma_r$')
+axes[0, 1].set_title(r'$\sum_i (\sigma_i - \sigma_0)^2$')
 
 cbar = axes[1, 0].contourf(X, Y, nuclear, levels=20, cmap=cw)
 fig.colorbar(cbar, ax=axes[1, 0])

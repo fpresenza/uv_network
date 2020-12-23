@@ -12,13 +12,23 @@ from uvnpy.redes import analisis
 from uvnpy.filtering import metricas
 
 
+def completar(x, size):
+    t = size - len(x)
+    return np.pad(x, pad_width=(0, t), mode='constant')
+
+
+def sigma_cm(sv, s0):
+    d = sv - s0
+    return d.dot(d)
+
+
 jacobiano = analisis.rp_jac
 matriz_incidencia = analisis.matriz_incidencia
 conectar = analisis.disk_graph
 svdvals = metricas.svdvals
 
 fig, axes = plt.subplots(2, 2, figsize=(10, 8))
-fig.suptitle('$F(H)$ vs. $(x_2, y_2)$ (Topología Fija)', fontsize=15)
+fig.suptitle('$F(H)$ vs. $(x_2, y_2)$ (Topología Dinámica)', fontsize=15)
 fig.subplots_adjust(hspace=0.5)
 cw = plt.cm.get_cmap('coolwarm')
 
@@ -28,7 +38,7 @@ X, Y = np.meshgrid(t, t)
 norma2 = np.empty_like(X)
 nuclear = np.empty_like(X)
 prod = np.empty_like(X)
-cond = np.empty_like(X)
+mu = np.empty_like(X)
 
 V = range(4)
 p = np.array([[-5, 0],
@@ -39,29 +49,30 @@ Er = conectar(p, 8.)
 Ep = [(0, 0), (1, 1)]
 Dr = matriz_incidencia(V, Er)
 Dp = matriz_incidencia(V, Ep)
+sigma_0 = np.sqrt((4+2)/4)
 
 for i in N:
     for j in N:
         p[1] = X[i, j], Y[i, j]
-        # Er = conectar(p, 8.)
-        # Ep = [(0, 0), (1, 1)]
-        # Dr = matriz_incidencia(V, Er)
-        # Dp = matriz_incidencia(V, Ep)
+        Er = conectar(p, 8.)
+        Ep = [(0, 0), (1, 1)]
+        Dr = matriz_incidencia(V, Er)
+        Dp = matriz_incidencia(V, Ep)
         H = jacobiano(p, Dr, Dp)
         sv = svdvals(H)
         psv = sv[sv > 1e-3]
         norma2[i, j] = psv[0]
         nuclear[i, j] = psv.sum()
         prod[i, j] = psv.prod()
-        cond[i, j] = psv[0] / psv[-1]
+        mu[i, j] = sigma_cm(completar(sv, 8), sigma_0)
 
 cbar = axes[0, 0].contourf(X, Y, norma2, levels=20, cmap=cw)
 fig.colorbar(cbar, ax=axes[0, 0])
 axes[0, 0].set_title('norma-2')
 
-cbar = axes[0, 1].contourf(X, Y, cond, levels=20, cmap=cw)
+cbar = axes[0, 1].contourf(X, Y, mu, levels=20, cmap=cw)
 fig.colorbar(cbar, ax=axes[0, 1])
-axes[0, 1].set_title(r'$\kappa = \sigma_1 / \sigma_r$')
+axes[0, 1].set_title(r'$\sum_i (\sigma_i - \sigma_0)^2$')
 
 cbar = axes[1, 0].contourf(X, Y, nuclear, levels=20, cmap=cw)
 fig.colorbar(cbar, ax=axes[1, 0])

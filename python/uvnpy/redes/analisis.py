@@ -7,6 +7,7 @@
 """
 import numpy as np
 import scipy.linalg
+import itertools
 
 
 def norma(v):
@@ -48,32 +49,21 @@ def rp_jac(p, Dr, Dp):
     return np.vstack([Hr, Hp])
 
 
+def grafo_completo(V):
+    return list(itertools.combinations(V, 2))
+
+
 def disk_graph(p, d=1.):
     """ Devuelve lista de enlaces por proximidad. """
     d2 = d**2
     V = range(len(p))
-    E = []
-    for i in V:
-        for j in V:
-            if j > i:
-                diff = np.subtract(p[i], p[j])
-                if diff.dot(diff) <= d2:
-                    E.append((i, j))
+    K = itertools.combinations(V, 2)
+    E = [(i, j) for i, j in K if (p[i] - p[j]).dot(p[i] - p[j]) <= d2]
     return E
 
 
-def gen_mi(r, e):
-    if r == e[0]:
-        return 1.
-    elif r == e[1]:
-        return -1
-    else:
-        return 0
-
-
 def matriz_incidencia(V, E):
-    D = [[gen_mi(v, e) for v in V] for e in E]
-    return np.transpose(D)
+    return [[1 - 2*e.index(v) if v in e else 0 for e in E] for v in V]
 
 
 def matriz_adyacencia(V, E, w=None):

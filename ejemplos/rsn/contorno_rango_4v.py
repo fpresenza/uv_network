@@ -12,13 +12,18 @@ from uvnpy.redes import analisis
 from uvnpy.filtering import metricas
 
 
+def completar(x, size):
+    t = size - len(x)
+    return np.pad(x, pad_width=(0, t), mode='constant')
+
+
 jacobiano = analisis.distancia_relativa_jac
 matriz_incidencia = analisis.matriz_incidencia
 conectar = analisis.disk_graph
 svdvals = metricas.svdvals
 
 fig, axes = plt.subplots(2, 2, figsize=(10, 8))
-fig.suptitle('$F(H)$ vs. $(x_4, y_4)$ (Topología Dinámica)', fontsize=15)
+fig.suptitle('$F(H)$ vs. $(x_4, y_4)$ (Topología Variable)', fontsize=15)
 fig.subplots_adjust(hspace=0.5)
 cw = plt.cm.get_cmap('coolwarm')
 
@@ -29,6 +34,7 @@ norma2 = np.empty_like(X)
 nuclear = np.empty_like(X)
 prod = np.empty_like(X)
 cond = np.empty_like(X)
+var = np.empty_like(X)
 
 p = np.array([[-5, 0],
               [0, -5],
@@ -39,7 +45,9 @@ E = np.array([
     [1, 2],
     [2, 3],
     [3, 0]])
-V = range(4)
+V = [0, 1, 2, 3]
+D = matriz_incidencia(V, E)
+
 
 for i in N:
     for j in N:
@@ -59,7 +67,7 @@ axes[0, 0].set_title('norma-2')
 
 cbar = axes[0, 1].contourf(X, Y, cond, levels=20, cmap=cw)
 fig.colorbar(cbar, ax=axes[0, 1])
-axes[0, 1].set_title(r'$\kappa = \sigma_1 / \sigma_r$')
+axes[0, 1].set_title(r'$\kappa(H)$')
 
 cbar = axes[1, 0].contourf(X, Y, nuclear, levels=20, cmap=cw)
 fig.colorbar(cbar, ax=axes[1, 0])
@@ -67,7 +75,7 @@ axes[1, 0].set_title('norma-nuc')
 
 cbar = axes[1, 1].contourf(X, Y, prod, levels=20, cmap=cw)
 fig.colorbar(cbar, ax=axes[1, 1])
-axes[1, 1].set_title(r'$\prod_i \sigma_i$')
+axes[1, 1].set_title(r'$\pi(H)$')
 
 for ax in axes.flat:
     ax.scatter([-5, 0, 5], [0, -5, 0], marker='s', s=8, color='k')
@@ -77,4 +85,3 @@ for ax in axes.flat:
     ax.minorticks_on()
 
 plt.show()
-fig.savefig('/tmp/contorno_4v.png', format='png')
