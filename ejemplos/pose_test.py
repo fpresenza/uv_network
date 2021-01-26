@@ -17,7 +17,7 @@ def update(yaw):
     quiver.remove()
     c = np.random.normal([0, 0, 5], 0.3, 3)
     n, t = np.random.normal(0, 1, 3), np.random.normal(0, 0.15)
-    att = np.matmul(linalg.rodriguez(n, t), C)
+    att = np.matmul(linalg.rodrigues(n * t), C)
 
     quiver = ax.quiver(
         c[0], c[1], c[2], att[0], att[1], att[2], color='r')
@@ -26,7 +26,7 @@ def update(yaw):
 fig, ax = plt.subplots(subplot_kw=dict(projection="3d"))
 
 C = linalg.RZYX(np.random.normal(0, np.pi, 3))
-fixed_quiver = ax.quiver(0, 0, 5, *C, color='b')
+fixed_quiver = ax.quiver(0, 0, 5, *C, color=['r', 'g', 'b'])
 quiver = ax.quiver(0, 0, 5, *np.eye(3))
 
 ax.set_xlim(-5, 5)
