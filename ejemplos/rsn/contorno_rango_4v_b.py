@@ -8,7 +8,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from uvnpy.redes import analisis
+import uvnpy.redes.core as redes
+import uvnpy.rsn.core as rsn
 from uvnpy.filtering import metricas
 
 
@@ -17,9 +18,9 @@ def varianza(eigvals, eigmean):
     return d.dot(d) / len(eigvals)
 
 
-jacobiano = analisis.distancia_relativa_jac
-matriz_incidencia = analisis.matriz_incidencia
-conectar = analisis.disk_graph
+jacobiano = rsn.distancia_relativa_jac
+incidence_from_edges = redes.incidence_from_edges
+conectar = redes.edges_from_positions
 eigvalsh = metricas.eigvalsh
 
 fig, axes = plt.subplots(2, 2, figsize=(10, 8))
@@ -46,7 +47,7 @@ Ef = np.array([
     [2, 3],
     [3, 0]])
 V = [0, 1, 2, 3]
-Df = matriz_incidencia(V, Ef)
+Df = incidence_from_edges(V, Ef)
 
 
 for i in N:
@@ -54,17 +55,17 @@ for i in N:
         p[3] = X[i, j], Y[i, j]
 
         Hf = jacobiano(p, Df)
-        Yf = Hf.T.dot(Hf)
-        eigvals_f = eigvalsh(Yf)
+        Mf = Hf.T.dot(Hf)
+        eigvals_f = eigvalsh(Mf)
         eigmean_f = eigvals_f.mean()
         var_f[i, j] = varianza(eigvals_f, eigmean_f)
         var_norm_f[i, j] = var_f[i, j] / (eigmean_f**2)
 
         E = np.array(conectar(p, 8.))
-        D = matriz_incidencia(V, E)
+        D = incidence_from_edges(V, E)
         H = jacobiano(p, D)
-        Y = H.T.dot(H)
-        eigvals = eigvalsh(Y)
+        M = H.T.dot(H)
+        eigvals = eigvalsh(M)
         eigmean = eigvals.mean()
         var_v[i, j] = varianza(eigvals, eigmean)
         var_norm_v[i, j] = 1.01 * var_v[i, j] / (eigmean**2)

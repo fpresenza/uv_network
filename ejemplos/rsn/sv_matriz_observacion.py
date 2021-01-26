@@ -9,14 +9,15 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 
-from uvnpy.redes import analisis
+import uvnpy.redes.core as redes
+import uvnpy.rsn.core as rsn
 from uvnpy.filtering import metricas
 from gpsic.grafos.plotting import animar_grafo
-from gpsic.plotting.planar import agregar_ax, agregar_linea
+from gpsic.plotting.planar import agregar_ax
 
-H = analisis.distancia_relativa_jac
-matriz_incidencia = analisis.matriz_incidencia
-conectar = analisis.disk_graph
+H = rsn.distancia_relativa_jac
+incidence_from_edges = redes.incidence_from_edges
+conectar = redes.edges_from_positions
 svdvals = metricas.svdvals
 
 
@@ -42,7 +43,7 @@ def prod(singvals):
 
 
 def cond(singvals):
-    return [sv[0] / sv[sv > 0][-1] for sv in singvals]
+    return [sv[0] / sv[sv > 0.1][-1] for sv in singvals]
 
 
 if __name__ == '__main__':
@@ -97,9 +98,9 @@ if __name__ == '__main__':
     singvals = []
     for t in d:
         p[3, 1] = t
-        E = np.array(conectar(p, 8.))
+        E = conectar(p, 8.)
         cuadros.append((p.copy(), E))
-        D = matriz_incidencia(V, E)
+        D = incidence_from_edges(V, E)
         sv = svdvals(H(p, D))
         sv = completar(sv, 8)
         singvals.append(sv)
@@ -126,36 +127,38 @@ if __name__ == '__main__':
         gs[0, 0],
         title=r'Valores singulares $\sigma(H)$', title_kw={'fontsize': 11},
         xlabel=r'$y_4$ [m]', label_kw={'fontsize': 10})
-    agregar_linea(
-        ax, d, singvals[:, 1],
+    ax.plot(
+        d, singvals[:, 1],
         color='thistle', label=r'$\sigma_{\rm{2}}, ..., \sigma_{\rm{n}}$',
         ds='steps')
-    agregar_linea(ax, d, singvals[:, 2:], color='thistle', ds='steps')
-    agregar_linea(
-        ax, d, singvals[:, 0],
+    ax.plot(d, singvals[:, 2:], color='thistle', ds='steps')
+    ax.plot(
+        d, singvals[:, 0],
         color='m', label=r'$\sigma_{\rm{1}}$', ds='steps')
     ax.vlines([3., 6.2], 0, 2., color='0.5', ls='--')
+    ax.legend()
 
     ax = agregar_ax(
         gs[0, 1],
         title='Funcionales $F(H)$', title_kw={'fontsize': 11},
         xlabel=r'$y_4$ [m]', label_kw={'fontsize': 10})
-    agregar_linea(
-        ax, d, norma2(singvals),
+    ax.plot(
+        d, norma2(singvals),
         label=r'$\Vert H \Vert_{2}$', ds='steps')
-    agregar_linea(
-        ax, d, nuclear(singvals),
+    ax.plot(
+        d, nuclear(singvals),
         label=r'$\Vert H \Vert_{N}$', ds='steps')
-    agregar_linea(
-        ax, d, fro(singvals),
+    ax.plot(
+        d, fro(singvals),
         label=r'$\Vert H \Vert_{F}$', ds='steps')
-    agregar_linea(
-        ax, d, prod(singvals),
+    ax.plot(
+        d, prod(singvals),
         label=r'$\prod_i \; \sigma_i$', ds='steps')
-    agregar_linea(
-        ax, d, cond(singvals),
+    ax.plot(
+        d, cond(singvals),
         label=r'$\kappa$', ds='steps')
     ax.vlines([3., 6.2], 0, 8, color='0.5', ls='--')
+    ax.legend()
 
     if arg.save:
         fig.savefig('/tmp/sv_matriz_observacion.pdf', format='pdf')

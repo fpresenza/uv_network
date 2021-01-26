@@ -12,9 +12,9 @@ import matplotlib.pyplot as plt  # noqa
 
 from uvnpy.modelos.lineal import integrador_ruidoso
 from uvnpy.filtering import kalman, metricas
-from uvnpy.redes.analisis import matriz_incidencia
+from uvnpy.redes.analisis import incidence_from_edges
 from gpsic.grafos.plotting import animar_grafo
-from gpsic.plotting.planar import agregar_ax, agregar_linea
+from gpsic.plotting.planar import agregar_ax
 
 
 eigvalsh = metricas.eigvalsh
@@ -38,7 +38,7 @@ def h(x, E):
 def H(x, E):
     p = x.reshape(-1, 2)
     V = range(len(p))
-    D = matriz_incidencia(V, E)
+    D = incidence_from_edges(V, E)
     diff = D.T.dot(p)
     sqrdiff = diff * diff
     dist = np.sqrt(sqrdiff.sum(1))
@@ -123,7 +123,7 @@ if __name__ == '__main__':
         [1, 2],
         [2, 3],
         [3, 0]])
-    D = matriz_incidencia(V, E)
+    D = incidence_from_edges(V, E)
     # E_est = np.array([
     #     [4, 5],
     #     [5, 6],
@@ -199,12 +199,17 @@ if __name__ == '__main__':
         xlabel='t [seg]', ylabel='y [m]', label_kw={'fontsize': 10})
 
     for i in V:
-        l, = agregar_linea(ax[0], t, X[i], label=i)
-        agregar_linea(ax[0], t, X[i + n], ls='dotted', color=l.get_c())
-        l, = agregar_linea(ax[1], t, Y[i], label=i)
-        agregar_linea(ax[1], t, Y[i + n], ls='dotted', color=l.get_c())
-        agregar_linea(ax[2], t, X[i] - X[i + n], label=i)
-        agregar_linea(ax[3], t, Y[i] - Y[i + n], label=i)
+        l, = ax[0].plot(t, X[i], label=i)
+        ax[0].plot(t, X[i + n], ls='dotted', color=l.get_c())
+        l, = ax[1].plot(t, Y[i], label=i)
+        ax[1].plot(t, Y[i + n], ls='dotted', color=l.get_c())
+        ax[2].plot(t, X[i] - X[i + n], label=i)
+        ax[3].plot(t, Y[i] - Y[i + n], label=i)
+
+    ax[0].legend()
+    ax[1].legend()
+    ax[2].legend()
+    ax[3].legend()
 
     fig = plt.figure()
     gs = fig.add_gridspec(1, 1)
@@ -213,12 +218,11 @@ if __name__ == '__main__':
         title='Valores singulares Covarianza $^{1/2}$',
         title_kw={'fontsize': 11},
         xlabel='t [seg]', ylabel='[m]', label_kw={'fontsize': 10})
-    agregar_linea(
-        ax, t, sqrt_eigs[:, 0], color='c', label=r'$\sqrt{\sigma_{\rm{min}}}$')
-    agregar_linea(ax, t, sqrt_eigs[:, 1:-1], color='0.5')
-    agregar_linea(
-        ax, t, sqrt_eigs[:, -1],
-        color='m', label=r'$\sqrt{\sigma_{\rm{max}}}$')
+    ax.plot(t, sqrt_eigs[:, 0], color='c', label=r'$\sqrt{\sigma_{\rm{min}}}$')
+    ax.plot(t, sqrt_eigs[:, 1:-1], color='0.5')
+    ax.plot(
+        t, sqrt_eigs[:, -1], color='m', label=r'$\sqrt{\sigma_{\rm{max}}}$')
+    ax.legend()
 
     if arg.save:
         fig.savefig('/tmp/rango_central_analisis.pdf', format='pdf')

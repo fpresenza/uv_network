@@ -8,7 +8,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from uvnpy.redes import analisis
+import uvnpy.redes.core as redes
+import uvnpy.rsn.core as rsn
 from uvnpy.filtering import metricas
 
 
@@ -22,9 +23,9 @@ def sigma_cm(sv, s0):
     return d.dot(d)
 
 
-jacobiano = analisis.rp_jac
-matriz_incidencia = analisis.matriz_incidencia
-conectar = analisis.disk_graph
+jacobiano = rsn.rp_jac
+incidence_from_edges = redes.incidence_from_edges
+conectar = redes.edges_from_positions
 svdvals = metricas.svdvals
 
 fig, axes = plt.subplots(2, 2, figsize=(10, 8))
@@ -46,18 +47,19 @@ p = np.array([[-5, 0],
               [5., 0],
               [0,  5]])
 Er = conectar(p, 8.)
-Ep = [(0, 0), (1, 1)]
-Dr = matriz_incidencia(V, Er)
-Dp = matriz_incidencia(V, Ep)
+Ep = np.array([
+    [0, 0],
+    [1, 1]])
+Dr = incidence_from_edges(V, Er)
+Dp = incidence_from_edges(V, Ep)
 sigma_0 = np.sqrt((4+2)/4)
 
 for i in N:
     for j in N:
         p[1] = X[i, j], Y[i, j]
         Er = conectar(p, 8.)
-        Ep = [(0, 0), (1, 1)]
-        Dr = matriz_incidencia(V, Er)
-        Dp = matriz_incidencia(V, Ep)
+        Dr = incidence_from_edges(V, Er)
+        Dp = incidence_from_edges(V, Ep)
         H = jacobiano(p, Dr, Dp)
         sv = svdvals(H)
         psv = sv[sv > 1e-3]

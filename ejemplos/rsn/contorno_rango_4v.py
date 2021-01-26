@@ -8,7 +8,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from uvnpy.redes import analisis
+import uvnpy.redes.core as redes
+import uvnpy.rsn.core as rsn
 from uvnpy.filtering import metricas
 
 
@@ -17,9 +18,9 @@ def completar(x, size):
     return np.pad(x, pad_width=(0, t), mode='constant')
 
 
-jacobiano = analisis.distancia_relativa_jac
-matriz_incidencia = analisis.matriz_incidencia
-conectar = analisis.disk_graph
+jacobiano = rsn.distancia_relativa_jac
+incidence_from_edges = redes.incidence_from_edges
+conectar = redes.edges_from_positions
 svdvals = metricas.svdvals
 
 fig, axes = plt.subplots(2, 2, figsize=(10, 8))
@@ -46,14 +47,13 @@ E = np.array([
     [2, 3],
     [3, 0]])
 V = [0, 1, 2, 3]
-D = matriz_incidencia(V, E)
-
+D = incidence_from_edges(V, E)
 
 for i in N:
     for j in N:
         p[3] = X[i, j], Y[i, j]
-        E = np.array(conectar(p, 8.))
-        D = matriz_incidencia(V, E)
+        E = conectar(p, 8.)
+        D = incidence_from_edges(V, E)
         H = jacobiano(p, D)
         sv = svdvals(H)
         norma2[i, j] = sv[0]

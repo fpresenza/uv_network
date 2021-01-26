@@ -4,9 +4,8 @@
 Created on Mon Apr 06 12:41:07 2020
 @author: fran
 """
+import numpy as np
 from graph_tool import Graph
-
-from uvnpy.toolkit import iterable
 
 __all__ = [
     'grafo'
@@ -38,7 +37,7 @@ class grafo(Graph):
         """Agrega vehiculos como propiedad de los vértices. """
         N = len(uvs)
         nuevos_vertices = self.add_vertex(N)
-        if not iterable(nuevos_vertices):
+        if not np.iterable(nuevos_vertices):
             nuevos_vertices = [nuevos_vertices]  # por si agrega un sólo uv
         for v, uv in zip(nuevos_vertices, uvs):
             self.vp.uvs[v] = uv
