@@ -41,3 +41,40 @@ def inv2(M):
 
 def sqrt_diagonal(M):
     return np.sqrt(np.diagonal(M))
+
+
+def variance_to_mean_ratio(values):
+    """Variance to mean ratio.
+
+        vmr = variance / mean
+
+    Wikipedia:
+
+        In probability theory and statistics, the index of dispersion,
+        dispersion index, coefficient of dispersion, relative variance,
+        or variance-to-mean ratio (VMR), is a normalized measure of the
+        dispersion of a probability distribution: it is a measure used to
+        quantify whether a set of observed occurrences are clustered or
+        dispersed compared to a standard statistical model.
+    """
+    dispersion = values - values.mean()
+    vmr = dispersion.dot(dispersion) / values.sum()
+    return vmr
+
+
+def relative_standard_deviation(values):
+    """Relative Standard Deviation.
+
+        rsd = std. deviation / mean
+
+    Wikipedia:
+        In probability theory and statistics, the coefficient of
+        variation (CV), also known as relative standard deviation (RSD),
+        is a standardized measure of dispersion of a probability distribution
+        or frequency distribution. It is often expressed as a percentage,
+        and is defined as the ratio of the standard deviation to the mean.
+    """
+    n = len(values)
+    dispersion = values - values.mean()
+    rsd = np.sqrt(n * dispersion.dot(dispersion)) / values.sum()
+    return rsd

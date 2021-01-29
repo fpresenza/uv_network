@@ -84,4 +84,6 @@ for ax in axes.flat:
     ax.set_ylabel('y [m]')
     ax.minorticks_on()
 
+fig.savefig('/tmp/contorno_4v.png', format='png')
+
 plt.show()

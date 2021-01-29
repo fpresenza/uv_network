@@ -21,19 +21,19 @@ def distances(p):
     return dist
 
 
-def distances_from_edges(p, E):
+def distances_from_edges(E, p):
     r = p[E[:, 0]] - p[E[:, 1]]
     dist = np.sqrt(np.square(r).sum(axis=-1))
     return dist
 
 
-def distances_from_incidence(p, Dr):
+def distances_from_incidence(Dr, p):
     r = Dr.T.dot(p)
     dist = np.sqrt(np.square(r).sum(axis=-1))
     return dist
 
 
-def distances_jac(p, Dr):
+def distances_jac(Dr, p):
     nv, dof = p.shape
     ne = Dr.shape[1]
     J = np.zeros((ne, dof * nv))
@@ -52,42 +52,22 @@ def positions_jac(nv, loops, dof):
     return J
 
 
-def distances_laplacian(p, Dr, w):
-    """ Laplaciano de distancias.
+def distances_innovation_laplacian(A, p):
+    """ Laplaciano de innovación.
 
-    Devuelve el laplaciano pesado del modelo de distancias.
-    El número de vehículos nv es tomado del vector
-    de posiciones p.
+    Devuelve la matriz de innovación
 
-    args:
-        p: array de posiciones (nv, dof)
-        Dr: matriz de incidencia (nv, ne)
-        w: array de pesos (ne, )
+            Y =  H^T R^{-1} H
 
-    returns
-        L: laplaciano (2 * nv, 2 * nv)
-    """
-    nv, dof = p.shape
-    D = np.kron(Dr, np.eye(dof))
-    rij = unit_vector(Dr.T.dot(p), axis=-1)
-    r = rij.reshape(-1, dof, 1)
-    r_T = rij.reshape(-1, 1, dof)
-    Pij = np.matmul(r, r_T)
-    Pij *= w.reshape(-1, 1, 1)
-    P = scipy.linalg.block_diag(*Pij)
-    return D.dot(P).dot(D.T)
+    del modelo de distancias de un grafo de nv agentes
+    determinado por la matriz de adyacencia A.
 
-
-def complete_distances_laplacian(p, w):
-    """ Laplaciano de distancias completo.
-
-    Devuelve el laplaciano pesado del modelo de distancias
-    de un grafo completo. El número de vehículos nv
-    es tomado del vector de posiciones p.
+    Si A[i, i] > 0 el nodo i tiene medicion de posición
+    Si A[i, j] > 0 los nodos i, j tienen medicion de distancia
 
     args:
         p: array de posiciones (nv, dof)
-        w: array de pesos (nv, nv)
+        A: matriz de adyacencia (nv, nv)
 
     returns
         L: laplaciano (2 * nv, 2 * nv)
@@ -95,20 +75,11 @@ def complete_distances_laplacian(p, w):
     nv, dof = p.shape
     r = unit_vector(p[:, np.newaxis] - p, axis=-1)
     ii = np.diag([True] * nv)
-    r[ii] = 0
     r = r.reshape(-1, nv,  dof, 1)
     r_T = r.reshape(-1, nv, 1, dof)
     L = - np.matmul(r, r_T)
-    L *= w.reshape(nv, nv, 1, 1)
-    L[ii] = - np.sum(L, axis=1)
+    L[ii] = np.eye(dof)
+    L *= A.reshape(nv, nv, 1, 1)
+    L[ii] -= np.sum(L[~ii].reshape(nv, -1, dof, dof), axis=1)
     L = np.block(list(L)).reshape(p.size, p.size)
-    return L
-
-
-def positions_laplacian(nv, loops, dof, w=1):
-    """Laplaciano de posiciones.
-    """
-    diag = np.zeros(nv)
-    diag[loops] = w
-    L = np.diag(np.repeat(diag, dof))
     return L
