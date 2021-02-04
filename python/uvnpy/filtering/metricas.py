@@ -29,7 +29,7 @@ def traza(M):
 
 
 def det2(M):
-    return M[0, 0]*M[1, 1] - M[0, 1]*M[1, 0]
+    return M[0, 0] * M[1, 1] - M[0, 1] * M[1, 0]
 
 
 def inv2(M):

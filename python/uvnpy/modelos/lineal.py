@@ -25,7 +25,7 @@ class integrador(EulerExplicito):
         return self._dx.copy()
 
     def dinamica(self, x, t, u):
-        self._dx = np.asarray(u)
+        self._dx = u
         return self._dx
 
     def step(self, t, u):
