@@ -15,8 +15,9 @@ from uvnpy.filtering import metricas
 from gpsic.grafos.plotting import animar_grafo
 from gpsic.plotting.planar import agregar_ax
 
-H = rsn.distancia_relativa_jac
+H = rsn.distances_jac
 incidence_from_edges = redes.incidence_from_edges
+undirected_edges = redes.undirected_edges
 conectar = redes.edges_from_positions
 svdvals = metricas.svdvals
 
@@ -85,23 +86,28 @@ if __name__ == '__main__':
     equipos = ([[0, 1, 2], {'color': 'r', 'marker': 's', 'markersize': '5'}],
                [[3], {'color': 'b', 'marker': 'o', 'markersize': '5'}])
     V = range(4)
-    E = np.array([
-        [0, 1],
-        [1, 2],
-        [2, 3],
-        [3, 0]])
+    E = conectar(p, 8.)
 
     # ------------------------------------------------------------------
     # Simulación
     # ------------------------------------------------------------------
-    cuadros = [(p, E)]
-    singvals = []
-    for t in d:
+    cuadros = np.empty((d.size, 2), dtype=np.ndarray)
+    cuadros[0, 0] = p.copy()
+    cuadros[0, 1] = E.copy()
+    # cuadros = [(p, E)]
+    D = incidence_from_edges(V, E)
+    sv = svdvals(H(D, p))
+    sv = completar(sv, 8)
+    singvals = [sv.copy()]
+
+    for k, t in enumerate(d[1:]):
         p[3, 1] = t
         E = conectar(p, 8.)
-        cuadros.append((p.copy(), E))
+        # cuadros.append((p.copy(), E))
+        cuadros[k + 1, 0] = p.copy()
+        cuadros[k + 1, 1] = E.copy()
         D = incidence_from_edges(V, E)
-        sv = svdvals(H(p, D))
+        sv = svdvals(H(D, p))
         sv = completar(sv, 8)
         singvals.append(sv)
 
