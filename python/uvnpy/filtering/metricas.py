@@ -43,6 +43,12 @@ def sqrt_diagonal(M):
     return np.sqrt(np.diagonal(M))
 
 
+def variance(values):
+    dispersion = values - values.mean()
+    var = dispersion.dot(dispersion) / values.size
+    return var
+
+
 def variance_to_mean_ratio(values):
     """Variance to mean ratio.
 
