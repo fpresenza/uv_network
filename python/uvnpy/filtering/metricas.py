@@ -84,3 +84,16 @@ def relative_standard_deviation(values):
     dispersion = values - values.mean()
     rsd = np.sqrt(n * dispersion.dot(dispersion)) / values.sum()
     return rsd
+
+
+def dispersion_index(values, q):
+    """Índice de dispersión con exponente q
+
+        index = (std. deviation)^q / mean
+    """
+    n = values.shape[-1]
+    mean = values.mean(axis=-1)
+    dispersion = values - mean.reshape(-1, 1)
+    std_dev = np.sqrt(np.square(dispersion).sum(axis=-1) / n)
+    di = std_dev**q / mean
+    return di
