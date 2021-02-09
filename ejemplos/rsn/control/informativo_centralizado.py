@@ -21,26 +21,34 @@ from uvnpy.filtering import metricas
 # ------------------------------------------------------------------
 # Definición de variables globales, funciones y clases
 # ------------------------------------------------------------------
-Logs = collections.namedtuple('Logs', 'p u J eig')
+Logs = collections.namedtuple('Logs', 'x u J eig')
 
 
 def innovacion(x):
     p = x.reshape(-1, 2)
     A = rsn.distances(p)
-    A[A != 0] **= -2
+    q = 0.5
+    A[A != 0] **= -2 * q
     L = rsn.distances_innovation_laplacian(A, p)
     return L
 
 
 def innovacion_acumulada(x_p):
-    return sum([innovacion(x) for x in x_p])
+    # return sum([innovacion(x) for x in x_p])
+    return [innovacion(x) for x in x_p]
 
 
 def funcional(Y):
     eigvals = metricas.eigvalsh(Y)
-    rsd = metricas.relative_standard_deviation(eigvals)
-    return rsd
+    J = metricas.dispersion_index(eigvals, 1.)   # + eigvals.mean()
+    return sum(J)
 
+
+def grid(nv, sep):
+    k = np.ceil(np.sqrt(nv)) / 2
+    nums = np.arange(-k, k) * sep
+    g = np.meshgrid(nums, nums)
+    return np.vstack(np.dstack(g))[:nv]
 
 # ------------------------------------------------------------------
 # Función run
@@ -51,21 +59,22 @@ def run(steps, logs, t_perf, planta, cuadros):
     # iteración
     bar = progressbar.ProgressBar(max_value=arg.tf).start()
     for k, t in steps[1:]:
-        # u = np.zeros((nv, dof))
-        p = planta.x
+        x = planta.x
         a = time.perf_counter()
-        u = ctrl.update(p.ravel(), t, ()).reshape(nv, dof)
+        # u = np.zeros((nv, dof))
+        u = ctrl.update(x.ravel(), t, ()).reshape(nv, dof)
         b = time.perf_counter()
-        p = planta.step(t, u)
+        x = planta.step(t, u)
 
-        Y = innovacion(p)
+        Y = innovacion(x)
         J = funcional(Y)
         eigvals = metricas.eigvalsh(Y)
 
-        E = redes.edges_from_positions(p, dmax)
-        cuadros[k] = p, redes.undirected_edges(E)
+        # E = redes.undirected(redes.edges_from_positions(x, dmax))
+        E = redes.complete_undirected_edges(V)
+        cuadros[k] = x, E
 
-        logs.p[k] = p
+        logs.x[k] = x
         logs.u[k] = u
         logs.J[k] = J
         logs.eig[k] = eigvals
@@ -123,43 +132,45 @@ if __name__ == '__main__':
     dof = 2
     n = dof * nv
     dmax = 12.
-    # p0 = np.random.uniform(-lim, lim, (nv, dof))
-    p0 = np.array([[-5, 0],
-                   [0, -5],
-                   [5, 0],
-                   [0, 5]], dtype=np.float)
-    planta = integrador(p0, tiempo[0])
+    # x0 = np.random.uniform(-lim, lim, (nv, dof))*0.5
+    # x0 = np.array([[-5, 0],
+    #                [0, -5],
+    #                [5, 0],
+    #                [0, 5]], dtype=np.float)
+    x0 = grid(nv, 5)
+    planta = integrador(x0, tiempo[0])
 
     ctrl = informativo.minimizar(
         metrica=funcional,
         matriz=innovacion_acumulada,
         modelo=integrador,
-        Q=(0.4 * np.eye(n), 1 * np.eye(n), 1000),
+        Q=(0.4 * np.eye(n), 1 * np.eye(n), 50),
         dim=n,
         horizonte=np.linspace(0.1, 0.5, 10)
         )
 
     logs = Logs(
-        p=np.empty((tiempo.size, nv, dof)),
+        x=np.empty((tiempo.size, nv, dof)),
         u=np.empty((tiempo.size, nv, dof)),
         J=np.empty((tiempo.size)),
         eig=np.empty((tiempo.size, n))
         )
-    logs.p[0] = p0
+    logs.x[0] = x0
     logs.u[0] = np.zeros((nv, dof))
     logs.J[0] = None
     logs.eig[0] = None
 
     cuadros = np.empty((tiempo.size, 2), dtype=np.ndarray)
-    E0 = redes.edges_from_positions(p0, dmax)
-    cuadros[0] = p0, redes.undirected_edges(E0)
+    # E0 = redes.undirected(redes.edges_from_positions(x0, dmax))
+    E0 = redes.complete_undirected_edges(V)
+    cuadros[0] = x0, E0
 
     # ------------------------------------------------------------------
     # Simulación
     # ------------------------------------------------------------------
     logs, t_perf, cuadros = run(steps, logs, t_perf, planta, cuadros)
 
-    p = logs.p
+    x = logs.x
     u = logs.u
     J = logs.J
     eig = logs.eig
@@ -179,11 +190,11 @@ if __name__ == '__main__':
     ax = agregar_ax(
         gs[0, 0],
         xlabel='t [seg]', ylabel='x [m]', label_kw={'fontsize': 10})
-    ax.plot(tiempo, p[..., 0])
+    ax.plot(tiempo, x[..., 0])
     ax = agregar_ax(
         gs[1, 0],
         xlabel='t [seg]', ylabel='y [m]', label_kw={'fontsize': 10})
-    ax.plot(tiempo, p[..., 1])
+    ax.plot(tiempo, x[..., 1])
     ax = agregar_ax(
         gs[0, 1],
         xlabel='t [seg]', ylabel='$u_x$ [m]', label_kw={'fontsize': 10})
@@ -199,7 +210,7 @@ if __name__ == '__main__':
 
     ax = agregar_ax(
         gs[0, 0],
-        xlabel='t [seg]', ylabel='rsd', label_kw={'fontsize': 10})
+        xlabel='t [seg]', ylabel='J', label_kw={'fontsize': 10})
     ax.plot(tiempo, J)
 
     ax = agregar_ax(
