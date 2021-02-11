@@ -44,28 +44,11 @@ def sqrt_diagonal(M):
 
 
 def variance(values):
-    dispersion = values - values.mean()
-    var = dispersion.dot(dispersion) / values.size
+    n = values.shape[-1]
+    mean = values.mean(axis=-1)
+    dispersion = values - mean[..., np.newaxis]
+    var = np.square(dispersion).sum(axis=-1) / n
     return var
-
-
-def variance_to_mean_ratio(values):
-    """Variance to mean ratio.
-
-        vmr = variance / mean
-
-    Wikipedia:
-
-        In probability theory and statistics, the index of dispersion,
-        dispersion index, coefficient of dispersion, relative variance,
-        or variance-to-mean ratio (VMR), is a normalized measure of the
-        dispersion of a probability distribution: it is a measure used to
-        quantify whether a set of observed occurrences are clustered or
-        dispersed compared to a standard statistical model.
-    """
-    dispersion = values - values.mean()
-    vmr = dispersion.dot(dispersion) / values.sum()
-    return vmr
 
 
 def relative_standard_deviation(values):
@@ -80,20 +63,32 @@ def relative_standard_deviation(values):
         or frequency distribution. It is often expressed as a percentage,
         and is defined as the ratio of the standard deviation to the mean.
     """
-    n = len(values)
-    dispersion = values - values.mean()
-    rsd = np.sqrt(n * dispersion.dot(dispersion)) / values.sum()
-    return rsd
+    n = values.shape[-1]
+    mean = values.mean(axis=-1)
+    dispersion = values - mean[..., np.newaxis]
+    std_dev = np.sqrt(np.square(dispersion).sum(axis=-1) / n)
+    return std_dev / mean
 
 
 def dispersion_index(values, q):
     """Índice de dispersión con exponente q
 
-        index = (std. deviation)^q / mean
+        index = (variance)^q / mean
+
+        Si q = 0.5 equivale a relative standard deviation
+        Si q = 1 equivale a variance to mean ratio.
+
+    Wikipedia:
+
+        In probability theory and statistics, the index of dispersion,
+        dispersion index, coefficient of dispersion, relative variance,
+        or variance-to-mean ratio (VMR), is a normalized measure of the
+        dispersion of a probability distribution: it is a measure used to
+        quantify whether a set of observed occurrences are clustered or
+        dispersed compared to a standard statistical model.
     """
     n = values.shape[-1]
     mean = values.mean(axis=-1)
-    dispersion = values - mean.reshape(-1, 1)
-    std_dev = np.sqrt(np.square(dispersion).sum(axis=-1) / n)
-    di = std_dev**q / mean
-    return di
+    dispersion = values - mean[..., np.newaxis]
+    var = np.square(dispersion).sum(axis=-1) / n
+    return var**q / mean
