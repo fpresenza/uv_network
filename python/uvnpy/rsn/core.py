@@ -16,7 +16,7 @@ def distances(p):
     args:
         p: array de posiciones (n, dof)
     """
-    r = p[:, np.newaxis] - p
+    r = p[..., None, :] - p[..., None, :, :]
     dist = np.sqrt(np.square(r).sum(axis=-1))
     return dist
 
@@ -66,20 +66,18 @@ def distances_innovation_laplacian(A, p):
     Si A[i, j] > 0 los nodos i, j tienen medicion de distancia
 
     args:
-        p: array de posiciones (nv, dof)
-        A: matriz de adyacencia (nv, nv)
+        p: array de posiciones (-1, nv, dof)
+        A: matriz de adyacencia (-1, nv, nv)
 
     returns
-        L: laplaciano (2 * nv, 2 * nv)
+        L: laplaciano (-1, nv * dof, nv * dof)
     """
-    nv, dof = p.shape
-    r = unit_vector(p[:, np.newaxis] - p, axis=-1)
+    nv, dof = p.shape[-2:]
+    r = unit_vector(p[..., None, :] - p[..., None, :, :], axis=-1)
+    L = - r[..., None] * r[..., None, :]  # outer product
     ii = np.diag([True] * nv)
-    r = r.reshape(-1, nv,  dof, 1)
-    r_T = r.reshape(-1, nv, 1, dof)
-    L = - np.matmul(r, r_T)
-    L[ii] = np.eye(dof)
-    L *= A.reshape(nv, nv, 1, 1)
-    L[ii] -= np.sum(L[~ii].reshape(nv, -1, dof, dof), axis=1)
-    L = np.block(list(L)).reshape(p.size, p.size)
+    L[:, ii] = np.eye(dof)
+    L *= A[..., None, None]               # aplicar pesos
+    L[:, ii] -= L[:, ~ii].reshape(-1, nv, nv - 1, dof, dof).sum(p.ndim - 1)
+    L = L.swapaxes(-3, -2).reshape(-1, nv * dof, nv * dof)
     return L

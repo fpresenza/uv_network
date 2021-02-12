@@ -43,7 +43,7 @@ def complete_adjacency(V):
 def edges_from_positions(p, dmax=np.inf):
     """Devuelve lista de enlaces por proximidad."""
     dmax_2 = dmax**2 * (1 - np.eye(len(p)))
-    r = p[:, np.newaxis] - p
+    r = p[:, None] - p
     dist_2 = np.square(r).sum(axis=-1)
     return np.argwhere(dist_2 < dmax_2)
 
@@ -60,10 +60,11 @@ def adjacency_from_positions(p, dmax=np.inf):
         del enlace (i, j) es la distancia entre
         los vehículos i y j.
     """
-    r = p[:, np.newaxis] - p
-    dist = np.sqrt(np.square(r).sum(axis=-1))
-    dist[dist > dmax] = 0
-    return dist
+    r = p[:, None] - p
+    A = np.square(r).sum(axis=-1)
+    A[A > dmax**2] = 0
+    A[A != 0] = 1
+    return A
 
 
 def incidence_from_edges(V, E):
