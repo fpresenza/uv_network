@@ -4,11 +4,6 @@
 @author: fran
 """
 import numpy as np
-from numpy import trace  # noqa
-from numpy.linalg import norm, det, eigvalsh  # noqa
-from scipy.linalg import svdvals, sqrtm  # noqa
-
-norma = norm
 
 
 def traza2(M):
@@ -41,6 +36,10 @@ def inv2(M):
 
 def sqrt_diagonal(M):
     return np.sqrt(np.diagonal(M))
+
+
+def weighted_sum(values, weights=1):
+    return (values * weights).sum()
 
 
 def variance(values):
@@ -92,3 +91,7 @@ def dispersion_index(values, q):
     dispersion = values - mean[..., np.newaxis]
     var = np.square(dispersion).sum(axis=-1) / n
     return var**q / mean
+
+
+rsd = relative_standard_deviation
+di = dispersion_index
