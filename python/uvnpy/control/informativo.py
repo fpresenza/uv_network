@@ -23,6 +23,6 @@ class minimizar(MPC):
 
     def update(self, x, t, args, ineq_args=(), eq_args=(), **kwargs):
         u = super(minimizar, self).update(
-          x, t, ([], [self.u], args), ineq_args=(), eq_args=(), **kwargs
+          x, t, ([], [self.u]) + args, ineq_args=(), eq_args=(), **kwargs
         )
         return u
