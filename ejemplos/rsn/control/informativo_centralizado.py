@@ -24,7 +24,7 @@ from uvnpy.toolkit import core
 # ------------------------------------------------------------------
 # Definición de variables globales, funciones y clases
 # ------------------------------------------------------------------
-Logs = collections.namedtuple('Logs', 'x u J Jp eig eigp x_opn')
+Logs = collections.namedtuple('Logs', 'x u J Jp eig eigp x_p')
 
 rsd = metricas.relative_standard_deviation  # rsd
 
@@ -50,40 +50,47 @@ mu = rsd
 # mu = np.prod
 
 
-def q(dist, dmax):
+def q(dist, dmax, *args, **kwargs):
     _q = 1
     A = dist.copy()
     A[A != 0] **= -2 * _q
     return A
 
 
-def normal_cpd(dist, dmax):
+def normal_cdf(dist, dmax, scale):
     A = dist.copy()
-    A[A > 0] = 1 - scipy.stats.norm.cdf(A[A > 0], loc=dmax, scale=2)
+    A[A > 0] = 1 - scipy.stats.norm.cdf(A[A > 0], loc=dmax, scale=scale)
     return A
 
 
-def transparent(dist, dmax):
+def logistic(dist, dmax, w):
+    A = dist.copy()
+    A[A > 0] = 1 / (1 + np.exp(w * (A[A > 0] - 0.5 * dmax)))
+    return A
+
+
+def transparent(dist, dmax, *args):
     return dist
 
 
-def on_off(dist, dmax):
+def on_off(dist, dmax, *args):
     A = dist.copy()
     A[A > dmax] = 0
     A[A != 0] = 1
     return A
 
 
-# atenuacion = q        # potencial
-atenuacion = normal_cpd      # distribucion normal (cdf)
-# atenuacion = transparent        # sin atenuacion
+# atenuacion = q               # potencial
+# atenuacion = normal_cdf      # distribucion normal (cdf)
+atenuacion = logistic          # familia sigmoide
+# atenuacion = transparent     # sin atenuacion
 
 
 def innovacion(x):
     N = len(x)
     p = np.reshape(x, (N, -1, 2))
     dist = rsn.distances(p)
-    A = atenuacion(dist, dmax)
+    A = atenuacion(dist, dmax, 1)
     # A[:, Vp, Vp] = 1
     Y = rsn.distances_innovation_laplacian(A, p)
     return sum(Y)
@@ -106,22 +113,23 @@ def optimal_position_nodes(x):
     m = len(pairs)
     idx = np.arange(m).reshape(-1, 1)
 
-    x = np.repeat(x, m, axis=0)
     A = rsn.distances(x)
-    A = atenuacion(A, dmax)
+    A = on_off(A, dmax)
+    x = np.repeat(x, m, axis=0)
+    A = np.repeat(A, m, axis=0)
     A[idx, pairs, pairs] = 1
 
     Y = rsn.distances_innovation_laplacian(A, x)
     eigvals = np.linalg.eigvalsh(Y)
-    # opt = np.argmax(eigvals[:, 0])   # minimo autovalor
-    opt = np.argmax(rsd(eigvals))
+    opt = eigvals[:, 0].round(2).argmax()   # máx min autovalor
+    # opt = np.argmin(rsd(eigvals))         # es invariante :O
     return pairs[opt]
 
 
-def analisis(x, dmax, atenuacion):
+def analisis(x, dmax, Vp, atenuacion):
     A = rsn.distances(x)
-    A = atenuacion(A, dmax)
-    A[Vp, Vp] = 1
+    A = atenuacion(A, dmax, 1)
+    A[:, Vp, Vp] = 1
     Y = rsn.distances_innovation_laplacian(A, x)
     eigvals = np.linalg.eigvalsh(Y)
     J = mu(eigvals).sum()
@@ -158,16 +166,17 @@ def run(steps, logs, t_perf, planta, cuadros):
         b = time.perf_counter()
         x = planta.step(t, u)
 
-        # análisis
-        J, eigvals = analisis(x[None, ...], dmax, normal_cpd)
-        Jp, eigvalsp = analisis(x[None, ...], dmax, on_off)
-
         # nodos de posicion
-        opn = optimal_position_nodes(x[None, ...])
+        Vp = optimal_position_nodes(x[None, ...])
+        # Vp = range(nvp)
+
+        # análisis
+        J, eigvals = analisis(x[None, ...], dmax, [], logistic)
+        Jp, eigvalsp = analisis(x[None, ...], dmax, Vp, on_off)
 
         # E = redes.complete_undirected_edges(V)
         E = redes.undirected_edges(redes.edges_from_positions(x, dmax))
-        X = x[list(V) + list(opn)]
+        X = x[list(V) + list(Vp)]
         cuadros[k] = X, E
 
         logs.x[k] = x
@@ -176,7 +185,7 @@ def run(steps, logs, t_perf, planta, cuadros):
         logs.Jp[k] = Jp
         logs.eig[k] = eigvals
         logs.eigp[k] = eigvalsp
-        logs.x_opn[k] = x[opn]
+        logs.x_p[k] = x[Vp]
 
         t_perf.append(b - a)
         bar.update(np.round(t, 3))
@@ -227,35 +236,18 @@ if __name__ == '__main__':
 
     lim = 20.
     nv = arg.n
+    nvp = 2
     V = range(nv)
-    Vp = []
-    Vr = np.delete(V, Vp)
     dof = 2
     n = dof * nv
-    dmax = 12.
-    # x0 = np.random.uniform(-lim, lim, (nv, dof)) * 0.5
-    x0 = np.array([[-5, 0],
-                   [0, -5],
-                   [5, 0],
-                   [0, 5]], dtype=np.float) * 1.5
+    dmax = 12
+    np.random.seed(2)
+    x0 = np.random.uniform(-lim, lim, (nv, dof))
+    # x0 = np.array([[-5, 0],
+    #                [0, -5],
+    #                [5, 0],
+    #                [0, 5]], dtype=np.float) * 1.5
     # x0 = grid(nv, 5)
-    # x0 = np.array([
-    #     [-7.217, -8.362],
-    #     [-0.085, 5.128],
-    #     [9.441, 14.593],
-    #     [-14.843, -2.536],
-    #     [-8.178, 1.141],
-    #     [-6.911, -1.338],
-    #     [-4.636, 4.149],
-    #     [-14.26, 3.401],
-    #     [10.885, 11.988],
-    #     [6.228, -12.701],
-    #     [7.691, -8.534],
-    #     [-10.23, 6.973],
-    #     [-1.221, 1.048],
-    #     [4.875, 10.443],
-    #     [-12.463, 14.692],
-    #     [13.753, 11.034]])[:nv]
     # x0 = linspace(nv, lim*0.75) + np.random.normal(0, 0.5, (nv, dof))
 
     planta = integrador(x0, tiempo[0])
@@ -264,9 +256,9 @@ if __name__ == '__main__':
         metrica=funcional,
         matriz=innovacion,
         modelo=integrador,
-        Q=(0.4 * np.eye(n), 1 * np.eye(n), 400),
+        Q=(0.2 * np.eye(n), 1 * np.eye(n), 800),
         dim=n,
-        horizonte=np.linspace(0.1, 0.5, 5)
+        horizonte=np.array([0.1])   # np.linspace(0.1, 0.5, 5)
         )
     ctrl.agregar_costo(fun=ca_repulsion, Q=2)
 
@@ -277,7 +269,7 @@ if __name__ == '__main__':
         Jp=np.empty((tiempo.size)),
         eig=np.empty((tiempo.size, n)),
         eigp=np.empty((tiempo.size, n)),
-        x_opn=np.empty((tiempo.size, 2, dof))
+        x_p=np.empty((tiempo.size, nvp, dof))
         )
     logs.x[0] = x0
     logs.u[0] = np.zeros((nv, dof))
@@ -304,7 +296,7 @@ if __name__ == '__main__':
     Jp = logs.Jp
     eig = logs.eig
     eigp = logs.eigp
-    x_opn = logs.x_opn
+    x_p = logs.x_p
 
     st = arg.tf - arg.ti
     rt = sum(t_perf)
@@ -368,10 +360,12 @@ if __name__ == '__main__':
         plt.show()
 
     if arg.animate:
-        opnodes = [nv, nv + 1]
-        estilos = ([Vr, {'color': 'b', 'marker': 'o', 'markersize': '5'}],
-                   # [Vp, {'color': 'r', 'marker': '*', 'markersize': '6'}],
-                   [opnodes, {'color': 'g', 'marker': '*', 'markersize': '8'}])
+        estilos = (
+            [V, {'color': 'b', 'marker': 'o', 'markersize': '5'}], )
+        if nvp > 0:
+            estilos += ([
+                [nv, nv + 1], {'color': 'g', 'marker': '*', 'markersize': '8'}
+            ],)
         fig, ax = plt.subplots()
         ax.set_xlim(-lim, lim)
         ax.set_ylim(-lim, lim)
@@ -382,4 +376,5 @@ if __name__ == '__main__':
         animar_grafo(
             fig, ax, arg.h, estilos, cuadros,
             edgestyle={'color': '0.2', 'linewidth': 0.7},
-            guardar=arg.save)
+            guardar=arg.save,
+            archivo='/tmp/animacion.mp4')

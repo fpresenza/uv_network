@@ -29,16 +29,16 @@ dims = (len(Q),) + X.shape
 vmr = np.empty(dims)
 rsd = np.empty(dims)
 
-p = np.array([[-5, 0],
-              [0, -5],
-              [5., 0],
-              [0,  0]])
+p = np.array([[[-5, 0],
+               [0, -5],
+               [5., 0],
+               [0,  0]]])
 V = [0, 1, 2, 3]
 
 
 for i in N:
     for j in N:
-        p[3] = X[i, j], Y[i, j]
+        p[0, 3] = X[i, j], Y[i, j]
 
         A = rsn.distances(p)
         A[A != 0] **= -1
@@ -52,8 +52,8 @@ for i in N:
             A = rsn.distances(p)
             A[A != 0] **= -2*q
             L = rsn.distances_innovation_laplacian(A, p)
-            eig = metricas.eigvalsh(L)
-            vmr[k, i, j] = metricas.variance_to_mean_ratio(eig)
+            eig = np.linalg.eigvalsh(L)
+            vmr[k, i, j] = metricas.dispersion_index(eig, 1)
             rsd[k, i, j] = metricas.relative_standard_deviation(eig)
 
 cbar = axes[0, 0].contourf(X, Y, vmr[0], levels=20, cmap=cw)
