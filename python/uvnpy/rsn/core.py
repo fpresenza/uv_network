@@ -81,3 +81,24 @@ def distances_innovation_laplacian(A, p):
     L[:, ii] -= L[:, ~ii].reshape(-1, nv, nv - 1, dof, dof).sum(p.ndim - 1)
     L = L.swapaxes(-3, -2).reshape(-1, nv * dof, nv * dof)
     return L
+
+
+def pose_and_shape_projections_2d(p):
+    """ Devuelve dos matrices de proyección.
+
+    P proyecta al subespacio "pose",
+    S proyecta al subespacio "shape".
+    """
+    n, d = p.shape
+    A = np.zeros((n * d, 3))     # 3 si 2d, 6 si 3d
+    d_cm = p - p.mean(0)
+
+    A[::2, 0] = 1/np.sqrt(n)     # dx
+    A[1::2, 1] = 1/np.sqrt(n)    # dy
+    A[::2, 2] = -d_cm[:, 1]
+    A[1::2, 2] = d_cm[:, 0]
+    A[:, 2] /= np.sqrt(np.square(d_cm).sum())  # dt
+
+    P = A.dot(A.T)
+    S = np.eye(n * d) - P
+    return P, S
