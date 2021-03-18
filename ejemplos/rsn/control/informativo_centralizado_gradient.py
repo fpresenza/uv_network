@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-""" Created on jue feb  4 20:05:46 -03 2021
+""" Created on jue mar 18 13:21:30 -03 2021
 @author: fran
 """
 import argparse
@@ -8,132 +8,22 @@ import collections
 import time
 import progressbar
 import numpy as np
-import scipy.stats
 import matplotlib.pyplot as plt
 
 from gpsic.plotting.core import agregar_ax
 from gpsic.grafos.plotting import animar_grafo
 from uvnpy.modelos.lineal import integrador
 import uvnpy.redes.core as redes
+import uvnpy.redes.comunicaciones as com
 import uvnpy.rsn.core as rsn
-from uvnpy.control import informativo
-from uvnpy.control import costos
-from uvnpy.filtering import metricas
-from uvnpy.toolkit import core
 
 # ------------------------------------------------------------------
 # Definición de variables globales, funciones y clases
 # ------------------------------------------------------------------
-Logs = collections.namedtuple('Logs', 'x u J Jp eig eigp x_p')
-
-rsd = metricas.relative_standard_deviation  # rsd
+Logs = collections.namedtuple('Logs', 'x u J Jp eig eigp')
 
 
-def di(eigvals):
-    return metricas.dispersion_index(eigvals, 0.4)
-
-
-def inverse_nuclear(eigvals):
-    w = 1 / (eigvals + 1)
-    nuclear = metricas.weighted_sum(eigvals, w)
-    return 1 / nuclear
-
-
-def maxmin(eigvals):
-    return 1 / (min(eigvals) + 1)
-
-
-mu = rsd
-# mu = di
-# mu = inverse_nuclear
-# mu = maxmin
-# mu = np.prod
-
-
-def q(dist, dmax, *args, **kwargs):
-    _q = 1
-    A = dist.copy()
-    A[A != 0] **= -2 * _q
-    return A
-
-
-def normal_cdf(dist, dmax, scale):
-    A = dist.copy()
-    A[A > 0] = 1 - scipy.stats.norm.cdf(A[A > 0], loc=dmax, scale=scale)
-    return A
-
-
-def logistic(dist, dmax, w):
-    A = dist.copy()
-    A[A > 0] = 1 / (1 + np.exp(w * (A[A > 0] - 0.5 * dmax)))
-    return A
-
-
-def transparent(dist, dmax, *args):
-    return dist
-
-
-def on_off(dist, dmax, *args):
-    A = dist.copy()
-    A[A > dmax] = 0
-    A[A != 0] = 1
-    return A
-
-
-# atenuacion = q               # potencial
-# atenuacion = normal_cdf      # distribucion normal (cdf)
-atenuacion = logistic          # familia sigmoide
-# atenuacion = transparent     # sin atenuacion
-
-
-def innovacion(x):
-    N = len(x)
-    p = np.reshape(x, (N, -1, 2))
-    dist = rsn.distances(p)
-    A = atenuacion(dist, dmax, 1)
-    # A[:, Vp, Vp] = 1
-    Y = rsn.distances_innovation_laplacian(A, p)
-    return sum(Y)
-
-
-def funcional(Y):
-    eigvals = np.linalg.eigvalsh(Y)
-    J = mu(eigvals)
-    return J.sum()
-
-
-def ca_repulsion(u, x_p, Q):
-    N = len(x_p)
-    p = np.reshape(x_p, (N, -1, 2))
-    return Q * costos.repulsion(p)
-
-
-def optimal_position_nodes(x):
-    pairs = core.combinations(V, 2)
-    m = len(pairs)
-    idx = np.arange(m).reshape(-1, 1)
-
-    A = rsn.distances(x)
-    A = on_off(A, dmax)
-    x = np.repeat(x, m, axis=0)
-    A = np.repeat(A, m, axis=0)
-    A[idx, pairs, pairs] = 1
-
-    Y = rsn.distances_innovation_laplacian(A, x)
-    eigvals = np.linalg.eigvalsh(Y)
-    opt = eigvals[:, 0].round(2).argmax()   # máx min autovalor
-    # opt = np.argmin(rsd(eigvals))         # es invariante :O
-    return pairs[opt]
-
-
-def analisis(x, dmax, Vp, atenuacion):
-    A = rsn.distances(x)
-    A = atenuacion(A, dmax, 1)
-    A[:, Vp, Vp] = 1
-    Y = rsn.distances_innovation_laplacian(A, x)
-    eigvals = np.linalg.eigvalsh(Y)
-    J = mu(eigvals).sum()
-    return J, eigvals
+metrica = r'$\rm{tr}(Y)$'
 
 
 def grid(nv, sep):
@@ -161,23 +51,43 @@ def run(steps, logs, t_perf, planta, cuadros):
     for k, t in steps[1:]:
         # step planta
         x = planta.x
+
+        # Control
         a = time.perf_counter()
-        u = ctrl.update(x.ravel(), t, ([], [])).reshape(nv, dof)
+
+        dist = rsn.distances(x)
+        Ad = dist.copy()
+        plus = Ad > 0
+        Ad[plus] = com.logistic_strength_derivative(Ad[plus], w=1, e=dmax)
+        u = rsn.distances_innovation_trace_gradient(Ad, x) * 4
+
         b = time.perf_counter()
         x = planta.step(t, u)
 
-        # nodos de posicion
-        Vp = optimal_position_nodes(x[None, ...])
-        # Vp = range(nvp)
+        # Análisis
+        _, S = rsn.pose_and_shape_basis_2d(x[None, ...])
+        S = S[0]
+        # S = scipy.linalg.orth(S)
 
-        # análisis
-        J, eigvals = analisis(x[None, ...], dmax, [], logistic)
-        Jp, eigvalsp = analisis(x[None, ...], dmax, Vp, on_off)
+        Aw = dist.copy()
+        Aw[Aw > dmax] = 0
+        Aw[Aw > 0] = com.logistic_strength(Aw[Aw > 0], w=1, e=dmax)
+        Y = rsn.distances_innovation_laplacian(Aw[None], x[None])[0]
+        Ys = S.T.dot(Y).dot(S)
+        J = np.trace(Ys)
+        eigvals = np.linalg.eigvalsh(Ys)
+
+        Ap = dist.copy()
+        Ap[Ap > dmax] = 0
+        Ap[Ap > 0] = 1
+        Yp = rsn.distances_innovation_laplacian(Ap[None], x[None])[0]
+        Yps = S.T.dot(Yp).dot(S)
+        Jp = np.trace(Yps)
+        eigvalsp = np.linalg.eigvalsh(Yps)
 
         # E = redes.complete_undirected_edges(V)
         E = redes.undirected_edges(redes.edges_from_positions(x, dmax))
-        X = x[list(V) + list(Vp)]
-        cuadros[k] = X, E
+        cuadros[k] = x, E
 
         logs.x[k] = x
         logs.u[k] = u
@@ -185,7 +95,6 @@ def run(steps, logs, t_perf, planta, cuadros):
         logs.Jp[k] = Jp
         logs.eig[k] = eigvals
         logs.eigp[k] = eigvalsp
-        logs.x_p[k] = x[Vp]
 
         t_perf.append(b - a)
         bar.update(np.round(t, 3))
@@ -236,7 +145,6 @@ if __name__ == '__main__':
 
     lim = 20.
     nv = arg.n
-    nvp = 2
     V = range(nv)
     dof = 2
     n = dof * nv
@@ -252,24 +160,13 @@ if __name__ == '__main__':
 
     planta = integrador(x0, tiempo[0])
 
-    ctrl = informativo.minimizar(
-        metrica=funcional,
-        matriz=innovacion,
-        modelo=integrador,
-        Q=(0.2 * np.eye(n), 1 * np.eye(n), 800),
-        dim=n,
-        horizonte=np.array([0.1])   # np.linspace(0.1, 0.5, 5)
-        )
-    ctrl.agregar_costo(fun=ca_repulsion, Q=2)
-
     logs = Logs(
         x=np.empty((tiempo.size, nv, dof)),
         u=np.empty((tiempo.size, nv, dof)),
         J=np.empty((tiempo.size)),
         Jp=np.empty((tiempo.size)),
-        eig=np.empty((tiempo.size, n)),
-        eigp=np.empty((tiempo.size, n)),
-        x_p=np.empty((tiempo.size, nvp, dof))
+        eig=np.empty((tiempo.size, n - 3)),
+        eigp=np.empty((tiempo.size, n - 3))
         )
     logs.x[0] = x0
     logs.u[0] = np.zeros((nv, dof))
@@ -277,13 +174,11 @@ if __name__ == '__main__':
     logs.Jp[0] = None
     logs.eig[0] = None
     logs.eigp[0] = None
-    logs.x[0] = None
 
     cuadros = np.empty((tiempo.size, 2), dtype=np.ndarray)
     # E0 = redes.complete_undirected_edges(V)
     E0 = redes.undirected_edges(redes.edges_from_positions(x0, dmax))
-    X0 = x0[list(V) + [0, 1]]
-    cuadros[0] = X0, E0
+    cuadros[0] = x0, E0
 
     # ------------------------------------------------------------------
     # Simulación
@@ -296,7 +191,6 @@ if __name__ == '__main__':
     Jp = logs.Jp
     eig = logs.eig
     eigp = logs.eigp
-    x_p = logs.x_p
 
     st = arg.tf - arg.ti
     rt = sum(t_perf)
@@ -340,9 +234,15 @@ if __name__ == '__main__':
 
     ax = agregar_ax(
         gs[0, 0],
-        xlabel='t [seg]', ylabel='métrica', label_kw={'fontsize': 10})
-    ax.plot(tiempo, J, color='C0', label='control', ds='steps')
-    ax.plot(tiempo, Jp, color='C1', label='planta', ds='steps')
+        xlabel='t [seg]', ylabel='métricas', label_kw={'fontsize': 10})
+    ax.plot(tiempo, J, color='C0', label=r'$\rm{tr}(Y)$ (ctrl)', ds='steps')
+    ax.plot(tiempo, Jp, color='C1', label=r'$\rm{tr}(Y)$ (planta)', ds='steps')
+    ax.plot(
+        tiempo, eig.prod(1),
+        color='C2', label=r'$\rm{det}(Y)$ (ctrl)', ds='steps')
+    ax.plot(
+        tiempo, eigp.prod(1),
+        color='C3', label=r'$\rm{det}(Y)$ (planta)', ds='steps')
     ax.legend()
 
     ax = agregar_ax(
@@ -362,10 +262,6 @@ if __name__ == '__main__':
     if arg.animate:
         estilos = (
             [V, {'color': 'b', 'marker': 'o', 'markersize': '5'}], )
-        if nvp > 0:
-            estilos += ([
-                [nv, nv + 1], {'color': 'g', 'marker': '*', 'markersize': '8'}
-            ],)
         fig, ax = plt.subplots()
         ax.set_xlim(-lim, lim)
         ax.set_ylim(-lim, lim)
