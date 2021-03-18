@@ -33,7 +33,39 @@ def distances_from_incidence(Dr, p):
     return dist
 
 
-def distances_jac(Dr, p):
+# def distances_jac(A, p):
+#     N, nv, dof = p.shape[-3:]
+#     r = unit_vector(p[..., None, :] - p[..., None, :, :], axis=-1)
+#     ii = np.diag([True] * nv)
+#     r[:, ii] = 0
+#     r *= A[..., None]               # aplicar pesos
+#     E = np.argwhere(np.triu(A) != 0)
+#     Ef = np.flip(E, axis=1)
+#     ne = len(E)
+#     J = np.empty((N, ne, nv,  dof))
+#     i = np.arange(ne).reshape(-1, 1)
+#     J[:, i, E] = r[:, E, Ef]
+#     J = J.reshape(N, ne, nv * dof)
+#     return J
+
+
+def distances_jac(A, p):
+    nv, dof = p.shape
+    r = unit_vector(p[:, None] - p, axis=-1)
+    ii = np.diag([True] * nv)
+    r[ii] = 0
+    r *= A[..., None]               # aplicar pesos
+    E = np.argwhere(np.triu(A) != 0)
+    Ef = np.flip(E, axis=1)
+    ne = len(E)
+    J = np.zeros((ne, nv,  dof))
+    i = np.arange(ne).reshape(-1, 1)
+    J[i, E] = r[E, Ef]
+    J = J.reshape(ne, nv * dof)
+    return J
+
+
+def distances_jac_from_incidence(Dr, p):
     nv, dof = p.shape
     ne = Dr.shape[1]
     J = np.zeros((ne, dof * nv))
@@ -57,7 +89,7 @@ def distances_innovation_laplacian(A, p):
 
     Devuelve la matriz de innovación
 
-            Y =  H^T R^{-1} H
+            Y =  H^T W H
 
     del modelo de distancias de un grafo de nv agentes
     determinado por la matriz de adyacencia A.
@@ -66,8 +98,8 @@ def distances_innovation_laplacian(A, p):
     Si A[i, j] > 0 los nodos i, j tienen medicion de distancia
 
     args:
-        p: array de posiciones (-1, nv, dof)
         A: matriz de adyacencia (-1, nv, nv)
+        p: array de posiciones (-1, nv, dof)
 
     returns
         L: laplaciano (-1, nv * dof, nv * dof)
@@ -81,6 +113,28 @@ def distances_innovation_laplacian(A, p):
     L[:, ii] -= L[:, ~ii].reshape(-1, nv, nv - 1, dof, dof).sum(p.ndim - 1)
     L = L.swapaxes(-3, -2).reshape(-1, nv * dof, nv * dof)
     return L
+
+
+def distances_innovation_trace_gradient(A, p):
+    """Devuelve el gradiente de la traza de la matriz de innovación.
+
+    Calcula el gradiente de
+
+            tr(Y) =  tr(H^T W H)
+
+    del modelo de distancias de un grafo de nv agentes
+    determinado por la matriz de adyacencia A.
+
+    A[i, j] = dWij / dij es la derivada del peso i,j respecto de la distancia,
+    si A[i, j] = 0 los nodos i, j no están conectados.
+
+    args:
+        A: matriz de adyacencia (nv, nv)
+        p: array de posiciones (nv, dof)
+    """
+    H = distances_jac(A, p)
+    grad = 2 * H.sum(0)
+    return grad.reshape(p.shape)
 
 
 def pose_and_shape_projections_2d(p):

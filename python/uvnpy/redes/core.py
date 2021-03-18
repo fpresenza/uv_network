@@ -41,11 +41,17 @@ def complete_adjacency(V):
 
 
 def edges_from_positions(p, dmax=np.inf):
-    """Devuelve lista de enlaces por proximidad."""
+    """Devuelve array de enlaces por proximidad."""
     dmax_2 = dmax**2 * (1 - np.eye(len(p)))
     r = p[:, None] - p
     dist_2 = np.square(r).sum(axis=-1)
     return np.argwhere(dist_2 < dmax_2)
+
+
+def edges_from_adjacency(A):
+    """Devuelve array de enlaces."""
+    E = np.argwhere(A > 0)
+    return E
 
 
 def adjacency_from_positions(p, dmax=np.inf):

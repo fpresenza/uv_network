@@ -3,3 +3,4 @@
 from .core import *          # noqa
 from . import grafo       # noqa
 from . import mensajeria  # noqa
+from . import comunicaciones  # noqa
