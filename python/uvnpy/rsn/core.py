@@ -137,22 +137,61 @@ def distances_innovation_trace_gradient(A, p):
     return grad.reshape(p.shape)
 
 
+def pose_and_shape_basis_2d(p):
+    """ Devuelve dos matrices de proyección.
+
+    P proyecta al subespacio "pose",
+    S proyecta al subespacio "shape".
+
+    args:
+        p: array de posiciones (-1, nv, dof)
+
+    returns
+        P, S: matrices (-1, nv * dof, nv * dof)
+
+    """
+    N, n, d = p.shape
+    A = np.zeros((N, n * d, 3))     # 3 si 2d, 6 si 3d
+    B = np.empty((N, n * d, n * d - 3))
+    d_cm = p - p.mean(1)[:, None]
+
+    A[:, ::2, 0] = 1/np.sqrt(n)     # dx
+    A[:, 1::2, 1] = 1/np.sqrt(n)    # dy
+    A[:, ::2, 2] = -d_cm[:, :, 1]
+    A[:, 1::2, 2] = d_cm[:, :, 0]
+    d_cm = d_cm.reshape(N, n * d)
+    A[:, :, 2] /= np.sqrt(np.square(d_cm).sum(1))[:, None]  # dt
+
+    A_T = A.swapaxes(-2, -1)
+    B[:] = [scipy.linalg.null_space(a_T) for a_T in A_T]
+    return A, B
+
+
 def pose_and_shape_projections_2d(p):
     """ Devuelve dos matrices de proyección.
 
     P proyecta al subespacio "pose",
     S proyecta al subespacio "shape".
+
+    args:
+        p: array de posiciones (-1, nv, dof)
+
+    returns
+        P, S: matrices (-1, nv * dof, nv * dof)
+
     """
-    n, d = p.shape
-    A = np.zeros((n * d, 3))     # 3 si 2d, 6 si 3d
-    d_cm = p - p.mean(0)
+    N, n, d = p.shape
+    A = np.zeros((N, n * d, 3))     # 3 si 2d, 6 si 3d
+    d_cm = p - p.mean(1)[:, None]
 
-    A[::2, 0] = 1/np.sqrt(n)     # dx
-    A[1::2, 1] = 1/np.sqrt(n)    # dy
-    A[::2, 2] = -d_cm[:, 1]
-    A[1::2, 2] = d_cm[:, 0]
-    A[:, 2] /= np.sqrt(np.square(d_cm).sum())  # dt
+    A[:, ::2, 0] = 1/np.sqrt(n)     # dx
+    A[:, 1::2, 1] = 1/np.sqrt(n)    # dy
+    A[:, ::2, 2] = -d_cm[:, :, 1]
+    A[:, 1::2, 2] = d_cm[:, :, 0]
+    d_cm = d_cm.reshape(N, n * d)
+    A[:, :, 2] /= np.sqrt(np.square(d_cm).sum(1))[:, None]  # dt
 
-    P = A.dot(A.T)
+    A_T = A.swapaxes(-2, -1)
+    P = np.matmul(A, A_T)
     S = np.eye(n * d) - P
     return P, S
