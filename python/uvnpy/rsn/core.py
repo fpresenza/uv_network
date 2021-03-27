@@ -16,6 +16,17 @@ def distances(p):
     args:
         p: array de posiciones (n, dof)
     """
+    r = p[:, None] - p
+    dist = np.sqrt(np.square(r).sum(axis=2))
+    return dist
+
+
+def distances_aa(p):
+    """ Devuelve matriz de distancias.
+
+    args:
+        p: array de posiciones (-1, n, dof)
+    """
     r = p[..., None, :] - p[..., None, :, :]
     dist = np.sqrt(np.square(r).sum(axis=-1))
     return dist
@@ -33,7 +44,23 @@ def distances_from_incidence(Dr, p):
     return dist
 
 
-# def distances_jac(A, p):
+def distances_jac(A, p):
+    nv, dof = p.shape
+    r = unit_vector(p[:, None] - p, axis=-1)
+    ii = np.diag([True] * nv)
+    r[ii] = 0
+    r *= A[..., None]               # aplicar pesos
+    E = np.argwhere(np.triu(A) != 0)
+    Ef = np.flip(E, axis=1)
+    ne = len(E)
+    J = np.zeros((ne, nv, dof))
+    i = np.arange(ne).reshape(-1, 1)
+    J[i, E] = r[E, Ef]
+    J = J.reshape(ne, nv * dof)
+    return J
+
+
+# def distances_jac_aa(A, p):
 #     N, nv, dof = p.shape[-3:]
 #     r = unit_vector(p[..., None, :] - p[..., None, :, :], axis=-1)
 #     ii = np.diag([True] * nv)
@@ -47,22 +74,6 @@ def distances_from_incidence(Dr, p):
 #     J[:, i, E] = r[:, E, Ef]
 #     J = J.reshape(N, ne, nv * dof)
 #     return J
-
-
-def distances_jac(A, p):
-    nv, dof = p.shape
-    r = unit_vector(p[:, None] - p, axis=-1)
-    ii = np.diag([True] * nv)
-    r[ii] = 0
-    r *= A[..., None]               # aplicar pesos
-    E = np.argwhere(np.triu(A) != 0)
-    Ef = np.flip(E, axis=1)
-    ne = len(E)
-    J = np.zeros((ne, nv,  dof))
-    i = np.arange(ne).reshape(-1, 1)
-    J[i, E] = r[E, Ef]
-    J = J.reshape(ne, nv * dof)
-    return J
 
 
 def distances_jac_from_incidence(Dr, p):
@@ -84,7 +95,7 @@ def positions_jac(nv, loops, dof):
     return J
 
 
-def distances_innovation_laplacian(A, p):
+def distances_innovation(A, p):
     """ Laplaciano de innovación.
 
     Devuelve la matriz de innovación
@@ -98,21 +109,52 @@ def distances_innovation_laplacian(A, p):
     Si A[i, j] > 0 los nodos i, j tienen medicion de distancia
 
     args:
-        A: matriz de adyacencia (-1, nv, nv)
-        p: array de posiciones (-1, nv, dof)
+        A: matriz de adyacencia (nv, nv)
+        p: array de posiciones (nv, dof)
+
+    returns
+        Y: matriz de innovación (nv * dof, nv * dof)
+    """
+    nv, dof = p.shape
+    r = unit_vector(p[:, None] - p, axis=2)
+    Y = - r[..., None] * r[..., None, :]  # outer product
+    ii = np.diag([True] * nv)
+    Y[ii] = np.eye(dof)
+    Y *= A[..., None, None]               # aplicar pesos
+    Y[ii] -= Y[~ii].reshape(nv, nv - 1, dof, dof).sum(1)
+    Y = Y.swapaxes(-3, -2).reshape(nv * dof, nv * dof)
+    return Y
+
+
+def distances_innovation_aa(A, p):
+    """ Laplaciano de innovación.
+
+    Devuelve la matriz de innovación
+
+            Y =  H^T W H
+
+    del modelo de distancias de un grafo de nv agentes
+    determinado por la matriz de adyacencia A.
+
+    Si A[i, i] > 0 el nodo i tiene medicion de posición
+    Si A[i, j] > 0 los nodos i, j tienen medicion de distancia
+
+    args:
+        A: matriz de adyacencia (N, nv, nv)
+        p: array de posiciones (N, nv, dof)
 
     returns
         L: laplaciano (-1, nv * dof, nv * dof)
     """
     nv, dof = p.shape[-2:]
     r = unit_vector(p[..., None, :] - p[..., None, :, :], axis=-1)
-    L = - r[..., None] * r[..., None, :]  # outer product
+    Y = - r[..., None] * r[..., None, :]  # outer product
     ii = np.diag([True] * nv)
-    L[:, ii] = np.eye(dof)
-    L *= A[..., None, None]               # aplicar pesos
-    L[:, ii] -= L[:, ~ii].reshape(-1, nv, nv - 1, dof, dof).sum(p.ndim - 1)
-    L = L.swapaxes(-3, -2).reshape(-1, nv * dof, nv * dof)
-    return L
+    Y[:, ii] = np.eye(dof)
+    Y *= A[..., None, None]               # aplicar pesos
+    Y[:, ii] -= Y[:, ~ii].reshape(-1, nv, nv - 1, dof, dof).sum(p.ndim - 1)
+    Y = Y.swapaxes(-3, -2).reshape(-1, nv * dof, nv * dof)
+    return Y
 
 
 def distances_innovation_trace_gradient(A, p):
@@ -144,22 +186,52 @@ def pose_and_shape_basis_2d(p):
     S proyecta al subespacio "shape".
 
     args:
-        p: array de posiciones (-1, nv, dof)
+        p: array de posiciones (nv, dof)
 
     returns
-        P, S: matrices (-1, nv * dof, nv * dof)
+        P, S: matrices (nv * dof, nv * dof)
+
+    """
+    n, d = p.shape
+    s = p.size
+    A = np.zeros((s, 3))     # 3 si 2d, 6 si 3d
+    B = np.empty((s, s - 3))
+    d_cm = p - p.mean(0)
+
+    A[::2, 0] = 1/np.sqrt(n)     # dx
+    A[1::2, 1] = 1/np.sqrt(n)    # dy
+    A[::2, 2] = -d_cm[:, 1]
+    A[1::2, 2] = d_cm[:, 0]
+    A[:, 2] /= np.sqrt(np.square(d_cm).sum())  # dt
+
+    B = scipy.linalg.null_space(A.T)
+    return A, B
+
+
+def pose_and_shape_basis_2d_aa(p):
+    """ Devuelve dos matrices de proyección.
+
+    P proyecta al subespacio "pose",
+    S proyecta al subespacio "shape".
+
+    args:
+        p: array de posiciones (N, nv, dof)
+
+    returns
+        P, S: matrices (N, nv * dof, nv * dof)
 
     """
     N, n, d = p.shape
-    A = np.zeros((N, n * d, 3))     # 3 si 2d, 6 si 3d
-    B = np.empty((N, n * d, n * d - 3))
+    s = n * d
+    A = np.zeros((N, s, 3))     # 3 si 2d, 6 si 3d
+    B = np.empty((N, s, s - 3))
     d_cm = p - p.mean(1)[:, None]
 
     A[:, ::2, 0] = 1/np.sqrt(n)     # dx
     A[:, 1::2, 1] = 1/np.sqrt(n)    # dy
     A[:, ::2, 2] = -d_cm[:, :, 1]
     A[:, 1::2, 2] = d_cm[:, :, 0]
-    d_cm = d_cm.reshape(N, n * d)
+    d_cm = d_cm.reshape(N, s)
     A[:, :, 2] /= np.sqrt(np.square(d_cm).sum(1))[:, None]  # dt
 
     A_T = A.swapaxes(-2, -1)
@@ -174,24 +246,54 @@ def pose_and_shape_projections_2d(p):
     S proyecta al subespacio "shape".
 
     args:
-        p: array de posiciones (-1, nv, dof)
+        p: array de posiciones (nv, dof)
 
     returns
-        P, S: matrices (-1, nv * dof, nv * dof)
+        P, S: matrices (nv * dof, nv * dof)
+
+    """
+    n, d = p.shape
+    s = n * d
+    A = np.zeros((s, 3))     # 3 si 2d, 6 si 3d
+    d_cm = p - p.mean(0)
+
+    A[::2, 0] = 1/np.sqrt(n)     # dx
+    A[1::2, 1] = 1/np.sqrt(n)    # dy
+    A[::2, 2] = -d_cm[:, 1]
+    A[1::2, 2] = d_cm[:, 0]
+    A[:, 2] /= np.sqrt(np.square(d_cm).sum())  # dt
+
+    P = A.T.dot(A)
+    S = np.eye(s) - P
+    return P, S
+
+
+def pose_and_shape_projections_2d_aa(p):
+    """ Devuelve dos matrices de proyección.
+
+    P proyecta al subespacio "pose",
+    S proyecta al subespacio "shape".
+
+    args:
+        p: array de posiciones (N, nv, dof)
+
+    returns
+        P, S: matrices (N, nv * dof, nv * dof)
 
     """
     N, n, d = p.shape
-    A = np.zeros((N, n * d, 3))     # 3 si 2d, 6 si 3d
+    s = n * d
+    A = np.zeros((N, s, 3))     # 3 si 2d, 6 si 3d
     d_cm = p - p.mean(1)[:, None]
 
     A[:, ::2, 0] = 1/np.sqrt(n)     # dx
     A[:, 1::2, 1] = 1/np.sqrt(n)    # dy
     A[:, ::2, 2] = -d_cm[:, :, 1]
     A[:, 1::2, 2] = d_cm[:, :, 0]
-    d_cm = d_cm.reshape(N, n * d)
+    d_cm = d_cm.reshape(N, s)
     A[:, :, 2] /= np.sqrt(np.square(d_cm).sum(1))[:, None]  # dt
 
     A_T = A.swapaxes(-2, -1)
     P = np.matmul(A, A_T)
-    S = np.eye(n * d) - P
+    S = np.eye(s) - P
     return P, S

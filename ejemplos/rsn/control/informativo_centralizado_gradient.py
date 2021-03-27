@@ -65,14 +65,13 @@ def run(steps, logs, t_perf, planta, cuadros):
         x = planta.step(t, u)
 
         # Análisis
-        _, S = rsn.pose_and_shape_basis_2d(x[None, ...])
-        S = S[0]
+        _, S = rsn.pose_and_shape_basis_2d(x)
         # S = scipy.linalg.orth(S)
 
         Aw = dist.copy()
         Aw[Aw > dmax] = 0
         Aw[Aw > 0] = com.logistic_strength(Aw[Aw > 0], w=1, e=dmax)
-        Y = rsn.distances_innovation_laplacian(Aw[None], x[None])[0]
+        Y = rsn.distances_innovation(Aw, x)
         Ys = S.T.dot(Y).dot(S)
         J = np.trace(Ys)
         eigvals = np.linalg.eigvalsh(Ys)
@@ -80,7 +79,7 @@ def run(steps, logs, t_perf, planta, cuadros):
         Ap = dist.copy()
         Ap[Ap > dmax] = 0
         Ap[Ap > 0] = 1
-        Yp = rsn.distances_innovation_laplacian(Ap[None], x[None])[0]
+        Yp = rsn.distances_innovation(Ap, x)
         Yps = S.T.dot(Yp).dot(S)
         Jp = np.trace(Yps)
         eigvalsp = np.linalg.eigvalsh(Yps)

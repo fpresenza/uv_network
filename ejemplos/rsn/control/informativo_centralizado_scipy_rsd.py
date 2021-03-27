@@ -94,7 +94,7 @@ def innovacion(x):
     A = atenuacion(dist, dmax, 1)
     # A = atenuacion(dist, 0.5 * dmax, 1)
     # A[:, Vp, Vp] = 1
-    Y = rsn.distances_innovation_laplacian(A, p)
+    Y = rsn.distances_innovation_aa(A, p)
     return sum(Y)
 
 
@@ -121,7 +121,7 @@ def optimal_position_nodes(x):
     A = np.repeat(A, m, axis=0)
     A[idx, pairs, pairs] = 1
 
-    Y = rsn.distances_innovation_laplacian(A, x)
+    Y = rsn.distances_innovation_aa(A, x)
     eigvals = np.linalg.eigvalsh(Y)
     opt = eigvals[:, 0].round(2).argmax()   # máx min autovalor
     # opt = np.argmin(rsd(eigvals))         # es invariante :O
@@ -132,7 +132,7 @@ def analisis(x, dmax, Vp, atenuacion):
     dist = rsn.distances(x)
     A = atenuacion(dist, dmax, 1)
     A[:, Vp, Vp] = 1
-    Y = rsn.distances_innovation_laplacian(A, x)
+    Y = rsn.distances_innovation(A, x)
     eigvals = np.linalg.eigvalsh(Y)
     J = mu(eigvals).sum()
     return J, eigvals
@@ -173,8 +173,8 @@ def run(steps, logs, t_perf, planta, cuadros):
         Vp = range(nvp)
 
         # análisis
-        J, eigvals = analisis(x[None, ...], dmax, [], logistic)
-        Jp, eigvalsp = analisis(x[None, ...], dmax, Vp, on_off)
+        J, eigvals = analisis(x, dmax, [], logistic)
+        Jp, eigvalsp = analisis(x, dmax, Vp, on_off)
         # print(eigvalsp)
 
         # E = redes.complete_undirected_edges(V)

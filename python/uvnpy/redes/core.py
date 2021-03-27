@@ -40,7 +40,7 @@ def complete_adjacency(V):
     return A
 
 
-def edges_from_positions(p, dmax=np.inf):
+def disk_graph_edges(p, dmax=np.inf):
     """Devuelve array de enlaces por proximidad."""
     dmax_2 = dmax**2 * (1 - np.eye(len(p)))
     r = p[:, None] - p
@@ -54,7 +54,7 @@ def edges_from_adjacency(A):
     return E
 
 
-def adjacency_from_positions(p, dmax=np.inf):
+def disk_graph_adjacency(p, dmax=np.inf):
     """ Devuelve matriz de adyacencia por proximidad.
 
     args:

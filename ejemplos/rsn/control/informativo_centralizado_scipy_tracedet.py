@@ -18,7 +18,6 @@ import uvnpy.redes.comunicaciones as com
 import uvnpy.rsn.core as rsn
 from uvnpy.control import informativo
 from uvnpy.control import costos
-from uvnpy.toolkit import core
 
 # ------------------------------------------------------------------
 # Definición de variables globales, funciones y clases
@@ -42,26 +41,29 @@ def on_off(dist, dmax, *args):
 atenuacion = logistic          # familia sigmoide
 
 
-def innovacion(x):
+def innovacion(x, A):
     N = len(x)
     p = np.reshape(x, (N, -1, 2))
     dist = rsn.distances(p)
-    A = atenuacion(dist, dmax, 1)
+    Aw = atenuacion(dist, dmax, 1)
     # A = atenuacion(dist, 0.5 * dmax, 1)
-    # A[:, Vp, Vp] = 1
-    Y = rsn.distances_innovation_laplacian(A, p)
-    Y = sum(Y)
+    # A = np.empty(Aw.shape)
+    # A[:] = Aw[0]
+    A = np.tile(A, (N, 1, 1))
+    # Yw = sum(rsn.distances_innovation_aa(Aw, p))
+    Y = sum(rsn.distances_innovation_aa(A, p))
     _, S = rsn.pose_and_shape_basis_2d(p[None, 0])
     S = S[0]
-    # S_T = S.swapaxes(-2, -1)
-    # Ys = np.matmul(S_T, np.matmul(Y, S))
-    return S.T.dot(Y.dot(S))
+    Ys = S.T.dot(Y.dot(S))
+    return Aw, Ys
 
 
-def funcional(Y):
-    T = np.trace(Y)
-    D = np.linalg.det(Y)
-    f = - T - D**0.2
+def funcional(M):
+    T = M[0].sum()
+    D = np.linalg.det(M[1])
+    J1, J2 = T, (D + 1e-6)**(2/nv)
+    f = - J1 - 15 * J2
+    # print(J1, J2)
     return f
 
 
@@ -71,35 +73,18 @@ def ca_repulsion(u, x_p, Q):
     return Q * costos.repulsion(p)
 
 
-def optimal_position_nodes(x):
-    pairs = core.combinations(V, 2)
-    m = len(pairs)
-    idx = np.arange(m).reshape(-1, 1)
-
-    A = rsn.distances(x)
-    A = on_off(A, dmax)
-    x = np.repeat(x, m, axis=0)
-    A = np.repeat(A, m, axis=0)
-    A[idx, pairs, pairs] = 1
-
-    Y = rsn.distances_innovation_laplacian(A, x)
-    eigvals = np.linalg.eigvalsh(Y)
-    opt = eigvals[:, 0].round(2).argmax()   # máx min autovalor
-    # opt = np.argmin(rsd(eigvals))         # es invariante :O
-    return pairs[opt]
-
-
 def analisis(x, dmax, Vp, atenuacion):
     dist = rsn.distances(x)
-    A = atenuacion(dist, dmax, 1)
-    A[:, Vp, Vp] = 1
-    Y = rsn.distances_innovation_laplacian(A, x)
-    Y = Y[0]
+    Aw = atenuacion(dist, dmax, 1)
+    A = np.ones(Aw.shape) - np.eye(*Aw.shape[-2:])
+    Yw = rsn.distances_innovation(Aw, x)
+    Y = rsn.distances_innovation(A, x)
     _, S = rsn.pose_and_shape_basis_2d(x)
-    S = S[0]
-    Ys = S.T.dot(Y).dot(S)
-    J = funcional(Ys)
-    eigvals = np.linalg.eigvalsh(Y)
+    Yws = S.T.dot(Yw.dot(S))
+    Ys = S.T.dot(Y.dot(S))
+
+    J = funcional((Yws, Ys))
+    eigvals = np.linalg.eigvalsh(Yw)
     return J, eigvals
 
 
@@ -129,7 +114,8 @@ def run(steps, logs, t_perf, planta, cuadros):
         # step planta
         x = planta.x
         a = time.perf_counter()
-        u = ctrl.update(x.ravel(), t, ([], [])).reshape(nv, dof)
+        A = redes.adjacency_from_positions(x, dmax)
+        u = ctrl.update(x.ravel(), t, ([A], [])).reshape(nv, dof)
         b = time.perf_counter()
         x = planta.step(t, u)
 
@@ -138,8 +124,8 @@ def run(steps, logs, t_perf, planta, cuadros):
         Vp = range(nvp)
 
         # análisis
-        J, eigvals = analisis(x[None, ...], dmax, [], logistic)
-        Jp, eigvalsp = analisis(x[None, ...], dmax, Vp, on_off)
+        J, eigvals = analisis(x, dmax, [], logistic)
+        Jp, eigvalsp = analisis(x, dmax, Vp, on_off)
 
         # E = redes.complete_undirected_edges(V)
         E = redes.undirected_edges(redes.edges_from_positions(x, dmax))
@@ -208,12 +194,20 @@ if __name__ == '__main__':
     dof = 2
     n = dof * nv
     dmax = 12
-    np.random.seed(2)
-    x0 = np.random.uniform(-lim, lim, (nv, dof))
-    # x0 = np.array([[-5, 0],
+    np.random.seed(5)
+    x0 = np.random.uniform(-lim/1.7, lim/1.7, (nv, dof))
+    A0 = redes.adjacency_from_positions(x0, dmax)
+    H0 = rsn.distances_jac(A0, x0)
+    if np.all(A0 == redes.complete_adjacency(V)):
+        print('---> Grafo completo <---')
+    elif np.linalg.matrix_rank(H0) == nv * dof - 3:
+        print('---> Grafo rígido <---')
+    else:
+        print('---> Grafo flexible <---')
+    # x0 = np.array([[-4, 0],
     #                [0, -5],
-    #                [5, 0],
-    #                [0, 5]], dtype=np.float) * 1.5
+    #                [3, 0],
+    #                [0, 5]], dtype=np.float)
     # x0 = grid(nv, 5)
     # x0 = linspace(nv, lim*0.75) + np.random.normal(0, 0.5, (nv, dof))
 
@@ -223,7 +217,7 @@ if __name__ == '__main__':
         metrica=funcional,
         matriz=innovacion,
         modelo=integrador,
-        Q=(0.5 * np.eye(n), 1 * np.eye(n), 8),
+        Q=(1 * np.eye(n), 3 * np.eye(n), 0.5),
         dim=n,
         horizonte=np.array([0.1, 0.2]),   # np.linspace(0.1, 0.5, 5),
         )
