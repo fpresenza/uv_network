@@ -15,42 +15,12 @@ from gpsic.grafos.plotting import animar_grafo
 from uvnpy.modelos.lineal import integrador
 import uvnpy.redes.core as redes
 import uvnpy.redes.control as ctrl
-import uvnpy.redes.comunicaciones as com
 import uvnpy.rsn.core as rsn
-import uvnpy.toolkit.calculus as calc
 
 # ------------------------------------------------------------------
 # Definición de variables globales, funciones y clases
 # ------------------------------------------------------------------
-Logs = collections.namedtuple('Logs', 'x u J Jp eig eigp')
-
-D = calc.derivative_eval
-lsd = com.logistic_strength_derivative
-edpg = ctrl.edge_distance_potencial_gradient
-
-# metrica = r'$\rm{tr}(Y)$'
-metrica = r'$\rm{log}(\rm{det}M(x))$'
-
-
-def detM(p, A, S):
-    Y = rsn.distances_innovation_aa(A, p)
-    M = np.matmul(S.T, np.matmul(Y, S))
-    return np.linalg.det(M)
-
-
-def detMa_grad(p, A, S):
-    u = a * detM(p[None], A, S)**(a - 1) * D(detM, p, A, S)
-    return u.reshape(p.shape)
-
-
-def logdetM_grad(p, A, S):
-    u = detM(p[None], A, S)**(-1) * D(detM, p, A, S)
-    return u.reshape(p.shape)
-
-
-def is_rigid(Ar, p):
-    Yr = rsn.distances_innovation(Ar, p)
-    return np.linalg.matrix_rank(Yr) >= p.size - 3
+Logs = collections.namedtuple('Logs', 'x u')
 
 
 def grid(nv, sep):
@@ -83,48 +53,21 @@ def run(steps, logs, t_perf, planta, cuadros):
         t_a = time.perf_counter()
 
         dist = rsn.distances(x)
-        A = dist.copy()
-        A[A > dmax] = 0
-        A[A != 0] = 1
-        _, S = rsn.pose_and_shape_basis_2d(x)
 
-        if is_rigid(A, x):
-            # det
-            u = 5 * logdetM_grad(x, A, S)
-        else:
-            # traza
-            Ad = dist.copy()
-            Ad[Ad > 0] = lsd(Ad[Ad > 0], w=1, e=dmax)
-            u = 2 * edpg(Ad, x)
-            print(u)
+        # traza
+        Ad = dist.copy()
+        Ad[Ad > dmax] = 0
+        Ad[Ad != 0] -= dref
+        u = - ctrl.edge_distance_potencial_gradient(Ad, x)
 
         t_b = time.perf_counter()
         x = planta.step(t, u)
-
-        # Análisis
-        Aw = dist.copy()
-        Aw[Aw > 0] = com.logistic_strength(Aw[Aw > 0], w=1, e=dmax)
-        Y = rsn.distances_innovation(Aw, x)
-        M = S.T.dot(Y).dot(S)
-        # J = np.linalg.det(M)**a
-        J = np.log(np.linalg.det(M))
-        eigvals = np.linalg.eigvalsh(M)
-
-        Yp = rsn.distances_innovation(A, x)
-        Mp = S.T.dot(Yp).dot(S)
-        # Jp = np.linalg.det(Mp)**a
-        Jp = 0.     # np.log(np.linalg.det(Mp))
-        eigvalsp = np.linalg.eigvalsh(Mp)
 
         E = redes.undirected_edges(redes.disk_graph_edges(x, dmax))
         cuadros[k] = x, E
 
         logs.x[k] = x
         logs.u[k] = u
-        logs.J[k] = J
-        logs.Jp[k] = Jp
-        logs.eig[k] = eigvals
-        logs.eigp[k] = eigvalsp
 
         t_perf.append(t_b - t_a)
         bar.update(np.round(t, 3))
@@ -173,13 +116,14 @@ if __name__ == '__main__':
     steps = list(enumerate(tiempo))
     t_perf = []
 
-    lim = 10.
+    lim = 20.
     nv = arg.n
     a = 2 / nv
     V = range(nv)
     dof = 2
     n = dof * nv
-    dmax = 12
+    dmax = 120.
+    dref = 10.
     # np.random.seed(9)
     x0 = np.random.uniform(-lim, lim, (nv, dof))
     # x0 = np.array([[-5, 0],
@@ -191,29 +135,14 @@ if __name__ == '__main__':
 
     planta = integrador(x0, tiempo[0])
 
-    A0 = redes.disk_graph_adjacency(x0, dmax)
-    if is_rigid(A0, x0):
-        print('---> Grafo rígido <---')
-    else:
-        print('---> Grafo flexible <---')
-
     logs = Logs(
         x=np.empty((tiempo.size, nv, dof)),
         u=np.empty((tiempo.size, nv, dof)),
-        J=np.empty((tiempo.size)),
-        Jp=np.empty((tiempo.size)),
-        eig=np.empty((tiempo.size, n - 3)),
-        eigp=np.empty((tiempo.size, n - 3))
         )
     logs.x[0] = x0
     logs.u[0] = np.zeros((nv, dof))
-    logs.J[0] = None
-    logs.Jp[0] = None
-    logs.eig[0] = None
-    logs.eigp[0] = None
 
     cuadros = np.empty((tiempo.size, 2), dtype=np.ndarray)
-    # E0 = redes.complete_undirected_edges(V)
     E0 = redes.undirected_edges(redes.disk_graph_edges(x0, dmax))
     cuadros[0] = x0, E0
 
@@ -224,10 +153,6 @@ if __name__ == '__main__':
 
     x = logs.x
     u = logs.u
-    J = logs.J
-    Jp = logs.Jp
-    eig = logs.eig
-    eigp = logs.eigp
 
     st = arg.tf - arg.ti
     rt = sum(t_perf)
@@ -262,37 +187,6 @@ if __name__ == '__main__':
 
     if arg.save:
         fig.savefig('/tmp/control.pdf', format='pdf')
-    else:
-        plt.show()
-
-    fig = plt.figure(figsize=(13, 5))
-    fig.subplots_adjust(hspace=0.5, wspace=0.25)
-    gs = fig.add_gridspec(2, 1)
-
-    ax = agregar_ax(
-        gs[0, 0],
-        xlabel='t [seg]', ylabel=metrica, label_kw={'fontsize': 10})
-    ax.plot(tiempo, J, color='C0', label='(ctrl)', ds='steps')
-    ax.plot(tiempo, Jp, color='C1', label='(planta)', ds='steps')
-    # ax.plot(
-    #     tiempo, eig.prod(1),
-    #     color='C2', label=r'$\rm{det}(Y)$ (ctrl)', ds='steps')
-    # ax.plot(
-    #     tiempo, eigp.prod(1),
-    #     color='C3', label=r'$\rm{det}(Y)$ (planta)', ds='steps')
-    ax.legend()
-
-    ax = agregar_ax(
-        gs[1, 0],
-        xlabel='t [seg]', ylabel='eigvals', label_kw={'fontsize': 10})
-    ax.plot(tiempo, eig[:, 0], color='C0', label='control', ds='steps')
-    ax.plot(tiempo, eig[:, 1:], color='C0', ds='steps')
-    ax.plot(tiempo, eigp[:, 0], color='C1', label='planta', ds='steps')
-    ax.plot(tiempo, eigp[:, 1:], color='C1', ds='steps')
-    ax.legend()
-
-    if arg.save:
-        fig.savefig('/tmp/metricas.pdf', format='pdf')
     else:
         plt.show()
 
