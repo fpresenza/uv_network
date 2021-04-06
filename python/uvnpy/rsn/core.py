@@ -127,7 +127,7 @@ def distances_innovation(A, p):
 
 
 def distances_innovation_aa(A, p):
-    """ Laplaciano de innovación.
+    """ Matriz de innovación.
 
     Devuelve la matriz de innovación
 
@@ -144,7 +144,7 @@ def distances_innovation_aa(A, p):
         p: array de posiciones (N, nv, dof)
 
     returns
-        L: laplaciano (-1, nv * dof, nv * dof)
+        Y: innovacion (-1, nv * dof, nv * dof)
     """
     nv, dof = p.shape[-2:]
     r = unit_vector(p[..., None, :] - p[..., None, :, :], axis=-1)
@@ -157,26 +157,24 @@ def distances_innovation_aa(A, p):
     return Y
 
 
-def distances_innovation_trace_gradient(A, p):
-    """Devuelve el gradiente de la traza de la matriz de innovación.
-
-    Calcula el gradiente de
-
-            tr(Y) =  tr(H^T W H)
-
-    del modelo de distancias de un grafo de nv agentes
-    determinado por la matriz de adyacencia A.
-
-    A[i, j] = dWij / dij es la derivada del peso i,j respecto de la distancia,
-    si A[i, j] = 0 los nodos i, j no están conectados.
+def distances_innovation_diag_aa(A, p):
+    """ Diagonal por bloques de la Matriz de innovación.
 
     args:
-        A: matriz de adyacencia (nv, nv)
-        p: array de posiciones (nv, dof)
+        A: matriz de adyacencia (N, nv, nv)
+        p: array de posiciones (N, nv, dof)
+
+    returns
+        diag: diagonales (-1, nv, dof, dof)
     """
-    H = distances_jac(A, p)
-    grad = 2 * H.sum(0)
-    return grad.reshape(p.shape)
+    nv, dof = p.shape[-2:]
+    r = unit_vector(p[..., None, :] - p[..., None, :, :], axis=-1)
+    Y = r[..., None] * r[..., None, :]  # outer product
+    ii = np.diag([True] * nv)
+    Y[:, ii] = 0
+    Y *= A[..., None, None]
+    diag = Y.sum(1)
+    return diag
 
 
 def pose_and_shape_basis_2d(p):
