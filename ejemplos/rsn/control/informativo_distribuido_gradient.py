@@ -17,6 +17,7 @@ import uvnpy.network.graph as gph
 import uvnpy.network.control as ctrl
 import uvnpy.network.connectivity as cnt
 import uvnpy.rsn.core as rsn
+import uvnpy.rsn.distances as distances
 import uvnpy.toolkit.calculus as calc
 
 # ------------------------------------------------------------------
@@ -32,24 +33,23 @@ edpg = ctrl.edge_distance_potencial_gradient
 metrica = r'$\rm{log}(\rm{det}M(x))$'
 
 
-def detM(p, A, S):
-    Y = rsn.distances_innovation_aa(A, p)
-    M = np.matmul(S.T, np.matmul(Y, S))
-    return np.linalg.det(M)
+def detS(p, A):
+    T = distances.innovation_matrix_diag_aa(A, p)
+    return np.linalg.det(T)
 
 
-def detMa_grad(p, A, S):
-    u = a * detM(p[None], A, S)**(a - 1) * D(detM, p, A, S)
-    return u.reshape(p.shape)
+# def detMa_grad(p, A, S):
+#     u = a * detS(p[None], A, S)**(a - 1) * D(detS, p, A, S)
+#     return u.reshape(p.shape)
 
 
-def logdetM_grad(p, A, S):
-    u = detM(p[None], A, S)**(-1) * D(detM, p, A, S)
+def logdetM_grad(p, A):
+    u = detS(p[None], A)**(-1) * D(detS, p, A)
     return u.reshape(p.shape)
 
 
 def is_rigid(Ar, p):
-    Yr = rsn.distances_innovation(Ar, p)
+    Yr = distances.innovation_matrix(Ar, p)
     return np.linalg.matrix_rank(Yr) >= p.size - 3
 
 
@@ -82,7 +82,7 @@ def run(steps, logs, t_perf, planta, cuadros):
         # Control
         t_a = time.perf_counter()
 
-        dist = rsn.distances(x)
+        dist = distances.distances(x)
         A = dist.copy()
         A[A > dmax] = 0
         A[A != 0] = 1
@@ -90,10 +90,10 @@ def run(steps, logs, t_perf, planta, cuadros):
 
         if is_rigid(A, x):
             # det
-            u = 5 * logdetM_grad(x, A, S)
+            u = 5 * logdetM_grad(x, A)
         else:
             # traza
-            Ad = dist.copy()
+            Ad = distances.copy()
             Ad[Ad > 0] = lsd(Ad[Ad > 0], w=1, e=dmax)
             u = 2 * edpg(Ad, x)
             print(u)
@@ -104,13 +104,13 @@ def run(steps, logs, t_perf, planta, cuadros):
         # Análisis
         Aw = dist.copy()
         Aw[Aw > 0] = cnt.logistic_strength(Aw[Aw > 0], w=1, e=dmax)
-        Y = rsn.distances_innovation(Aw, x)
+        Y = distances.innovation_matrix(Aw, x)
         M = S.T.dot(Y).dot(S)
         # J = np.linalg.det(M)**a
         J = np.log(np.linalg.det(M))
         eigvals = np.linalg.eigvalsh(M)
 
-        Yp = rsn.distances_innovation(A, x)
+        Yp = rsn.innovation_matrix(A, x)
         Mp = S.T.dot(Yp).dot(S)
         # Jp = np.linalg.det(Mp)**a
         Jp = 0.     # np.log(np.linalg.det(Mp))
