@@ -9,16 +9,16 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 
-import uvnpy.redes.core as redes
+import uvnpy.network.graph as gph
 import uvnpy.rsn.core as rsn
 from uvnpy.filtering import metricas
 from gpsic.grafos.plotting import animar_grafo
 from gpsic.plotting.planar import agregar_ax
 
 H = rsn.distances_jac
-incidence_from_edges = redes.incidence_from_edges
-undirected_edges = redes.undirected_edges
-conectar = redes.edges_from_positions
+incidence_from_edges = gph.incidence_from_edges
+undirected_edges = gph.undirected_edges
+conectar = gph.disk_graph_edges
 svdvals = metricas.svdvals
 
 

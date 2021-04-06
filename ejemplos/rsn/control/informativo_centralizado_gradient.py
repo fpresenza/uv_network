@@ -13,9 +13,9 @@ import matplotlib.pyplot as plt
 from gpsic.plotting.core import agregar_ax
 from gpsic.grafos.plotting import animar_grafo
 from uvnpy.modelos.lineal import integrador
-import uvnpy.redes.core as redes
-import uvnpy.redes.control as ctrl
-import uvnpy.redes.comunicaciones as com
+import uvnpy.network.graph as gph
+import uvnpy.network.control as ctrl
+import uvnpy.network.connectivity as cnt
 import uvnpy.rsn.core as rsn
 import uvnpy.toolkit.calculus as calc
 
@@ -25,7 +25,7 @@ import uvnpy.toolkit.calculus as calc
 Logs = collections.namedtuple('Logs', 'x u J Jp eig eigp')
 
 D = calc.derivative_eval
-lsd = com.logistic_strength_derivative
+lsd = cnt.logistic_strength_derivative
 edpg = ctrl.edge_distance_potencial_gradient
 
 # metrica = r'$\rm{tr}(Y)$'
@@ -103,7 +103,7 @@ def run(steps, logs, t_perf, planta, cuadros):
 
         # Análisis
         Aw = dist.copy()
-        Aw[Aw > 0] = com.logistic_strength(Aw[Aw > 0], w=1, e=dmax)
+        Aw[Aw > 0] = cnt.logistic_strength(Aw[Aw > 0], w=1, e=dmax)
         Y = rsn.distances_innovation(Aw, x)
         M = S.T.dot(Y).dot(S)
         # J = np.linalg.det(M)**a
@@ -116,7 +116,7 @@ def run(steps, logs, t_perf, planta, cuadros):
         Jp = 0.     # np.log(np.linalg.det(Mp))
         eigvalsp = np.linalg.eigvalsh(Mp)
 
-        E = redes.undirected_edges(redes.disk_graph_edges(x, dmax))
+        E = gph.undirected_edges(gph.disk_graph_edges(x, dmax))
         cuadros[k] = x, E
 
         logs.x[k] = x
@@ -191,7 +191,7 @@ if __name__ == '__main__':
 
     planta = integrador(x0, tiempo[0])
 
-    A0 = redes.disk_graph_adjacency(x0, dmax)
+    A0 = gph.disk_graph_adjacency(x0, dmax)
     if is_rigid(A0, x0):
         print('---> Grafo rígido <---')
     else:
@@ -213,8 +213,8 @@ if __name__ == '__main__':
     logs.eigp[0] = None
 
     cuadros = np.empty((tiempo.size, 2), dtype=np.ndarray)
-    # E0 = redes.complete_undirected_edges(V)
-    E0 = redes.undirected_edges(redes.disk_graph_edges(x0, dmax))
+    # E0 = gph.complete_undirected_edges(V)
+    E0 = gph.undirected_edges(gph.disk_graph_edges(x0, dmax))
     cuadros[0] = x0, E0
 
     # ------------------------------------------------------------------

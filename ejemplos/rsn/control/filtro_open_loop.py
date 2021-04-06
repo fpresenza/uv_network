@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt  # noqa
 
 from uvnpy.modelos.lineal import integrador_ruidoso
 from uvnpy.filtering import kalman, metricas
-from uvnpy.redes.analisis import incidence_from_edges
+from uvnpy.network.graph import incidence_from_edges
 from gpsic.grafos.plotting import animar_grafo
 from gpsic.plotting.planar import agregar_ax
 

@@ -14,8 +14,8 @@ import matplotlib.pyplot as plt
 from gpsic.plotting.core import agregar_ax
 from gpsic.grafos.plotting import animar_grafo
 from uvnpy.modelos.lineal import integrador
-import uvnpy.redes.core as redes
-import uvnpy.redes.comunicaciones as com
+import uvnpy.network.graph as gph
+import uvnpy.network.connectivity as cnt
 import uvnpy.rsn.core as rsn
 from uvnpy.control import informativo
 from uvnpy.control import costos
@@ -66,7 +66,7 @@ def normal_cdf(dist, dmax, scale):
 
 def logistic(dist, dmax, w):
     p = dist > 0
-    dist[p] = com.logistic_strength(dist[p], w, e=dmax)
+    dist[p] = cnt.logistic_strength(dist[p], w, e=dmax)
     return dist
 
 
@@ -177,8 +177,8 @@ def run(steps, logs, t_perf, planta, cuadros):
         Jp, eigvalsp = analisis(x, dmax, Vp, on_off)
         # print(eigvalsp)
 
-        # E = redes.complete_undirected_edges(V)
-        E = redes.undirected_edges(redes.edges_from_positions(x, dmax))
+        # E = gph.complete_undirected_edges(V)
+        E = gph.undirected_edges(gph.edges_from_positions(x, dmax))
         X = x[list(V) + list(Vp)]
         cuadros[k] = X, E
 
@@ -283,8 +283,8 @@ if __name__ == '__main__':
     logs.x_p[0] = None
 
     cuadros = np.empty((tiempo.size, 2), dtype=np.ndarray)
-    # E0 = redes.complete_undirected_edges(V)
-    E0 = redes.undirected_edges(redes.edges_from_positions(x0, dmax))
+    # E0 = gph.complete_undirected_edges(V)
+    E0 = gph.undirected_edges(gph.edges_from_positions(x0, dmax))
     X0 = x0[list(V) + [0, 1]]
     cuadros[0] = X0, E0
 

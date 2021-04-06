@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from gpsic.plotting.core import agregar_ax
 from gpsic.grafos.plotting import animar_grafo
 from uvnpy.modelos.lineal import integrador
-import uvnpy.redes.core as redes
+import uvnpy.network.graph as gph
 import uvnpy.rsn.core as rsn
 
 # ------------------------------------------------------------------
@@ -66,7 +66,7 @@ def run(steps, logs, t_perf, planta, cuadros):
 
         t_b = time.perf_counter()
         x = planta.step(t, u)
-        E = redes.edges_from_adjacency(np.triu(A))
+        E = gph.edges_from_adjacency(np.triu(A))
         cuadros[k] = x, E
 
         logs.x[k] = x
@@ -155,8 +155,8 @@ if __name__ == '__main__':
     logs.y[0] = measure(A, x0)
 
     cuadros = np.empty((tiempo.size, 2), dtype=np.ndarray)
-    E0 = redes.complete_undirected_edges(V)
-    # E0 = redes.undirected_edges(redes.disk_graph_edges(x0, dmax))
+    E0 = gph.complete_undirected_edges(V)
+    # E0 = gph.undirected_edges(gph.disk_graph_edges(x0, dmax))
     cuadros[0] = x0, E0
 
     # ------------------------------------------------------------------

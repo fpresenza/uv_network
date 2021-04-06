@@ -8,7 +8,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-import uvnpy.redes.core as redes
+import uvnpy.network.graph as gph
 import uvnpy.rsn.core as rsn
 from uvnpy.filtering import metricas
 
@@ -37,8 +37,8 @@ p = np.array([[[-5, 0],
 #     [2, 3],
 #     [3, 0]])
 # V = [0, 1, 2, 3]
-# Af = redes.undirected_adjacency_from_edges(V, Ef)
-Af = redes.adjacency_from_positions(p[0], dmax=8.)
+# Af = gph.undirected_adjacency_from_edges(V, Ef)
+Af = gph.disk_graph_adjacency(p[0], dmax=8.)
 
 
 for i in N:
@@ -50,7 +50,7 @@ for i in N:
         vmr_f[i, j] = metricas.dispersion_index(eigvals_f, 1)
         rsd_f[i, j] = metricas.relative_standard_deviation(eigvals_f)
 
-        A = redes.adjacency_from_positions(p[0], dmax=8.)
+        A = gph.disk_graph_adjacency(p[0], dmax=8.)
         A[A != 0] = 1
         L = rsn.distances_innovation_laplacian(A, p)
         eigvals = np.linalg.eigvalsh(L)

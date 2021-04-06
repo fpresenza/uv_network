@@ -8,7 +8,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-import uvnpy.redes.core as redes
+import uvnpy.network.graph as gph
 import uvnpy.rsn.core as rsn
 from uvnpy.filtering import metricas
 
@@ -19,8 +19,8 @@ def completar(x, size):
 
 
 jacobiano = rsn.distancia_relativa_jac
-incidence_from_edges = redes.incidence_from_edges
-conectar = redes.edges_from_positions
+incidence_from_edges = gph.incidence_from_edges
+conectar = gph.disk_graph_edges
 svdvals = metricas.svdvals
 
 fig, axes = plt.subplots(2, 2, figsize=(10, 8))
