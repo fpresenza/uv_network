@@ -76,16 +76,28 @@ def distances_jac(A, p):
 #     return J
 
 
-def distances_jac_from_incidence(Dr, p):
-    nv, dof = p.shape
-    ne = Dr.shape[1]
-    J = np.zeros((ne, dof * nv))
-    eye = np.eye(dof)
-    r = unit_vector(Dr.T.dot(p), axis=-1)
-    M = scipy.linalg.block_diag(*r)
-    Dr = np.kron(Dr, eye)
-    J = M.dot(Dr.T)
-    return J
+def distances_jac_from_incidence(D, p):
+    """ Jacobiano del modelo de distancias.
+
+    Devuelve el jacobiano de
+        h(x) = [ ... ||x_i - x_j|| ...]^T
+
+    a partir de la matriz de incidencia D. Cada columna de
+    D representa un enlace D[e], y puede contener pesos
+    D[e, i] = -D[e, j] = w_ij.
+
+    args:
+        D: matriz de incidencia (nv, ne)
+        p: array de posiciones (nv, dof)
+
+    returns
+        H: jacobiano (ne, nv * dof)
+
+    """
+    Dt = D.T
+    r = unit_vector(Dt.dot(p), axis=-1)
+    J = Dt[:, :, None] * r[:, None]
+    return J.reshape(-1, p.size)
 
 
 def positions_jac(nv, loops, dof):
@@ -96,7 +108,7 @@ def positions_jac(nv, loops, dof):
 
 
 def distances_innovation(A, p):
-    """ Laplaciano de innovación.
+    """ Matriz de innovación.
 
     Devuelve la matriz de innovación
 
@@ -106,14 +118,15 @@ def distances_innovation(A, p):
     determinado por la matriz de adyacencia A.
 
     Si A[i, i] > 0 el nodo i tiene medicion de posición
-    Si A[i, j] > 0 los nodos i, j tienen medicion de distancia
+    Si A[i, j] > 0 los nodos i, j tienen medicion de distancia,
+    A[i, j] respresenta el peso asociado a cada enlace.
 
     args:
         A: matriz de adyacencia (nv, nv)
         p: array de posiciones (nv, dof)
 
     returns
-        Y: matriz de innovación (nv * dof, nv * dof)
+        Y: matriz de innovacion (nv * dof, nv * dof)
     """
     nv, dof = p.shape
     r = unit_vector(p[:, None] - p, axis=2)
@@ -137,14 +150,15 @@ def distances_innovation_aa(A, p):
     determinado por la matriz de adyacencia A.
 
     Si A[i, i] > 0 el nodo i tiene medicion de posición
-    Si A[i, j] > 0 los nodos i, j tienen medicion de distancia
+    Si A[i, j] > 0 los nodos i, j tienen medicion de distancia,
+    A[i, j] respresenta el peso asociado a cada enlace.
 
     args:
         A: matriz de adyacencia (N, nv, nv)
         p: array de posiciones (N, nv, dof)
 
     returns
-        Y: innovacion (-1, nv * dof, nv * dof)
+        Y: matriz de innovacion (N, nv * dof, nv * dof)
     """
     nv, dof = p.shape[-2:]
     r = unit_vector(p[..., None, :] - p[..., None, :, :], axis=-1)
@@ -169,9 +183,9 @@ def distances_innovation_diag_aa(A, p):
     """
     nv, dof = p.shape[-2:]
     r = unit_vector(p[..., None, :] - p[..., None, :, :], axis=-1)
-    Y = r[..., None] * r[..., None, :]  # outer product
     ii = np.diag([True] * nv)
-    Y[:, ii] = 0
+    r[:, ii] = 0
+    Y = r[..., None] * r[..., None, :]  # outer product
     Y *= A[..., None, None]
     diag = Y.sum(1)
     return diag
