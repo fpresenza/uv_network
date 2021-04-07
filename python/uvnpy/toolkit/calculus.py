@@ -35,3 +35,11 @@ def derivative(f):
     def df(x, *args, **kwargs):
         return derivative_eval(f, x, *args, **kwargs)
     return df
+
+
+def circle2d(R=1., c=np.zeros(2), N=100):
+    t = np.linspace(0, 2 * np.pi, N, endpoint=False)
+    gen = np.empty((N, 2))
+    gen[:, 0] = np.cos(t)
+    gen[:, 1] = np.sin(t)
+    return R * gen + c
