@@ -9,11 +9,11 @@ import numpy as np
 
 
 def edges(p, dmax=np.inf):
-    """Devuelve array de enlaces por proximidad."""
-    dmax_2 = dmax**2 * (1 - np.eye(len(p)))
+    """ Devuelve array de enlaces por proximidad."""
     r = p[:, None] - p
-    dist_2 = np.square(r).sum(axis=-1)
-    return np.argwhere(dist_2 < dmax_2)
+    dist_2 = np.triu(np.square(r).sum(axis=-1))
+    connected = (0 < dist_2) * (dist_2 < dmax**2)
+    return np.argwhere(connected)
 
 
 def adjacency(p, dmax=np.inf):
