@@ -1,50 +1,45 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from uvnpy.sensores.rango import matriz_innovacion
+import uvnpy.rsn.distances as distances
+import uvnpy.network.connectivity as cnt
 
-fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+fig, ax = plt.subplots()
 fig.suptitle('Innovación de información a través de rango', fontsize=15)
 fig.subplots_adjust(wspace=0.3)
 cw = plt.cm.get_cmap('coolwarm')
 
-t = np.linspace(-5, 5, 100)
+t = np.linspace(-10, 10, 100)
 N = range(100)
-X, Y = np.meshgrid(t, t)
-Z = np.empty_like(X)
+x, y = np.meshgrid(t, t)
+z = np.empty(x.shape)
+dmax = 15.
 
-landmarks = [(0, -1), (0, 1)]
+q = np.array([
+    [5.02869674, 8.68402927],
+    [8.16874345, 5.34071037],
+    [-0.85135279, -1.83178025],
+    [0.29043253, 9.47488418]])
+
 
 for i in N:
     for j in N:
-        p = [X[i, j], Y[i, j]]
-        HtRH = matriz_innovacion(p, landmarks, 1.)
-        Z[i, j] = np.linalg.det(HtRH)
+        p = np.array([x[i, j], y[i, j]])
+        w = distances.local_distances(p[None], q)
+        w = cnt.logistic_strength(w, 1, e=dmax)
+        Y = distances.local_innovation_matrix(p[None], q, w)
+        z[i, j] = np.linalg.det(Y)
 
-cbar = axes[0].contourf(X, Y, Z, levels=20, cmap=cw)
-fig.colorbar(cbar, ax=axes[0], fraction=0.046, pad=0.04)
-axes[0].scatter(*zip(*landmarks), marker='*', color='k')
-axes[0].set_title('($m = 2$)')
+cbar = ax.contourf(x, y, z, levels=20, cmap=cw)
+fig.colorbar(cbar, ax=ax, fraction=0.046, pad=0.04)
+ax.scatter(q[:, 0], q[:, 1], marker='*', color='k')
+ax.set_title('($m = {}$)'.format(len(q)))
 
-
-landmarks = [(0, -1), (0, 1), (-1, 0)]
-
-for i in N:
-    for j in N:
-        p = [X[i, j], Y[i, j]]
-        HtRH = matriz_innovacion(p, landmarks, 1.)
-        Z[i, j] = np.linalg.det(HtRH)
-
-cbar = axes[1].contourf(X, Y, Z, levels=20, cmap=cw)
-fig.colorbar(cbar, ax=axes[1], fraction=0.046, pad=0.04)
-axes[1].scatter(*zip(*landmarks), marker='*', color='k')
-axes[1].set_title('($m = 3$)')
-
-for ax in axes:
-    ax.set_aspect('equal')
-    ax.set_xlabel('x [m]')
-    ax.set_ylabel('y [m]')
-    ax.minorticks_on()
+ax.set_aspect('equal')
+ax.set_xlabel('x [m]')
+ax.set_ylabel('y [m]')
+ax.minorticks_on()
 
 plt.show()
 fig.savefig('/tmp/contorno.png', format='png')

@@ -13,8 +13,8 @@ import matplotlib.pyplot as plt
 from gpsic.plotting.core import agregar_ax
 from gpsic.grafos.plotting import animar_grafo
 from uvnpy.modelos.lineal import integrador
-import uvnpy.network.graph as gph
-import uvnpy.network.control as ctrl
+import uvnpy.network.core as net
+import uvnpy.network.disk_graph as disk_graph
 import uvnpy.network.connectivity as cnt
 import uvnpy.rsn.core as rsn
 import uvnpy.rsn.distances as distances
@@ -27,7 +27,7 @@ Logs = collections.namedtuple('Logs', 'x u J Jp eig eigp')
 
 D = calc.derivative_eval
 lsd = cnt.logistic_strength_derivative
-edpg = ctrl.edge_distance_potencial_gradient
+tr_grad = distances.edge_potencial_gradient
 
 # metrica = r'$\rm{tr}(Y)$'
 metrica = r'$\rm{log}(\rm{det}M(x))$'
@@ -85,8 +85,8 @@ def run(steps, logs, t_perf, planta, cuadros):
 
         dist = distances.distances(x)
         A = dist.copy()
-        A[A > dmax] = 0
-        A[A != 0] = 1
+        A[A > 0] = cnt.logistic_strength(A[A > 0], w=1, e=dmax)
+
         _, S = rsn.pose_and_shape_basis_2d(x)
 
         if is_rigid(A, x):
@@ -96,8 +96,8 @@ def run(steps, logs, t_perf, planta, cuadros):
             # traza
             Ad = dist.copy()
             Ad[Ad > 0] = lsd(Ad[Ad > 0], w=1, e=dmax)
-            u = 2 * edpg(Ad, x)
-            print(u)
+            u = 2 * tr_grad(Ad, x)
+            # print(u)
 
         t_b = time.perf_counter()
         x = planta.step(t, u)
@@ -117,7 +117,7 @@ def run(steps, logs, t_perf, planta, cuadros):
         Jp = 0.     # np.log(np.linalg.det(Mp))
         eigvalsp = np.linalg.eigvalsh(Mp)
 
-        E = gph.undirected_edges(gph.disk_graph_edges(x, dmax))
+        E = net.undirected_edges(disk_graph.edges(x, dmax))
         cuadros[k] = x, E
 
         logs.x[k] = x
@@ -192,7 +192,7 @@ if __name__ == '__main__':
 
     planta = integrador(x0, tiempo[0])
 
-    A0 = gph.disk_graph_adjacency(x0, dmax)
+    A0 = disk_graph.adjacency(x0, dmax)
     if is_rigid(A0, x0):
         print('---> Grafo rígido <---')
     else:
@@ -214,8 +214,8 @@ if __name__ == '__main__':
     logs.eigp[0] = None
 
     cuadros = np.empty((tiempo.size, 2), dtype=np.ndarray)
-    # E0 = gph.complete_undirected_edges(V)
-    E0 = gph.undirected_edges(gph.disk_graph_edges(x0, dmax))
+    # E0 = net.complete_undirected_edges(V)
+    E0 = net.undirected_edges(disk_graph.edges(x0, dmax))
     cuadros[0] = x0, E0
 
     # ------------------------------------------------------------------

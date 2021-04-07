@@ -13,8 +13,8 @@ import matplotlib.pyplot as plt
 from gpsic.plotting.core import agregar_ax
 from gpsic.grafos.plotting import animar_grafo
 from uvnpy.modelos.lineal import integrador
-import uvnpy.network.graph as gph
-import uvnpy.network.control as ctrl
+import uvnpy.network.core as net
+import uvnpy.network.disk_graph as disk_graph
 import uvnpy.network.connectivity as cnt
 import uvnpy.rsn.core as rsn
 import uvnpy.rsn.distances as distances
@@ -26,15 +26,14 @@ import uvnpy.toolkit.calculus as calc
 Logs = collections.namedtuple('Logs', 'x u J Jp eig eigp')
 
 D = calc.derivative_eval
-lsd = cnt.logistic_strength_derivative
-edpg = ctrl.edge_distance_potencial_gradient
+repulsion = distances.local_edge_potencial_gradient
 
 # metrica = r'$\rm{tr}(Y)$'
 metrica = r'$\rm{log}(\rm{det}M(x))$'
 
 
-def detS(p, A):
-    T = distances.innovation_matrix_diag_aa(A, p)
+def detYi(p, q, w):
+    T = distances.local_innovation_matrix(p, q, w)
     return np.linalg.det(T)
 
 
@@ -43,8 +42,8 @@ def detS(p, A):
 #     return u.reshape(p.shape)
 
 
-def logdetM_grad(p, A):
-    u = detS(p[None], A)**(-1) * D(detS, p, A)
+def logdetYi_grad(p, q, w):
+    u = detYi(p, q, w)**(-1) * D(detYi, p[0], q, w)
     return u.reshape(p.shape)
 
 
@@ -80,7 +79,6 @@ def run(steps, logs, t_perf, planta, cuadros):
         x = planta.x
 
         # Control
-        t_a = time.perf_counter()
 
         dist = distances.distances(x)
         A = dist.copy()
@@ -88,17 +86,23 @@ def run(steps, logs, t_perf, planta, cuadros):
         A[A != 0] = 1
         _, S = rsn.pose_and_shape_basis_2d(x)
 
-        if is_rigid(A, x):
-            # det
-            u = 5 * logdetM_grad(x, A)
-        else:
-            # traza
-            Ad = distances.copy()
-            Ad[Ad > 0] = lsd(Ad[Ad > 0], w=1, e=dmax)
-            u = 2 * edpg(Ad, x)
-            print(u)
+        t_a = np.empty(nv)
+        t_b = np.empty(nv)
+        for i in V:
+            t_a[i] = time.perf_counter()
+            p = x[i]
+            q = np.delete(x, i, axis=0)
+            q = disk_graph.local_neighbors(p, q, dmax)
+            p = p[None]
+            dij = distances.local_distances(p, q)
+            # print(i, dij)
+            wd = dij.copy()
+            wd = cnt.logistic_strength(wd, 1, e=dmax)
+            wr = dij.copy()
+            wr **= -5
+            u[i] = 5 * logdetYi_grad(p, q, wd) + 5 * 4 * repulsion(p, q, wr)
+            t_b[i] = time.perf_counter()
 
-        t_b = time.perf_counter()
         x = planta.step(t, u)
 
         # Análisis
@@ -110,13 +114,13 @@ def run(steps, logs, t_perf, planta, cuadros):
         J = np.log(np.linalg.det(M))
         eigvals = np.linalg.eigvalsh(M)
 
-        Yp = rsn.innovation_matrix(A, x)
+        Yp = distances.innovation_matrix(A, x)
         Mp = S.T.dot(Yp).dot(S)
         # Jp = np.linalg.det(Mp)**a
-        Jp = 0.     # np.log(np.linalg.det(Mp))
+        Jp = np.log(np.linalg.det(Mp))
         eigvalsp = np.linalg.eigvalsh(Mp)
 
-        E = gph.undirected_edges(gph.disk_graph_edges(x, dmax))
+        E = net.undirected_edges(disk_graph.edges(x, dmax))
         cuadros[k] = x, E
 
         logs.x[k] = x
@@ -126,7 +130,7 @@ def run(steps, logs, t_perf, planta, cuadros):
         logs.eig[k] = eigvals
         logs.eigp[k] = eigvalsp
 
-        t_perf.append(t_b - t_a)
+        t_perf.append(np.mean(t_b - t_a))
         bar.update(np.round(t, 3))
 
     bar.finish()
@@ -192,7 +196,7 @@ if __name__ == '__main__':
 
     planta = integrador(x0, tiempo[0])
 
-    A0 = gph.disk_graph_adjacency(x0, dmax)
+    A0 = disk_graph.adjacency(x0, dmax)
     if is_rigid(A0, x0):
         print('---> Grafo rígido <---')
     else:
@@ -214,8 +218,8 @@ if __name__ == '__main__':
     logs.eigp[0] = None
 
     cuadros = np.empty((tiempo.size, 2), dtype=np.ndarray)
-    # E0 = gph.complete_undirected_edges(V)
-    E0 = gph.undirected_edges(gph.disk_graph_edges(x0, dmax))
+    # E0 = net.complete_undirected_edges(V)
+    E0 = net.undirected_edges(disk_graph.edges(x0, dmax))
     cuadros[0] = x0, E0
 
     # ------------------------------------------------------------------

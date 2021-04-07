@@ -183,9 +183,58 @@ def innovation_matrix_diag_aa(A, p):
     return diag
 
 
+def local_distances(p, q):
+    r = p[:, None] - q
+    dist = np.sqrt(np.square(r).sum(2))
+    return dist
+
+
 def local_innovation_matrix(p, q, w=np.array(1.)):
     r = unit_vector(p[:, None] - q, axis=2)
     rw = r * w[..., None]
     Y = r[..., None] * rw[..., None, :]
     Yi = Y.sum(1)
     return Yi
+
+
+def edge_potencial_gradient(A, p):
+    """Gradiente de un potencial función de la distancia de los enlaces.
+
+    Devuelve el gradiente de
+
+            V = sum_{ij in E} V_{ij},
+            V_{ij} es función de d_{ij} = ||x_i - x_j||.
+
+    A es la matriz de adyacencia donde cada componente
+    A[i, j] = partial{V_{ij}} / partial{d_{ij}} es la derivada
+    de V_{ij} respecto de la distancia. Si A[i, j] = 0, los nodos
+    (i, j) no están conectados.
+
+    args:
+        A: matriz de adyacencia (nv, nv)
+        p: array de posiciones (nv, dof)
+    """
+    nv, dof = p.shape
+    r = unit_vector(p[:, None] - p, axis=-1)
+    ii = np.diag([True] * nv)
+    r[ii] = 0
+    r *= A[..., None]               # aplicar pesos
+    grad = r.sum(1)
+    return grad
+
+
+def local_edge_potencial_gradient(p, q, w):
+    """Gradiente de un potencial función de la distancia de los enlaces.
+
+    Devuelve el gradiente de
+
+            V = sum_{j in N_i} V_{j},
+            V_{j} es función de d_{ij} = ||x_i - x_j||.
+
+    w es un array donde componente w[j] = partial{V_{j}} / partial{d_{ij}}
+    es la derivada de V_{j} respecto de la distancia.
+    """
+    r = unit_vector(p[:, None] - q, axis=2)
+    r *= w[..., None]             # aplicar pesos
+    grad = r.sum(1)
+    return grad

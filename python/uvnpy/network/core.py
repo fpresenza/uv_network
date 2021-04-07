@@ -79,30 +79,3 @@ def undirected_laplacian_from_edges(V, E, w=1):
     A = undirected_adjacency_from_edges(V, E, w)
     Deg = np.diag(A.sum(axis=1))
     return Deg - A
-
-
-def disk_graph_edges(p, dmax=np.inf):
-    """Devuelve array de enlaces por proximidad."""
-    dmax_2 = dmax**2 * (1 - np.eye(len(p)))
-    r = p[:, None] - p
-    dist_2 = np.square(r).sum(axis=-1)
-    return np.argwhere(dist_2 < dmax_2)
-
-
-def disk_graph_adjacency(p, dmax=np.inf):
-    """ Devuelve matriz de adyacencia por proximidad.
-
-    args:
-        p: array de posiciones (n, dof)
-        dmax: distancia máxima de conexión
-
-    returns:
-        A: matriz adyacencia (n, n) donde el peso
-        del enlace (i, j) es la distancia entre
-        los vehículos i y j.
-    """
-    r = p[:, None] - p
-    A = np.square(r).sum(axis=-1)
-    A[A > dmax**2] = 0
-    A[A != 0] = 1
-    return A
