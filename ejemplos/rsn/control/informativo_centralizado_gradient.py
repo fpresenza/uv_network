@@ -11,6 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from gpsic.plotting.core import agregar_ax
+from gpsic.plotting.planar import animate_matrix
 from gpsic.grafos.plotting import animar_grafo
 from uvnpy.modelos.lineal import integrador
 import uvnpy.network.disk_graph as disk_graph
@@ -23,7 +24,7 @@ np.set_printoptions(suppress=True, precision=3, linewidth=150)
 # ------------------------------------------------------------------
 # Definición de variables globales, funciones y clases
 # ------------------------------------------------------------------
-Logs = collections.namedtuple('Logs', 'x u J eig')
+Logs = collections.namedtuple('Logs', 'x u J eig Y')
 
 D = calc.derivative_eval
 lsd = cnt.logistic_strength_derivative
@@ -104,9 +105,8 @@ def run(steps, logs, t_perf, planta, cuadros):
         # Control
         t_a = time.perf_counter()
 
-        u = (nv / 10) * keep_rigid(x) + 1.5 * min_edges(x) + 0.3 * repulsion(x)
-        # u = 0.4 * detMa_grad(x) + 3 * repulsion(x)
-        # u = 1. * logdetM_grad(x) + 3 * repulsion(x)
+        # u = (nv / 10) * keep_rigid(x) + 1.5 * min_edges(x) + 0.3 * repulsion(x)   # noqa
+        u = 0.4 * detMa_grad(x) + 3 * repulsion(x)
 
         t_b = time.perf_counter()
 
@@ -129,6 +129,7 @@ def run(steps, logs, t_perf, planta, cuadros):
         logs.u[k] = u
         logs.J[k] = (J, len(E))
         logs.eig[k] = eigvals
+        logs.Y[k] = Y
 
         t_perf.append(t_b - t_a)
         bar.update(np.round(t, 3))
@@ -182,19 +183,19 @@ if __name__ == '__main__':
     V = range(nv)
     dof = 2
     n = dof * nv
-    dmax = 10
-    beta_1 = 10 / dmax
-    beta_2 = 40 / dmax
-    e_1 = dmax
-    e_2 = 0.7 * dmax
-    # beta_1 = 0.5
-    # beta_2 = 0.5
+    dmax = 15
+    # beta_1 = 10 / dmax
+    # beta_2 = 40 / dmax
     # e_1 = dmax
-    # e_2 = dmax
+    # e_2 = 0.7 * dmax
+    beta_1 = 0.5
+    beta_2 = 0.5
+    e_1 = dmax
+    e_2 = dmax
 
     np.random.seed(6)
-    x0 = np.random.uniform(-0.5 * dmax, 0.5 * dmax, (nv, dof))
-    # x0 = np.random.uniform(-1.3 * dmax, 1.3 * dmax, (nv, dof))
+    # x0 = np.random.uniform(-0.5 * dmax, 0.5 * dmax, (nv, dof))
+    x0 = np.random.uniform(-1.3 * dmax, 1.3 * dmax, (nv, dof))
     # x0 = np.array([
     #    [  8.14 , -14.377],
     #    [  4.009,   7.464],
@@ -213,15 +214,6 @@ if __name__ == '__main__':
     #    [ -1.012,  10.45 ],
     #    [  9.157,   0.649]]) * 1.4
 
-    # print(x0)
-    # x0 = calc.circle2d(R=5, N=nv)
-    # x0 = np.array([[-5, 0],
-    #                [0, -5],
-    #                [5, 0],
-    #                [0, 5]], dtype=np.float) * 1.5
-    # x0 = grid(nv, 5)
-    # x0 = linspace(nv, 0.75 * dmax) + np.random.normal(0, 0.5, (nv, dof))
-
     planta = integrador(x0, tiempo[0])
 
     A0 = disk_graph.adjacency(x0, dmax)
@@ -235,11 +227,13 @@ if __name__ == '__main__':
         u=np.empty((tiempo.size, nv, dof)),
         J=np.empty((tiempo.size, 2)),
         eig=np.empty((tiempo.size, n - 3)),
+        Y=np.empty((tiempo.size, n, n))
         )
     logs.x[0] = x0
     logs.u[0] = np.zeros((nv, dof))
     logs.J[0] = None
     logs.eig[0] = None
+    logs.Y[0] = distances.innovation_matrix(A0, x0)
 
     cuadros = np.empty((tiempo.size, 2), dtype=np.ndarray)
     E0 = disk_graph.edges(x0, dmax)
@@ -254,6 +248,7 @@ if __name__ == '__main__':
     u = logs.u
     J = logs.J
     eig = logs.eig
+    Y = logs.Y
 
     st = arg.tf - arg.ti
     rt = sum(t_perf)
@@ -322,17 +317,22 @@ if __name__ == '__main__':
         plt.show()
 
     if arg.animate:
+        # animar matriz
+        fig, ax = plt.subplots()
+        animate_matrix(fig, ax, arg.h, Y, save=arg.save)
+
+        # animar grafo
         estilos = (
             [V, {'color': 'b', 'marker': 'o', 'markersize': '5'}], )
         fig, ax = plt.subplots()
         title = r'$n={}, \; d_{{max}}={},$'
-        title += '\n'
-        title += r'$\beta_1={}, \; \epsilon_1={},$'
-        title += '\t'
-        title += r'$\beta_2={}, \; \epsilon_2={}$'
-        fig.suptitle(title.format(nv, dmax, beta_1, e_1, beta_2, e_2))
-        # title += r'$\beta={}, \; \epsilon={},$'
-        # fig.suptitle(title.format(nv, dmax, beta_1, e_1))
+        # title += '\n'
+        # title += r'$\beta_1={}, \; \epsilon_1={},$'
+        # title += '\t'
+        # title += r'$\beta_2={}, \; \epsilon_2={}$'
+        # fig.suptitle(title.format(nv, dmax, beta_1, e_1, beta_2, e_2))
+        title += r'$\beta={}, \; \epsilon={},$'
+        fig.suptitle(title.format(nv, dmax, beta_1, e_1))
         ax.set_xlim(-1.5 * dmax, 1.5 * dmax)
         ax.set_ylim(-1.5 * dmax, 1.5 * dmax)
         ax.set_aspect('equal')
