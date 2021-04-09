@@ -8,6 +8,17 @@
 import numpy as np
 
 
+def power_strength(d, a):
+    """Power function."""
+    s = d**(-a)
+    return s
+
+
+def power_strength_derivative(d, a):
+    D = -a * d**(-a - 1)
+    return D
+
+
 def logistic_strength(d, w=1, e=0):
     """Logistic strength function.
 
