@@ -7,6 +7,7 @@
 """
 import numpy as np
 import itertools
+import matplotlib as mpl
 
 
 def undirected_edges(E):
@@ -79,3 +80,16 @@ def undirected_laplacian_from_edges(V, E, w=1):
     A = undirected_adjacency_from_edges(V, E, w)
     Deg = np.diag(A.sum(axis=1))
     return Deg - A
+
+
+def plot_nodes(ax, p, **kwargs):
+    """Plotear nodos."""
+    nodes = ax.scatter(p[:, 0], p[:, 1], **kwargs)
+    return nodes
+
+
+def plot_edges(ax, p, E, **kwargs):
+    """Plotear enlaces."""
+    edges = mpl.collections.LineCollection(p[E], **kwargs)
+    ax.add_artist(edges)
+    return edges
