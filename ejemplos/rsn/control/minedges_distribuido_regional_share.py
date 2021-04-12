@@ -27,41 +27,34 @@ Logs = collections.namedtuple('Logs', 'x u J eig')
 D = calc.derivative_eval
 lsd = cnt.logistic_strength_derivative
 
-metrica = r'$\rm{log}(\rm{det}M(x))$'
 
-
-def detFi(p, q):
-    pq = np.empty((len(p), len(q) + 1, 2))
-    pq[:, 0] = p
-    pq[:, 1:] = q
-    Ai = distances.distances_aa(pq)
+def detFi(p):
+    Ai = distances.distances_aa(p)
     Ai[Ai > 0] = cnt.logistic_strength(Ai[Ai > 0], w=beta_2, e=e_2)
-
-    _, Mf = rsn.pose_and_shape_basis_2d_aa(pq)
+    _, Mf = rsn.pose_and_shape_basis_2d_aa(p)
     Mf_T = Mf.swapaxes(-2, -1)
 
-    Yi = distances.innovation_matrix_aa(Ai, pq)
+    Yi = distances.innovation_matrix_aa(Ai, p)
     Fi = np.matmul(Mf_T, np.matmul(Yi, Mf))
-
     return np.linalg.det(Fi)
 
 
-def keep_rigid(p, q):
-    u = - a * detFi(p[None], q)**(-a - 1) * D(detFi, p, q)
+def keep_rigid(p):
+    u = - a * detFi(p[None])**(-a - 1) * D(detFi, p)
     return -u.reshape(p.shape)
 
 
-def min_edges(p, q):
-    dist = distances.local_distances(p[None], q)
-    w = lsd(dist, w=beta_1, e=e_1)
-    u = distances.local_edge_potencial_gradient(p[None], q, w)
+def min_edges(p):
+    w = distances.distances(p)
+    w[w > 0] = lsd(w[w > 0], w=beta_1, e=e_1)
+    u = distances.edge_potencial_gradient(w, p)
     return -u.reshape(p.shape)
 
 
-def repulsion(p, q):
-    dist = distances.local_distances(p[None], q)
-    w = cnt.power_strength_derivative(dist, a=2)
-    u = distances.local_edge_potencial_gradient(p[None], q, w)
+def repulsion(p):
+    w = distances.distances(p)
+    w[w > 0] = cnt.power_strength_derivative(w[w > 0], a=2)
+    u = distances.edge_potencial_gradient(w, p)
     return -u.reshape(p.shape)
 
 
@@ -99,13 +92,13 @@ def run(steps, logs, t_perf, planta, cuadros):
         # Control
         t_a = np.empty(nv)
         t_b = np.empty(nv)
+        u[:] = 0
         for i in V:
             t_a[i] = time.perf_counter()
-            p = x[i]
-            q = np.delete(x, i, axis=0)
-            q = disk_graph.local_neighbors(x[i], q, dmax)
 
-            u[i] = keep_rigid(p, q) + 1.5 * min_edges(p, q) + 0.3 * repulsion(p, q)  # noqa
+            Gi = disk_graph.local_subgraph(x, i, dmax)
+            p = x[Gi]
+            u[Gi] += keep_rigid(p) + 0.5 * min_edges(p) + (1 / nv) * repulsion(p)  # noqa
 
             t_b[i] = time.perf_counter()
 
@@ -187,7 +180,7 @@ if __name__ == '__main__':
     e_1 = dmax
     e_2 = 0.7 * dmax
 
-    np.random.seed(10)
+    np.random.seed(1)
     x0 = np.random.uniform(-0.5 * dmax, 0.5 * dmax, (nv, dof))
     u = np.zeros((nv, dof))
     # x0 = np.array([[-5, 0],
@@ -205,12 +198,10 @@ if __name__ == '__main__':
     else:
         print('---> Grafo flexible <---')
     for i in V:
-        p = x0[i]
-        q = np.delete(x0, i, axis=0)
-        q = disk_graph.local_neighbors(p, q, dmax)
-        pq = np.vstack([p, q])
-        Ai = disk_graph.adjacency(pq, dmax)
-        if not is_rigid(Ai, pq):
+        Gi = disk_graph.local_subgraph(x0, i, dmax)
+        p = x0[Gi]
+        Ai = disk_graph.adjacency(p, dmax)
+        if not is_rigid(Ai, p):
             print('Warning!: Grafo {} no es rígido.'.format(i))
 
     logs = Logs(

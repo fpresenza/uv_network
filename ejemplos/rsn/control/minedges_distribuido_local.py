@@ -27,8 +27,6 @@ Logs = collections.namedtuple('Logs', 'x u J eig')
 D = calc.derivative_eval
 lsd = cnt.logistic_strength_derivative
 
-metrica = r'$\rm{log}(\rm{det}M(x))$'
-
 
 def detFi(p, q):
     dist = distances.local_distances(p, q)
