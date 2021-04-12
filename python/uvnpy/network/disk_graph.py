@@ -37,6 +37,13 @@ def adjacency(p, dmax=np.inf):
 
 def local_neighbors(p, q, dmax=np.inf):
     r = p[None] - q
-    dist = np.sqrt(np.square(r).sum(-1))
-    n = q[dist < dmax]
-    return n
+    dist2 = np.square(r).sum(-1)
+    N = q[dist2 < dmax**2]
+    return N
+
+
+def local_subgraph(p, i, dmax=np.inf):
+    r = p[i] - p
+    dist2 = np.square(r).sum(-1)
+    idx = dist2 < dmax**2
+    return idx
