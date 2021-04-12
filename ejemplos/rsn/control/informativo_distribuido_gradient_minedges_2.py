@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-""" Created on jue mar 18 13:21:30 -03 2021
+""" Created on lun abr  5 16:16:07 -03 2021
 @author: fran
 """
 import argparse
@@ -11,7 +11,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from gpsic.plotting.core import agregar_ax
-from gpsic.plotting.planar import animate_matrix
 from gpsic.grafos.plotting import animar_grafo
 from uvnpy.modelos.lineal import integrador
 import uvnpy.network.disk_graph as disk_graph
@@ -20,60 +19,55 @@ import uvnpy.rsn.core as rsn
 import uvnpy.rsn.distances as distances
 import uvnpy.toolkit.calculus as calc
 
-np.set_printoptions(suppress=True, precision=3, linewidth=150)
 # ------------------------------------------------------------------
 # Definición de variables globales, funciones y clases
 # ------------------------------------------------------------------
-Logs = collections.namedtuple('Logs', 'x u J eig Y')
+Logs = collections.namedtuple('Logs', 'x u J eig')
 
 D = calc.derivative_eval
 lsd = cnt.logistic_strength_derivative
 
+metrica = r'$\rm{log}(\rm{det}M(x))$'
 
-def detF(p):
-    A = distances.distances_aa(p)
-    A[A > 0] = cnt.logistic_strength(A[A > 0], w=beta_2, e=e_2)
 
-    _, Mf = rsn.pose_and_shape_basis_2d_aa(p)
+def detFi(p, q):
+    pq = np.empty((len(p), len(q) + 1, 2))
+    pq[:, 0] = p
+    pq[:, 1:] = q
+    Ai = distances.distances_aa(pq)
+    Ai[Ai > 0] = cnt.logistic_strength(Ai[Ai > 0], w=beta_2, e=e_2)
+
+    _, Mf = rsn.pose_and_shape_basis_2d_aa(pq)
     Mf_T = Mf.swapaxes(-2, -1)
 
-    Y = distances.innovation_matrix_aa(A, p)
-    F = np.matmul(Mf_T, np.matmul(Y, Mf))
-    return np.linalg.det(F)
+    Yi = distances.innovation_matrix_aa(Ai, pq)
+    Fi = np.matmul(Mf_T, np.matmul(Yi, Mf))
+
+    return np.linalg.det(Fi)
 
 
-def detF_grad(p):
-    u = a * detF(p[None])**(a - 1) * D(detF, p)
-    return u.reshape(p.shape)
-
-
-def logdetF_grad(p):
-    u = detF(p[None])**(-1) * D(detF, p)
-    return u.reshape(p.shape)
-
-
-def keep_rigid(p):
-    u = - a * detF(p[None])**(-a - 1) * D(detF, p)
+def keep_rigid(p, q):
+    u = - a * detFi(p[None], q)**(-a - 1) * D(detFi, p, q)
     return -u.reshape(p.shape)
 
 
-def min_edges(p):
-    w = distances.distances(p)
-    w[w > 0] = lsd(w[w > 0], w=beta_1, e=e_1)
-    u = distances.edge_potencial_gradient(w, p)
-    return -u
+def min_edges(p, q):
+    dist = distances.local_distances(p[None], q)
+    w = lsd(dist, w=beta_1, e=e_1)
+    u = distances.local_edge_potencial_gradient(p[None], q, w)
+    return -u.reshape(p.shape)
 
 
-def repulsion(p):
-    w = distances.distances(p)
-    w[w > 0] = cnt.power_strength_derivative(w[w > 0], a=2)
-    u = distances.edge_potencial_gradient(w, p)
-    return -u
+def repulsion(p, q):
+    dist = distances.local_distances(p[None], q)
+    w = cnt.power_strength_derivative(dist, a=2)
+    u = distances.local_edge_potencial_gradient(p[None], q, w)
+    return -u.reshape(p.shape)
 
 
-def is_rigid(Ar, p):
-    Yr = distances.innovation_matrix(Ar, p)
-    return np.linalg.matrix_rank(Yr) >= p.size - 3
+def is_rigid(A, p):
+    Y = distances.innovation_matrix(A, p)
+    return np.linalg.matrix_rank(Y) >= p.size - 3
 
 
 def grid(nv, sep):
@@ -103,12 +97,17 @@ def run(steps, logs, t_perf, planta, cuadros):
         x = planta.x
 
         # Control
-        t_a = time.perf_counter()
+        t_a = np.empty(nv)
+        t_b = np.empty(nv)
+        for i in V:
+            t_a[i] = time.perf_counter()
+            p = x[i]
+            q = np.delete(x, i, axis=0)
+            q = disk_graph.local_neighbors(x[i], q, dmax)
 
-        # u = (nv / 10) * keep_rigid(x) + 1.5 * min_edges(x) + 0.3 * repulsion(x)   # noqa
-        u = 0.4 * detF_grad(x) + 3 * repulsion(x)
+            u[i] = keep_rigid(p, q) + 1.5 * min_edges(p, q) + 0.3 * repulsion(p, q)  # noqa
 
-        t_b = time.perf_counter()
+            t_b[i] = time.perf_counter()
 
         x = planta.step(t, u)
 
@@ -129,9 +128,8 @@ def run(steps, logs, t_perf, planta, cuadros):
         logs.u[k] = u
         logs.J[k] = (J, len(E))
         logs.eig[k] = eigvals
-        logs.Y[k] = Y
 
-        t_perf.append(t_b - t_a)
+        t_perf.append(np.mean(t_b - t_a))
         bar.update(np.round(t, 3))
 
     bar.finish()
@@ -183,36 +181,21 @@ if __name__ == '__main__':
     V = range(nv)
     dof = 2
     n = dof * nv
-    dmax = 15
-    # beta_1 = 10 / dmax
-    # beta_2 = 40 / dmax
-    # e_1 = dmax
-    # e_2 = 0.7 * dmax
-    beta_1 = 0.5
-    beta_2 = 0.5
+    dmax = 10
+    beta_1 = 10 / dmax
+    beta_2 = 40 / dmax
     e_1 = dmax
-    e_2 = dmax
+    e_2 = 0.7 * dmax
 
-    np.random.seed(6)
-    # x0 = np.random.uniform(-0.5 * dmax, 0.5 * dmax, (nv, dof))
-    x0 = np.random.uniform(-1.3 * dmax, 1.3 * dmax, (nv, dof))
-    # x0 = np.array([
-    #    [  8.14 , -14.377],
-    #    [  4.009,   7.464],
-    #    [ -0.045,  -8.256],
-    #    [ -9.058,   7.816],
-    #    [ -9.927, -12.35 ],
-    #    [  5.561,  13.602],
-    #    [-14.882,   0.366],
-    #    [  9.379,   3.376],
-    #    [  6.653,  -6.244],
-    #    [ 12.533,   6.437],
-    #    [  1.276, -10.735],
-    #    [ -3.8  ,   5.224],
-    #    [ -1.745,  -1.98 ],
-    #    [ -7.123,   0.45 ],
-    #    [ -1.012,  10.45 ],
-    #    [  9.157,   0.649]]) * 1.4
+    np.random.seed(10)
+    x0 = np.random.uniform(-0.5 * dmax, 0.5 * dmax, (nv, dof))
+    u = np.zeros((nv, dof))
+    # x0 = np.array([[-5, 0],
+    #                [0, -5],
+    #                [5, 0],
+    #                [0, 5]], dtype=np.float)
+    # x0 = grid(nv, 5)
+    # x0 = linspace(nv, dmax*0.75) + np.random.normal(0, 0.5, (nv, dof))
 
     planta = integrador(x0, tiempo[0])
 
@@ -221,19 +204,25 @@ if __name__ == '__main__':
         print('---> Grafo rígido <---')
     else:
         print('---> Grafo flexible <---')
+    for i in V:
+        p = x0[i]
+        q = np.delete(x0, i, axis=0)
+        q = disk_graph.local_neighbors(p, q, dmax)
+        pq = np.vstack([p, q])
+        Ai = disk_graph.adjacency(pq, dmax)
+        if not is_rigid(Ai, pq):
+            print('Warning!: Grafo {} no es rígido.'.format(i))
 
     logs = Logs(
         x=np.empty((tiempo.size, nv, dof)),
         u=np.empty((tiempo.size, nv, dof)),
         J=np.empty((tiempo.size, 2)),
         eig=np.empty((tiempo.size, n - 3)),
-        Y=np.empty((tiempo.size, n, n))
         )
     logs.x[0] = x0
     logs.u[0] = np.zeros((nv, dof))
     logs.J[0] = None
     logs.eig[0] = None
-    logs.Y[0] = distances.innovation_matrix(A0, x0)
 
     cuadros = np.empty((tiempo.size, 2), dtype=np.ndarray)
     E0 = disk_graph.edges(x0, dmax)
@@ -248,7 +237,6 @@ if __name__ == '__main__':
     u = logs.u
     J = logs.J
     eig = logs.eig
-    Y = logs.Y
 
     st = arg.tf - arg.ti
     rt = sum(t_perf)
@@ -318,22 +306,9 @@ if __name__ == '__main__':
         plt.show()
 
     if arg.animate:
-        # animar matriz
-        fig, ax = plt.subplots()
-        animate_matrix(fig, ax, arg.h, Y, save=arg.save)
-
-        # animar grafo
         estilos = (
             [V, {'color': 'b', 'marker': 'o', 'markersize': '5'}], )
         fig, ax = plt.subplots()
-        title = r'$n={}, \; d_{{max}}={},$'
-        # title += '\n'
-        # title += r'$\beta_1={}, \; \epsilon_1={},$'
-        # title += '\t'
-        # title += r'$\beta_2={}, \; \epsilon_2={}$'
-        # fig.suptitle(title.format(nv, dmax, beta_1, e_1, beta_2, e_2))
-        title += r'$\beta={}, \; \epsilon={},$'
-        fig.suptitle(title.format(nv, dmax, beta_1, e_1))
         ax.set_xlim(-1.5 * dmax, 1.5 * dmax)
         ax.set_ylim(-1.5 * dmax, 1.5 * dmax)
         ax.set_aspect('equal')

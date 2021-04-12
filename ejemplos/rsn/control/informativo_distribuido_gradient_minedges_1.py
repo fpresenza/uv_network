@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 from gpsic.plotting.core import agregar_ax
 from gpsic.grafos.plotting import animar_grafo
 from uvnpy.modelos.lineal import integrador
-import uvnpy.network.core as net
 import uvnpy.network.disk_graph as disk_graph
 import uvnpy.network.connectivity as cnt
 import uvnpy.rsn.core as rsn
@@ -23,28 +22,48 @@ import uvnpy.toolkit.calculus as calc
 # ------------------------------------------------------------------
 # Definición de variables globales, funciones y clases
 # ------------------------------------------------------------------
-Logs = collections.namedtuple('Logs', 'x u J Jp eig eigp')
+Logs = collections.namedtuple('Logs', 'x u J eig')
 
 D = calc.derivative_eval
-repulsion = distances.local_edge_potencial_gradient
+lsd = cnt.logistic_strength_derivative
 
-# metrica = r'$\rm{tr}(Y)$'
 metrica = r'$\rm{log}(\rm{det}M(x))$'
 
 
-def detYi(p, q, w):
+def detFi(p, q):
+    dist = distances.local_distances(p, q)
+    w = cnt.logistic_strength(dist, w=beta_2, e=e_2)
     T = distances.local_innovation_matrix(p, q, w)
     return np.linalg.det(T)
 
 
-# def detMa_grad(p, A, S):
-#     u = a * detS(p[None], A, S)**(a - 1) * D(detS, p, A, S)
-#     return u.reshape(p.shape)
-
-
-def logdetYi_grad(p, q, w):
-    u = detYi(p, q, w)**(-1) * D(detYi, p[0], q, w)
+def detFi_grad(p, q):
+    u = a * detFi(p[None], q)**(a - 1) * D(detFi, p, q)
     return u.reshape(p.shape)
+
+
+def logdetFi_grad(p, q):
+    u = detFi(p[None], q)**(-1) * D(detFi, p, q)
+    return u.reshape(p.shape)
+
+
+def keep_rigid(p, q):
+    u = - a * detFi(p[None], q)**(-a - 1) * D(detFi, p, q)
+    return -u.reshape(p.shape)
+
+
+def min_edges(p, q):
+    dist = distances.local_distances(p[None], q)
+    w = lsd(dist, w=beta_1, e=e_1)
+    u = distances.local_edge_potencial_gradient(p[None], q, w)
+    return -u.reshape(p.shape)
+
+
+def repulsion(p, q):
+    dist = distances.local_distances(p[None], q)
+    w = cnt.power_strength_derivative(dist, a=2)
+    u = distances.local_edge_potencial_gradient(p[None], q, w)
+    return -u.reshape(p.shape)
 
 
 def is_rigid(Ar, p):
@@ -59,9 +78,9 @@ def grid(nv, sep):
     return np.vstack(np.dstack(g))[:nv]
 
 
-def linspace(nv, lim):
+def linspace(nv, dmax):
     p = np.empty((nv, 2))
-    p[:, 0] = np.linspace(-lim, lim, nv)
+    p[:, 0] = np.linspace(-dmax, dmax, nv)
     p[:, 1] = 0
     return p
 
@@ -79,13 +98,6 @@ def run(steps, logs, t_perf, planta, cuadros):
         x = planta.x
 
         # Control
-
-        dist = distances.distances(x)
-        A = dist.copy()
-        A[A > dmax] = 0
-        A[A != 0] = 1
-        _, S = rsn.pose_and_shape_basis_2d(x)
-
         t_a = np.empty(nv)
         t_b = np.empty(nv)
         for i in V:
@@ -93,42 +105,30 @@ def run(steps, logs, t_perf, planta, cuadros):
             p = x[i]
             q = np.delete(x, i, axis=0)
             q = disk_graph.local_neighbors(p, q, dmax)
-            p = p[None]
-            dij = distances.local_distances(p, q)
-            # print(i, dij)
-            wd = dij.copy()
-            wd = cnt.logistic_strength(wd, 1, e=dmax)
-            wr = dij.copy()
-            wr **= -5
-            u[i] = 5 * logdetYi_grad(p, q, wd) + 5 * 4 * repulsion(p, q, wr)
+
+            u[i] = keep_rigid(p, q) + 1.5 * min_edges(p, q) + 0.3 * repulsion(p, q)  # noqa
+
             t_b[i] = time.perf_counter()
 
         x = planta.step(t, u)
 
         # Análisis
-        Aw = dist.copy()
-        Aw[Aw > 0] = cnt.logistic_strength(Aw[Aw > 0], w=1, e=dmax)
-        Y = distances.innovation_matrix(Aw, x)
-        M = S.T.dot(Y).dot(S)
-        # J = np.linalg.det(M)**a
-        J = np.log(np.linalg.det(M))
-        eigvals = np.linalg.eigvalsh(M)
+        A = disk_graph.adjacency(x, dmax)
+        Y = distances.innovation_matrix(A, x)
 
-        Yp = distances.innovation_matrix(A, x)
-        Mp = S.T.dot(Yp).dot(S)
-        # Jp = np.linalg.det(Mp)**a
-        Jp = np.log(np.linalg.det(Mp))
-        eigvalsp = np.linalg.eigvalsh(Mp)
+        _, Mf = rsn.pose_and_shape_basis_2d(x)
+        F = Mf.T.dot(Y).dot(Mf)
+        J = np.abs(np.linalg.det(F))**a
+        # J = np.log(np.linalg.det(F))
+        eigvals = np.linalg.eigvalsh(F)
 
-        E = net.undirected_edges(disk_graph.edges(x, dmax))
+        E = disk_graph.edges(x, dmax)
         cuadros[k] = x, E
 
         logs.x[k] = x
         logs.u[k] = u
-        logs.J[k] = J
-        logs.Jp[k] = Jp
+        logs.J[k] = (J, len(E))
         logs.eig[k] = eigvals
-        logs.eigp[k] = eigvalsp
 
         t_perf.append(np.mean(t_b - t_a))
         bar.update(np.round(t, 3))
@@ -177,22 +177,26 @@ if __name__ == '__main__':
     steps = list(enumerate(tiempo))
     t_perf = []
 
-    lim = 10.
     nv = arg.n
     a = 2 / nv
     V = range(nv)
     dof = 2
     n = dof * nv
-    dmax = 12
-    # np.random.seed(9)
-    x0 = np.random.uniform(-lim, lim, (nv, dof))
+    dmax = 10
+    beta_1 = 10 / dmax
+    beta_2 = 40 / dmax
+    e_1 = dmax
+    e_2 = 0.7 * dmax
+
+    np.random.seed(10)
+    x0 = np.random.uniform(-0.5 * dmax, 0.5 * dmax, (nv, dof))
     u = np.zeros((nv, dof))
     # x0 = np.array([[-5, 0],
     #                [0, -5],
     #                [5, 0],
-    #                [0, 5]], dtype=np.float) * 1.5
+    #                [0, 5]], dtype=np.float)
     # x0 = grid(nv, 5)
-    # x0 = linspace(nv, lim*0.75) + np.random.normal(0, 0.5, (nv, dof))
+    # x0 = linspace(nv, dmax*0.75) + np.random.normal(0, 0.5, (nv, dof))
 
     planta = integrador(x0, tiempo[0])
 
@@ -201,25 +205,26 @@ if __name__ == '__main__':
         print('---> Grafo rígido <---')
     else:
         print('---> Grafo flexible <---')
+    for i in V:
+        p = x0[i]
+        q = np.delete(x0, i, axis=0)
+        Ni = disk_graph.local_neighbors(p, q, dmax)
+        if len(Ni) < 2:
+            print('Warning!: Nodo {} no tiene 2 vecinos.'.format(i))
 
     logs = Logs(
         x=np.empty((tiempo.size, nv, dof)),
         u=np.empty((tiempo.size, nv, dof)),
-        J=np.empty((tiempo.size)),
-        Jp=np.empty((tiempo.size)),
+        J=np.empty((tiempo.size, 2)),
         eig=np.empty((tiempo.size, n - 3)),
-        eigp=np.empty((tiempo.size, n - 3))
         )
     logs.x[0] = x0
     logs.u[0] = np.zeros((nv, dof))
     logs.J[0] = None
-    logs.Jp[0] = None
     logs.eig[0] = None
-    logs.eigp[0] = None
 
     cuadros = np.empty((tiempo.size, 2), dtype=np.ndarray)
-    # E0 = net.complete_undirected_edges(V)
-    E0 = net.undirected_edges(disk_graph.edges(x0, dmax))
+    E0 = disk_graph.edges(x0, dmax)
     cuadros[0] = x0, E0
 
     # ------------------------------------------------------------------
@@ -230,9 +235,7 @@ if __name__ == '__main__':
     x = logs.x
     u = logs.u
     J = logs.J
-    Jp = logs.Jp
     eig = logs.eig
-    eigp = logs.eigp
 
     st = arg.tf - arg.ti
     rt = sum(t_perf)
@@ -242,6 +245,7 @@ if __name__ == '__main__':
     # ------------------------------------------------------------------
     # Plotting
     # ------------------------------------------------------------------
+
     fig = plt.figure(figsize=(13, 5))
     fig.subplots_adjust(hspace=0.5, wspace=0.25)
     gs = fig.add_gridspec(dof, 2)
@@ -272,29 +276,28 @@ if __name__ == '__main__':
 
     fig = plt.figure(figsize=(13, 5))
     fig.subplots_adjust(hspace=0.5, wspace=0.25)
-    gs = fig.add_gridspec(2, 1)
+    gs = fig.add_gridspec(2, 2)
 
     ax = agregar_ax(
         gs[0, 0],
-        xlabel='t [seg]', ylabel=metrica, label_kw={'fontsize': 10})
-    ax.plot(tiempo, J, color='C0', label='(ctrl)', ds='steps')
-    ax.plot(tiempo, Jp, color='C1', label='(planta)', ds='steps')
-    # ax.plot(
-    #     tiempo, eig.prod(1),
-    #     color='C2', label=r'$\rm{det}(Y)$ (ctrl)', ds='steps')
-    # ax.plot(
-    #     tiempo, eigp.prod(1),
-    #     color='C3', label=r'$\rm{det}(Y)$ (planta)', ds='steps')
+        xlabel='t [seg]', label_kw={'fontsize': 10})
+    ax.semilogy(tiempo, J[:, 0], label=r'$det(F(x))^a$', ds='steps')
+    # ax.set_ylim(bottom=0)
     ax.legend()
 
     ax = agregar_ax(
-        gs[1, 0],
-        xlabel='t [seg]', ylabel='eigvals', label_kw={'fontsize': 10})
-    ax.plot(tiempo, eig[:, 0], color='C0', label='control', ds='steps')
-    ax.plot(tiempo, eig[:, 1:], color='C0', ds='steps')
-    ax.plot(tiempo, eigp[:, 0], color='C1', label='planta', ds='steps')
-    ax.plot(tiempo, eigp[:, 1:], color='C1', ds='steps')
+        gs[0, 1],
+        xlabel='t [seg]', label_kw={'fontsize': 10})
+    ax.plot(tiempo, J[:, 1], label=r'$|\mathcal{E}|$', ds='steps')
+    ax.set_ylim(bottom=0)
     ax.legend()
+
+    ax = agregar_ax(
+        gs[1, :],
+        xlabel='t [seg]', ylabel=r'$\lambda(F(x))$',
+        label_kw={'fontsize': 10})
+    ax.semilogy(tiempo, eig, ds='steps')
+    # ax.set_ylim(bottom=0)
 
     if arg.save:
         fig.savefig('/tmp/metricas.pdf', format='pdf')
@@ -305,8 +308,8 @@ if __name__ == '__main__':
         estilos = (
             [V, {'color': 'b', 'marker': 'o', 'markersize': '5'}], )
         fig, ax = plt.subplots()
-        ax.set_xlim(-lim, lim)
-        ax.set_ylim(-lim, lim)
+        ax.set_xlim(-1.5 * dmax, 1.5 * dmax)
+        ax.set_ylim(-1.5 * dmax, 1.5 * dmax)
         ax.set_aspect('equal')
         ax.grid(1)
         ax.set_xlabel('$x$')

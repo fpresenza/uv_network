@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-""" Created on jue mar 18 13:21:30 -03 2021
+""" Created on lun abr  5 16:16:07 -03 2021
 @author: fran
 """
 import argparse
@@ -11,64 +11,40 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from gpsic.plotting.core import agregar_ax
-from gpsic.plotting.planar import animate_matrix
 from gpsic.grafos.plotting import animar_grafo
 from uvnpy.modelos.lineal import integrador
+import uvnpy.network.core as net
 import uvnpy.network.disk_graph as disk_graph
 import uvnpy.network.connectivity as cnt
 import uvnpy.rsn.core as rsn
 import uvnpy.rsn.distances as distances
 import uvnpy.toolkit.calculus as calc
 
-np.set_printoptions(suppress=True, precision=3, linewidth=150)
 # ------------------------------------------------------------------
 # Definición de variables globales, funciones y clases
 # ------------------------------------------------------------------
-Logs = collections.namedtuple('Logs', 'x u J eig Y')
+Logs = collections.namedtuple('Logs', 'x u J Jp eig eigp')
 
 D = calc.derivative_eval
-lsd = cnt.logistic_strength_derivative
+repulsion = distances.local_edge_potencial_gradient
+
+# metrica = r'$\rm{tr}(Y)$'
+metrica = r'$\rm{log}(\rm{det}M(x))$'
 
 
-def detF(p):
-    A = distances.distances_aa(p)
-    A[A > 0] = cnt.logistic_strength(A[A > 0], w=beta_2, e=e_2)
-
-    _, Mf = rsn.pose_and_shape_basis_2d_aa(p)
-    Mf_T = Mf.swapaxes(-2, -1)
-
-    Y = distances.innovation_matrix_aa(A, p)
-    F = np.matmul(Mf_T, np.matmul(Y, Mf))
-    return np.linalg.det(F)
+def detFi(p, q, w):
+    T = distances.local_innovation_matrix(p, q, w)
+    return np.linalg.det(T)
 
 
-def detF_grad(p):
-    u = a * detF(p[None])**(a - 1) * D(detF, p)
+def detFi_grad(p, q, w):
+    u = a * detFi(p, q, w)**(a - 1) * D(detFi, p[0], q, w)
     return u.reshape(p.shape)
 
 
-def logdetF_grad(p):
-    u = detF(p[None])**(-1) * D(detF, p)
+def logdetFi_grad(p, q, w):
+    u = detFi(p, q, w)**(-1) * D(detFi, p[0], q, w)
     return u.reshape(p.shape)
-
-
-def keep_rigid(p):
-    u = - a * detF(p[None])**(-a - 1) * D(detF, p)
-    return -u.reshape(p.shape)
-
-
-def min_edges(p):
-    w = distances.distances(p)
-    w[w > 0] = lsd(w[w > 0], w=beta_1, e=e_1)
-    u = distances.edge_potencial_gradient(w, p)
-    return -u
-
-
-def repulsion(p):
-    w = distances.distances(p)
-    w[w > 0] = cnt.power_strength_derivative(w[w > 0], a=2)
-    u = distances.edge_potencial_gradient(w, p)
-    return -u
 
 
 def is_rigid(Ar, p):
@@ -83,9 +59,9 @@ def grid(nv, sep):
     return np.vstack(np.dstack(g))[:nv]
 
 
-def linspace(nv, dmax):
+def linspace(nv, lim):
     p = np.empty((nv, 2))
-    p[:, 0] = np.linspace(-dmax, dmax, nv)
+    p[:, 0] = np.linspace(-lim, lim, nv)
     p[:, 1] = 0
     return p
 
@@ -103,35 +79,56 @@ def run(steps, logs, t_perf, planta, cuadros):
         x = planta.x
 
         # Control
-        t_a = time.perf_counter()
 
-        # u = (nv / 10) * keep_rigid(x) + 1.5 * min_edges(x) + 0.3 * repulsion(x)   # noqa
-        u = 0.4 * detF_grad(x) + 3 * repulsion(x)
+        dist = distances.distances(x)
+        A = dist.copy()
+        A[A > dmax] = 0
+        A[A != 0] = 1
+        _, S = rsn.pose_and_shape_basis_2d(x)
 
-        t_b = time.perf_counter()
+        t_a = np.empty(nv)
+        t_b = np.empty(nv)
+        for i in V:
+            t_a[i] = time.perf_counter()
+            p = x[i]
+            q = np.delete(x, i, axis=0)
+            q = disk_graph.local_neighbors(p, q, dmax)
+            p = p[None]
+            dij = distances.local_distances(p, q)
+
+            wd = cnt.logistic_strength(dij, 1, e=dmax)
+            wr = cnt.power_strength_derivative(dij, 4)
+            u[i] = 15 * detFi_grad(p, q, wd) - 5 * repulsion(p, q, wr)
+            t_b[i] = time.perf_counter()
 
         x = planta.step(t, u)
 
         # Análisis
-        A = disk_graph.adjacency(x, dmax)
-        Y = distances.innovation_matrix(A, x)
+        Aw = dist.copy()
+        Aw[Aw > 0] = cnt.logistic_strength(Aw[Aw > 0], w=1, e=dmax)
+        Y = distances.innovation_matrix(Aw, x)
+        M = S.T.dot(Y).dot(S)
+        # J = np.linalg.det(M)**a
+        J = np.log(np.linalg.det(M))
+        eigvals = np.linalg.eigvalsh(M)
 
-        _, Mf = rsn.pose_and_shape_basis_2d(x)
-        F = Mf.T.dot(Y).dot(Mf)
-        J = np.abs(np.linalg.det(F))**a
-        # J = np.log(np.linalg.det(F))
-        eigvals = np.linalg.eigvalsh(F)
+        Yp = distances.innovation_matrix(A, x)
+        Mp = S.T.dot(Yp).dot(S)
+        # Jp = np.linalg.det(Mp)**a
+        Jp = np.log(np.linalg.det(Mp))
+        eigvalsp = np.linalg.eigvalsh(Mp)
 
-        E = disk_graph.edges(x, dmax)
+        E = net.undirected_edges(disk_graph.edges(x, dmax))
         cuadros[k] = x, E
 
         logs.x[k] = x
         logs.u[k] = u
-        logs.J[k] = (J, len(E))
+        logs.J[k] = J
+        logs.Jp[k] = Jp
         logs.eig[k] = eigvals
-        logs.Y[k] = Y
+        logs.eigp[k] = eigvalsp
 
-        t_perf.append(t_b - t_a)
+        t_perf.append(np.mean(t_b - t_a))
         bar.update(np.round(t, 3))
 
     bar.finish()
@@ -178,41 +175,22 @@ if __name__ == '__main__':
     steps = list(enumerate(tiempo))
     t_perf = []
 
+    lim = 10.
     nv = arg.n
     a = 2 / nv
     V = range(nv)
     dof = 2
     n = dof * nv
-    dmax = 15
-    # beta_1 = 10 / dmax
-    # beta_2 = 40 / dmax
-    # e_1 = dmax
-    # e_2 = 0.7 * dmax
-    beta_1 = 0.5
-    beta_2 = 0.5
-    e_1 = dmax
-    e_2 = dmax
-
-    np.random.seed(6)
-    # x0 = np.random.uniform(-0.5 * dmax, 0.5 * dmax, (nv, dof))
-    x0 = np.random.uniform(-1.3 * dmax, 1.3 * dmax, (nv, dof))
-    # x0 = np.array([
-    #    [  8.14 , -14.377],
-    #    [  4.009,   7.464],
-    #    [ -0.045,  -8.256],
-    #    [ -9.058,   7.816],
-    #    [ -9.927, -12.35 ],
-    #    [  5.561,  13.602],
-    #    [-14.882,   0.366],
-    #    [  9.379,   3.376],
-    #    [  6.653,  -6.244],
-    #    [ 12.533,   6.437],
-    #    [  1.276, -10.735],
-    #    [ -3.8  ,   5.224],
-    #    [ -1.745,  -1.98 ],
-    #    [ -7.123,   0.45 ],
-    #    [ -1.012,  10.45 ],
-    #    [  9.157,   0.649]]) * 1.4
+    dmax = 12
+    np.random.seed(9)
+    x0 = np.random.uniform(-lim, lim, (nv, dof))
+    u = np.zeros((nv, dof))
+    # x0 = np.array([[-5, 0],
+    #                [0, -5],
+    #                [5, 0],
+    #                [0, 5]], dtype=np.float) * 1.5
+    # x0 = grid(nv, 5)
+    # x0 = linspace(nv, lim*0.75) + np.random.normal(0, 0.5, (nv, dof))
 
     planta = integrador(x0, tiempo[0])
 
@@ -225,18 +203,21 @@ if __name__ == '__main__':
     logs = Logs(
         x=np.empty((tiempo.size, nv, dof)),
         u=np.empty((tiempo.size, nv, dof)),
-        J=np.empty((tiempo.size, 2)),
+        J=np.empty((tiempo.size)),
+        Jp=np.empty((tiempo.size)),
         eig=np.empty((tiempo.size, n - 3)),
-        Y=np.empty((tiempo.size, n, n))
+        eigp=np.empty((tiempo.size, n - 3))
         )
     logs.x[0] = x0
     logs.u[0] = np.zeros((nv, dof))
     logs.J[0] = None
+    logs.Jp[0] = None
     logs.eig[0] = None
-    logs.Y[0] = distances.innovation_matrix(A0, x0)
+    logs.eigp[0] = None
 
     cuadros = np.empty((tiempo.size, 2), dtype=np.ndarray)
-    E0 = disk_graph.edges(x0, dmax)
+    # E0 = net.complete_undirected_edges(V)
+    E0 = net.undirected_edges(disk_graph.edges(x0, dmax))
     cuadros[0] = x0, E0
 
     # ------------------------------------------------------------------
@@ -247,8 +228,9 @@ if __name__ == '__main__':
     x = logs.x
     u = logs.u
     J = logs.J
+    Jp = logs.Jp
     eig = logs.eig
-    Y = logs.Y
+    eigp = logs.eigp
 
     st = arg.tf - arg.ti
     rt = sum(t_perf)
@@ -258,7 +240,6 @@ if __name__ == '__main__':
     # ------------------------------------------------------------------
     # Plotting
     # ------------------------------------------------------------------
-
     fig = plt.figure(figsize=(13, 5))
     fig.subplots_adjust(hspace=0.5, wspace=0.25)
     gs = fig.add_gridspec(dof, 2)
@@ -289,28 +270,29 @@ if __name__ == '__main__':
 
     fig = plt.figure(figsize=(13, 5))
     fig.subplots_adjust(hspace=0.5, wspace=0.25)
-    gs = fig.add_gridspec(2, 2)
+    gs = fig.add_gridspec(2, 1)
 
     ax = agregar_ax(
         gs[0, 0],
-        xlabel='t [seg]', label_kw={'fontsize': 10})
-    ax.semilogy(tiempo, J[:, 0], label=r'$det(F(x))^a$', ds='steps')
-    # ax.set_ylim(bottom=0)
+        xlabel='t [seg]', ylabel=metrica, label_kw={'fontsize': 10})
+    ax.plot(tiempo, J, color='C0', label='(ctrl)', ds='steps')
+    ax.plot(tiempo, Jp, color='C1', label='(planta)', ds='steps')
+    # ax.plot(
+    #     tiempo, eig.prod(1),
+    #     color='C2', label=r'$\rm{det}(Y)$ (ctrl)', ds='steps')
+    # ax.plot(
+    #     tiempo, eigp.prod(1),
+    #     color='C3', label=r'$\rm{det}(Y)$ (planta)', ds='steps')
     ax.legend()
 
     ax = agregar_ax(
-        gs[0, 1],
-        xlabel='t [seg]', label_kw={'fontsize': 10})
-    ax.plot(tiempo, J[:, 1], label=r'$|\mathcal{E}|$', ds='steps')
-    ax.set_ylim(bottom=0)
+        gs[1, 0],
+        xlabel='t [seg]', ylabel='eigvals', label_kw={'fontsize': 10})
+    ax.plot(tiempo, eig[:, 0], color='C0', label='control', ds='steps')
+    ax.plot(tiempo, eig[:, 1:], color='C0', ds='steps')
+    ax.plot(tiempo, eigp[:, 0], color='C1', label='planta', ds='steps')
+    ax.plot(tiempo, eigp[:, 1:], color='C1', ds='steps')
     ax.legend()
-
-    ax = agregar_ax(
-        gs[1, :],
-        xlabel='t [seg]', ylabel=r'$\lambda(F(x))$',
-        label_kw={'fontsize': 10})
-    ax.semilogy(tiempo, eig, ds='steps')
-    # ax.set_ylim(bottom=0)
 
     if arg.save:
         fig.savefig('/tmp/metricas.pdf', format='pdf')
@@ -318,24 +300,11 @@ if __name__ == '__main__':
         plt.show()
 
     if arg.animate:
-        # animar matriz
-        fig, ax = plt.subplots()
-        animate_matrix(fig, ax, arg.h, Y, save=arg.save)
-
-        # animar grafo
         estilos = (
             [V, {'color': 'b', 'marker': 'o', 'markersize': '5'}], )
         fig, ax = plt.subplots()
-        title = r'$n={}, \; d_{{max}}={},$'
-        # title += '\n'
-        # title += r'$\beta_1={}, \; \epsilon_1={},$'
-        # title += '\t'
-        # title += r'$\beta_2={}, \; \epsilon_2={}$'
-        # fig.suptitle(title.format(nv, dmax, beta_1, e_1, beta_2, e_2))
-        title += r'$\beta={}, \; \epsilon={},$'
-        fig.suptitle(title.format(nv, dmax, beta_1, e_1))
-        ax.set_xlim(-1.5 * dmax, 1.5 * dmax)
-        ax.set_ylim(-1.5 * dmax, 1.5 * dmax)
+        ax.set_xlim(-lim, lim)
+        ax.set_ylim(-lim, lim)
         ax.set_aspect('equal')
         ax.grid(1)
         ax.set_xlabel('$x$')

@@ -183,20 +183,6 @@ def innovation_matrix_diag_aa(A, p):
     return diag
 
 
-def local_distances(p, q):
-    r = p[:, None] - q
-    dist = np.sqrt(np.square(r).sum(2))
-    return dist
-
-
-def local_innovation_matrix(p, q, w=np.array(1.)):
-    r = unit_vector(p[:, None] - q, axis=2)
-    rw = r * w[..., None]
-    Y = r[..., None] * rw[..., None, :]
-    Yi = Y.sum(1)
-    return Yi
-
-
 def edge_potencial_gradient(A, p):
     """Gradiente de un potencial función de la distancia de los enlaces.
 
@@ -221,6 +207,20 @@ def edge_potencial_gradient(A, p):
     r *= A[..., None]               # aplicar pesos
     grad = r.sum(1)
     return grad
+
+
+def local_distances(p, q):
+    r = p[:, None] - q
+    dist = np.sqrt(np.square(r).sum(2))
+    return dist
+
+
+def local_innovation_matrix(p, q, w=np.array(1.)):
+    r = unit_vector(p[:, None] - q, axis=2)
+    rw = r * w[..., None]
+    Y = r[..., None] * rw[..., None, :]
+    Yi = Y.sum(1)
+    return Yi
 
 
 def local_edge_potencial_gradient(p, q, w):
