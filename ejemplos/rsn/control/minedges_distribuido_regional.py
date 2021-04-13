@@ -32,7 +32,7 @@ def detFi(p, q):
     pq = np.empty((len(p), len(q) + 1, 2))
     pq[:, 0] = p
     pq[:, 1:] = q
-    Ai = distances.distances_aa(pq)
+    Ai = distances.all_aa(pq)
     Ai[Ai > 0] = cnt.logistic_strength(Ai[Ai > 0], w=beta_2, e=e_2)
 
     _, Mf = rsn.pose_and_shape_basis_2d_aa(pq)
@@ -60,11 +60,6 @@ def repulsion(p, q):
     w = cnt.power_strength_derivative(dist, a=2)
     u = distances.local_edge_potencial_gradient(p[None], q, w)
     return -u.reshape(p.shape)
-
-
-def is_rigid(A, p):
-    Y = distances.innovation_matrix(A, p)
-    return np.linalg.matrix_rank(Y) >= p.size - 3
 
 
 def grid(nv, sep):
@@ -197,7 +192,7 @@ if __name__ == '__main__':
     planta = integrador(x0, tiempo[0])
 
     A0 = disk_graph.adjacency(x0, dmax)
-    if is_rigid(A0, x0):
+    if distances.rigidity(A0, x0):
         print('---> Grafo rígido <---')
     else:
         print('---> Grafo flexible <---')
@@ -207,7 +202,7 @@ if __name__ == '__main__':
         q = disk_graph.local_neighbors(p, q, dmax)
         pq = np.vstack([p, q])
         Ai = disk_graph.adjacency(pq, dmax)
-        if not is_rigid(Ai, pq):
+        if not distances.rigidity(Ai, pq):
             print('Warning!: Grafo {} no es rígido.'.format(i))
 
     logs = Logs(

@@ -16,6 +16,7 @@ from uvnpy.modelos.lineal import integrador
 import uvnpy.network.graph as gph
 import uvnpy.network.connectivity as cnt
 import uvnpy.rsn.core as rsn
+import uvnpy.rsn.distances as distances
 from uvnpy.control import informativo
 from uvnpy.control import costos
 
@@ -44,14 +45,14 @@ atenuacion = logistic          # familia sigmoide
 def innovacion(x, A):
     N = len(x)
     p = np.reshape(x, (N, -1, 2))
-    dist = rsn.distances(p)
+    dist = distances.all(p)
     Aw = atenuacion(dist, dmax, 1)
     # A = atenuacion(dist, 0.5 * dmax, 1)
     # A = np.empty(Aw.shape)
     # A[:] = Aw[0]
     A = np.tile(A, (N, 1, 1))
-    # Yw = sum(rsn.distances_innovation_aa(Aw, p))
-    Y = sum(rsn.distances_innovation_aa(A, p))
+    # Yw = sum(distances.innovation_matrix_aa(Aw, p))
+    Y = sum(distances.innovation_matrix_aa(A, p))
     _, S = rsn.pose_and_shape_basis_2d(p[None, 0])
     S = S[0]
     Ys = S.T.dot(Y.dot(S))
@@ -74,11 +75,11 @@ def ca_repulsion(u, x_p, Q):
 
 
 def analisis(x, dmax, Vp, atenuacion):
-    dist = rsn.distances(x)
+    dist = distances.all(x)
     Aw = atenuacion(dist, dmax, 1)
     A = np.ones(Aw.shape) - np.eye(*Aw.shape[-2:])
-    Yw = rsn.distances_innovation(Aw, x)
-    Y = rsn.distances_innovation(A, x)
+    Yw = distances.innovation_matrix(Aw, x)
+    Y = distances.innovation_matrix(A, x)
     _, S = rsn.pose_and_shape_basis_2d(x)
     Yws = S.T.dot(Yw.dot(S))
     Ys = S.T.dot(Y.dot(S))
@@ -127,7 +128,6 @@ def run(steps, logs, t_perf, planta, cuadros):
         J, eigvals = analisis(x, dmax, [], logistic)
         Jp, eigvalsp = analisis(x, dmax, Vp, on_off)
 
-        # E = gph.complete_undirected_edges(V)
         E = gph.undirected_edges(gph.edges_from_positions(x, dmax))
         X = x[list(V) + list(Vp)]
         cuadros[k] = X, E
@@ -197,7 +197,7 @@ if __name__ == '__main__':
     np.random.seed(5)
     x0 = np.random.uniform(-lim/1.7, lim/1.7, (nv, dof))
     A0 = gph.adjacency_from_positions(x0, dmax)
-    H0 = rsn.distances_jac(A0, x0)
+    H0 = distances.jacobian_from_adjacency(A0, x0)
     if np.all(A0 == gph.complete_adjacency(V)):
         print('---> Grafo completo <---')
     elif np.linalg.matrix_rank(H0) == nv * dof - 3:
@@ -241,7 +241,6 @@ if __name__ == '__main__':
     logs.x_p[0] = None
 
     cuadros = np.empty((tiempo.size, 2), dtype=np.ndarray)
-    # E0 = gph.complete_undirected_edges(V)
     E0 = gph.undirected_edges(gph.edges_from_positions(x0, dmax))
     X0 = x0[list(V) + [0, 1]]
     cuadros[0] = X0, E0

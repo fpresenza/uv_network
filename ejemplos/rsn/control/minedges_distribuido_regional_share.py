@@ -29,7 +29,7 @@ lsd = cnt.logistic_strength_derivative
 
 
 def detFi(p):
-    Ai = distances.distances_aa(p)
+    Ai = distances.all_aa(p)
     Ai[Ai > 0] = cnt.logistic_strength(Ai[Ai > 0], w=beta_2, e=e_2)
     _, Mf = rsn.pose_and_shape_basis_2d_aa(p)
     Mf_T = Mf.swapaxes(-2, -1)
@@ -45,22 +45,17 @@ def keep_rigid(p):
 
 
 def min_edges(p):
-    w = distances.distances(p)
+    w = distances.all(p)
     w[w > 0] = lsd(w[w > 0], w=beta_1, e=e_1)
     u = distances.edge_potencial_gradient(w, p)
     return -u.reshape(p.shape)
 
 
 def repulsion(p):
-    w = distances.distances(p)
+    w = distances.all(p)
     w[w > 0] = cnt.power_strength_derivative(w[w > 0], a=2)
     u = distances.edge_potencial_gradient(w, p)
     return -u.reshape(p.shape)
-
-
-def is_rigid(A, p):
-    Y = distances.innovation_matrix(A, p)
-    return np.linalg.matrix_rank(Y) >= p.size - 3
 
 
 def grid(nv, sep):
@@ -193,7 +188,7 @@ if __name__ == '__main__':
     planta = integrador(x0, tiempo[0])
 
     A0 = disk_graph.adjacency(x0, dmax)
-    if is_rigid(A0, x0):
+    if distances.rigidity(A0, x0):
         print('---> Grafo rígido <---')
     else:
         print('---> Grafo flexible <---')
@@ -201,7 +196,7 @@ if __name__ == '__main__':
         Gi = disk_graph.local_subgraph(x0, i, dmax)
         p = x0[Gi]
         Ai = disk_graph.adjacency(p, dmax)
-        if not is_rigid(Ai, p):
+        if not distances.rigidity(Ai, p):
             print('Warning!: Grafo {} no es rígido.'.format(i))
 
     logs = Logs(

@@ -15,7 +15,7 @@ from gpsic.grafos.plotting import animar_grafo
 from uvnpy.modelos.lineal import integrador
 import uvnpy.network.graph as gph
 import uvnpy.network.control as ctrl
-import uvnpy.rsn.core as rsn
+import uvnpy.rsn.distances as distances
 
 # ------------------------------------------------------------------
 # Definición de variables globales, funciones y clases
@@ -52,7 +52,7 @@ def run(steps, logs, t_perf, planta, cuadros):
         # Control
         t_a = time.perf_counter()
 
-        dist = rsn.distances(x)
+        dist = distances.all(x)
 
         # traza
         Ad = dist.copy()

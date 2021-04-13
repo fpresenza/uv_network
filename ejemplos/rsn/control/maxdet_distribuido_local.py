@@ -47,11 +47,6 @@ def logdetFi_grad(p, q, w):
     return u.reshape(p.shape)
 
 
-def is_rigid(Ar, p):
-    Yr = distances.innovation_matrix(Ar, p)
-    return np.linalg.matrix_rank(Yr) >= p.size - 3
-
-
 def grid(nv, sep):
     k = np.ceil(np.sqrt(nv)) / 2
     nums = np.arange(-k, k) * sep
@@ -80,7 +75,7 @@ def run(steps, logs, t_perf, planta, cuadros):
 
         # Control
 
-        dist = distances.distances(x)
+        dist = distances.all(x)
         A = dist.copy()
         A[A > dmax] = 0
         A[A != 0] = 1
@@ -195,7 +190,7 @@ if __name__ == '__main__':
     planta = integrador(x0, tiempo[0])
 
     A0 = disk_graph.adjacency(x0, dmax)
-    if is_rigid(A0, x0):
+    if distances.rigidity(A0, x0):
         print('---> Grafo rígido <---')
     else:
         print('---> Grafo flexible <---')
@@ -216,7 +211,6 @@ if __name__ == '__main__':
     logs.eigp[0] = None
 
     cuadros = np.empty((tiempo.size, 2), dtype=np.ndarray)
-    # E0 = net.complete_undirected_edges(V)
     E0 = net.undirected_edges(disk_graph.edges(x0, dmax))
     cuadros[0] = x0, E0
 

@@ -14,7 +14,7 @@ from gpsic.plotting.core import agregar_ax
 from gpsic.grafos.plotting import animar_grafo
 from uvnpy.modelos.lineal import integrador
 import uvnpy.network.graph as gph
-import uvnpy.rsn.core as rsn
+import uvnpy.rsn.distances as distances
 
 # ------------------------------------------------------------------
 # Definición de variables globales, funciones y clases
@@ -23,7 +23,7 @@ Logs = collections.namedtuple('Logs', 'x u y_ref y')
 
 
 def measure(A, p):
-    dist = np.triu(A * rsn.distances(p))
+    dist = np.triu(A * distances.all(p))
     y = dist[dist > 0]
     return y
 
@@ -60,7 +60,7 @@ def run(steps, logs, t_perf, planta, cuadros):
         y = measure(A, x)
         u_y = y_ref - y
 
-        H = rsn.distances_jac(A, x)
+        H = distances.jacobian_from_adjacency(A, x)
         Hpinv = np.linalg.pinv(H)
         u = Hpinv.dot(u_y).reshape(nv, dof)
 
