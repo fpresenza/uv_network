@@ -82,6 +82,15 @@ def undirected_laplacian_from_edges(V, E, w=1):
     return Deg - A
 
 
+def remove_one_edge_adjacency(A):
+    E = np.argwhere(np.triu(A) > 0)
+    m = len(E)
+    Am = np.tile(A, (m, 1, 1))
+    for e, (i, j) in enumerate(E):
+        Am[e, i, j] = Am[e, j, i] = 0
+    return Am
+
+
 def plot_nodes(ax, p, **kwargs):
     """Plotear nodos."""
     nodes = ax.scatter(p[:, 0], p[:, 1], **kwargs)
