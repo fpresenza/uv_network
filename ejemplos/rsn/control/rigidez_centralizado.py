@@ -66,7 +66,7 @@ def min_edges(p):
 
 def repulsion(p):
     w = distances.all(p)
-    w[w > 0] = cnt.power_strength_derivative(w[w > 0], a=2)
+    w[w > 0] = cnt.power_strength_derivative(w[w > 0], a=1)
     u = distances.edge_potencial_gradient(w, p)
     return -u
 
@@ -100,8 +100,9 @@ def run(steps, logs, t_perf, planta, cuadros):
         # Control
         t_a = time.perf_counter()
 
-        # u = (nv / 10) * keep_rigid(x) + 1.5 * min_edges(x) + 0.3 * repulsion(x)   # noqa
-        u = 0.4 * detF_grad(x) + 3 * repulsion(x)
+        # u = keep_rigid(x) + 1.5 * min_edges(x) + (2 / nv) * repulsion(x)
+        # u *= 2
+        u = 0.2 * detF_grad(x) + 2 * repulsion(x)
 
         t_b = time.perf_counter()
 
@@ -178,7 +179,7 @@ if __name__ == '__main__':
     V = range(nv)
     dof = 2
     n = dof * nv
-    dmax = 15
+    dmax = 10
     # beta_1 = 10 / dmax
     # beta_2 = 40 / dmax
     # e_1 = dmax
@@ -188,7 +189,7 @@ if __name__ == '__main__':
     e_1 = dmax
     e_2 = dmax
 
-    np.random.seed(6)
+    np.random.seed(1)
     # x0 = np.random.uniform(-0.5 * dmax, 0.5 * dmax, (nv, dof))
     x0 = np.random.uniform(-1.3 * dmax, 1.3 * dmax, (nv, dof))
     # x0 = np.array([
@@ -288,23 +289,25 @@ if __name__ == '__main__':
 
     ax = agregar_ax(
         gs[0, 0],
-        xlabel='t [seg]', label_kw={'fontsize': 10})
-    ax.semilogy(tiempo, J[:, 0], label=r'$det(F(x))^a$', ds='steps')
+        xlabel='t [seg]', ylabel=r'$det(F)^a$', label_kw={'fontsize': 10})
+    # ax.semilogy(tiempo, J[:, 0], ds='steps')
+    ax.plot(tiempo, J[:, 0], ds='steps')
     # ax.set_ylim(bottom=0)
-    ax.legend()
+    # ax.legend()
 
     ax = agregar_ax(
         gs[0, 1],
-        xlabel='t [seg]', label_kw={'fontsize': 10})
-    ax.plot(tiempo, J[:, 1], label=r'$|\mathcal{E}|$', ds='steps')
+        xlabel='t [seg]', ylabel=r'$|\mathcal{E}|$', label_kw={'fontsize': 10})
+    ax.plot(tiempo, J[:, 1], ds='steps')
     ax.set_ylim(bottom=0)
-    ax.legend()
+    # ax.legend()
 
     ax = agregar_ax(
         gs[1, :],
-        xlabel='t [seg]', ylabel=r'$\lambda(F(x))$',
+        xlabel='t [seg]', ylabel=r'$\lambda(F)$',
         label_kw={'fontsize': 10})
-    ax.semilogy(tiempo, eig, ds='steps')
+    # ax.semilogy(tiempo, eig, ds='steps')
+    ax.plot(tiempo, eig, ds='steps')
     # ax.set_ylim(bottom=0)
 
     if arg.save:
@@ -322,13 +325,13 @@ if __name__ == '__main__':
             [V, {'color': 'b', 'marker': 'o', 'markersize': '5'}], )
         fig, ax = plt.subplots()
         title = r'$n={}, \; d_{{max}}={},$'
-        # title += '\n'
-        # title += r'$\beta_1={}, \; \epsilon_1={},$'
-        # title += '\t'
-        # title += r'$\beta_2={}, \; \epsilon_2={}$'
-        # fig.suptitle(title.format(nv, dmax, beta_1, e_1, beta_2, e_2))
-        title += r'$\beta={}, \; \epsilon={},$'
-        fig.suptitle(title.format(nv, dmax, beta_1, e_1))
+        title += '\n'
+        title += r'$\beta_1={}, \; \epsilon_1={},$'
+        title += '\t'
+        title += r'$\beta_2={}, \; \epsilon_2={}$'
+        fig.suptitle(title.format(nv, dmax, beta_1, e_1, beta_2, e_2))
+        # title += r'$\beta={}, \; \epsilon={},$'
+        # fig.suptitle(title.format(nv, dmax, beta_1, e_1))
         ax.set_xlim(-1.5 * dmax, 1.5 * dmax)
         ax.set_ylim(-1.5 * dmax, 1.5 * dmax)
         ax.set_aspect('equal')

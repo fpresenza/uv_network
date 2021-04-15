@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 from gpsic.plotting.core import agregar_ax
 from gpsic.grafos.plotting import animar_grafo
 from uvnpy.modelos.lineal import integrador
-import uvnpy.network.core as net
 import uvnpy.network.disk_graph as disk_graph
 import uvnpy.network.connectivity as cnt
 import uvnpy.rsn.core as rsn
@@ -85,10 +84,12 @@ def run(steps, logs, t_perf, planta, cuadros):
         t_b = np.empty(nv)
         for i in V:
             t_a[i] = time.perf_counter()
+
             p = x[i]
-            q = np.delete(x, i, axis=0)
-            q = disk_graph.local_neighbors(p, q, dmax)
+            Ni = disk_graph.neighborhood(x, i, dmax)
+            q = x[Ni]
             p = p[None]
+
             dij = distances.local_distances(p, q)
 
             wd = cnt.logistic_strength(dij, 1, e=dmax)
@@ -113,7 +114,7 @@ def run(steps, logs, t_perf, planta, cuadros):
         Jp = np.log(np.linalg.det(Mp))
         eigvalsp = np.linalg.eigvalsh(Mp)
 
-        E = net.undirected_edges(disk_graph.edges(x, dmax))
+        E = disk_graph.edges(x, dmax)
         cuadros[k] = x, E
 
         logs.x[k] = x
@@ -211,7 +212,7 @@ if __name__ == '__main__':
     logs.eigp[0] = None
 
     cuadros = np.empty((tiempo.size, 2), dtype=np.ndarray)
-    E0 = net.undirected_edges(disk_graph.edges(x0, dmax))
+    E0 = disk_graph.edges(x0, dmax)
     cuadros[0] = x0, E0
 
     # ------------------------------------------------------------------

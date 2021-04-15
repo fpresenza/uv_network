@@ -93,11 +93,16 @@ def run(steps, logs, t_perf, planta, cuadros):
         t_b = np.empty(nv)
         for i in V:
             t_a[i] = time.perf_counter()
-            p = x[i]
-            q = np.delete(x, i, axis=0)
-            q = disk_graph.local_neighbors(x[i], q, dmax)
 
-            u[i] = keep_rigid(p, q) + 1.5 * min_edges(p, q) + 0.3 * repulsion(p, q)  # noqa
+            p = x[i]
+            # Ni = disk_graph.neighborhood(x, i, dmax)
+            # q = x[Ni]
+
+            N[i] = disk_graph.neighborhood_histeresis(x, i, N[i], dmin, dmax)
+            q = x[N[i]]
+
+            u[i] = keep_rigid(p, q) + 0.5 * min_edges(p, q) + (2 / nv) * repulsion(p, q)  # noqa
+            u[i] *= 2
 
             t_b[i] = time.perf_counter()
 
@@ -110,7 +115,6 @@ def run(steps, logs, t_perf, planta, cuadros):
         _, Mf = rsn.pose_and_shape_basis_2d(x)
         F = Mf.T.dot(Y).dot(Mf)
         J = np.abs(np.linalg.det(F))**a
-        # J = np.log(np.linalg.det(F))
         eigvals = np.linalg.eigvalsh(F)
 
         E = disk_graph.edges(x, dmax)
@@ -174,20 +178,16 @@ if __name__ == '__main__':
     dof = 2
     n = dof * nv
     dmax = 10
+    dmin = 0.7 * dmax
     beta_1 = 10 / dmax
     beta_2 = 40 / dmax
     e_1 = dmax
     e_2 = 0.7 * dmax
 
-    np.random.seed(10)
+    np.random.seed(1)
     x0 = np.random.uniform(-0.5 * dmax, 0.5 * dmax, (nv, dof))
     u = np.zeros((nv, dof))
-    # x0 = np.array([[-5, 0],
-    #                [0, -5],
-    #                [5, 0],
-    #                [0, 5]], dtype=np.float)
-    # x0 = grid(nv, 5)
-    # x0 = linspace(nv, dmax*0.75) + np.random.normal(0, 0.5, (nv, dof))
+    N = np.empty(nv, dtype=np.ndarray)
 
     planta = integrador(x0, tiempo[0])
 
@@ -197,12 +197,12 @@ if __name__ == '__main__':
     else:
         print('---> Grafo flexible <---')
     for i in V:
-        p = x0[i]
-        q = np.delete(x0, i, axis=0)
-        q = disk_graph.local_neighbors(p, q, dmax)
-        pq = np.vstack([p, q])
-        Ai = disk_graph.adjacency(pq, dmax)
-        if not distances.rigidity(Ai, pq):
+        N[i] = disk_graph.neighborhood(x0, i, dmax)
+        Ri = disk_graph.neighborhood(x0, i, dmax, inclusive=True)
+        p = x0[Ri]
+
+        Ai = disk_graph.adjacency(p, dmax)
+        if not distances.rigidity(Ai, p):
             print('Warning!: Grafo {} no es rígido.'.format(i))
 
     logs = Logs(

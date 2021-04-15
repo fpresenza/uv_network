@@ -93,7 +93,7 @@ def remove_one_edge_adjacency(A):
 
 def plot_nodes(ax, p, **kwargs):
     """Plotear nodos."""
-    nodes = ax.scatter(p[:, 0], p[:, 1], **kwargs)
+    nodes = ax.scatter(p[..., 0], p[..., 1], **kwargs)
     return nodes
 
 

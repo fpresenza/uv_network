@@ -95,9 +95,10 @@ def run(steps, logs, t_perf, planta, cuadros):
         t_b = np.empty(nv)
         for i in V:
             t_a[i] = time.perf_counter()
+
             p = x[i]
-            q = np.delete(x, i, axis=0)
-            q = disk_graph.local_neighbors(p, q, dmax)
+            Ni = disk_graph.neighborhood(x, i, dmax)
+            q = x[Ni]
 
             u[i] = keep_rigid(p, q) + 1.5 * min_edges(p, q) + 0.3 * repulsion(p, q)  # noqa
 
@@ -200,8 +201,7 @@ if __name__ == '__main__':
         print('---> Grafo flexible <---')
     for i in V:
         p = x0[i]
-        q = np.delete(x0, i, axis=0)
-        Ni = disk_graph.local_neighbors(p, q, dmax)
+        Ni = disk_graph.neighborhood(x0, i, dmax)
         if len(Ni) < 2:
             print('Warning!: Nodo {} no tiene 2 vecinos.'.format(i))
 

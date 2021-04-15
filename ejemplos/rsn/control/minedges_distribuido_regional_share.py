@@ -31,6 +31,7 @@ lsd = cnt.logistic_strength_derivative
 def detFi(p):
     Ai = distances.all_aa(p)
     Ai[Ai > 0] = cnt.logistic_strength(Ai[Ai > 0], w=beta_2, e=e_2)
+
     _, Mf = rsn.pose_and_shape_basis_2d_aa(p)
     Mf_T = Mf.swapaxes(-2, -1)
 
@@ -53,7 +54,7 @@ def min_edges(p):
 
 def repulsion(p):
     w = distances.all(p)
-    w[w > 0] = cnt.power_strength_derivative(w[w > 0], a=2)
+    w[w > 0] = cnt.power_strength_derivative(w[w > 0], a=1)
     u = distances.edge_potencial_gradient(w, p)
     return -u.reshape(p.shape)
 
@@ -91,9 +92,10 @@ def run(steps, logs, t_perf, planta, cuadros):
         for i in V:
             t_a[i] = time.perf_counter()
 
-            Gi = disk_graph.local_subgraph(x, i, dmax)
-            p = x[Gi]
-            u[Gi] += keep_rigid(p) + 0.5 * min_edges(p) + (1 / nv) * repulsion(p)  # noqa
+            R[i] = disk_graph.neighborhood_histeresis(x, i, R[i], dmin, dmax, inclusive=True)  # noqa
+            p = x[R[i]]
+
+            u[R[i]] += keep_rigid(p) + 0.5 * min_edges(p) + (2 / nv) * repulsion(p)  # noqa
 
             t_b[i] = time.perf_counter()
 
@@ -106,7 +108,6 @@ def run(steps, logs, t_perf, planta, cuadros):
         _, Mf = rsn.pose_and_shape_basis_2d(x)
         F = Mf.T.dot(Y).dot(Mf)
         J = np.abs(np.linalg.det(F))**a
-        # J = np.log(np.linalg.det(F))
         eigvals = np.linalg.eigvalsh(F)
 
         E = disk_graph.edges(x, dmax)
@@ -170,6 +171,7 @@ if __name__ == '__main__':
     dof = 2
     n = dof * nv
     dmax = 10
+    dmin = 0.7 * dmax
     beta_1 = 10 / dmax
     beta_2 = 40 / dmax
     e_1 = dmax
@@ -178,12 +180,7 @@ if __name__ == '__main__':
     np.random.seed(1)
     x0 = np.random.uniform(-0.5 * dmax, 0.5 * dmax, (nv, dof))
     u = np.zeros((nv, dof))
-    # x0 = np.array([[-5, 0],
-    #                [0, -5],
-    #                [5, 0],
-    #                [0, 5]], dtype=np.float)
-    # x0 = grid(nv, 5)
-    # x0 = linspace(nv, dmax*0.75) + np.random.normal(0, 0.5, (nv, dof))
+    R = np.empty(nv, dtype=np.ndarray)
 
     planta = integrador(x0, tiempo[0])
 
@@ -193,8 +190,9 @@ if __name__ == '__main__':
     else:
         print('---> Grafo flexible <---')
     for i in V:
-        Gi = disk_graph.local_subgraph(x0, i, dmax)
-        p = x0[Gi]
+        R[i] = disk_graph.neighborhood(x0, i, dmax, inclusive=True)
+        p = x0[R[i]]
+
         Ai = disk_graph.adjacency(p, dmax)
         if not distances.rigidity(Ai, p):
             print('Warning!: Grafo {} no es rígido.'.format(i))
@@ -267,21 +265,21 @@ if __name__ == '__main__':
 
     ax = agregar_ax(
         gs[0, 0],
-        xlabel='t [seg]', label_kw={'fontsize': 10})
-    ax.semilogy(tiempo, J[:, 0], label=r'$det(F(x))^a$', ds='steps')
+        xlabel='t [seg]', ylabel=r'$det(F)^a$', label_kw={'fontsize': 10})
+    ax.semilogy(tiempo, J[:, 0], ds='steps')
     # ax.set_ylim(bottom=0)
-    ax.legend()
+    # ax.legend()
 
     ax = agregar_ax(
         gs[0, 1],
-        xlabel='t [seg]', label_kw={'fontsize': 10})
-    ax.plot(tiempo, J[:, 1], label=r'$|\mathcal{E}|$', ds='steps')
+        xlabel='t [seg]', ylabel=r'$|\mathcal{E}|$', label_kw={'fontsize': 10})
+    ax.plot(tiempo, J[:, 1], ds='steps')
     ax.set_ylim(bottom=0)
-    ax.legend()
+    # ax.legend()
 
     ax = agregar_ax(
         gs[1, :],
-        xlabel='t [seg]', ylabel=r'$\lambda(F(x))$',
+        xlabel='t [seg]', ylabel=r'$\lambda(F)$',
         label_kw={'fontsize': 10})
     ax.semilogy(tiempo, eig, ds='steps')
     # ax.set_ylim(bottom=0)

@@ -9,10 +9,18 @@ import numpy as np
 
 
 def edges(p, dmax=np.inf):
-    """ Devuelve array de enlaces por proximidad."""
+    """Devuelve array de enlaces por proximidad."""
     r = p[:, None] - p
     dist_2 = np.triu(np.square(r).sum(axis=-1))
     connected = (0 < dist_2) * (dist_2 < dmax**2)
+    return np.argwhere(connected)
+
+
+def inter_edges(p, q, dmax=np.inf):
+    """Devuelve array de enlaces por proximidad entre dos grupos p y q."""
+    r = p[:, None] - q
+    dist_2 = np.square(r).sum(axis=-1)
+    connected = dist_2 < dmax**2
     return np.argwhere(connected)
 
 
@@ -35,15 +43,21 @@ def adjacency(p, dmax=np.inf):
     return A
 
 
-def local_neighbors(p, q, dmax=np.inf):
-    r = p[None] - q
-    dist2 = np.square(r).sum(-1)
-    N = q[dist2 < dmax**2]
-    return N
-
-
-def local_subgraph(p, i, dmax=np.inf):
+def neighborhood(p, i, dmax=np.inf, inclusive=False):
     r = p[i] - p
     dist2 = np.square(r).sum(-1)
     idx = dist2 < dmax**2
+    idx[i] = inclusive
+    return idx
+
+
+def neighborhood_histeresis(
+        p, i, neighbors,
+        dmin=1., dmax=np.inf, inclusive=False):
+    r = p[i] - p
+    dist2 = np.square(r).sum(-1)
+    close = dist2 < dmin**2
+    between = ~close * (dist2 < dmax**2)
+    idx = close + neighbors * between
+    idx[i] = inclusive
     return idx
