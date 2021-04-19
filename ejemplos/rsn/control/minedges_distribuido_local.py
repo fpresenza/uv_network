@@ -30,9 +30,9 @@ lsd = cnt.logistic_strength_derivative
 
 def detFi(p, q):
     dist = distances.local_distances(p, q)
-    w = cnt.logistic_strength(dist, w=beta_2, e=e_2)
-    T = distances.local_innovation_matrix(p, q, w)
-    return np.linalg.det(T)
+    w = cnt.logistic_strength(dist, beta=beta_2, e=e_2)
+    yii = distances.local_innovation_matrix(p, q, w)
+    return np.linalg.det(yii)
 
 
 def detFi_grad(p, q):
@@ -52,7 +52,7 @@ def keep_rigid(p, q):
 
 def min_edges(p, q):
     dist = distances.local_distances(p[None], q)
-    w = lsd(dist, w=beta_1, e=e_1)
+    w = lsd(dist, beta=beta_1, e=e_1)
     u = distances.local_edge_potencial_gradient(p[None], q, w)
     return -u.reshape(p.shape)
 

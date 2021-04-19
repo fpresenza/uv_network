@@ -33,7 +33,7 @@ def detFi(p, q):
     pq[:, 0] = p
     pq[:, 1:] = q
     Ai = distances.all_aa(pq)
-    Ai[Ai > 0] = cnt.logistic_strength(Ai[Ai > 0], w=beta_2, e=e_2)
+    Ai[Ai > 0] = cnt.logistic_strength(Ai[Ai > 0], beta=beta_2, e=e_2)
 
     _, Mf = rsn.pose_and_shape_basis_2d_aa(pq)
     Mf_T = Mf.swapaxes(-2, -1)
@@ -50,7 +50,7 @@ def keep_rigid(p, q):
 
 def min_edges(p, q):
     dist = distances.local_distances(p[None], q)
-    w = lsd(dist, w=beta_1, e=e_1)
+    w = lsd(dist, beta=beta_1, e=e_1)
     u = distances.local_edge_potencial_gradient(p[None], q, w)
     return -u.reshape(p.shape)
 

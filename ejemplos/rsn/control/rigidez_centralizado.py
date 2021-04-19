@@ -32,7 +32,7 @@ lsd = cnt.logistic_strength_derivative
 
 def detF(p):
     A = distances.all_aa(p)
-    A[A > 0] = cnt.logistic_strength(A[A > 0], w=beta_2, e=e_2)
+    A[A > 0] = cnt.logistic_strength(A[A > 0], beta=beta_2, e=e_2)
 
     _, Mf = rsn.pose_and_shape_basis_2d_aa(p)
     Mf_T = Mf.swapaxes(-2, -1)
@@ -59,7 +59,7 @@ def keep_rigid(p):
 
 def min_edges(p):
     w = distances.all(p)
-    w[w > 0] = lsd(w[w > 0], w=beta_1, e=e_1)
+    w[w > 0] = lsd(w[w > 0], beta=beta_1, e=e_1)
     u = distances.edge_potencial_gradient(w, p)
     return -u
 

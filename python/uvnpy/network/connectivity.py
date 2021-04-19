@@ -19,23 +19,29 @@ def power_strength_derivative(d, a):
     return D
 
 
-def logistic_strength(d, w=1, e=0):
+def logistic_strength(d, beta=1, e=0):
     """Logistic strength function.
 
     A logistic function or logistic curve is a common
     S-shaped curve (sigmoid curve) with equation
 
-        1 / (1 + exp(-w * (d - e)))
+        1 / (1 + exp(-beta * (d - e)))
 
     d: distance between peers,
-    w: the logistic growth rate or steepness of the curve,
+    beta: the logistic growth rate or steepness of the curve,
     e: the x value of the sigmoid's midpoint.
     """
-    s = 1 / (1 + np.exp(w * (d - e)))
+    s = 1 / (1 + np.exp(beta * (d - e)))
     return s
 
 
-def logistic_strength_derivative(d, w=1, e=0):
+def logistic_strength_derivative(d, beta=1, e=0):
     """Derivative  of the logistic function respect to distance."""
-    D = - 0.5 * w / (1 + np.cosh(w * (d - e)))
+    D = - 0.5 * beta / (1 + np.cosh(beta * (d - e)))
     return D
+
+
+def connectivity(A):
+    L = np.diag(A.sum(1)) - A
+    n = len(A)
+    return np.linalg.matrix_rank(L) == n - 1

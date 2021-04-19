@@ -14,7 +14,7 @@ from gpsic.plotting.core import agregar_ax
 from gpsic.grafos.plotting import animar_grafo
 from uvnpy.modelos.lineal import integrador
 import uvnpy.network.disk_graph as disk_graph
-import uvnpy.network.connectivity as cnt
+import uvnpy.network.connectivity as connectivity
 import uvnpy.rsn.core as rsn
 import uvnpy.rsn.distances as distances
 import uvnpy.toolkit.calculus as calc
@@ -92,8 +92,8 @@ def run(steps, logs, t_perf, planta, cuadros):
 
             dij = distances.local_distances(p, q)
 
-            wd = cnt.logistic_strength(dij, 1, e=dmax)
-            wr = cnt.power_strength_derivative(dij, 4)
+            wd = connectivity.logistic_strength(dij, 1, e=dmax)
+            wr = connectivity.power_strength_derivative(dij, 4)
             u[i] = 15 * detFi_grad(p, q, wd) - 5 * repulsion(p, q, wr)
             t_b[i] = time.perf_counter()
 
@@ -101,7 +101,7 @@ def run(steps, logs, t_perf, planta, cuadros):
 
         # Análisis
         Aw = dist.copy()
-        Aw[Aw > 0] = cnt.logistic_strength(Aw[Aw > 0], w=1, e=dmax)
+        Aw[Aw > 0] = connectivity.logistic_strength(Aw[Aw > 0], beta=1, e=dmax)
         Y = distances.innovation_matrix(Aw, x)
         M = S.T.dot(Y).dot(S)
         # J = np.linalg.det(M)**a
