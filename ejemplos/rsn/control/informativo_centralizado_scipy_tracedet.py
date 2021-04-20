@@ -45,17 +45,17 @@ atenuacion = logistic          # familia sigmoide
 def innovacion(x, A):
     N = len(x)
     p = np.reshape(x, (N, -1, 2))
-    dist = distances.all(p)
+    dist = distances.matrix(p)
     Aw = atenuacion(dist, dmax, 1)
     # A = atenuacion(dist, 0.5 * dmax, 1)
     # A = np.empty(Aw.shape)
     # A[:] = Aw[0]
     A = np.tile(A, (N, 1, 1))
-    # Yw = sum(distances.innovation_matrix_aa(Aw, p))
-    Y = sum(distances.innovation_matrix_aa(A, p))
-    _, S = rsn.pose_and_shape_basis_2d(p[None, 0])
-    S = S[0]
-    Ys = S.T.dot(Y.dot(S))
+    # Yw = sum(distances.innovation_matrix(Aw, p))
+    Y = sum(distances.innovation_matrix(A, p))
+    M = rsn.pose_and_shape_decomposition(p)
+    Mf = M[:, 3:]
+    Ys = Mf.T.dot(Y.dot(Mf))
     return Aw, Ys
 
 
@@ -75,14 +75,15 @@ def ca_repulsion(u, x_p, Q):
 
 
 def analisis(x, dmax, Vp, atenuacion):
-    dist = distances.all(x)
+    dist = distances.matrix(x)
     Aw = atenuacion(dist, dmax, 1)
     A = np.ones(Aw.shape) - np.eye(*Aw.shape[-2:])
     Yw = distances.innovation_matrix(Aw, x)
     Y = distances.innovation_matrix(A, x)
-    _, S = rsn.pose_and_shape_basis_2d(x)
-    Yws = S.T.dot(Yw.dot(S))
-    Ys = S.T.dot(Y.dot(S))
+    M = rsn.pose_and_shape_decomposition(x)
+    Mf = M[:, 3:]
+    Yws = Mf.T.dot(Yw.dot(Mf))
+    Ys = Mf.T.dot(Y.dot(Mf))
 
     J = funcional((Yws, Ys))
     eigvals = np.linalg.eigvalsh(Yw)

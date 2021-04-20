@@ -9,46 +9,44 @@ import numpy as np
 import scipy.linalg
 
 
-def pose_and_shape_basis_2d(p):
-    """ Devuelve dos matrices de proyección.
+def pose_and_shape_decomposition(p):
+    """ Devuelve una matriz ortogonal de cambio de base.
 
-    P proyecta al subespacio "pose",
-    S proyecta al subespacio "shape".
+    Se desocompone en subespacio "pose" y subespacio "shape".
 
     args:
-        p: array de posiciones (nv, dof)
+        p: array de posiciones (n, dof)
 
     returns
-        P, S: matrices (nv * dof, nv * dof)
+        P, S: matrices (n * dof, n * dof)
 
     """
-    n, d = p.shape
+    n = len(p)
     s = p.size
-    A = np.zeros((s, 3))     # 3 si 2d, 6 si 3d
-    B = np.empty((s, s - 3))
+    M = np.zeros((s, s))
     d_cm = p - p.mean(0)
 
-    A[::2, 0] = 1/np.sqrt(n)     # dx
-    A[1::2, 1] = 1/np.sqrt(n)    # dy
-    A[::2, 2] = -d_cm[:, 1]
-    A[1::2, 2] = d_cm[:, 0]
-    A[:, 2] /= np.sqrt(np.square(d_cm).sum())  # dt
+    M[::2, 0] = 1/np.sqrt(n)                    # dx
+    M[1::2, 1] = 1/np.sqrt(n)                   # dy
+    M[::2, 2] = -d_cm[:, 1]
+    M[1::2, 2] = d_cm[:, 0]
+    M[:, 2] /= np.sqrt(np.square(d_cm).sum())   # dt
 
-    B = scipy.linalg.null_space(A.T)
-    return A, B
+    M[:, 3:] = scipy.linalg.null_space(M[:, :3].T)
+    return M
 
 
-def pose_and_shape_basis_2d_aa(p):
+def pose_and_shape_decomposition_aa(p):
     """ Devuelve dos matrices de proyección.
 
     P proyecta al subespacio "pose",
     S proyecta al subespacio "shape".
 
     args:
-        p: array de posiciones (N, nv, dof)
+        p: array de posiciones (..., n, dof)
 
     returns
-        P, S: matrices (N, nv * dof, nv * dof)
+        P, S: matrices (..., n * dof, n * dof)
 
     """
     N, n, d = p.shape
@@ -69,17 +67,17 @@ def pose_and_shape_basis_2d_aa(p):
     return A, B
 
 
-def pose_and_shape_projections_2d(p):
+def pose_and_shape_projections(p):
     """ Devuelve dos matrices de proyección.
 
     P proyecta al subespacio "pose",
     S proyecta al subespacio "shape".
 
     args:
-        p: array de posiciones (nv, dof)
+        p: array de posiciones (n, dof)
 
     returns
-        P, S: matrices (nv * dof, nv * dof)
+        P, S: matrices (n * dof, n * dof)
 
     """
     n, d = p.shape
@@ -98,17 +96,17 @@ def pose_and_shape_projections_2d(p):
     return P, S
 
 
-def pose_and_shape_projections_2d_aa(p):
+def pose_and_shape_projections_aa(p):
     """ Devuelve dos matrices de proyección.
 
     P proyecta al subespacio "pose",
     S proyecta al subespacio "shape".
 
     args:
-        p: array de posiciones (N, nv, dof)
+        p: array de posiciones (..., n, dof)
 
     returns
-        P, S: matrices (N, nv * dof, nv * dof)
+        P, S: matrices (..., n * dof, n * dof)
 
     """
     N, n, d = p.shape

@@ -34,11 +34,11 @@ def detF(p):
     A = distances.all_aa(p)
     A[A > 0] = cnt.logistic_strength(A[A > 0], beta=beta_2, e=e_2)
 
-    _, Mf = rsn.pose_and_shape_basis_2d_aa(p)
-    Mf_T = Mf.swapaxes(-2, -1)
+    M = rsn.pose_and_shape_decomposition(p.mean(0))
+    Mf = M[:, 3:]
 
-    Y = distances.innovation_matrix_aa(A, p)
-    F = np.matmul(Mf_T, np.matmul(Y, Mf))
+    Y = distances.innovation_matrix(A, p)
+    F = np.matmul(Mf.T, np.matmul(Y, Mf))
     return np.linalg.det(F)
 
 
@@ -112,7 +112,8 @@ def run(steps, logs, t_perf, planta, cuadros):
         A = disk_graph.adjacency(x, dmax)
         Y = distances.innovation_matrix(A, x)
 
-        _, Mf = rsn.pose_and_shape_basis_2d(x)
+        M = rsn.pose_and_shape_decomposition(x)
+        Mf = M[:, 3:]
         F = Mf.T.dot(Y).dot(Mf)
         J = np.abs(np.linalg.det(F))**a
         # J = np.log(np.linalg.det(F))

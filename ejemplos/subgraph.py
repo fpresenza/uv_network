@@ -77,7 +77,7 @@ network.plot_nodes(axes[1], p[Ni], color='g', marker='o', alpha=0.5)
 network.plot_nodes(axes[1], p[i], color='g', marker='o')
 network.plot_edges(axes[1], p, Epi_comp, color='g', ls='--', lw=0.8)
 axes[1].text(
-    p[i, 0] - 19, p[i, 1] + 10, r'$\mathcal{G}^{\ast}_i$',
+    p[i, 0] - 19, p[i, 1] + 10, r'$\widehat{\mathcal{G}}_i$',
     color='g', fontsize=15)
 axes[1].set_title(r'Subgrafo local completo $i$')
 

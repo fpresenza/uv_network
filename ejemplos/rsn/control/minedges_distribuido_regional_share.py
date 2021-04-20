@@ -31,14 +31,14 @@ lsd = connectivity.logistic_strength_derivative
 
 
 def detFi(p):
-    Ai = distances.all_aa(p)
+    Ai = distances.matrix(p)
     Ai[Ai > 0] = connectivity.logistic_strength(Ai[Ai > 0], beta=beta_2, e=e_2)
 
-    _, Mf = rsn.pose_and_shape_basis_2d_aa(p)
-    Mf_T = Mf.swapaxes(-2, -1)
+    M = rsn.pose_and_shape_decomposition(p.mean(0))
+    Mf = M[:, 3:]
 
-    Yi = distances.innovation_matrix_aa(Ai, p)
-    Fi = np.matmul(Mf_T, np.matmul(Yi, Mf))
+    Yi = distances.innovation_matrix(Ai, p)
+    Fi = np.matmul(Mf.T, np.matmul(Yi, Mf))
     return np.linalg.det(Fi)
 
 
@@ -48,14 +48,14 @@ def keep_rigid(p):
 
 
 def min_edges(p):
-    w = distances.all(p)
+    w = distances.matrix(p)
     w[w > 0] = lsd(w[w > 0], beta=beta_1, e=e_1)
     u = distances.edge_potencial_gradient(w, p)
     return -u.reshape(p.shape)
 
 
 def repulsion(p):
-    w = distances.all(p)
+    w = distances.matrix(p)
     w[w > 0] = connectivity.power_strength_derivative(w[w > 0], a=1)
     u = distances.edge_potencial_gradient(w, p)
     return -u.reshape(p.shape)
@@ -107,7 +107,8 @@ def run(steps, logs, t_perf, planta, cuadros):
         A = R.astype(int) - np.eye(n)
         Y = distances.innovation_matrix(A, x)
 
-        _, Mf = rsn.pose_and_shape_basis_2d(x)
+        M = rsn.pose_and_shape_decomposition(x)
+        Mf = M[:, 3:]
         F = Mf.T.dot(Y).dot(Mf)
         J = np.abs(np.linalg.det(F))**a
         eigvals = np.linalg.eigvalsh(F)

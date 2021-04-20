@@ -90,11 +90,11 @@ atenuacion = logistic          # familia sigmoide
 def innovacion(x):
     N = len(x)
     p = np.reshape(x, (N, -1, 2))
-    dist = distances.all(p)
+    dist = distances.matrix(p)
     A = atenuacion(dist, dmax, 1)
     # A = atenuacion(dist, 0.5 * dmax, 1)
     # A[:, Vp, Vp] = 1
-    Y = distances.innovation_matrix_aa(A, p)
+    Y = distances.innovation_matrix(A, p)
     return sum(Y)
 
 
@@ -115,13 +115,13 @@ def optimal_position_nodes(x):
     m = len(pairs)
     idx = np.arange(m).reshape(-1, 1)
 
-    A = distances.all(x)
+    A = distances.matrix(x)
     A = on_off(A, dmax)
     x = np.repeat(x, m, axis=0)
     A = np.repeat(A, m, axis=0)
     A[idx, pairs, pairs] = 1
 
-    Y = distances.innovation_matrix_aa(A, x)
+    Y = distances.innovation_matrix(A, x)
     eigvals = np.linalg.eigvalsh(Y)
     opt = eigvals[:, 0].round(2).argmax()   # máx min autovalor
     # opt = np.argmin(rsd(eigvals))         # es invariante :O
@@ -129,7 +129,7 @@ def optimal_position_nodes(x):
 
 
 def analisis(x, dmax, Vp, atenuacion):
-    dist = distances.all(x)
+    dist = distances.matrix(x)
     A = atenuacion(dist, dmax, 1)
     A[:, Vp, Vp] = 1
     Y = distances.innovation_matrix(A, x)

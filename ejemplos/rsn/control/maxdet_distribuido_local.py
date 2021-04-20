@@ -74,11 +74,12 @@ def run(steps, logs, t_perf, planta, cuadros):
 
         # Control
 
-        dist = distances.all(x)
+        dist = distances.matrix(x)
         A = dist.copy()
         A[A > dmax] = 0
         A[A != 0] = 1
-        _, S = rsn.pose_and_shape_basis_2d(x)
+        M = rsn.pose_and_shape_basis_decomposition(x)
+        Mf = M[:, 3:]
 
         t_a = np.empty(nv)
         t_b = np.empty(nv)
@@ -103,13 +104,13 @@ def run(steps, logs, t_perf, planta, cuadros):
         Aw = dist.copy()
         Aw[Aw > 0] = connectivity.logistic_strength(Aw[Aw > 0], beta=1, e=dmax)
         Y = distances.innovation_matrix(Aw, x)
-        M = S.T.dot(Y).dot(S)
+        M = Mf.T.dot(Y).dot(Mf)
         # J = np.linalg.det(M)**a
         J = np.log(np.linalg.det(M))
         eigvals = np.linalg.eigvalsh(M)
 
         Yp = distances.innovation_matrix(A, x)
-        Mp = S.T.dot(Yp).dot(S)
+        Mp = Mf.T.dot(Yp).dot(Mf)
         # Jp = np.linalg.det(Mp)**a
         Jp = np.log(np.linalg.det(Mp))
         eigvalsp = np.linalg.eigvalsh(Mp)

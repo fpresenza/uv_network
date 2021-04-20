@@ -11,22 +11,11 @@ from transformations import unit_vector
 import uvnpy.network.core as network
 
 
-def all(p):
+def matrix(p):
     """ Devuelve matriz de distancias.
 
     args:
-        p: array de posiciones (n, d)
-    """
-    r = p[:, None] - p
-    dist = np.sqrt(np.square(r).sum(axis=2))
-    return dist
-
-
-def all_aa(p):
-    """ Devuelve matriz de distancias.
-
-    args:
-        p: array de posiciones (-1, n, d)
+        p: array de posiciones (..., n, d)
     """
     r = p[..., None, :] - p[..., None, :, :]
     dist = np.sqrt(np.square(r).sum(axis=-1))
@@ -46,9 +35,25 @@ def from_incidence(D, p):
 
 
 def jacobian_from_adjacency(A, p):
+    """ Jacobiano del modelo de distancias.
+
+    Devuelve el jacobiano de
+        h(x) = [ ... ||x_i - x_j|| ...]^T
+
+    a partir de la matriz de adyacencia a. Cada columna de
+    D representa un enlace D[e], y puede contener pesos
+    D[e, i] = -D[e, j] = w_ij.
+
+    args:
+        D: matriz de incidencia (n, ne)
+        p: array de posiciones (n, d)
+
+    returns
+        H: jacobiano (ne, n * d)
+    """
     n, d = p.shape
     r = unit_vector(p[:, None] - p, axis=-1)
-    ii = np.diag([True] * n)
+    ii = np.eye(n).astype(bool)
     r[ii] = 0
     r *= A[..., None]               # aplicar pesos
     E = np.argwhere(np.triu(A) != 0)
@@ -64,7 +69,7 @@ def jacobian_from_adjacency(A, p):
 # def distances_jac_aa(A, p):
 #     N, n, d = p.shape[-3:]
 #     r = unit_vector(p[..., None, :] - p[..., None, :, :], axis=-1)
-#     ii = np.diag([True] * n)
+#     ii = np.eye(n).astype(bool)
 #     r[:, ii] = 0
 #     r *= A[..., None]               # aplicar pesos
 #     E = np.argwhere(np.triu(A) != 0)
@@ -93,7 +98,6 @@ def jacobian_from_incidence(D, p):
 
     returns
         H: jacobiano (ne, n * d)
-
     """
     Dt = D.T
     r = unit_vector(Dt.dot(p), axis=-1)
@@ -111,89 +115,50 @@ def innovation_matrix(A, p):
     del modelo de distancias de un grafo de n agentes
     determinado por la matriz de adyacencia A.
 
-    Si A[i, i] > 0 el nodo i tiene medicion de posición
-    Si A[i, j] > 0 los nodos i, j tienen medicion de distancia,
-    A[i, j] respresenta el peso asociado a cada enlace.
+    A[i, j] >= 0 respresenta el peso asociado a cada enlace.
 
     args:
-        A: matriz de adyacencia (n, n)
-        p: array de posiciones (n, d)
+        A: matriz de adyacencia (..., n, n)
+        p: array de posiciones (..., n, d)
 
     returns
-        Y: matriz de innovacion (n * d, n * d)
-    """
-    n, d = p.shape
-    r = unit_vector(p[:, None] - p, axis=2)
-    Y = - r[..., None] * r[..., None, :]  # outer product
-    ii = np.diag([True] * n)
-    Y[ii] = np.eye(d)
-    Y *= A[..., None, None]               # aplicar pesos
-    Y[ii] -= Y[~ii].reshape(n, n - 1, d, d).sum(1)
-    Y = Y.swapaxes(-3, -2).reshape(n * d, n * d)
-    return Y
-
-
-def innovation_matrix_aa(A, p):
-    """ Matriz de innovación.
-
-    Devuelve la matriz de innovación
-
-            Y =  H^T W H
-
-    del modelo de distancias de un grafo de n agentes
-    determinado por la matriz de adyacencia A.
-
-    Si A[i, i] > 0 el nodo i tiene medicion de posición
-    Si A[i, j] > 0 los nodos i, j tienen medicion de distancia,
-    A[i, j] respresenta el peso asociado a cada enlace.
-
-    args:
-        A: matriz de adyacencia (N, n, n)
-        p: array de posiciones (N, n, d)
-
-    returns
-        Y: matriz de innovacion (N, n * d, n * d)
+        Y: matriz de innovacion (..., n * d, n * d)
     """
     n, d = p.shape[-2:]
+    ii = np.eye(n).astype(bool)
     r = unit_vector(p[..., None, :] - p[..., None, :, :], axis=-1)
-    Y = - r[..., None] * r[..., None, :]  # outer product
-    ii = np.diag([True] * n)
-    Y[:, ii] = np.eye(d)
-    Y *= A[..., None, None]               # aplicar pesos
-    Y[:, ii] -= Y[:, ~ii].reshape(-1, n, n - 1, d, d).sum(p.ndim - 1)
-    Y = Y.swapaxes(-3, -2).reshape(-1, n * d, n * d)
-    return Y
+    r[..., ii, :] = 0
+    Y = - r[..., None] * r[..., None, :]    # outer product
+    Y *= A[..., None, None]                 # aplicar pesos
+    Y[..., ii, :, :] -= Y.sum(p.ndim - 1)
+    Y = Y.swapaxes(-3, -2)
+    s = list(Y.shape)
+    s[-4:] = n * d, n * d
+    return Y.reshape(s)
 
 
-def innovation_matrix_diag_aa(A, p):
+def innovation_matrix_diag(A, p):
     """ Diagonal por bloques de la Matriz de innovación.
 
     args:
-        A: matriz de adyacencia (N, n, n)
-        p: array de posiciones (N, n, d)
+        A: matriz de adyacencia (..., n, n)
+        p: array de posiciones (..., n, d)
 
     returns
-        diag: diagonales (-1, n, d, d)
+        diag: bloques principales (..., n, d, d)
     """
     n, d = p.shape[-2:]
+    ii = np.eye(n).astype(bool)
     r = unit_vector(p[..., None, :] - p[..., None, :, :], axis=-1)
-    ii = np.diag([True] * n)
-    r[:, ii] = 0
-    Y = r[..., None] * r[..., None, :]  # outer product
-    Y *= A[..., None, None]
-    diag = Y.sum(1)
+    r[..., ii, :] = 0
+    Y = r[..., None] * r[..., None, :]    # outer product
+    Y *= A[..., None, None]               # aplicar pesos
+    diag = Y.sum(p.ndim - 1)
     return diag
 
 
 def rigidity(A, p):
     Y = innovation_matrix(A, p)
-    d = p.shape[-1]
-    rigid_rank = p.size - int(d * (d + 1)/2)
-    return np.linalg.matrix_rank(Y) == rigid_rank
-
-
-def rigidity_aa(A, p):
-    Y = innovation_matrix_aa(A, p)
     n, d = p.shape[-2:]
     rigid_rank = d * n - int(d * (d + 1)/2)
     return np.linalg.matrix_rank(Y) == rigid_rank
@@ -202,7 +167,7 @@ def rigidity_aa(A, p):
 def redundant_rigidity(A, p):
     Ae = network.remove_one_edge_adjacency(A)
     pe = np.tile(p, (len(Ae), 1, 1))
-    rigid = rigidity_aa(Ae, pe)
+    rigid = rigidity(Ae, pe)
     return np.all(rigid)
 
 
@@ -225,7 +190,7 @@ def edge_potencial_gradient(A, p):
     """
     n, d = p.shape
     r = unit_vector(p[:, None] - p, axis=-1)
-    ii = np.diag([True] * n)
+    ii = np.eye(n).astype(bool)
     r[ii] = 0
     r *= A[..., None]               # aplicar pesos
     grad = r.sum(1)
