@@ -4,4 +4,4 @@ from .core import *          # noqa
 from . import disk_graph  # noqa
 from . import mailbox  # noqa
 from . import connectivity  # noqa
-from . import control  # noqa
+from . import plot  # noqa

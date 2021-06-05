@@ -43,3 +43,26 @@ def circle2d(R=1., c=np.zeros(2), N=100):
     gen[:, 0] = np.cos(t)
     gen[:, 1] = np.sin(t)
     return R * gen + c
+
+
+def rayleigh_quotient(A, x):
+    """Computa el cociente de Rayleigh
+
+    A: matrix (n, n)
+    x: m vectores stackeados por filas (m, n)
+    """
+    R = (x * x.dot(A.T)).sum(-1) / np.square(x).sum(-1)
+    return R
+
+
+def rayleigh_quotient_gradient(A, x):
+    """Computa el gradiente del cociente de Rayleigh
+
+    A: matrix (n, n)
+    x: m vectores stackeados por filas (m, n)
+    """
+    n = np.square(x).sum(-1)
+    R = (x * x.dot(A.T)).sum(-1) / n
+    x_n = x / n.reshape(-1, 1)
+    DR = 2 * (x_n.dot(A.T) - R.reshape(-1, 1) * x_n)
+    return DR

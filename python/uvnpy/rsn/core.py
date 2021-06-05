@@ -10,7 +10,7 @@ import scipy.linalg
 
 
 def pose_and_shape_decomposition(p):
-    """ Devuelve una matriz ortogonal de cambio de base.
+    """Devuelve una matriz ortogonal de cambio de base.
 
     Se desocompone en subespacio "pose" y subespacio "shape".
 
@@ -18,8 +18,7 @@ def pose_and_shape_decomposition(p):
         p: array de posiciones (n, dof)
 
     returns
-        P, S: matrices (n * dof, n * dof)
-
+        M = [P; S]: matriz (n * dof, n * dof)
     """
     n = len(p)
     s = p.size
@@ -37,7 +36,7 @@ def pose_and_shape_decomposition(p):
 
 
 def pose_and_shape_decomposition_aa(p):
-    """ Devuelve dos matrices de proyección.
+    """Devuelve dos matrices de proyección.
 
     P proyecta al subespacio "pose",
     S proyecta al subespacio "shape".
@@ -47,7 +46,6 @@ def pose_and_shape_decomposition_aa(p):
 
     returns
         P, S: matrices (..., n * dof, n * dof)
-
     """
     N, n, d = p.shape
     s = n * d

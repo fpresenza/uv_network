@@ -7,7 +7,6 @@
 """
 import numpy as np
 import itertools
-import matplotlib as mpl
 
 
 def undirected_edges(E):
@@ -89,16 +88,3 @@ def remove_one_edge_adjacency(A):
     for e, (i, j) in enumerate(E):
         Am[e, i, j] = Am[e, j, i] = 0
     return Am
-
-
-def plot_nodes(ax, p, **kwargs):
-    """Plotear nodos."""
-    nodes = ax.scatter(p[..., 0], p[..., 1], **kwargs)
-    return nodes
-
-
-def plot_edges(ax, p, E, **kwargs):
-    """Plotear enlaces."""
-    edges = mpl.collections.LineCollection(p[E], **kwargs)
-    ax.add_artist(edges)
-    return edges
