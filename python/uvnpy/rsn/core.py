@@ -9,30 +9,39 @@ import numpy as np
 import scipy.linalg
 
 
-def pose_and_shape_decomposition(p):
-    """Devuelve una matriz ortogonal de cambio de base.
+def traslation_basis(p):
+    n = len(p)
+    T = np.zeros((p.size, 2))
+    T[::2, 0] = 1/np.sqrt(n)                    # dx
+    T[1::2, 1] = 1/np.sqrt(n)                   # dy
+    return T
 
-    Se desocompone en subespacio "pose" y subespacio "shape".
+
+def pose_basis(p):
+    """Matriz cuyas columnas son una BON del espacio pose.
 
     args:
         p: array de posiciones (n, dof)
 
     returns
-        M = [P; S]: matriz (n * dof, n * dof)
+        M: matriz (n*dof, n*dof)
     """
     n = len(p)
-    s = p.size
-    M = np.zeros((s, s))
-    d_cm = p - p.mean(0)
+    P = np.zeros((p.size, 3))
+    r_cm = p - p.mean(0)
 
-    M[::2, 0] = 1/np.sqrt(n)                    # dx
-    M[1::2, 1] = 1/np.sqrt(n)                   # dy
-    M[::2, 2] = -d_cm[:, 1]
-    M[1::2, 2] = d_cm[:, 0]
-    M[:, 2] /= np.sqrt(np.square(d_cm).sum())   # dt
+    P[::2, 0] = 1/np.sqrt(n)                    # dx
+    P[1::2, 1] = 1/np.sqrt(n)                   # dy
+    P[::2, 2] = -r_cm[:, 1]
+    P[1::2, 2] = r_cm[:, 0]
+    P[:, 2] /= np.sqrt(np.square(r_cm).sum())   # dt
+    return P
 
-    M[:, 3:] = scipy.linalg.null_space(M[:, :3].T)
-    return M
+
+def shape_basis(p):
+    P = pose_basis(p)
+    S = scipy.linalg.null_space(P.T)
+    return S
 
 
 def pose_and_shape_decomposition_aa(p):
@@ -51,14 +60,14 @@ def pose_and_shape_decomposition_aa(p):
     s = n * d
     A = np.zeros((N, s, 3))     # 3 si 2d, 6 si 3d
     B = np.empty((N, s, s - 3))
-    d_cm = p - p.mean(1)[:, None]
+    r_cm = p - p.mean(1)[:, None]
 
     A[:, ::2, 0] = 1/np.sqrt(n)     # dx
     A[:, 1::2, 1] = 1/np.sqrt(n)    # dy
-    A[:, ::2, 2] = -d_cm[:, :, 1]
-    A[:, 1::2, 2] = d_cm[:, :, 0]
-    d_cm = d_cm.reshape(N, s)
-    A[:, :, 2] /= np.sqrt(np.square(d_cm).sum(1))[:, None]  # dt
+    A[:, ::2, 2] = -r_cm[:, :, 1]
+    A[:, 1::2, 2] = r_cm[:, :, 0]
+    r_cm = r_cm.reshape(N, s)
+    A[:, :, 2] /= np.sqrt(np.square(r_cm).sum(1))[:, None]  # dt
 
     A_T = A.swapaxes(-2, -1)
     B[:] = [scipy.linalg.null_space(a_T) for a_T in A_T]
@@ -81,13 +90,13 @@ def pose_and_shape_projections(p):
     n, d = p.shape
     s = n * d
     A = np.zeros((s, 3))     # 3 si 2d, 6 si 3d
-    d_cm = p - p.mean(0)
+    r_cm = p - p.mean(0)
 
     A[::2, 0] = 1/np.sqrt(n)     # dx
     A[1::2, 1] = 1/np.sqrt(n)    # dy
-    A[::2, 2] = -d_cm[:, 1]
-    A[1::2, 2] = d_cm[:, 0]
-    A[:, 2] /= np.sqrt(np.square(d_cm).sum())  # dt
+    A[::2, 2] = -r_cm[:, 1]
+    A[1::2, 2] = r_cm[:, 0]
+    A[:, 2] /= np.sqrt(np.square(r_cm).sum())  # dt
 
     P = A.T.dot(A)
     S = np.eye(s) - P
@@ -110,14 +119,14 @@ def pose_and_shape_projections_aa(p):
     N, n, d = p.shape
     s = n * d
     A = np.zeros((N, s, 3))     # 3 si 2d, 6 si 3d
-    d_cm = p - p.mean(1)[:, None]
+    r_cm = p - p.mean(1)[:, None]
 
     A[:, ::2, 0] = 1/np.sqrt(n)     # dx
     A[:, 1::2, 1] = 1/np.sqrt(n)    # dy
-    A[:, ::2, 2] = -d_cm[:, :, 1]
-    A[:, 1::2, 2] = d_cm[:, :, 0]
-    d_cm = d_cm.reshape(N, s)
-    A[:, :, 2] /= np.sqrt(np.square(d_cm).sum(1))[:, None]  # dt
+    A[:, ::2, 2] = -r_cm[:, :, 1]
+    A[:, 1::2, 2] = r_cm[:, :, 0]
+    r_cm = r_cm.reshape(N, s)
+    A[:, :, 2] /= np.sqrt(np.square(r_cm).sum(1))[:, None]  # dt
 
     A_T = A.swapaxes(-2, -1)
     P = np.matmul(A, A_T)

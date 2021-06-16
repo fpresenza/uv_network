@@ -23,15 +23,34 @@ def matrix(p):
 
 
 def from_edges(E, p):
-    r = p[E[:, 0]] - p[E[:, 1]]
+    r = p[..., E[:, 0], :] - p[..., E[:, 1], :]
     dist = np.sqrt(np.square(r).sum(axis=-1))
     return dist
+
+
+def from_adjacency(A, p):
+    r = p[..., None, :] - p[..., None, :, :]
+    dist = np.sqrt(np.square(r).sum(axis=-1)) * A
+    return dist[dist > 0]
 
 
 def from_incidence(D, p):
     r = D.T.dot(p)
     dist = np.sqrt(np.square(r).sum(axis=-1))
     return dist
+
+
+def jacobian_from_edges(E, p, w=np.array([1.])):
+    n, d = p.shape
+    r = unit_vector(p[E[:, 0]] - p[E[:, 1]], axis=-1)
+    r *= w.reshape(-1, 1)           # aplicar pesos
+    ne = len(E)
+    J = np.zeros((ne, n, d))
+    i = np.arange(ne)
+    J[i, E[:, 0]] = r[i]
+    J[i, E[:, 1]] = -r[i]
+    J = J.reshape(ne, n * d)
+    return J
 
 
 def jacobian_from_adjacency(A, p):
@@ -64,22 +83,6 @@ def jacobian_from_adjacency(A, p):
     J[i, E] = r[E, Ef]
     J = J.reshape(ne, n * d)
     return J
-
-
-# def distances_jac_aa(A, p):
-#     N, n, d = p.shape[-3:]
-#     r = unit_vector(p[..., None, :] - p[..., None, :, :], axis=-1)
-#     ii = np.eye(n).astype(bool)
-#     r[:, ii] = 0
-#     r *= A[..., None]               # aplicar pesos
-#     E = np.argwhere(np.triu(A) != 0)
-#     Ef = np.flip(E, axis=1)
-#     ne = len(E)
-#     J = np.empty((N, ne, n,  d))
-#     i = np.arange(ne).reshape(-1, 1)
-#     J[:, i, E] = r[:, E, Ef]
-#     J = J.reshape(N, ne, n * d)
-#     return J
 
 
 def jacobian_from_incidence(D, p):
