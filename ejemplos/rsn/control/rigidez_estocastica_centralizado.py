@@ -63,8 +63,8 @@ class RigidityControl(object):
         self.H = H
         self.N = N
         self.horizon = np.linspace(T, N*T, N).reshape(-1, 1, 1)
-        self.beta = 10 / dmax
-        self.e = dmax
+        self.beta = (10/dmax, 10/dmax)
+        self.e = (dmax, dmax)
         self.u = np.zeros(xi.size)
         self.E = np.argwhere(np.triu(1 - np.eye(self.n)))
         self.C = rsn.shape_basis(xi)
@@ -86,28 +86,30 @@ class RigidityControl(object):
         # C = self.C
         return self.C.T.dot(self.P).dot(self.C)
 
-    def weights(self):
+    def weights(self, i):
         d = distances.from_edges(self.E, self.x)
-        w = connectivity.logistic_strength(d, self.beta, self.e)
-        return w**(1/2)
+        w = connectivity.logistic_strength(d, self.beta[i], self.e[i])
+        return w
 
     def covariance_step(self, xk, wk):
         self.P += self.Q
-        H = self.H(self.E, xk, wk)
+        H = self.H(self.E, xk, wk**(1/2))
         Pz_inv = np.linalg.inv(H.dot(self.P).dot(H.T) + self.R)
         K = self.P.dot(H.T).dot(Pz_inv)
         self.P -= K.dot(H).dot(self.P)
 
     def prediction(self, u):
         self.x += self.horizon * u.reshape(-1, 2)
-        step = zip(self.x, self.weights())
+        step = zip(self.x, self.weights(1))
         [self.covariance_step(xk, wk) for xk, wk in step]
 
     def fun(self, u, q):
         self.prediction(u)
-        mu = self.metric(self.objective_matrix())
+        metric = self.metric(self.objective_matrix())
+        edges = self.weights(0).sum() / (metric**2)
+        effort = u.dot(u)
         self.restart()
-        return q[0]*mu + q[1]*u.dot(u)
+        return q[0]*edges + q[1]*(np.exp(metric) - 1) + q[2]*effort
 
     def update(self, x, P, q):
         self.init(x, P)
@@ -125,6 +127,11 @@ class RigidityControl(object):
 
 def eighmax(M):
     return np.linalg.eigvalsh(M)[-1]
+    # return 1/(4.1 - eig)**2
+
+
+def logdet(M):
+    return np.linalg.slogdet(M)[1]
 
 
 # ------------------------------------------------------------------
@@ -141,7 +148,7 @@ def run():
         # Control
         t_a = time.perf_counter()
         # u = np.zeros((n, dof))
-        u = control.update(formacion.x, kf.P, q=(1., 0.05))
+        u = control.update(formacion.x, kf.P, q=(2, 1., 0.05))
         t_b = time.perf_counter()
 
         # formacion
@@ -213,11 +220,11 @@ if __name__ == '__main__':
     N = 5
     T = arg.h
 
-    xi = np.random.uniform(-lim, lim, (n, dof))
-    # xi = circle2d(R=0.5*lim, N=n)
+    # xi = np.random.uniform(-lim, lim, (n, dof))
+    xi = circle2d(R=0.5*lim, N=n)
     ui = np.zeros((n, dof))
     Ei = disk_graph.edges(xi, dmax)
-    Pi = 5**2 * np.eye(n*dof)
+    Pi = 2**2 * np.eye(n*dof)
     Q = 0.1**2 * np.eye(n*dof)
     Rij = 10.**2
     H = distances.jacobian_from_edges
@@ -227,7 +234,7 @@ if __name__ == '__main__':
     K = net.complete_edges(n)
     s = dict([((e[0], e[1]), RangeSensor(e[0], e[1], Rij)) for e in K])
     kf = kalman.KF(hat_xi, Pi)
-    control = RigidityControl(xi, Pi, Q, Rij, H, N, T, dmax, np.trace)
+    control = RigidityControl(xi, Pi, Q, Rij, H, N, T, dmax, eighmax)
 
     logs = Logs(
         x=np.empty((tiempo.size, n, dof)),
