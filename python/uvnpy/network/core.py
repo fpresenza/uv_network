@@ -24,20 +24,32 @@ def directed_edges(E):
     return Ed
 
 
-def complete_undirected_edges(V):
-    edges = itertools.combinations(V, 2)
-    return np.array(list(edges))
+def complete_edges(n, directed=False):
+    A = 1 - np.eye(n)
+    if not directed:
+        A = np.triu(A)
+    return np.argwhere(A)
 
 
-def complete_directed_edges(V):
-    edges = itertools.permutations(V, 2)
-    return np.array(list(edges))
-
-
-def complete_adjacency(V):
-    n = len(V)
+def complete_adjacency(n):
     A = 1 - np.eye(n)
     return A
+
+
+def complete_laplacian(n):
+    L = n * np.eye(n) - 1
+    return L
+
+
+def complete_incidence(n):
+    edges = itertools.combinations(range(n), 2)
+    E = np.array(list(edges))
+    m = len(E)
+    D = np.zeros((n, m))
+    e = range(m)
+    D[E[:, 1], e] = -1
+    D[E[:, 0], e] = 1
+    return D
 
 
 def edges_from_adjacency(A):
@@ -46,37 +58,24 @@ def edges_from_adjacency(A):
     return E
 
 
-def incidence_from_edges(V, E):
-    D = np.zeros((len(V), len(E)))
+def adjacency_from_edges(n, E, w=1, directed=False):
+    A = np.zeros((n, n))
+    A[E[:, 0], E[:, 1]] = w
+    if not directed:
+        A[E[:, 1], E[:, 0]] = w
+    return A
+
+
+def incidence_from_edges(n, E):
+    D = np.zeros((n, len(E)))
     e = range(len(E))
     D[E[:, 1], e] = -1
     D[E[:, 0], e] = 1
     return D
 
 
-def adjacency_from_edges(V, E, w=1):
-    n = len(V)
-    A = np.zeros((n, n))
-    A[E[:, 0], E[:, 1]] = w
-    return A
-
-
-def undirected_adjacency_from_edges(V, E, w=1):
-    n = len(V)
-    A = np.zeros((n, n))
-    A[E[:, 0], E[:, 1]] = w
-    A[E[:, 1], E[:, 0]] = w
-    return A
-
-
-def laplacian_from_edges(V, E, w=1):
-    A = adjacency_from_edges(V, E, w)
-    Deg = np.diag(A.sum(axis=1))
-    return Deg - A
-
-
-def undirected_laplacian_from_edges(V, E, w=1):
-    A = undirected_adjacency_from_edges(V, E, w)
+def laplacian_from_edges(n, E, w=1, directed=False):
+    A = adjacency_from_edges(n, E, w, directed)
     Deg = np.diag(A.sum(axis=1))
     return Deg - A
 
