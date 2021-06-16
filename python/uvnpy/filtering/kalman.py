@@ -236,10 +236,11 @@ def plot(logs, ground_truth=None, basis=None):
     innovation = logs.innovation
     gt = ground_truth
     if basis is not None:
-        m = basis.shape[-1]
+        m = mean.shape[-2]
         B = basis
         BT = B.swapaxes(-1, -2)
-        mean = np.matmul(BT, mean).reshape(-1, m)
+        P = np.matmul(B, BT)
+        mean = np.matmul(P, mean).reshape(-1, m)
         cov = np.matmul(BT, np.matmul(cov, B))
     else:
         mean = mean.reshape(len(t), -1)
@@ -259,7 +260,7 @@ def plot(logs, ground_truth=None, basis=None):
 
     if gt is not None:
         if basis is not None:
-            gt = np.matmul(BT, gt).reshape(-1, m)
+            gt = np.matmul(P, gt).reshape(-1, m)
         gt = gt.reshape(len(t), -1)
 
         # plt.gca().set_prop_cycle(None)
@@ -313,10 +314,13 @@ def plot(logs, ground_truth=None, basis=None):
         axes[i, 0].minorticks_on()
         axes[i, 0].set_xlabel(r'$t\,[sec]$')
         axes[i, 0].set_ylabel(r'$\delta z$')
-        axes[i, 0].set_xlim(logs.t[0], None)
+        axes[i, 0].set_xlim(logs.t[0], logs.t[-1])
 
         for dz_i in dz.T:
-            axes[i, 1].acorr(dz_i, usevlines=False, linestyle='-')
+            lags = min(len(dz_i) - 1, 10)
+            axes[i, 1].acorr(
+                dz_i,
+                usevlines=False, linestyle='-', maxlags=lags)
         axes[i, 1].grid(1)
         axes[i, 1].minorticks_on()
         axes[i, 1].set_xlabel(r'$\Delta t\,[sec]$')

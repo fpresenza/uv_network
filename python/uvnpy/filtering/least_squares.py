@@ -6,13 +6,12 @@
 @date jue oct 22 14:18:35 -03 2020
 """
 import numpy as np
-from numpy.linalg import multi_dot, inv, pinv  # noqa
-
-from . import normalizar_pesos
 
 
 def wlstsq(A, b, Q=None):
-    """ Cuadrados mínimos con pesos.
+    """Cuadrados mínimos con pesos.
+
+    A * x = b
 
     La matriz de coeficientes A debe tener columnas
     linealmente independientes
@@ -20,27 +19,7 @@ def wlstsq(A, b, Q=None):
     if Q is None:
         Q = np.identity(b.size)
     At = A.T
-    P = inv(At.dot(Q).dot(A))
+    P = np.linalg.inv(At.dot(Q).dot(A))
     A_pinv = P.dot(At).dot(Q)
     x = A_pinv.dot(b)
     return x, P
-
-
-def ajustar_gaussiana(muestras, pesos=None):
-    """ Estimador de media y covarianza
-
-    A partir de una secuencia de muestras independientes,
-    estima media y covarianza.
-
-    Argumentos:
-        muestras = (m_1, ..., m_n)
-        pesos = (p_1, ..., p_n)
-    """
-    N = len(muestras)
-    if pesos is None:
-        pesos = np.ones(len(muestras))
-    pesos = normalizar_pesos(pesos)
-    media = pesos.dot(muestras)
-    error = np.subtract(muestras, media)
-    cov = sum([p * np.outer(e, e) for p, e in zip(pesos, error)]) * N / (N - 1)
-    return media, cov
