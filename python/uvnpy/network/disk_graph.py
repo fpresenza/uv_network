@@ -11,16 +11,28 @@ import numpy as np
 def edges(p, dmax=np.inf):
     """Devuelve array de enlaces por proximidad."""
     r = p[:, None] - p
-    dist_2 = np.triu(np.square(r).sum(axis=-1))
-    connected = (0 < dist_2) * (dist_2 < dmax**2)
+    d2 = np.triu(np.square(r).sum(axis=-1))
+    connected = (0 < d2) * (d2 < dmax**2)
     return np.argwhere(connected)
+
+
+def edges_band(E, p, dmin=1., dmax=np.inf):
+    n = p.shape[0]
+    K = 1 - np.identity(n)
+    Ek = np.argwhere(np.triu(K))
+    r = p[Ek[:, 0], :] - p[Ek[:, 1], :]
+    d2 = np.square(r).sum(axis=-1)
+    close = d2 < dmin**2
+    between = ~close * (d2 < dmax**2)
+    prev = (Ek[:, None] == E).all(-1).any(-1)
+    return Ek[close + prev * between]
 
 
 def inter_edges(p, q, dmax=np.inf):
     """Devuelve array de enlaces por proximidad entre dos grupos p y q."""
     r = p[:, None] - q
-    dist_2 = np.square(r).sum(axis=-1)
-    connected = dist_2 < dmax**2
+    d2 = np.square(r).sum(axis=-1)
+    connected = d2 < dmax**2
     return np.argwhere(connected)
 
 
@@ -45,19 +57,19 @@ def adjacency(p, dmax=np.inf):
 
 def neighborhood(p, i, dmax=np.inf, inclusive=False):
     r = p[i] - p
-    dist2 = np.square(r).sum(-1)
-    idx = dist2 < dmax**2
+    d2 = np.square(r).sum(-1)
+    idx = d2 < dmax**2
     idx[i] = inclusive
     return idx
 
 
-def neighborhood_histeresis(
+def neighborhood_band(
         p, i, neighbors,
         dmin=1., dmax=np.inf, inclusive=False):
     r = p[i] - p
-    dist2 = np.square(r).sum(-1)
-    close = dist2 < dmin**2
-    between = ~close * (dist2 < dmax**2)
+    d2 = np.square(r).sum(-1)
+    close = d2 < dmin**2
+    between = ~close * (d2 < dmax**2)
     idx = close + neighbors * between
     idx[i] = inclusive
     return idx
