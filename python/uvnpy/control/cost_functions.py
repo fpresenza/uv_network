@@ -8,7 +8,7 @@
 import numpy as np
 
 
-def repulsion_aa(p):
+def collision(p):
     """Costo de repulsión entre agentes puntuales.
 
     El costo es igual a la suma de los cuadrados de la
