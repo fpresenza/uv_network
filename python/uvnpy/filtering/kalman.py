@@ -299,7 +299,7 @@ def plot(logs, ground_truth=None, basis=None):
     s = len(sensors)
     f, axes = plt.subplots(s, 2)
     axes = axes.reshape(s, 2)
-    axes[0, 0].set_title('Measurements')
+    axes[0, 0].set_title('Innovation')
     axes[0, 1].set_title('Auto-Correlation')
     figs.append(f)
 
@@ -309,18 +309,21 @@ def plot(logs, ground_truth=None, basis=None):
         t = innovation[match, 0]
         dz = np.array(innovation[match, 2].tolist())
         dz = dz.reshape(len(t), -1)
-        axes[i, 0].plot(t, dz, ls='', marker='.', markersize=2)
+        axes[i, 0].plot(
+            t, dz,
+            ls='', color='C{}'.format(i), marker='.', markersize=2)
         axes[i, 0].grid(1)
         axes[i, 0].minorticks_on()
         axes[i, 0].set_xlabel(r'$t\,[sec]$')
-        axes[i, 0].set_ylabel(r'$\delta z$')
+        axes[i, 0].set_ylabel(s)
         axes[i, 0].set_xlim(logs.t[0], logs.t[-1])
 
         for dz_i in dz.T:
             lags = min(len(dz_i) - 1, 10)
             axes[i, 1].acorr(
                 dz_i,
-                usevlines=False, linestyle='-', maxlags=lags)
+                usevlines=False, linestyle='-', color='C{}'.format(i),
+                maxlags=lags)
         axes[i, 1].grid(1)
         axes[i, 1].minorticks_on()
         axes[i, 1].set_xlabel(r'$\Delta t\,[sec]$')
