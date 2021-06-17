@@ -20,8 +20,8 @@ from uvnpy.network import disk_graph
 from uvnpy.model import linear_models
 from uvnpy.filtering import kalman
 import uvnpy.network.plot as nplot
-from gpsic.grafos.plotting import animar_grafo
 from uvnpy.toolkit.calculus import circle2d  # noqa
+from uvnpy.control import cost_functions
 
 
 # ------------------------------------------------------------------
@@ -34,7 +34,7 @@ Logs = collections.namedtuple('Logs', 'x u E C')
 
 class RangeSensor(object):
     def __init__(self, i, j, var):
-        self.__name__ = 'range({}, {})'.format(i, j)
+        self.__name__ = '$z_{{' + str(i) + str(j) + '}}$'
         self.i = i
         self.j = j
         self.var = var
@@ -56,15 +56,15 @@ class RangeSensor(object):
 
 
 class RigidityControl(object):
-    def __init__(self, xi, Pi, Q, Rij, H, N, T, dmax, metric):
+    def __init__(self, xi, Pi, Q, Rij, H, N, T, dmin, metric):
         self.n = len(xi)
         self.Q = Q * T
         self.R = Rij * np.eye(int(n*(n - 1)/2))
         self.H = H
         self.N = N
         self.horizon = np.linspace(T, N*T, N).reshape(-1, 1, 1)
-        self.beta = (10/dmax, 10/dmax)
-        self.e = (dmax, dmax)
+        self.beta = (10/dmin, 10/dmin)
+        self.e = (dmin, dmin)
         self.u = np.zeros(xi.size)
         self.E = np.argwhere(np.triu(1 - np.eye(self.n)))
         self.C = rsn.shape_basis(xi)
@@ -83,7 +83,6 @@ class RigidityControl(object):
 
     def objective_matrix(self):
         self.C = rsn.shape_basis(self.x[-1])
-        # C = self.C
         return self.C.T.dot(self.P).dot(self.C)
 
     def weights(self, i):
@@ -106,10 +105,12 @@ class RigidityControl(object):
     def fun(self, u, q):
         self.prediction(u)
         metric = self.metric(self.objective_matrix())
-        edges = self.weights(0).sum() / (metric**2)
-        effort = u.dot(u)
+        ce = self.weights(0).sum()  # / (metric**2)
+        cm = (np.exp(0.7*metric) - 1)
+        cu = u.dot(u)
+        cc = cost_functions.collision(self.x[-1])
         self.restart()
-        return q[0]*edges + q[1]*(np.exp(metric) - 1) + q[2]*effort
+        return q[0]*ce + q[1]*cm + q[2]*cu + q[3]*cc
 
     def update(self, x, P, q):
         self.init(x, P)
@@ -127,7 +128,6 @@ class RigidityControl(object):
 
 def eighmax(M):
     return np.linalg.eigvalsh(M)[-1]
-    # return 1/(4.1 - eig)**2
 
 
 def logdet(M):
@@ -139,24 +139,27 @@ def logdet(M):
 # ------------------------------------------------------------------
 
 
-def run():
+def run(E, P):
     # iteracion
     bar = progressbar.ProgressBar(max_value=arg.tf).start()
-    # u = np.random.uniform(-2, 2, (n, dof))
     for k, t in steps[1:]:
 
         # Control
         t_a = time.perf_counter()
         # u = np.zeros((n, dof))
-        u = control.update(formacion.x, kf.P, q=(2, 1., 0.05))
+        u = control.update(formacion.x, P, q=(1., 1., 0.1, 0.1))
         t_b = time.perf_counter()
 
         # formacion
         x = formacion.step(t, u)
-        E = disk_graph.edges(x, dmax)
+        E = disk_graph.edges_band(E, x, dmin, dmax)
+        F = np.eye(n*2)
+        H = distances.jacobian_from_edges(E, formacion.x)
+        R = Rij * np.eye(len(E))
+        P = kalman.two_step_covariance(P, F, Q*T, H, R)
 
         # Estimacion
-        kf.prediction(kalman.integrator, t, u.reshape(-1, 1), Q * T)
+        kf.prediction(kalman.integrator, t, u.reshape(-1, 1), Q*T)
         [kf.correction(s[i, j], s[i, j].measurement(x)) for i, j in E]
         kf.save_data()
 
@@ -182,7 +185,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
     parser.add_argument(
         '-s', '--step',
-        dest='h', default=100e-3, type=float, help='paso de simulación')
+        dest='h', default=200e-3, type=float, help='paso de simulación')
     parser.add_argument(
         '-t', '--ti',
         metavar='T0', default=0.0, type=float, help='tiempo inicial')
@@ -214,27 +217,34 @@ if __name__ == '__main__':
     if n <= 1:
         raise ValueError('Num. agents must be greater than 1')
     dof = 2
-    dmax = 25.
+    dmin = 25.
+    dmax = 28.
     lim = 25.
 
     N = 5
     T = arg.h
 
-    # xi = np.random.uniform(-lim, lim, (n, dof))
-    xi = circle2d(R=0.5*lim, N=n)
+    xi = np.random.uniform(-lim, lim, (n, dof))
+    # # xi = circle2d(R=0.5*lim, N=n)
+    # xi = np.array([
+    #     [-20., 0],
+    #     [-10., 0],
+    #     [10., 0],
+    #     [20., 0]])
     ui = np.zeros((n, dof))
-    Ei = disk_graph.edges(xi, dmax)
+    Ei = disk_graph.edges(xi, dmin)
     Pi = 2**2 * np.eye(n*dof)
-    Q = 0.1**2 * np.eye(n*dof)
-    Rij = 10.**2
+    Q = 0.25**2 * np.eye(n*dof)
+    Rij = 20.**2
     H = distances.jacobian_from_edges
     hat_xi = np.random.multivariate_normal(xi.ravel(), Pi)
 
-    formacion = linear_models.random_walk(xi, Q / T)
+    # formacion = linear_models.random_walk(xi, Q / T)
+    formacion = linear_models.integrator(xi)
     K = net.complete_edges(n)
     s = dict([((e[0], e[1]), RangeSensor(e[0], e[1], Rij)) for e in K])
     kf = kalman.KF(hat_xi, Pi)
-    control = RigidityControl(xi, Pi, Q, Rij, H, N, T, dmax, eighmax)
+    control = RigidityControl(xi, Pi, Q, Rij, H, N, T, dmin, eighmax)
 
     logs = Logs(
         x=np.empty((tiempo.size, n, dof)),
@@ -248,7 +258,7 @@ if __name__ == '__main__':
     logs.E[0] = Ei
     logs.C[0] = rsn.shape_basis(formacion.x)
 
-    run()
+    run(Ei, Pi)
 
     summary = kf.summary()
     kalman.plot(
@@ -272,18 +282,13 @@ if __name__ == '__main__':
     ax.set_xlabel(r'$t [sec]$')
     ax.set_ylabel(r'$|\mathcal{E}|$')
 
-    # plt.show()
-    frame = zip(logs.x, summary.mean.reshape(-1, n, dof), logs.E)
-    cuadros = [(np.vstack([x, hat_x]), E) for x, hat_x, E in frame]
+    frames = list(zip(tiempo, logs.x, logs.E))
 
-    estilos = (
-        [range(n), {'color': 'b', 'marker': 'o', 'markersize': '5'}],
-        [range(n, 2*n), {'color': 'r', 'marker': '+', 'markersize': '5'}])
-    gs = nplot.figure()
-    ax, = nplot.xy(gs)
+    fig, ax = nplot.figure()
     ax.set_xlim(-1.5*lim, 1.5*lim)
     ax.set_ylim(-1.5*lim, 1.5*lim)
-
-    animar_grafo(
-        gs.figure, ax, arg.h, estilos, cuadros,
-        edgestyle={'color': '0.2', 'linewidth': 0.7})
+    anim = nplot.Animate(fig, ax, arg.h/2, frames, maxlen=50)
+    anim.set_teams({'name': 'ground truth', 'ids': range(n), 'tail': True})
+    anim.ax.legend()
+    anim.run()
+    plt.show()
