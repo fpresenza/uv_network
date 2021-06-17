@@ -11,14 +11,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from gpsic.plotting.core import agregar_ax
-from gpsic.plotting.planar import animate_matrix
-from gpsic.grafos.plotting import animar_grafo
-from uvnpy.modelos.lineal import integrador
-import uvnpy.network.disk_graph as disk_graph
-import uvnpy.network.connectivity as cnt
+from uvnpy.model import linear_models
+from uvnpy.network import disk_graph
+from uvnpy.network import connectivity
 import uvnpy.rsn.core as rsn
-import uvnpy.rsn.distances as distances
-import uvnpy.toolkit.calculus as calc
+from uvnpy.rsn import distances
+import uvnpy.network.plot as nplot
+from uvnpy.toolkit import calculus
 
 np.set_printoptions(suppress=True, precision=3, linewidth=150)
 # ------------------------------------------------------------------
@@ -26,19 +25,18 @@ np.set_printoptions(suppress=True, precision=3, linewidth=150)
 # ------------------------------------------------------------------
 Logs = collections.namedtuple('Logs', 'x u J eig Y')
 
-D = calc.derivative_eval
-lsd = cnt.logistic_strength_derivative
+D = calculus.derivative_eval
+lsd = connectivity.logistic_strength_derivative
 
 
 def detF(p):
-    A = distances.all_aa(p)
-    A[A > 0] = cnt.logistic_strength(A[A > 0], beta=beta_2, e=e_2)
+    A = distances.matrix(p)
+    A[A > 0] = connectivity.logistic_strength(A[A > 0], beta=beta_2, e=e_2)
 
-    M = rsn.pose_and_shape_decomposition(p.mean(0))
-    Mf = M[:, 3:]
+    M = rsn.shape_basis(p.mean(0))
 
     Y = distances.innovation_matrix(A, p)
-    F = np.matmul(Mf.T, np.matmul(Y, Mf))
+    F = np.matmul(M.T, np.matmul(Y, M))
     return np.linalg.det(F)
 
 
@@ -58,15 +56,15 @@ def keep_rigid(p):
 
 
 def min_edges(p):
-    w = distances.all(p)
+    w = distances.matrix(p)
     w[w > 0] = lsd(w[w > 0], beta=beta_1, e=e_1)
     u = distances.edge_potencial_gradient(w, p)
     return -u
 
 
 def repulsion(p):
-    w = distances.all(p)
-    w[w > 0] = cnt.power_strength_derivative(w[w > 0], a=1)
+    w = distances.matrix(p)
+    w[w > 0] = connectivity.power_strength_derivative(w[w > 0], a=1)
     u = distances.edge_potencial_gradient(w, p)
     return -u
 
@@ -90,7 +88,7 @@ def linspace(nv, dmax):
 # ------------------------------------------------------------------
 
 
-def run(steps, logs, t_perf, planta, cuadros):
+def run(steps, logs, t_perf, planta, frames):
     # iteración
     bar = progressbar.ProgressBar(max_value=arg.tf).start()
     for k, t in steps[1:]:
@@ -100,9 +98,9 @@ def run(steps, logs, t_perf, planta, cuadros):
         # Control
         t_a = time.perf_counter()
 
-        # u = keep_rigid(x) + 1.5 * min_edges(x) + (2 / nv) * repulsion(x)
+        u = keep_rigid(x) + 1.5 * min_edges(x) + (2 / nv) * repulsion(x)
         # u *= 2
-        u = 0.2 * detF_grad(x) + 2 * repulsion(x)
+        # u = 0.5 * detF_grad(x) + 0.2 * repulsion(x)
 
         t_b = time.perf_counter()
 
@@ -112,15 +110,14 @@ def run(steps, logs, t_perf, planta, cuadros):
         A = disk_graph.adjacency(x, dmax)
         Y = distances.innovation_matrix(A, x)
 
-        M = rsn.pose_and_shape_decomposition(x)
-        Mf = M[:, 3:]
-        F = Mf.T.dot(Y).dot(Mf)
+        M = rsn.shape_basis(x)
+        F = M.T.dot(Y).dot(M)
         J = np.abs(np.linalg.det(F))**a
         # J = np.log(np.linalg.det(F))
         eigvals = np.linalg.eigvalsh(F)
 
         E = disk_graph.edges(x, dmax)
-        cuadros[k] = x, E
+        frames[k] = t, x, E
 
         logs.x[k] = x
         logs.u[k] = u
@@ -134,7 +131,7 @@ def run(steps, logs, t_perf, planta, cuadros):
     bar.finish()
 
     # return
-    return logs, t_perf, cuadros
+    return logs, t_perf, frames
 
 
 if __name__ == '__main__':
@@ -181,18 +178,18 @@ if __name__ == '__main__':
     dof = 2
     n = dof * nv
     dmax = 10
-    # beta_1 = 10 / dmax
-    # beta_2 = 40 / dmax
-    # e_1 = dmax
-    # e_2 = 0.7 * dmax
-    beta_1 = 0.5
-    beta_2 = 0.5
+    beta_1 = 10 / dmax
+    beta_2 = 40 / dmax
     e_1 = dmax
-    e_2 = dmax
+    e_2 = 0.7 * dmax
+    # beta_1 = 0.5
+    # beta_2 = 0.5
+    # e_1 = dmax
+    # e_2 = dmax
 
     np.random.seed(1)
     # x0 = np.random.uniform(-0.5 * dmax, 0.5 * dmax, (nv, dof))
-    x0 = np.random.uniform(-1.3 * dmax, 1.3 * dmax, (nv, dof))
+    x0 = np.random.uniform(-dmax, dmax, (nv, dof))
     # x0 = np.array([
     #    [  8.14 , -14.377],
     #    [  4.009,   7.464],
@@ -211,7 +208,7 @@ if __name__ == '__main__':
     #    [ -1.012,  10.45 ],
     #    [  9.157,   0.649]]) * 1.4
 
-    planta = integrador(x0, tiempo[0])
+    planta = linear_models.integrator(x0, tiempo[0])
 
     A0 = disk_graph.adjacency(x0, dmax)
     if distances.rigidity(A0, x0):
@@ -232,14 +229,14 @@ if __name__ == '__main__':
     logs.eig[0] = None
     logs.Y[0] = distances.innovation_matrix(A0, x0)
 
-    cuadros = np.empty((tiempo.size, 2), dtype=np.ndarray)
+    frames = np.empty((tiempo.size, 3), dtype=np.ndarray)
     E0 = disk_graph.edges(x0, dmax)
-    cuadros[0] = x0, E0
+    frames[0] = tiempo[0], x0, E0
 
     # ------------------------------------------------------------------
     # Simulación
     # ------------------------------------------------------------------
-    logs, t_perf, cuadros = run(steps, logs, t_perf, planta, cuadros)
+    logs, t_perf, frames = run(steps, logs, t_perf, planta, frames)
 
     x = logs.x
     u = logs.u
@@ -317,30 +314,11 @@ if __name__ == '__main__':
         plt.show()
 
     if arg.animate:
-        # animar matriz
-        fig, ax = plt.subplots()
-        animate_matrix(fig, ax, arg.h, Y, save=arg.save)
-
-        # animar grafo
-        estilos = (
-            [V, {'color': 'b', 'marker': 'o', 'markersize': '5'}], )
-        fig, ax = plt.subplots()
-        title = r'$n={}, \; d_{{max}}={},$'
-        title += '\n'
-        title += r'$\beta_1={}, \; \epsilon_1={},$'
-        title += '\t'
-        title += r'$\beta_2={}, \; \epsilon_2={}$'
-        fig.suptitle(title.format(nv, dmax, beta_1, e_1, beta_2, e_2))
-        # title += r'$\beta={}, \; \epsilon={},$'
-        # fig.suptitle(title.format(nv, dmax, beta_1, e_1))
-        ax.set_xlim(-1.5 * dmax, 1.5 * dmax)
-        ax.set_ylim(-1.5 * dmax, 1.5 * dmax)
-        ax.set_aspect('equal')
-        ax.grid(1)
-        ax.set_xlabel('$x$')
-        ax.set_ylabel('$y$')
-        animar_grafo(
-            fig, ax, arg.h, estilos, cuadros,
-            edgestyle={'color': '0.2', 'linewidth': 0.7},
-            guardar=arg.save,
-            archivo='/tmp/animacion.mp4')
+        fig, ax = nplot.figure()
+        ax.set_xlim(-1.5*dmax, 1.5*dmax)
+        ax.set_ylim(-1.5*dmax, 1.5*dmax)
+        anim = nplot.Animate(fig, ax, arg.h/2, frames, maxlen=50)
+        anim.set_teams({'ids': V, 'tail': True})
+        anim.ax.legend()
+        anim.run()
+        plt.show()
