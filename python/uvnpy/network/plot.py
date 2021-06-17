@@ -8,36 +8,98 @@
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.animation as ani
+import collections
 from transformations import unit_vector
 
 from . import core
 
 
+class Animate(object):
+    def __init__(self, fig, ax, h, frames, maxlen=1, file=None):
+        """ Animar grafo de posicion"""
+        self.fig = fig
+        self.ax = ax
+        self.h = h
+        self.frames = frames
+        self.p_tail = collections.deque(maxlen=maxlen)
+        _, Pk, _ = self.frames[0]
+        self.p_tail.append(Pk)
+        self.stamp = self.ax.text(
+            0.01, 0.01, r'{:.2f} secs'.format(0.0),
+            verticalalignment='bottom', horizontalalignment='left',
+            transform=self.ax.transAxes, color='green', fontsize=10)
+        self.anim = None
+        self.teams = {}
+        edgestyle = {'color': '0.2', 'linewidth': 0.7}
+        self.edges = mpl.collections.LineCollection([], **edgestyle)
+        self.ax.add_artist(self.edges)
+
+    def set_teams(self, *teams):
+        for i, team in enumerate(teams):
+            name = team.get('name', 'Team {}'.format(i))
+            style = team.get(
+                'style', {'color': 'b', 'marker': 'o', 'markersize': '5'})
+            self.teams[name] = {}
+            self.teams[name]['ids'] = team['ids']
+            style.update(label=name)
+            line = self.ax.plot([], [], ls='', **style)
+            self.teams[name]['points'] = line[0]
+            if team.get('tail'):
+                style.update(markersize=0.5, alpha=0.4)
+                style.pop('label')
+                line = self.ax.plot([], [], ls='', **style)
+                self.teams[name]['tail'] = line[0]
+
+    def set_edgestyle(self, **style):
+        self.edges = mpl.collections.LineCollection([], **style)
+        self.ax.add_artist(self.edges)
+
+    def update(self, frame):
+        tk, Pk, Ek = frame
+        q = np.array(self.p_tail)
+        self.p_tail.append(Pk)
+        for team in self.teams.values():
+            ids = team['ids']
+            points = team['points']
+            tail = team.get('tail')
+
+            p = Pk[ids]
+            points.set_data(p[:, 0], p[:, 1])
+            if tail:
+                tail.set_data(q[:, ids, 0], q[:, ids, 1])
+        self.stamp.set_text('$t = {:.1f} s$'.format(tk))
+        if len(Ek) > 0:
+            self.edges.set_segments(Pk[Ek])
+        else:
+            self.edges.set_segments([])
+        return self.ax.lines + self.ax.artists + self.ax.texts
+
+    def run(self, file=None):
+        self.anim = ani.FuncAnimation(
+            self.fig,
+            self.update,
+            frames=self.frames,
+            interval=1000 * self.h,
+            blit=True
+        )
+        if file:
+            self.anim.save(
+                file,
+                fps=1. / self.h,
+                dpi=200,
+                extra_args=['-vcodec', 'libx264'])
+
+
 def figure(nrows=1, ncols=1, **kwargs):
-    fig = plt.figure(**kwargs)
-    gs = fig.add_gridspec(nrows, ncols)
-    return gs
-
-
-def xy(subplots):
-    """ Grafico XY.
-
-    args:
-        subplots: matplotlib.gridspec.GridSpec o
-            tupla de matplotlib.gridspec.SubplotSpec
-
-    returns:
-        axes: np.ndarray conteniendo los axes.
-    """
-    axes = np.empty(len(tuple(subplots)), dtype=object)
-    for i, sp in enumerate(subplots):
-        gs = sp.get_gridspec()
-        axes[i] = gs.figure.add_subplot(sp)
-        axes[i].set_aspect('equal')
-        axes[i].grid(1)
-        axes[i].set_xlabel(r'$x$')
-        axes[i].set_ylabel(r'$y$')
-    return axes
+    fig, axes = plt.subplots(nrows, ncols, **kwargs)
+    _axes = np.asarray(axes)
+    for ax in _axes.flat:
+        ax.set_aspect('equal')
+        ax.grid(1)
+        ax.set_xlabel(r'$x$')
+        ax.set_ylabel(r'$y$')
+    return fig, axes
 
 
 def nodes(ax, p, **kwargs):
@@ -47,7 +109,7 @@ def nodes(ax, p, **kwargs):
 
 
 def edges(ax, p, E, **kwargs):
-    """Plotear enlaces."""
+    """Plotear edges."""
     edges = mpl.collections.LineCollection(p[E], **kwargs)
     ax.add_artist(edges)
     return edges
