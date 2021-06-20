@@ -41,7 +41,6 @@ def logistic_strength_derivative(d, beta=1, e=0):
     return D
 
 
-def connectivity(A):
-    L = np.diag(A.sum(1)) - A
-    n = len(A)
+def algebraic_connectivity(L):
+    n = L.shape[-1]
     return np.linalg.matrix_rank(L) == n - 1

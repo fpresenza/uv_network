@@ -80,6 +80,14 @@ def laplacian_from_edges(n, E, w=1, directed=False):
     return Deg - A
 
 
+def laplacian_from_adjacency(A):
+    n = A.shape[-1]
+    ii = np.eye(n, dtype=bool)
+    L = -A.copy()
+    L[..., ii] += A.sum(axis=-1)
+    return L
+
+
 def remove_one_edge_adjacency(A):
     E = np.argwhere(np.triu(A) > 0)
     m = len(E)

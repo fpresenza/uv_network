@@ -72,7 +72,7 @@ def jacobian_from_adjacency(A, p):
     """
     n, d = p.shape
     r = unit_vector(p[:, None] - p, axis=-1)
-    ii = np.eye(n).astype(bool)
+    ii = np.eye(n, dtype=bool)
     r[ii] = 0
     r *= A[..., None]               # aplicar pesos
     E = np.argwhere(np.triu(A) != 0)
@@ -108,14 +108,12 @@ def jacobian_from_incidence(D, p):
     return J.reshape(-1, p.size)
 
 
-def innovation_matrix(A, p):
-    """ Matriz de innovación.
+def laplacian(A, p):
+    """Laplaciano de rigidez.
 
-    Devuelve la matriz de innovación
+        Y =  H^T W H
 
-            Y =  H^T W H
-
-    del modelo de distancias de un grafo de n agentes
+    Modelo de distancias de un grafo de n agentes
     determinado por la matriz de adyacencia A.
 
     A[i, j] >= 0 respresenta el peso asociado a cada enlace.
@@ -128,7 +126,7 @@ def innovation_matrix(A, p):
         Y: matriz de innovacion (..., n * d, n * d)
     """
     n, d = p.shape[-2:]
-    ii = np.eye(n).astype(bool)
+    ii = np.eye(n, dtype=bool)
     r = unit_vector(p[..., None, :] - p[..., None, :, :], axis=-1)
     r[..., ii, :] = 0
     Y = - r[..., None] * r[..., None, :]    # outer product
@@ -140,7 +138,7 @@ def innovation_matrix(A, p):
     return Y.reshape(s)
 
 
-def innovation_matrix_diag(A, p):
+def laplacian_diag(A, p):
     """ Diagonal por bloques de la Matriz de innovación.
 
     args:
@@ -151,7 +149,7 @@ def innovation_matrix_diag(A, p):
         diag: bloques principales (..., n, d, d)
     """
     n, d = p.shape[-2:]
-    ii = np.eye(n).astype(bool)
+    ii = np.eye(n, dtype=bool)
     r = unit_vector(p[..., None, :] - p[..., None, :, :], axis=-1)
     r[..., ii, :] = 0
     Y = r[..., None] * r[..., None, :]    # outer product
@@ -161,7 +159,7 @@ def innovation_matrix_diag(A, p):
 
 
 def rigidity(A, p):
-    Y = innovation_matrix(A, p)
+    Y = laplacian(A, p)
     n, d = p.shape[-2:]
     rigid_rank = d * n - int(d * (d + 1)/2)
     return np.linalg.matrix_rank(Y) == rigid_rank
@@ -193,7 +191,7 @@ def edge_potencial_gradient(A, p):
     """
     n, d = p.shape
     r = unit_vector(p[:, None] - p, axis=-1)
-    ii = np.eye(n).astype(bool)
+    ii = np.eye(n, dtype=bool)
     r[ii] = 0
     r *= A[..., None]               # aplicar pesos
     grad = r.sum(1)
@@ -206,7 +204,7 @@ def local_distances(p, q):
     return dist
 
 
-def local_innovation_matrix(p, q, w=np.array(1.)):
+def local_laplacian(p, q, w=np.array(1.)):
     r = unit_vector(p[:, None] - q, axis=2)
     rw = r * w[..., None]
     Y = r[..., None] * rw[..., None, :]
