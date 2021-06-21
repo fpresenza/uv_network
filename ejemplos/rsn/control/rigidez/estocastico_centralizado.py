@@ -12,9 +12,9 @@ import progressbar
 import argparse
 import collections
 
-import uvnpy.rsn.core as rsn
+import uvnpy.rsn as rsn
 from uvnpy.rsn import distances
-import uvnpy.network as nwk
+import uvnpy.network as network
 from uvnpy.network import connectivity
 from uvnpy.network import disk_graph
 from uvnpy.model import linear_models
@@ -105,9 +105,9 @@ class RigidityControl(object):
         self.prediction(u)
         metric = self.metric(self.objective_matrix())
         ce = self.weights(0).sum()  # / (metric**2)
-        cm = (np.exp(0.7*metric) - 1)
+        cm = np.exp(0.7*metric) - 1
         cu = u.dot(u)
-        cc = cost_functions.collision(self.x[-1])
+        cc = cost_functions.collision(self.x)
         self.restart()
         return q[0]*ce + q[1]*cm + q[2]*cu + q[3]*cc
 
@@ -127,10 +127,6 @@ class RigidityControl(object):
 
 def eighmax(M):
     return np.linalg.eigvalsh(M)[-1]
-
-
-def logdet(M):
-    return np.linalg.slogdet(M)[1]
 
 
 # ------------------------------------------------------------------
@@ -220,11 +216,11 @@ if __name__ == '__main__':
     dmax = 28.
     lim = 25.
 
-    N = 5
+    N = 15
     T = arg.h
 
-    xi = np.random.uniform(-lim, lim, (n, dof))
-    # # xi = circle2d(R=0.5*lim, N=n)
+    # xi = np.random.uniform(-lim, lim, (n, dof))
+    xi = circle2d(R=0.5*lim, N=n)
     # xi = np.array([
     #     [-20., 0],
     #     [-10., 0],
@@ -240,7 +236,7 @@ if __name__ == '__main__':
 
     # formacion = linear_models.random_walk(xi, Q / T)
     formacion = linear_models.integrator(xi)
-    K = nwk.complete_edges(n)
+    K = network.complete_edges(n)
     s = dict([((e[0], e[1]), RangeSensor(e[0], e[1], Rij)) for e in K])
     kf = kalman.KF(hat_xi, Pi)
     control = RigidityControl(xi, Pi, Q, Rij, H, N, T, dmin, eighmax)
@@ -283,10 +279,10 @@ if __name__ == '__main__':
 
     frames = list(zip(tiempo, logs.x, logs.E))
 
-    fig, ax = nwk.plot.figure()
+    fig, ax = network.plot.figure()
     ax.set_xlim(-1.5*lim, 1.5*lim)
     ax.set_ylim(-1.5*lim, 1.5*lim)
-    anim = nwk.plot.Animate(fig, ax, arg.h/2, frames, maxlen=50)
+    anim = network.plot.Animate(fig, ax, arg.h/2, frames, maxlen=50)
     anim.set_teams({'name': 'ground truth', 'ids': range(n), 'tail': True})
     anim.ax.legend()
     anim.run()
