@@ -14,12 +14,11 @@ import collections
 
 import uvnpy.rsn.core as rsn
 from uvnpy.rsn import distances
-import uvnpy.network.core as net
+import uvnpy.network as nwk
 from uvnpy.network import connectivity
 from uvnpy.network import disk_graph
 from uvnpy.model import linear_models
 from uvnpy.filtering import kalman
-import uvnpy.network.plot as nplot
 from uvnpy.toolkit.calculus import circle2d  # noqa
 from uvnpy.control import cost_functions
 
@@ -241,7 +240,7 @@ if __name__ == '__main__':
 
     # formacion = linear_models.random_walk(xi, Q / T)
     formacion = linear_models.integrator(xi)
-    K = net.complete_edges(n)
+    K = nwk.complete_edges(n)
     s = dict([((e[0], e[1]), RangeSensor(e[0], e[1], Rij)) for e in K])
     kf = kalman.KF(hat_xi, Pi)
     control = RigidityControl(xi, Pi, Q, Rij, H, N, T, dmin, eighmax)
@@ -284,10 +283,10 @@ if __name__ == '__main__':
 
     frames = list(zip(tiempo, logs.x, logs.E))
 
-    fig, ax = nplot.figure()
+    fig, ax = nwk.plot.figure()
     ax.set_xlim(-1.5*lim, 1.5*lim)
     ax.set_ylim(-1.5*lim, 1.5*lim)
-    anim = nplot.Animate(fig, ax, arg.h/2, frames, maxlen=50)
+    anim = nwk.plot.Animate(fig, ax, arg.h/2, frames, maxlen=50)
     anim.set_teams({'name': 'ground truth', 'ids': range(n), 'tail': True})
     anim.ax.legend()
     anim.run()

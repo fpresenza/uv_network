@@ -8,15 +8,14 @@ import collections
 import time
 import progressbar
 import numpy as np
+import scipy.linalg
 import matplotlib.pyplot as plt
 
-from gpsic.plotting.core import agregar_ax
 from uvnpy.model import linear_models
+import uvnpy.network as network
 from uvnpy.network import disk_graph
 from uvnpy.network import connectivity
-import uvnpy.rsn.core as rsn
 from uvnpy.rsn import distances
-import uvnpy.network.plot as nplot
 from uvnpy.toolkit import calculus
 
 np.set_printoptions(suppress=True, precision=3, linewidth=150)
@@ -33,9 +32,7 @@ def detF(p):
     A = distances.matrix(p)
     A[A > 0] = connectivity.logistic_strength(A[A > 0], beta=beta_2, e=e_2)
 
-    M = rsn.shape_basis(p.mean(0))
-
-    L = distances.laplacian(A, p)
+    L = network.laplacian_from_adjacency(A)
     F = np.matmul(M.T, np.matmul(L, M))
     return np.linalg.det(F)
 
@@ -50,7 +47,7 @@ def logdetF_grad(p):
     return u.reshape(p.shape)
 
 
-def keep_rigid(p):
+def keep_connected(p):
     u = - a * detF(p[None])**(-a - 1) * D(detF, p)
     return -u.reshape(p.shape)
 
@@ -69,16 +66,16 @@ def repulsion(p):
     return -u
 
 
-def grid(nv, sep):
-    k = np.ceil(np.sqrt(nv)) / 2
+def grid(n, sep):
+    k = np.ceil(np.sqrt(n)) / 2
     nums = np.arange(-k, k) * sep
     g = np.meshgrid(nums, nums)
-    return np.vstack(np.dstack(g))[:nv]
+    return np.vstack(np.dstack(g))[:n]
 
 
-def linspace(nv, dmax):
-    p = np.empty((nv, 2))
-    p[:, 0] = np.linspace(-dmax, dmax, nv)
+def linspace(n, dmax):
+    p = np.empty((n, 2))
+    p[:, 0] = np.linspace(-dmax, dmax, n)
     p[:, 1] = 0
     return p
 
@@ -98,7 +95,7 @@ def run(steps, logs, t_perf, planta, frames):
         # Control
         t_a = time.perf_counter()
 
-        u = keep_rigid(x) + 1.5 * min_edges(x) + (2 / nv) * repulsion(x)
+        u = keep_connected(x) + 1.5 * min_edges(x) + (2 / n) * repulsion(x)
         # u *= 2
         # u = 0.5 * detF_grad(x) + 0.2 * repulsion(x)
 
@@ -108,9 +105,8 @@ def run(steps, logs, t_perf, planta, frames):
 
         # Análisis
         A = disk_graph.adjacency(x, dmax)
-        L = distances.laplacian(A, x)
+        L = network.laplacian_from_adjacency(A)
 
-        M = rsn.shape_basis(x)
         F = M.T.dot(L).dot(M)
         J = np.abs(np.linalg.det(F))**a
         # J = np.log(np.linalg.det(F))
@@ -172,11 +168,10 @@ if __name__ == '__main__':
     steps = list(enumerate(tiempo))
     t_perf = []
 
-    nv = arg.n
-    a = 2 / nv
-    V = range(nv)
+    n = arg.n
+    a = 2 / n
+    V = range(n)
     dof = 2
-    n = dof * nv
     dmax = 10
     beta_1 = 10 / dmax
     beta_2 = 40 / dmax
@@ -187,9 +182,12 @@ if __name__ == '__main__':
     # e_1 = dmax
     # e_2 = dmax
 
-    np.random.seed(1)
-    # x0 = np.random.uniform(-0.5 * dmax, 0.5 * dmax, (nv, dof))
-    x0 = np.random.uniform(-dmax, dmax, (nv, dof))
+    ones = np.ones((n, 1))
+    M = scipy.linalg.null_space(ones.T)
+
+    # np.random.seed(1)
+    # x0 = np.random.uniform(-0.5 * dmax, 0.5 * dmax, (n, dof))
+    x0 = np.random.uniform(-dmax, dmax, (n, dof))
     # x0 = np.array([
     #    [  8.14 , -14.377],
     #    [  4.009,   7.464],
@@ -211,23 +209,24 @@ if __name__ == '__main__':
     planta = linear_models.integrator(x0, tiempo[0])
 
     A0 = disk_graph.adjacency(x0, dmax)
-    if distances.rigidity(A0, x0):
-        print('---> Grafo rígido <---')
+    L0 = network.laplacian_from_adjacency(A0)
+    if connectivity.algebraic_connectivity(L0):
+        print('---> Grafo conectado <---')
     else:
-        print('---> Grafo flexible <---')
+        print('---> Grafo no conectado <---')
 
     logs = Logs(
-        x=np.empty((tiempo.size, nv, dof)),
-        u=np.empty((tiempo.size, nv, dof)),
+        x=np.empty((tiempo.size, n, dof)),
+        u=np.empty((tiempo.size, n, dof)),
         J=np.empty((tiempo.size, 2)),
-        eig=np.empty((tiempo.size, n - 3)),
+        eig=np.empty((tiempo.size, n - 1)),
         L=np.empty((tiempo.size, n, n))
         )
     logs.x[0] = x0
-    logs.u[0] = np.zeros((nv, dof))
+    logs.u[0] = np.zeros((n, dof))
     logs.J[0] = None
     logs.eig[0] = None
-    logs.L[0] = distances.laplacian(A0, x0)
+    logs.L[0] = network.laplacian_from_adjacency(A0)
 
     frames = np.empty((tiempo.size, 3), dtype=np.ndarray)
     E0 = disk_graph.edges(x0, dmax)
@@ -253,72 +252,57 @@ if __name__ == '__main__':
     # Plotting
     # ------------------------------------------------------------------
 
-    fig = plt.figure(figsize=(13, 5))
-    fig.subplots_adjust(hspace=0.5, wspace=0.25)
-    gs = fig.add_gridspec(dof, 2)
+    fig, axes = plt.subplots(2, 1)
 
-    ax = agregar_ax(
-        gs[0, 0],
-        title='posición',
-        xlabel='t [seg]', ylabel='x [m]', label_kw={'fontsize': 10})
-    ax.plot(tiempo, x[..., 0], ds='steps')
-    ax = agregar_ax(
-        gs[1, 0],
-        xlabel='t [seg]', ylabel='y [m]', label_kw={'fontsize': 10})
-    ax.plot(tiempo, x[..., 1], ds='steps')
-    ax = agregar_ax(
-        gs[0, 1],
-        title='acción de control',
-        xlabel='t [seg]', ylabel='$u_x$ [m/s]', label_kw={'fontsize': 10})
-    ax.plot(tiempo, u[..., 0], ds='steps')
-    ax = agregar_ax(
-        gs[1, 1],
-        xlabel='t [seg]', ylabel='$u_y$ [m/s]', label_kw={'fontsize': 10})
-    ax.plot(tiempo, u[..., 1], ds='steps')
+    axes[0].set_title('posicion')
+    axes[0].set_xlabel('t [seg]')
+    axes[0].set_ylabel('(x, y) [m]')
+    axes[0].grid(1)
+    axes[0].plot(tiempo, x[..., 0], ds='steps')
+    plt.gca().set_prop_cycle(None)
+    axes[0].plot(tiempo, x[..., 1], ds='steps')
 
-    if arg.save:
-        fig.savefig('/tmp/control.pdf', format='pdf')
-    else:
-        plt.show()
+    axes[1].set_title('accion de control')
+    axes[1].set_xlabel('t [seg]')
+    axes[1].set_ylabel('u [m/s]')
+    axes[1].grid(1)
+    axes[1].plot(tiempo, u[..., 0], ds='steps')
+    plt.gca().set_prop_cycle(None)
+    axes[1].plot(tiempo, u[..., 1], ds='steps')
+    fig.savefig('/tmp/control.pdf', format='pdf')
 
-    fig = plt.figure(figsize=(13, 5))
-    fig.subplots_adjust(hspace=0.5, wspace=0.25)
-    gs = fig.add_gridspec(2, 2)
+    fig, axes = plt.subplots(3, 1)
 
-    ax = agregar_ax(
-        gs[0, 0],
-        xlabel='t [seg]', ylabel=r'$det(F)^a$', label_kw={'fontsize': 10})
-    # ax.semilogy(tiempo, J[:, 0], ds='steps')
-    ax.plot(tiempo, J[:, 0], ds='steps')
-    # ax.set_ylim(bottom=0)
-    # ax.legend()
+    axes[0].set_xlabel('t [seg]')
+    axes[0].set_ylabel(r'$det(F)^a$')
+    axes[0].grid(1)
+    # axes[0].semilogy(tiempo, J[:, 0], ds='steps')
+    axes[0].plot(tiempo, J[:, 0], ds='steps')
+    # axes[0].set_ylim(bottom=0)
+    # axes.[0]legend()
 
-    ax = agregar_ax(
-        gs[0, 1],
-        xlabel='t [seg]', ylabel=r'$|\mathcal{E}|$', label_kw={'fontsize': 10})
-    ax.plot(tiempo, J[:, 1], ds='steps')
-    ax.set_ylim(bottom=0)
-    # ax.legend()
+    axes[1].set_xlabel('t [seg]')
+    axes[1].set_ylabel(r'$|\mathcal{E}|$')
+    axes[1].grid(1)
+    axes[1].plot(tiempo, J[:, 1], ds='steps')
+    axes[1].set_ylim(bottom=0)
+    # axes[1].legend()
 
-    ax = agregar_ax(
-        gs[1, :],
-        xlabel='t [seg]', ylabel=r'$\lambda(F)$',
-        label_kw={'fontsize': 10})
-    # ax.semilogy(tiempo, eig, ds='steps')
-    ax.plot(tiempo, eig, ds='steps')
-    # ax.set_ylim(bottom=0)
-
-    if arg.save:
-        fig.savefig('/tmp/metricas.pdf', format='pdf')
-    else:
-        plt.show()
+    axes[2].set_xlabel('t [seg]')
+    axes[2].set_ylabel(r'$\lambda(F)$')
+    axes[2].grid(1)
+    # axes[2].semilogy(tiempo, eig, ds='steps')
+    axes[2].plot(tiempo, eig, ds='steps')
+    # axes[2].set_ylim(bottom=0)
+    fig.savefig('/tmp/metricas.pdf', format='pdf')
 
     if arg.animate:
-        fig, ax = nplot.figure()
+        fig, ax = network.plot.figure()
         ax.set_xlim(-1.5*dmax, 1.5*dmax)
         ax.set_ylim(-1.5*dmax, 1.5*dmax)
-        anim = nplot.Animate(fig, ax, arg.h/2, frames, maxlen=50)
+        anim = network.plot.Animate(fig, ax, arg.h/2, frames, maxlen=50)
         anim.set_teams({'ids': V, 'tail': True})
         anim.ax.legend()
         anim.run()
-        plt.show()
+
+    plt.show()
