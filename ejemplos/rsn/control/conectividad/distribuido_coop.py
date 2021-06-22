@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-""" Created on jue mar 18 13:21:30 -03 2021
+""" Created on lun abr  5 16:16:07 -03 2021
 @author: fran
 """
 import argparse
@@ -11,6 +11,7 @@ import numpy as np
 import scipy.linalg
 import matplotlib.pyplot as plt
 
+from gpsic.toolkit import linalg
 from uvnpy.model import linear_models
 import uvnpy.network as network
 from uvnpy.network import disk_graph
@@ -18,37 +19,29 @@ from uvnpy.network import connectivity
 from uvnpy.rsn import distances
 from uvnpy.toolkit import calculus
 
-np.set_printoptions(suppress=True, precision=3, linewidth=150)
 # ------------------------------------------------------------------
 # Definición de variables globales, funciones y clases
 # ------------------------------------------------------------------
-Logs = collections.namedtuple('Logs', 'x u J eig L')
+Logs = collections.namedtuple('Logs', 'x u J eig avg_dist')
 
 D = calculus.derivative_eval
 lsd = connectivity.logistic_strength_derivative
 
 
-def detF(p):
-    A = distances.matrix(p)
-    A[A > 0] = connectivity.logistic_strength(A[A > 0], beta=beta_2, e=e_2)
+def detFi(p):
+    Ai = distances.matrix(p)
+    Ai[Ai > 0] = connectivity.logistic_strength(Ai[Ai > 0], beta=beta_2, e=e_2)
+    Li = network.laplacian_from_adjacency(Ai)
 
-    L = network.laplacian_from_adjacency(A)
-    F = np.matmul(M.T, np.matmul(L, M))
-    return np.linalg.det(F)
-
-
-def detF_grad(p):
-    u = a * detF(p[None])**(a - 1) * D(detF, p)
-    return u.reshape(p.shape)
-
-
-def logdetF_grad(p):
-    u = detF(p[None])**(-1) * D(detF, p)
-    return u.reshape(p.shape)
+    n = p.shape[-2]
+    ones = np.ones((1, n))
+    Mi = scipy.linalg.null_space(ones)
+    Fi = np.matmul(Mi.T, np.matmul(Li, Mi))
+    return np.linalg.det(Fi)
 
 
 def keep_connected(p):
-    u = - a * detF(p[None])**(-a - 1) * D(detF, p)
+    u = - a * detFi(p[None])**(-a - 1) * D(detFi, p)
     return -u.reshape(p.shape)
 
 
@@ -56,14 +49,14 @@ def min_edges(p):
     dw = distances.matrix(p)
     dw[dw > 0] = lsd(dw[dw > 0], beta=beta_1, e=e_1)
     u = distances.edge_potencial_gradient(dw, p)
-    return -u
+    return -u.reshape(p.shape)
 
 
 def repulsion(p):
     w = distances.matrix(p)
     w[w > 0] = connectivity.power_strength_derivative(w[w > 0], a=1)
     u = distances.edge_potencial_gradient(w, p)
-    return -u
+    return -u.reshape(p.shape)
 
 
 def grid(n, sep):
@@ -93,35 +86,42 @@ def run(steps, logs, t_perf, planta, frames):
         x = planta.x
 
         # Control
-        t_a = time.perf_counter()
+        t_a = np.empty(n)
+        t_b = np.empty(n)
+        u[:] = 0
+        for i in V:
+            t_a[i] = time.perf_counter()
 
-        u = keep_connected(x) + 3.5 * min_edges(x)  # + (2 / n) * repulsion(x)
-        # u *= 2
-        # u = 0.5 * detF_grad(x) + 0.2 * repulsion(x)
+            R[i] = disk_graph.neighborhood_band(x, i, R[i], dmin, dmax, inclusive=True)  # noqa
+            p = x[R[i]]
 
-        t_b = time.perf_counter()
+            u[R[i]] += keep_connected(p) + 1.5 * min_edges(p)  # + (2 / n) * repulsion(p)  # noqa
 
+            t_b[i] = time.perf_counter()
+
+            # Ai = disk_graph.adjacency(p, dmin)
+            # Li = network.laplacian_from_adjacency(Ai)
+            # print(i, np.linalg.eigvalsh(Li))
         x = planta.step(t, u)
 
         # Análisis
-        A = disk_graph.adjacency(x, dmax)
+        A = R.astype(int) - np.eye(n)
         L = network.laplacian_from_adjacency(A)
 
         F = M.T.dot(L).dot(M)
         J = np.abs(np.linalg.det(F))**a
-        # J = np.log(np.linalg.det(F))
         eigvals = np.linalg.eigvalsh(F)
 
-        E = disk_graph.edges(x, dmax)
+        E = network.edges_from_adjacency(A)
         frames[k] = t, x, E
 
         logs.x[k] = x
         logs.u[k] = u
         logs.J[k] = (J, len(E))
         logs.eig[k] = eigvals
-        logs.L[k] = L
+        logs.avg_dist[k] = linalg.norma2(x[E[:, 0]] - x[E[:, 1]], axis=1).mean()  # noqa
 
-        t_perf.append(t_b - t_a)
+        t_perf.append(np.mean(t_b - t_a))
         bar.update(np.round(t, 3))
 
     bar.finish()
@@ -137,7 +137,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
     parser.add_argument(
         '-s', '--step',
-        dest='h', default=20e-3, type=float, help='paso de simulación')
+        dest='h', default=100e-3, type=float, help='paso de simulación')
     parser.add_argument(
         '-t', '--ti',
         metavar='T0', default=0.0, type=float, help='tiempo inicial')
@@ -169,65 +169,48 @@ if __name__ == '__main__':
     t_perf = []
 
     n = arg.n
-    a = 2 / n
+    a = 2 / n   # 32 / n**2
     V = range(n)
     dof = 2
+    dn = dof * n
     dmax = 10
+    dmin = 0.7 * dmax
     beta_1 = 2 / dmax
     beta_2 = 40 / dmax
     e_1 = dmax
     e_2 = 0.7 * dmax
-    # beta_1 = 0.5
-    # beta_2 = 0.5
-    # e_1 = dmax
-    # e_2 = dmax
 
-    M = scipy.linalg.null_space(np.ones((1, n)))
+    ones = np.ones((1, n))
+    M = scipy.linalg.null_space(ones)
 
     # np.random.seed(1)
-    # x0 = np.random.uniform(-0.5 * dmax, 0.5 * dmax, (n, dof))
-    # x0 = np.random.uniform(-dmax, dmax, (n, dof))
-    x0 = calculus.circle2d(R=0.1*dmax, N=n)
-    x0 += np.random.normal(0, 0.5, (n, dof))
-    # x0 = np.array([
-    #    [  8.14 , -14.377],
-    #    [  4.009,   7.464],
-    #    [ -0.045,  -8.256],
-    #    [ -9.058,   7.816],
-    #    [ -9.927, -12.35 ],
-    #    [  5.561,  13.602],
-    #    [-14.882,   0.366],
-    #    [  9.379,   3.376],
-    #    [  6.653,  -6.244],
-    #    [ 12.533,   6.437],
-    #    [  1.276, -10.735],
-    #    [ -3.8  ,   5.224],
-    #    [ -1.745,  -1.98 ],
-    #    [ -7.123,   0.45 ],
-    #    [ -1.012,  10.45 ],
-    #    [  9.157,   0.649]]) * 1.4
-
-    planta = linear_models.integrator(x0, tiempo[0])
-
+    x0 = np.random.uniform(-0.5 * dmax, 0.5 * dmax, (n, dof))
+    # x0 = calculus.circle2d(R=0.1*dmin, N=n)
+    # x0 += np.random.normal(0, 0.5, (n, dof))
     A0 = disk_graph.adjacency(x0, dmax)
+    u = np.zeros((n, dof))
+    R = (A0 + np.eye(n)).astype(bool)
+
     L0 = network.laplacian_from_adjacency(A0)
     if connectivity.algebraic_connectivity(L0):
         print('---> Grafo conectado <---')
     else:
         print('---> Grafo no conectado <---')
 
+    planta = linear_models.integrator(x0, tiempo[0])
+
     logs = Logs(
         x=np.empty((tiempo.size, n, dof)),
         u=np.empty((tiempo.size, n, dof)),
         J=np.empty((tiempo.size, 2)),
         eig=np.empty((tiempo.size, n - 1)),
-        L=np.empty((tiempo.size, n, n))
+        avg_dist=np.empty(tiempo.size)
         )
     logs.x[0] = x0
     logs.u[0] = np.zeros((n, dof))
     logs.J[0] = None
     logs.eig[0] = None
-    logs.L[0] = network.laplacian_from_adjacency(A0)
+    logs.avg_dist[0] = None
 
     frames = np.empty((tiempo.size, 3), dtype=np.ndarray)
     E0 = disk_graph.edges(x0, dmax)
@@ -242,7 +225,7 @@ if __name__ == '__main__':
     u = logs.u
     J = logs.J
     eig = logs.eig
-    L = logs.L
+    avg_dist = logs.avg_dist
 
     st = arg.tf - arg.ti
     rt = sum(t_perf)
@@ -272,7 +255,7 @@ if __name__ == '__main__':
     axes[1].plot(tiempo, u[..., 1], ds='steps')
     fig.savefig('/tmp/control.pdf', format='pdf')
 
-    fig, axes = plt.subplots(3, 1)
+    fig, axes = plt.subplots(4, 1)
 
     axes[0].set_xlabel('t [seg]')
     axes[0].set_ylabel(r'$det(F)^a$')
@@ -295,6 +278,16 @@ if __name__ == '__main__':
     # axes[2].semilogy(tiempo, eig, ds='steps')
     axes[2].plot(tiempo, eig, ds='steps')
     # axes[2].set_ylim(bottom=0)
+    fig.savefig('/tmp/metricas.pdf', format='pdf')
+
+    axes[3].set_xlabel('t [seg]')
+    axes[3].set_ylabel(r'$\rm{avg}(d_{ij}) / d_{\rm{max}}$')
+    axes[3].grid(1)
+    axes[3].plot(tiempo, avg_dist / dmax, ds='steps')
+    axes[3].hlines(
+        [dmin / dmax, 1],
+        xmin=0, xmax=tiempo[-1], ls='--', color='k', alpha=0.7)
+    axes[3].set_ylim(bottom=0)
     fig.savefig('/tmp/metricas.pdf', format='pdf')
 
     if arg.animate:
