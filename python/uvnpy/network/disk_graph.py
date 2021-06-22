@@ -37,22 +37,38 @@ def inter_edges(p, q, dmax=np.inf):
 
 
 def adjacency(p, dmax=np.inf):
-    """ Devuelve matriz de adyacencia por proximidad.
+    """Matriz de adyacencia por proximidad.
 
     args:
         p: array de posiciones (n, dof)
         dmax: distancia máxima de conexión
 
     returns:
-        A: matriz adyacencia (n, n) donde el peso
-        del enlace (i, j) es la distancia entre
-        los vehículos i y j.
+        A: matriz adyacencia (n, n)
     """
     r = p[:, None] - p
     A = np.square(r).sum(axis=-1)
     A[A > dmax**2] = 0
     A[A != 0] = 1
     return A
+
+
+def laplacian(p, dmax=np.inf):
+    """Matriz de adyacencia por proximidad.
+
+    args:
+        p: array de posiciones (n, dof)
+        dmax: distancia máxima de conexión
+
+    returns:
+        A: matriz adyacencia (n, n)
+    """
+    r = p[:, None] - p
+    A = np.square(r).sum(axis=-1)
+    A[A > dmax**2] = 0
+    A[A != 0] = 1
+    Deg = np.diag(A.sum(axis=-1))
+    return Deg - A
 
 
 def neighborhood(p, i, dmax=np.inf, inclusive=False):
