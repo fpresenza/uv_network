@@ -16,14 +16,14 @@ from . import core
 
 
 class Animate(object):
-    def __init__(self, fig, ax, h, frames, maxlen=1, file=None):
+    def __init__(self, fig, ax, h, frames, maxlen=1):
         """ Animar grafo de posicion"""
         self.fig = fig
         self.ax = ax
         self.h = h
         self.frames = frames
         self.p_tail = collections.deque(maxlen=maxlen)
-        _, Pk, _ = self.frames[0]
+        Pk = self.frames[0][1]
         self.p_tail.append(Pk)
         self.stamp = self.ax.text(
             0.01, 0.01, r'{:.2f} secs'.format(0.0),
@@ -55,8 +55,16 @@ class Animate(object):
         self.edges = mpl.collections.LineCollection([], **style)
         self.ax.add_artist(self.edges)
 
+    def _update_extra_artists(self, frame):
+        pass
+
+    def set_extra_artists(self, *artists):
+        self._extra_artists = []
+        for artist in artists:
+            self._extra_artists.append(artist)
+
     def update(self, frame):
-        tk, Pk, Ek = frame
+        tk, Pk, Ek = frame[:3]
         q = np.array(self.p_tail)
         self.p_tail.append(Pk)
         for team in self.teams.values():
@@ -73,6 +81,7 @@ class Animate(object):
             self.edges.set_segments(Pk[Ek])
         else:
             self.edges.set_segments([])
+        self._update_extra_artists(frame)
         return self.ax.lines + self.ax.artists + self.ax.texts
 
     def run(self, file=None):
