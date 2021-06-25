@@ -188,19 +188,17 @@ if __name__ == '__main__':
 
     planta = linear_models.integrator(x0, tiempo[0])
 
-    A0 = disk_graph.adjacency(x0, dmax)
-    if distances.rigidity(A0, x0):
-        print('---> Grafo rígido <---')
-    else:
-        print('---> Grafo flexible <---')
     for i in V:
         N[i] = disk_graph.neighborhood(x0, i, dmax)
         Ri = disk_graph.neighborhood(x0, i, dmax, inclusive=True)
         p = x0[Ri]
 
         Ai = disk_graph.adjacency(p, dmax)
-        if not distances.rigidity(Ai, p):
-            print('Warning!: Grafo {} no es rígido.'.format(i))
+        Li = distances.laplacian(Ai, p)
+        if distances.rigidity(Li, dof):
+            print('Grafo {} rígido.'.format(i))
+        else:
+            print('Warning!: Grafo {} flexible.'.format(i))
 
     logs = Logs(
         x=np.empty((tiempo.size, n, dof)),

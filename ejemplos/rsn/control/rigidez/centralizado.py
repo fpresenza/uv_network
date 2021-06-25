@@ -210,7 +210,8 @@ if __name__ == '__main__':
     planta = linear_models.integrator(x0, tiempo[0])
 
     A0 = disk_graph.adjacency(x0, dmax)
-    if distances.rigidity(A0, x0):
+    L0 = distances.laplacian(A0, x0)
+    if distances.rigidity(L0, dof):
         print('---> Grafo rígido <---')
     else:
         print('---> Grafo flexible <---')

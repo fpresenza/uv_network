@@ -111,7 +111,7 @@ def jacobian_from_incidence(D, p):
 def laplacian(A, p):
     """Laplaciano de rigidez.
 
-        Y =  H^T W H
+        L =  H^T W H
 
     Modelo de distancias de un grafo de n agentes
     determinado por la matriz de adyacencia A.
@@ -123,23 +123,23 @@ def laplacian(A, p):
         p: array de posiciones (..., n, d)
 
     returns
-        Y: matriz de innovacion (..., n * d, n * d)
+        L: laplaciano de rigidez (..., n * d, n * d)
     """
     n, d = p.shape[-2:]
     ii = np.eye(n, dtype=bool)
     r = unit_vector(p[..., None, :] - p[..., None, :, :], axis=-1)
     r[..., ii, :] = 0
-    Y = - r[..., None] * r[..., None, :]    # outer product
-    Y *= A[..., None, None]                 # aplicar pesos
-    Y[..., ii, :, :] -= Y.sum(p.ndim - 1)
-    Y = Y.swapaxes(-3, -2)
-    s = list(Y.shape)
+    L = - r[..., None] * r[..., None, :]    # outer product
+    L *= A[..., None, None]                 # aplicar pesos
+    L[..., ii, :, :] -= L.sum(p.ndim - 1)
+    L = L.swapaxes(-3, -2)
+    s = list(L.shape)
     s[-4:] = n * d, n * d
-    return Y.reshape(s)
+    return L.reshape(s)
 
 
 def laplacian_diag(A, p):
-    """ Diagonal por bloques de la Matriz de innovación.
+    """Bloques diagonales del laplaciano de rigidez.
 
     args:
         A: matriz de adyacencia (..., n, n)
@@ -152,17 +152,16 @@ def laplacian_diag(A, p):
     ii = np.eye(n, dtype=bool)
     r = unit_vector(p[..., None, :] - p[..., None, :, :], axis=-1)
     r[..., ii, :] = 0
-    Y = r[..., None] * r[..., None, :]    # outer product
-    Y *= A[..., None, None]               # aplicar pesos
-    diag = Y.sum(p.ndim - 1)
+    L = r[..., None] * r[..., None, :]    # outer product
+    L *= A[..., None, None]               # aplicar pesos
+    diag = L.sum(p.ndim - 1)
     return diag
 
 
-def rigidity(A, p):
-    Y = laplacian(A, p)
-    n, d = p.shape[-2:]
-    rigid_rank = d * n - int(d * (d + 1)/2)
-    return np.linalg.matrix_rank(Y) == rigid_rank
+def rigidity(L, d):
+    dn = L.shape[-1]
+    rigid_rank = dn - int(d * (d + 1)/2)
+    return np.linalg.matrix_rank(L) == rigid_rank
 
 
 def redundant_rigidity(A, p):
@@ -207,9 +206,9 @@ def local_distances(p, q):
 def local_laplacian(p, q, w=np.array(1.)):
     r = unit_vector(p[:, None] - q, axis=2)
     rw = r * w[..., None]
-    Y = r[..., None] * rw[..., None, :]
-    Yi = Y.sum(1)
-    return Yi
+    L = r[..., None] * rw[..., None, :]
+    Li = L.sum(1)
+    return Li
 
 
 def local_edge_potencial_gradient(p, q, w):

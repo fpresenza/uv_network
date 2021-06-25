@@ -188,7 +188,8 @@ if __name__ == '__main__':
         p = x0[R[i]]
 
         Ai = disk_graph.adjacency(p, dmax)
-        if distances.rigidity(Ai, p):
+        Li = distances.laplacian(Ai, p)
+        if distances.rigidity(Li, dof):
             print('Grafo {} rígido.'.format(i))
         else:
             print('Warning!: Grafo {} flexible.'.format(i))
