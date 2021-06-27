@@ -27,6 +27,12 @@ def dist_model(x, landmarks, R_dist):
     return hat_z, H, R
 
 
+def gps_model(x, R):
+    hat_z = x
+    H = np.eye(len(x))
+    return hat_z, H, R
+
+
 if __name__ == '__main__':
     xi = np.random.uniform(-25, 25, 2)
     dxi = np.array([3., 3.])
@@ -60,7 +66,7 @@ if __name__ == '__main__':
         kf.prediction(kalman.integrator, t, u.reshape(-1, 1), Q)
 
         z_gps = np.random.multivariate_normal(planta.x, R_gps)
-        kf.correction(kalman.gps_model, z_gps.reshape(-1, 1), R_gps)
+        kf.correction(gps_model, z_gps.reshape(-1, 1), R_gps)
 
         z_dist = dist(planta.x, landmarks, sigma_dist)
         kf.correction(dist_model, z_dist.reshape(-1, 1), landmarks, R_dist)

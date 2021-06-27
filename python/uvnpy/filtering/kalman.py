@@ -17,12 +17,6 @@ def integrator(dt, x, u, Q):
     return x, F, Q
 
 
-def gps_model(x, R):
-    hat_z = x
-    H = np.identity(len(x))
-    return hat_z, H, R
-
-
 def covariance_prediction(P, F, Q):
     return F.dot(P).dot(F.T) + Q
 
