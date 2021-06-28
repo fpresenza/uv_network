@@ -50,25 +50,15 @@ def make_targets(n, lim):
 def target_allocation(p, t):
     r = p[:, None] - t
     d2 = np.square(r).sum(axis=-1)
-    if d2.shape[-1] > 0:
-        c = d2.argmin(axis=-1)
-        return t[c]
-    else:
-        return p
-
-
-# def target_allocation(p, t):
-#     r = p[:, None] - t
-#     d2 = np.square(r).sum(axis=-1)
-#     a = p.copy()
-#     for _ in a:
-#         if np.any(d2 != np.inf):
-#             i, j = np.unravel_index(d2.argmin(), d2.shape)
-#             a[i] = t[j]
-#             d2[i, :] = d2[:, j] = np.inf
-#         else:
-#             return a
-#     return a
+    a = p.copy()
+    for _ in a:
+        if np.any(d2 != np.inf):
+            i, j = np.unravel_index(d2.argmin(), d2.shape)
+            a[i] = t[j]
+            d2[i, :] = d2[:, j] = np.inf
+        else:
+            return a
+    return a
 
 
 def update_targets(p, T, R):
@@ -79,13 +69,29 @@ def update_targets(p, T, R):
     return T.copy()
 
 
+def untracked_targets(T):
+    return np.count_nonzero(T[:, 2])
+
+
 def check_connectivity(p, dmax):
     A = disk_graph.adjacency(p, dmax)
     L = network.laplacian_from_adjacency(A)
     if connectivity.algebraic_connectivity(L):
-        return 'Grafo inicialmente conexo'
+        print('Grafo inicialmente conexo')
     else:
-        return 'Grafo inicialmente disconexo'
+        print('Grafo inicialmente disconexo')
+
+
+def mindist(p, E):
+    r = p[E[:, 0]] - p[E[:, 1]]
+    d2 = np.square(r).sum(axis=-1)
+    return np.sqrt(d2.min())
+
+
+def maxdist(p, E):
+    r = p[E[:, 0]] - p[E[:, 1]]
+    d2 = np.square(r).sum(axis=-1)
+    return np.sqrt(d2.max())
 
 
 class CoverageAnimate(network.plot.Animate):
@@ -105,17 +111,15 @@ class CoverageAnimate(network.plot.Animate):
 
 
 class CoverageControl(object):
-    def __init__(self, xi, N, h, dmax):
-        n = len(xi)
+    def __init__(self, x0, N, h, dmax):
+        n = len(x0)
         self.horizon = np.linspace(h, N*h, N).reshape(-1, 1, 1)
-        self.u = np.zeros(xi.size)
+        self.u = np.zeros(x0.size)
         self.a = -2/n
         self.beta = 40/dmax
         self.e = 0.8*dmax
-        self.w = np.arange(n)[::-1]
-        # self.w = np.ones(n)
-        self.cost = np.empty(5)
-        self.init(xi)
+        self.cost = np.zeros(5)
+        self.init(x0)
 
     def init(self, x):
         self.x = x.copy()
@@ -127,31 +131,30 @@ class CoverageControl(object):
     def distance(self, p, Ta):
         r = p - Ta
         d2 = np.square(r).sum(axis=-1)
-        d = np.sqrt(d2)
-        return np.sqrt(d.dot(self.w))
+        return (d2**(1/4)).sum()
 
     def connectivity(self, x):
         A = distances.matrix(x)
         A[A > 0] = connectivity.logistic_strength(A[A > 0], self.beta, self.e)
         L = network.laplacian_from_adjacency(A)
-        lambda2 = np.linalg.eigvalsh(L)[:, 1]
+        lambda2 = np.linalg.eigvalsh(L)[..., 1]
         return (lambda2**self.a).sum()
 
-    def fun(self, u, Ta, q):
+    def fun(self, u, Ta, c):
         x = self.prediction(u)
-        self.cost[0] = q[0] * self.distance(x[-1], Ta)
-        self.cost[1] = q[1] * self.connectivity(x)
-        self.cost[2] = q[2] * cost_functions.collision(x)
-        self.cost[3] = q[3] * np.square(u).sum()
-        self.cost[4] = q[4] * np.square(u - self.u).sum()
+        self.cost[0] = c[0] * self.distance(x, Ta)
+        self.cost[1] = c[1] * self.connectivity(x[-1])
+        self.cost[2] = c[2] * cost_functions.collision(x)
+        self.cost[3] = c[3] * np.square(u).sum()
+        self.cost[4] = c[4] * np.square(u - self.u).sum()
         return self.cost.sum()
 
-    def update(self, x, Ta, q):
+    def update(self, x, Ta, c):
         self.init(x)
         optimization = scipy.optimize.minimize(
             self.fun,
             self.u,
-            (Ta, q, ),
+            (Ta, c, ),
             method='SLSQP',
         )
         if not optimization.success:
@@ -168,12 +171,13 @@ def run(T, R):
     # iteracion
     bar = progressbar.ProgressBar(max_value=arg.tf).start()
     for k, t in steps[1:]:
+        p = formacion.x
 
         # Control
         t_a = time.perf_counter()
         Tu = T[T[:, 2] == 1]
-        Ta = target_allocation(formacion.x, Tu[:, :2].astype(float))
-        u = control.update(formacion.x, Ta, q=(5., 1., 1., 1., 10.))
+        Ta = target_allocation(p, Tu[:, :2].astype(float))
+        u = control.update(p, Ta, c=(5., 2., 2., 1., 10.))
         t_b = time.perf_counter()
 
         # formacion
@@ -244,23 +248,23 @@ if __name__ == '__main__':
     h = 1.
 
     np.random.seed(0)
-    # xi = np.random.uniform(-lim, lim, (n, dof))
-    xi = circle2d(R=dmax/4., N=n)
-    # xi = np.array(
+    # x0 = np.random.uniform(-lim, lim, (n, dof))
+    x0 = circle2d(R=dmax/4., N=n)
+    # x0 = np.array(
     #     [[15., 0],
     #     [10, 0],
     #     [5, 0],
     #     [0, 0],
     #     [-5, 0],
     #     [-10, 0]])
-    print(check_connectivity(xi, dmax))
-    ui = np.zeros((n, dof))
-    Ei = disk_graph.edges(xi, dmax)
-    # Ti = grid(lim, 1)
-    Ti = make_targets(40, lim)
+    check_connectivity(x0, dmax)
+    u0 = np.zeros((n, dof))
+    E0 = disk_graph.edges(x0, dmax)
+    # T0 = grid(lim, 1)
+    T0 = make_targets(40, lim)
 
-    formacion = linear_models.integrator(xi)
-    control = CoverageControl(xi, N, h, dmax)
+    formacion = linear_models.integrator(x0)
+    control = CoverageControl(x0, N, h, dmax)
 
     logs = Logs(
         x=np.empty((tiempo.size, n, dof)),
@@ -270,13 +274,13 @@ if __name__ == '__main__':
         T=np.empty(tiempo.size, dtype=np.ndarray)
         )
 
-    logs.x[0] = xi
-    logs.u[0] = ui
+    logs.x[0] = x0
+    logs.u[0] = u0
     logs.cost[0] = np.zeros(5)
-    logs.E[0] = Ei
-    logs.T[0] = Ti
+    logs.E[0] = E0
+    logs.T[0] = T0
 
-    run(Ti, R)
+    run(T0, R)
 
     fig, ax = plt.subplots(2, 1)
     fig.suptitle('Control')
@@ -297,13 +301,23 @@ if __name__ == '__main__':
     ax[1].set_ylabel(r'$costs$')
     fig.savefig('/tmp/control.pdf', format='pdf')
 
-    fig, ax = plt.subplots()
-    ax.set_title('Number of untracked targets')
-    ax.plot(tiempo, [np.count_nonzero(t[:, 2]) for t in logs.T], ds='steps')
-    ax.grid(1)
-    ax.minorticks_on()
-    ax.set_xlabel(r'$t [sec]$')
-    ax.set_ylabel(r'$|T_u|$')
+    fig, ax = plt.subplots(2, 1)
+    ax[0].set_title('Number of untracked targets')
+    ax[0].plot(tiempo, [untracked_targets(T) for T in logs.T], ds='steps')
+    ax[0].grid(1)
+    ax[0].minorticks_on()
+    ax[0].set_xlabel(r'$t [sec]$')
+    ax[0].set_ylabel(r'$|T_u|$')
+    mind = [mindist(p, e) for p, e in zip(logs.x, logs.E)]
+    maxd = [maxdist(p, e) for p, e in zip(logs.x, logs.E)]
+    ax[1].plot(tiempo, mind, ds='steps', label=r'$\rm{min}(d_{ij})$')
+    ax[1].plot(tiempo, maxd, ds='steps', label=r'$\rm{max}(d_{ij})$')
+    ax[1].hlines(dmax, xmin=0, xmax=tiempo[-1], ls='--', color='k', alpha=0.7)
+    ax[1].legend()
+    ax[1].grid(1)
+    ax[1].minorticks_on()
+    ax[1].set_xlabel(r'$t [sec]$')
+    ax[1].set_ylabel(r'$dist [m]$')
     fig.savefig('/tmp/targets.pdf', format='pdf')
 
     fig, ax = network.plot.figure()
@@ -313,12 +327,12 @@ if __name__ == '__main__':
     ax.set_ylim(-1.5*lim, 1.5*lim)
 
     frames = list(zip(tiempo, logs.x, logs.E, logs.T))
-    circles = [plt.Circle(pi, R, alpha=0.4) for pi in xi]
+    circles = [plt.Circle(pi, R, alpha=0.4) for pi in x0]
     for circle in circles:
         ax.add_artist(circle)
     tracked = ax.plot([], [], ls='', marker='s', markersize=3, color='y')
     untracked = ax.plot(
-        Ti[:, 0], Ti[:, 1], ls='', marker='s', markersize=3, color='0.5')
+        T0[:, 0], T0[:, 1], ls='', marker='s', markersize=3, color='0.5')
     extras = circles + tracked + untracked
 
     anim = CoverageAnimate(fig, ax, arg.h/4, frames, maxlen=50)
