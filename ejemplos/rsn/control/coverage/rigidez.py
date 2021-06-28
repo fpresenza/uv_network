@@ -27,7 +27,7 @@ from uvnpy.control import cost_functions
 # ------------------------------------------------------------------
 
 np.set_printoptions(suppress=True, precision=3, linewidth=150)
-Logs = collections.namedtuple('Logs', 'x u E T')
+Logs = collections.namedtuple('Logs', 'x u cost E T')
 
 
 def grid(lim, step):
@@ -47,14 +47,28 @@ def make_targets(n, lim):
     return T
 
 
-def target_allocation(p, q):
-    r = p[..., None, :] - q
+def target_allocation(p, t):
+    r = p[:, None] - t
     d2 = np.square(r).sum(axis=-1)
     if d2.shape[-1] > 0:
-        ct = d2.argmin(axis=-1)
-        return q[ct]
+        c = d2.argmin(axis=-1)
+        return t[c]
     else:
         return p
+
+
+# def target_allocation(p, t):
+#     r = p[:, None] - t
+#     d2 = np.square(r).sum(axis=-1)
+#     a = p.copy()
+#     for _ in a:
+#         if np.any(d2 != np.inf):
+#             i, j = np.unravel_index(d2.argmin(), d2.shape)
+#             a[i] = t[j]
+#             d2[i, :] = d2[:, j] = np.inf
+#         else:
+#             return a
+#     return a
 
 
 def update_targets(p, T, R):
@@ -101,6 +115,7 @@ class CoverageControl(object):
         self.e = 0.8*dmax
         self.w = np.arange(n)[::-1]
         # self.w = np.ones(n)
+        self.cost = np.empty(5)
         self.init(xi)
 
     def init(self, x):
@@ -120,17 +135,17 @@ class CoverageControl(object):
         A = distances.matrix(x)
         A[A > 0] = connectivity.logistic_strength(A[A > 0], self.beta, self.e)
         L = distances.laplacian(A, x)
-        lambda2 = np.linalg.eigvalsh(L)[:, 3]
-        return (lambda2**self.a).sum()
+        lambda4 = np.linalg.eigvalsh(L)[:, 3]
+        return (lambda4**self.a).sum()
 
     def fun(self, u, Ta, q):
         x = self.prediction(u)
-        ct = self.distance(x[-1], Ta)
-        cm = self.rigidity(x)
-        cc = cost_functions.collision(x)
-        cu = np.square(u).sum()
-        cdu = np.square(u - self.u).sum()
-        return q[0]*ct + q[1]*cm + q[2]*cc + q[3]*cu + q[4]*cdu
+        self.cost[0] = q[0] * self.distance(x[-1], Ta)
+        self.cost[1] = q[1] * self.rigidity(x)
+        self.cost[2] = q[2] * cost_functions.collision(x)
+        self.cost[3] = q[3] * np.square(u).sum()
+        self.cost[4] = q[4] * np.square(u - self.u).sum()
+        return self.cost.sum()
 
     def update(self, x, Ta, q):
         self.init(x)
@@ -160,7 +175,6 @@ def run(T, R):
         Tu = T[T[:, 2] == 1]
         Ta = target_allocation(formacion.x, Tu[:, :2].astype(float))
         u = control.update(formacion.x, Ta, q=(5., 1., 1., 1., 10.))
-        # print(u)
         t_b = time.perf_counter()
 
         # formacion
@@ -170,6 +184,7 @@ def run(T, R):
 
         logs.x[k] = x
         logs.u[k] = u
+        logs.cost[k] = control.cost
         logs.E[k] = E
         logs.T[k] = T
 
@@ -251,24 +266,36 @@ if __name__ == '__main__':
     logs = Logs(
         x=np.empty((tiempo.size, n, dof)),
         u=np.empty((tiempo.size, n, dof)),
+        cost=np.empty((tiempo.size, 5)),
         E=np.empty(tiempo.size, dtype=np.ndarray),
         T=np.empty(tiempo.size, dtype=np.ndarray)
         )
 
     logs.x[0] = xi
     logs.u[0] = ui
+    logs.cost[0] = np.zeros(5)
     logs.E[0] = Ei
     logs.T[0] = Ti
 
     run(Ti, R)
 
-    fig, ax = plt.subplots()
-    ax.set_title('Control effort')
-    ax.plot(tiempo, logs.u.reshape(-1, n*dof))
-    ax.grid(1)
-    ax.minorticks_on()
-    ax.set_xlabel(r'$t [sec]$')
-    ax.set_ylabel(r'$u [m/sec]$')
+    fig, ax = plt.subplots(2, 1)
+    fig.suptitle('Control')
+    ax[0].plot(tiempo, logs.u.reshape(-1, n*dof))
+    ax[0].grid(1)
+    ax[0].minorticks_on()
+    ax[0].set_xlabel(r'$t [sec]$')
+    ax[0].set_ylabel(r'$u [m/sec]$')
+    ax[1].plot(tiempo, logs.cost[:, 0], label='tracking')
+    ax[1].plot(tiempo, logs.cost[:, 1], label='rigidity')
+    ax[1].plot(tiempo, logs.cost[:, 2], label='collision')
+    ax[1].plot(tiempo, logs.cost[:, 3], label='velocity')
+    ax[1].plot(tiempo, logs.cost[:, 4], label='acceleration')
+    ax[1].legend()
+    ax[1].grid(1)
+    ax[1].minorticks_on()
+    ax[1].set_xlabel(r'$t [sec]$')
+    ax[1].set_ylabel(r'$costs$')
     fig.savefig('/tmp/control.pdf', format='pdf')
 
     fig, ax = plt.subplots()
@@ -277,10 +304,12 @@ if __name__ == '__main__':
     ax.grid(1)
     ax.minorticks_on()
     ax.set_xlabel(r'$t [sec]$')
-    ax.set_ylabel(r'$|T|$')
+    ax.set_ylabel(r'$|T_u|$')
     fig.savefig('/tmp/targets.pdf', format='pdf')
 
     fig, ax = network.plot.figure()
+    ax.set_xlabel('x [m]')
+    ax.set_ylabel('y [m]')
     ax.set_xlim(-1.5*lim, 1.5*lim)
     ax.set_ylim(-1.5*lim, 1.5*lim)
 
@@ -288,14 +317,14 @@ if __name__ == '__main__':
     circles = [plt.Circle(pi, R, alpha=0.4) for pi in xi]
     for circle in circles:
         ax.add_artist(circle)
-    tracked = ax.plot([], [], ls='', marker='s', markersize=3, color='g')
+    tracked = ax.plot([], [], ls='', marker='s', markersize=3, color='y')
     untracked = ax.plot(
-        Ti[:, 0], Ti[:, 1], ls='', marker='s', markersize=3, color='r')
+        Ti[:, 0], Ti[:, 1], ls='', marker='s', markersize=3, color='0.5')
     extras = circles + tracked + untracked
 
     anim = CoverageAnimate(fig, ax, arg.h/4, frames, maxlen=50)
-    anim.set_teams({'name': 'ground truth', 'ids': range(n), 'tail': True})
+    anim.set_teams({'name': '', 'ids': range(n), 'tail': True})
     anim.set_extra_artists(*extras)
     # anim.ax.legend()
-    anim.run(file='/tmp/coverage.mp4')  # file='/tmp/coverage.mp4'
+    anim.run()  # file='/tmp/coverage.mp4'
     plt.show()
