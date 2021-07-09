@@ -27,7 +27,7 @@ from uvnpy.control import cost_functions
 # ------------------------------------------------------------------
 
 np.set_printoptions(suppress=True, precision=3, linewidth=150)
-Logs = collections.namedtuple('Logs', 'x u cost E T')
+Logs = collections.namedtuple('Logs', 'x u cost metric E T')
 
 
 def grid(lim, step):
@@ -120,6 +120,7 @@ class CoverageControl(object):
         self.beta = 40/dmax
         self.e = 0.8*dmax
         self.cost = np.zeros(5)
+        self.lambda4 = np.zeros(1)
         self.init(x0)
 
     def init(self, x):
@@ -138,8 +139,8 @@ class CoverageControl(object):
         A = distances.matrix(x)
         A[A > 0] = connectivity.logistic_strength(A[A > 0], self.beta, self.e)
         L = distances.laplacian(A, x)
-        lambda4 = np.linalg.eigvalsh(L)[..., 3]
-        return (lambda4**self.a).sum()
+        self.lambda4 = np.linalg.eigvalsh(L)[..., 3]
+        return (self.lambda4**self.a).sum()
 
     def fun(self, u, Ta, c):
         x = self.prediction(u)
@@ -178,7 +179,7 @@ def run(T, R):
         t_a = time.perf_counter()
         Tu = T[T[:, 2] == 1]
         Ta = target_allocation(p, Tu[:, :2].astype(float))
-        u = control.update(p, Ta, c=(5., 2., 2., 1., 10.))
+        u = control.update(p, Ta, c=(5., 4., 2., 1., 5.))
         t_b = time.perf_counter()
 
         # formacion
@@ -189,6 +190,7 @@ def run(T, R):
         logs.x[k] = x
         logs.u[k] = u
         logs.cost[k] = control.cost
+        logs.metric[k] = control.lambda4
         logs.E[k] = E
         logs.T[k] = T
 
@@ -259,7 +261,6 @@ if __name__ == '__main__':
     #     [-5, 0],
     #     [-10, 0]])
     check_rigidity(x0, dmax)
-    u0 = np.zeros((n, dof))
     E0 = disk_graph.edges(x0, dmax)
     # T0 = grid(lim, 1)
     T0 = make_targets(40, lim)
@@ -271,19 +272,21 @@ if __name__ == '__main__':
         x=np.empty((tiempo.size, n, dof)),
         u=np.empty((tiempo.size, n, dof)),
         cost=np.empty((tiempo.size, 5)),
+        metric=np.empty((tiempo.size, n)),
         E=np.empty(tiempo.size, dtype=np.ndarray),
         T=np.empty(tiempo.size, dtype=np.ndarray)
         )
 
     logs.x[0] = x0
-    logs.u[0] = u0
+    logs.u[0] = np.zeros((n, dof))
     logs.cost[0] = np.zeros(5)
+    logs.metric[0] = None
     logs.E[0] = E0
     logs.T[0] = T0
 
     run(T0, R)
 
-    fig, ax = plt.subplots(2, 1)
+    fig, ax = plt.subplots(3, 1)
     fig.suptitle('Control')
     ax[0].plot(tiempo, logs.u.reshape(-1, n*dof))
     ax[0].grid(1)
@@ -299,16 +302,21 @@ if __name__ == '__main__':
     ax[1].grid(1)
     ax[1].minorticks_on()
     ax[1].set_xlabel(r'$t [sec]$')
-    ax[1].set_ylabel(r'$costs$')
+    ax[1].set_ylabel('costs')
+    ax[2].plot(tiempo, logs.metric)
+    ax[2].grid(1)
+    ax[2].minorticks_on()
+    ax[2].set_xlabel(r'$t [sec]$')
+    ax[2].set_ylabel(r'$\lambda_4$')
+    ax[2].set_ylim(0, None)
     fig.savefig('/tmp/control.pdf', format='pdf')
 
     fig, ax = plt.subplots(2, 1)
-    ax[0].set_title('Number of untracked targets')
     ax[0].plot(tiempo, [untracked_targets(T) for T in logs.T], ds='steps')
     ax[0].grid(1)
     ax[0].minorticks_on()
     ax[0].set_xlabel(r'$t [sec]$')
-    ax[0].set_ylabel(r'$|T_u|$')
+    ax[0].set_ylabel('Untracked targets')
     mind = [mindist(p, e) for p, e in zip(logs.x, logs.E)]
     maxd = [maxdist(p, e) for p, e in zip(logs.x, logs.E)]
     ax[1].plot(tiempo, mind, ds='steps', label=r'$\rm{min}(d_{ij})$')
@@ -340,5 +348,5 @@ if __name__ == '__main__':
     anim.set_teams({'name': '', 'ids': range(n), 'tail': True})
     anim.set_extra_artists(*extras)
     # anim.ax.legend()
-    anim.run()  # file='/tmp/coverage.mp4'
+    anim.run(file='/tmp/coverage.mp4')  # file='/tmp/coverage.mp4'
     plt.show()
