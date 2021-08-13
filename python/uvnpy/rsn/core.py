@@ -9,15 +9,7 @@ import numpy as np
 import scipy.linalg
 
 
-def traslation_basis(p):
-    n = len(p)
-    T = np.zeros((p.size, 2))
-    T[::2, 0] = 1/np.sqrt(n)                    # dx
-    T[1::2, 1] = 1/np.sqrt(n)                   # dy
-    return T
-
-
-def pose_basis(p):
+def trivial_motions(p):
     """Matriz cuyas columnas son una BON del espacio pose.
 
     args:
@@ -38,10 +30,10 @@ def pose_basis(p):
     return P
 
 
-def shape_basis(p):
-    P = pose_basis(p)
-    S = scipy.linalg.null_space(P.T)
-    return S
+def nontrivial_motions(p):
+    T = trivial_motions(p)
+    N = scipy.linalg.null_space(T.T)
+    return N
 
 
 def pose_and_shape_decomposition_aa(p):
