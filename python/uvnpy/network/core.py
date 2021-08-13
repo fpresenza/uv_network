@@ -52,8 +52,10 @@ def complete_incidence(n):
     return D
 
 
-def edges_from_adjacency(A):
+def edges_from_adjacency(A, directed=False):
     """Devuelve array de enlaces."""
+    if not directed:
+        A = np.triu(A)
     E = np.argwhere(A > 0)
     return E
 
@@ -86,12 +88,3 @@ def laplacian_from_adjacency(A):
     L = -A.copy()
     L[..., ii] += A.sum(axis=-1)
     return L
-
-
-def remove_one_edge_adjacency(A):
-    E = np.argwhere(np.triu(A) > 0)
-    m = len(E)
-    Am = np.tile(A, (m, 1, 1))
-    for e, (i, j) in enumerate(E):
-        Am[e, i, j] = Am[e, j, i] = 0
-    return Am
