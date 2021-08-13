@@ -153,9 +153,13 @@ def motions(ax, x, u, **kwargs):
         kwargs.update({'color': 'k'})
     d = x.shape[-1]
     if d == 2:
-        arrows = ax.quiver(x[..., 0], x[..., 1], **kwargs)
+        arrows = ax.quiver(
+            x[..., 0], x[..., 1],
+            u[..., 0], u[..., 1], **kwargs)
     elif d == 3:
-        arrows = ax.quiver(x[..., 0], x[..., 1], x[..., 2], **kwargs)
+        arrows = ax.quiver(
+            x[..., 0], x[..., 1], x[..., 2],
+            u[..., 0], u[..., 1], u[..., 2], **kwargs)
     return arrows
 
 
