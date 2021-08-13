@@ -6,8 +6,9 @@
 @date lun dic 14 15:37:42 -03 2020
 """
 import numpy as np
-import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib.collections import LineCollection
+from mpl_toolkits.mplot3d.art3d import Line3DCollection
 import matplotlib.animation as ani
 import collections
 from transformations import unit_vector
@@ -22,9 +23,9 @@ class Animate(object):
         self.ax = ax
         self.h = h
         self.frames = frames
-        self.p_tail = collections.deque(maxlen=maxlen)
-        Pk = self.frames[0][1]
-        self.p_tail.append(Pk)
+        self.x_tail = collections.deque(maxlen=maxlen)
+        Xk = self.frames[0][1]
+        self.x_tail.append(Xk)
         self.stamp = self.ax.text(
             0.01, 0.01, r'{:.2f} secs'.format(0.0),
             verticalalignment='bottom', horizontalalignment='left',
@@ -32,7 +33,7 @@ class Animate(object):
         self.anim = None
         self.teams = {}
         edgestyle = {'color': '0.2', 'linewidth': 0.7}
-        self.edges = mpl.collections.LineCollection([], **edgestyle)
+        self.edges = LineCollection([], **edgestyle)
         self.ax.add_artist(self.edges)
 
     def set_teams(self, *teams):
@@ -52,7 +53,7 @@ class Animate(object):
                 self.teams[name]['tail'] = line[0]
 
     def set_edgestyle(self, **style):
-        self.edges = mpl.collections.LineCollection([], **style)
+        self.edges = LineCollection([], **style)
         self.ax.add_artist(self.edges)
 
     def _update_extra_artists(self, frame):
@@ -64,21 +65,21 @@ class Animate(object):
             self._extra_artists.append(artist)
 
     def update(self, frame):
-        tk, Pk, Ek = frame[:3]
-        q = np.array(self.p_tail)
-        self.p_tail.append(Pk)
+        tk, Xk, Ek = frame[:3]
+        q = np.array(self.x_tail)
+        self.x_tail.append(Xk)
         for team in self.teams.values():
             ids = team['ids']
             points = team['points']
             tail = team.get('tail')
 
-            p = Pk[ids]
-            points.set_data(p[:, 0], p[:, 1])
+            x = Xk[ids]
+            points.set_data(x[:, 0], x[:, 1])
             if tail:
                 tail.set_data(q[:, ids, 0], q[:, ids, 1])
         self.stamp.set_text('$t = {:.1f} s$'.format(tk))
         if len(Ek) > 0:
-            self.edges.set_segments(Pk[Ek])
+            self.edges.set_segments(Xk[Ek])
         else:
             self.edges.set_segments([])
         self._update_extra_artists(frame)
@@ -104,51 +105,61 @@ def figure(nrows=1, ncols=1, **kwargs):
     fig, axes = plt.subplots(nrows, ncols, **kwargs)
     _axes = np.asarray(axes)
     for ax in _axes.flat:
-        ax.set_aspect('equal')
+        try:
+            ax.set_aspect('equal')
+        except NotImplementedError:
+            pass
         ax.grid(1)
         ax.set_xlabel(r'$x$')
         ax.set_ylabel(r'$y$')
     return fig, axes
 
 
-def nodes(ax, p, **kwargs):
+def nodes(ax, x, **kwargs):
     """Plotear nodos."""
-    nodes = ax.scatter(p[..., 0], p[..., 1], **kwargs)
+    d = x.shape[-1]
+    if d == 2:
+        nodes = ax.scatter(x[..., 0], x[..., 1], **kwargs)
+    elif d == 3:
+        nodes = ax.scatter(x[..., 0], x[..., 1], x[..., 2], **kwargs)
     return nodes
 
 
-def edges(ax, p, E, **kwargs):
+def edges(ax, x, E, **kwargs):
     """Plotear edges."""
-    edges = mpl.collections.LineCollection(p[E], **kwargs)
-    ax.add_artist(edges)
+    d = x.shape[-1]
+    if d == 2:
+        edges = LineCollection(x[E], **kwargs)
+    elif d == 3:
+        edges = Line3DCollection(x[E], **kwargs)
+    ax.add_collection(edges)
     return edges
 
 
-def graph(ax, p, E, **kwargs):
+def graph(ax, x, E, **kwargs):
     """Plotear grafo."""
-    V = nodes(ax, p, **kwargs)
+    V = nodes(ax, x, **kwargs)
     kwargs.update({'color': V.get_facecolor()})
-    E = edges(ax, p, E, **kwargs)
+    E = edges(ax, x, E, **kwargs)
     return V, E
 
 
-def motions(ax, p, m, **kwargs):
+def motions(ax, x, u, **kwargs):
     """Plotear movimientos infintesimales centrados en los nodos.
 
-    p, m = array (n, dof)
+    x, m = array (n, dof)
     """
-    if not kwargs.get('width'):
-        kwargs.update({'width': 0.003})
-    if not kwargs.get('head_width'):
-        kwargs.update({'head_width': 0.07})
     if not kwargs.get('color'):
         kwargs.update({'color': 'k'})
-    kwargs.update({'length_includes_head': True})
-    arrows = [ax.arrow(q[0], q[1], u[0], u[1], **kwargs) for q, u in zip(p, m)]
+    d = x.shape[-1]
+    if d == 2:
+        arrows = ax.quiver(x[..., 0], x[..., 1], **kwargs)
+    elif d == 3:
+        arrows = ax.quiver(x[..., 0], x[..., 1], x[..., 2], **kwargs)
     return arrows
 
 
-def displacements(ax, p, **kwargs):
+def displacements(ax, x, **kwargs):
     """Plotear desplazamientos centrados en el origen."""
     if not kwargs.get('width'):
         kwargs.update({'width': 0.003})
@@ -159,7 +170,7 @@ def displacements(ax, p, **kwargs):
     kwargs.update({'length_includes_head': True})
     E = kwargs.pop('E', None)
     if E is None:
-        E = core.complete_undirected_edges(range(len(p)))
-    r = unit_vector(p[E[:, 0]] - p[E[:, 1]], axis=1)
+        E = core.complete_undirected_edges(range(len(x)))
+    r = unit_vector(x[E[:, 0]] - x[E[:, 1]], axis=1)
     arrows = [ax.arrow(0, 0, d[0], d[1], **kwargs) for d in r]
     return arrows
