@@ -54,14 +54,14 @@ def adjacency(p, dmax=np.inf):
 
 
 def laplacian(p, dmax=np.inf):
-    """Matriz de adyacencia por proximidad.
+    """Matriz de laplaciana por proximidad.
 
     args:
         p: array de posiciones (n, dof)
         dmax: distancia máxima de conexión
 
     returns:
-        A: matriz adyacencia (n, n)
+        L: matriz laplaciana (n, n)
     """
     r = p[:, None] - p
     A = np.square(r).sum(axis=-1)
