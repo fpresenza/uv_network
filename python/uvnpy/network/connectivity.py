@@ -19,7 +19,7 @@ def power_strength_derivative(d, a):
     return D
 
 
-def logistic_strength(d, beta=1, e=0):
+def logistic(d, beta=1, e=0):
     """Logistic strength function.
 
     A logistic function or logistic curve is a common
@@ -35,7 +35,7 @@ def logistic_strength(d, beta=1, e=0):
     return s
 
 
-def logistic_strength_derivative(d, beta=1, e=0):
+def logistic_derivative(d, beta=1, e=0):
     """Derivative  of the logistic function respect to distance."""
     D = - 0.5 * beta / (1 + np.cosh(beta * (d - e)))
     return D
