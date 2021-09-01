@@ -107,6 +107,19 @@ def laplacian(A, p):
     return L.reshape(s)
 
 
+def complete_laplacian(p):
+    n, d = p.shape[-2:]
+    ii = np.eye(n, dtype=bool)
+    r = unit_vector(p[..., None, :] - p[..., None, :, :], axis=-1)
+    r[..., ii, :] = 0
+    L = - r[..., None] * r[..., None, :]    # outer product
+    L[..., ii, :, :] -= L.sum(p.ndim - 1)
+    L = L.swapaxes(-3, -2)
+    s = list(L.shape)
+    s[-4:] = n * d, n * d
+    return L.reshape(s)
+
+
 def laplacian_diag(A, p):
     """Bloques diagonales del laplaciano de rigidez.
 
