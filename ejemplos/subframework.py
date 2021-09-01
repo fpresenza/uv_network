@@ -41,7 +41,7 @@ p = np.array([
     [7, -1],
     [8, 0]])
 
-hops = [0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 4]
+hops = [r'$i$', 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 4]
 
 E = np.array([
     [0, 1],
@@ -70,10 +70,11 @@ E = np.array([
 
 
 network.plot.nodes(ax, p[0], color='0.7', s=60, zorder=10)
-ax.text(
-    p[0, 0] + 0.25, p[0, 1] - 0.2, r'$=i$', color='0.7', fontsize='x-small')
-ax.text(
-    p[5, 0] + 0.25, p[5, 1] - 0.2, r'$=j$', color='orange', fontsize='x-small')
+# ax.text(
+#     p[0, 0] + 0.25, p[0, 1] - 0.2, r'$=i$', color='0.7', fontsize='x-small')
+# ax.text(
+#     p[5, 0] + 0.25, p[5, 1] - 0.2, r'$=j$',
+#     color='orange', fontsize='x-small')
 network.plot.nodes(ax, p[1:5], color='skyblue', s=60, zorder=10)
 network.plot.nodes(ax, p[5:9], color='orange', s=60, zorder=10)
 network.plot.nodes(ax, p[9:12], color='mediumseagreen', s=60, zorder=10)
