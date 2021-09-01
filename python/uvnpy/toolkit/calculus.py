@@ -6,6 +6,7 @@
 @date vie mar 26 20:26:33 -03 2021
 """
 import numpy as np
+import scipy.optimize
 
 
 def derivative_eval(f, x, *args, **kwargs):
@@ -37,12 +38,82 @@ def derivative(f):
     return df
 
 
-def circle2d(R=1., c=np.zeros(2), N=100):
-    t = np.linspace(0, 2 * np.pi, N, endpoint=False)
-    gen = np.empty((N, 2))
+def circle2d(R=1., c=np.zeros(2), n=100):
+    t = np.linspace(0, 2 * np.pi, n, endpoint=False)
+    gen = np.empty((n, 2))
     gen[:, 0] = np.cos(t)
     gen[:, 1] = np.sin(t)
     return R * gen + c
+
+
+def sphere(R=1, c=np.zeros(3), n2=100):
+    u = np.linspace(0, 2 * np.pi, int(np.sqrt(n2)))
+    v = np.linspace(0, np.pi,  int(np.sqrt(n2)))
+    s = np.empty((n2, 3))
+    s[:, 0] = np.outer(np.cos(u), np.sin(v)).ravel()
+    s[:, 1] = np.outer(np.sin(u), np.sin(v)).ravel()
+    s[:, 2] = np.outer(np.ones(u.shape), np.cos(v)).ravel()
+    return c + R * s
+
+
+def riesz_energy_sphere(n, s=1):
+    """The Riesz s-energy (s>0) of a set of m points xj on the
+    unit sphere is the sum over all pairs of distinct points of
+    the terms 1/|xi−xj|^s. The standard Coulomb potential used
+    to model electrons repelling each other corresponds to s=1.
+
+    https://www.maths.unsw.edu.au/about/distributing-points-sphere
+    """
+    t = np.linspace(0, 2 * np.pi, n, endpoint=False)
+    x = np.zeros((n, 3))
+    x[:, 0] = 0.5 * np.cos(t)
+    x[:, 1] = 0.5 * np.sin(t)
+
+    def f(x):
+        p = x.reshape(-1, 3)
+        r = p[:, None] - p[None, :]
+        d2 = np.square(r).sum(2)
+        u = d2[d2 > 0]
+        return (1/u**s).sum()
+
+    def R(x):
+        p = x.reshape(-1, 3)
+        return 1 - np.square(p).sum(1)
+
+    opt = scipy.optimize.minimize(
+        f,
+        x.ravel(),
+        constraints={'type': 'ineq', 'fun': R},
+        method='SLSQP',
+    )
+    print(opt)
+    return opt.x.reshape(-1, 3)
+
+
+def angular_energy_sphere(n):
+    """work in progress"""
+    t = np.linspace(0, 2 * np.pi, n, endpoint=False)
+    x = np.zeros((n, 3))
+    x[:, 0] = np.cos(t)
+    x[:, 1] = np.sin(t)
+
+    def f(x):
+        p = x.reshape(-1, 3)
+        n2 = np.square(p).sum(1)
+        c = (p[:, None] * p).sum(2)
+        r = np.triu(c, k=1)
+        return r[r != 0].max() + (1/n2).sum()
+
+    opt = scipy.optimize.minimize(
+        f,
+        x.ravel(),
+        # constraints={'type': 'ineq', 'fun': R},
+        method='SLSQP',
+        # options={'eps': 0.03}
+    )
+    print(opt)
+    x = opt.x.reshape(-1, 3)
+    return x
 
 
 def rayleigh_quotient(A, x):
