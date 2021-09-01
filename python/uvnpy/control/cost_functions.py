@@ -8,7 +8,7 @@
 import numpy as np
 
 
-def collision(p):
+def collision(p, axis=None):
     """Costo de repulsion entre agentes puntuales.
 
     El costo es igual a la suma de los cuadrados de la
@@ -17,7 +17,7 @@ def collision(p):
     r = p[..., None, :] - p[..., None, :, :]
     d2 = np.square(r).sum(axis=-1)
     d2[d2 != 0] **= -1
-    return d2.sum()
+    return d2.sum(axis=axis)
 
 
 def intercollision(p, q):
