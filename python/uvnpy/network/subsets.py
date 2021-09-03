@@ -5,33 +5,47 @@
 @institute LAR - FIUBA, Universidad de Buenos Aires, Argentina
 @date mié ago 11 10:16:00 -03 2021
 """
+import numpy as np
 
 
-def neighborhood(A, i, inclusive=False):
+def reach(A, hops):
+    """La potencia k-esima de la matriz de adyacencia indica la
+    cantidad de caminos de k-hops que hay entre dos nodos {i, j}."""
+    Ak = [np.linalg.matrix_power(A, h) for h in hops]
+    return np.array(Ak)
+
+
+def adjacency(A):
+    A1 = np.eye(len(A)) + A
+    return A1.astype(bool)
+
+
+def multihop_adjacency(A, hops):
+    """Los nodos que se pueden acceder a con k-hops o menos."""
+    Ak = reach(A, range(hops+1))
+    return sum(Ak).astype(bool)
+
+
+def neighborhood(A):
     N = A.astype(bool)
-    idx = N[i]
-    idx[i] = inclusive
-    return idx
+    return N
 
 
-def multihop_neighborhood(A, i, hops=1, inclusive=False):
-    N = A.astype(bool)
-    idx = N[i]
-    for h in range(hops - 1):
-        idx = N[idx].any(0)
-    idx[i] = inclusive
-    return idx
+def multihop_neighborhood(A, hops):
+    Ak = reach(A, range(hops+1))
+    Nh = np.logical_not(sum(Ak[:-1]) + np.logical_not(Ak[-1]))
+    return Nh
 
 
 def subframework(A, x, i):
-    Ni = neighborhood(A, i, True)
+    Ni = adjacency(A)[i]
     Ai = A[Ni][:, Ni]
     xi = x[Ni]
     return Ai, xi
 
 
 def multihop_subframework(A, x, i, hops=1):
-    Ni = multihop_neighborhood(A, i, hops, True)
+    Ni = multihop_adjacency(A, hops)[i]
     Ai = A[Ni][:, Ni]
     xi = x[Ni]
     return Ai, xi
