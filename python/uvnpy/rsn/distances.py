@@ -65,8 +65,8 @@ def edge_potencial_gradient(A, p):
 
 
 def local_matrix(p, q):
-    r = p[:, None] - q
-    dist = np.sqrt(np.square(r).sum(2))
+    r = p[..., None, :] - q
+    dist = np.sqrt(np.square(r).sum(-1))
     return dist
 
 
@@ -81,7 +81,7 @@ def local_edge_potencial_gradient(p, q, w):
     w es un array donde componente w[j] = partial{V_{j}} / partial{d_{ij}}
     es la derivada de V_{j} respecto de la distancia.
     """
-    r = unit_vector(p[:, None] - q, axis=2)
+    r = unit_vector(p[..., None, :] - q, axis=-1)
     r *= w[..., None]             # aplicar pesos
-    grad = r.sum(1)
+    grad = r.sum(-2)
     return grad

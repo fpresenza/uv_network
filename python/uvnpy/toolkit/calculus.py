@@ -32,6 +32,11 @@ def derivative_eval(f, x, *args, **kwargs):
     return D
 
 
+def gradient(f, x, *args):
+    D = derivative_eval(f, x, *args)
+    return D.reshape(x.shape)
+
+
 def derivative(f):
     def df(x, *args, **kwargs):
         return derivative_eval(f, x, *args, **kwargs)
