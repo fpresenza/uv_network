@@ -88,3 +88,8 @@ def laplacian_from_adjacency(A):
     L = -A.copy()
     L[..., ii] += A.sum(axis=-1)
     return L
+
+
+def algebraic_connectivity(L):
+    a2 = np.linalg.eigbalsh(L)[1]
+    return a2 > 1e-5

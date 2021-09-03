@@ -8,13 +8,13 @@
 import numpy as np
 
 
-def power_strength(d, a):
+def power(d, a):
     """Power function."""
     s = d**(-a)
     return s
 
 
-def power_strength_derivative(d, a):
+def power_derivative(d, a):
     D = -a * d**(-a - 1)
     return D
 
@@ -39,8 +39,3 @@ def logistic_derivative(d, beta=1, e=0):
     """Derivative  of the logistic function respect to distance."""
     D = - 0.5 * beta / (1 + np.cosh(beta * (d - e)))
     return D
-
-
-def algebraic_connectivity(L):
-    n = L.shape[-1]
-    return np.linalg.matrix_rank(L) == n - 1
