@@ -58,7 +58,7 @@ for h in hops:
         Li = rigidity.laplacian(Ai, xi)
         l4[i, h-1] = np.linalg.eigvalsh(Li)[3]
 
-print(l4)
+print(l4[:, 2].min(), l4[:, 2].mean(), l4[:, 2].max())
 
 ax[1].plot(
     hops, scale(l4.max(axis=0)),

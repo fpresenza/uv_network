@@ -13,46 +13,51 @@ import matplotlib.pyplot as plt
 from gpsic.toolkit import linalg
 from uvnpy.model import linear_models
 import uvnpy.network as network
-from uvnpy.network import disk_graph
-from uvnpy.network import connectivity
-import uvnpy.rsn.core as rsn
-from uvnpy.rsn import distances
-from uvnpy.toolkit import calculus
+from uvnpy.network import disk_graph, strength, subsets
+import uvnpy.rsn as rsn
+from uvnpy.rsn import distances, rigidity
+from uvnpy.toolkit.calculus import gradient
 
 # ------------------------------------------------------------------
 # Definición de variables globales, funciones y clases
 # ------------------------------------------------------------------
-Logs = collections.namedtuple('Logs', 'x u J eig avg_dist')
-
-D = calculus.derivative_eval
-lsd = connectivity.logistic_strength_derivative
+Logs = collections.namedtuple('Logs', 'x u J lambda4 avg_dist')
 
 
 def detFi(p):
     Ai = distances.matrix(p)
-    Ai[Ai > 0] = connectivity.logistic_strength(Ai[Ai > 0], beta=beta_2, e=e_2)
+    Ai[Ai > 0] = strength.logistic(Ai[Ai > 0], beta[1], alpha[1])
 
-    M = rsn.shape_basis(p.mean(0))
-    Li = distances.laplacian(Ai, p)
+    M = rsn.nontrivial_motions(p.mean(0))
+    Li = rigidity.laplacian(Ai, p)
     Fi = np.matmul(M.T, np.matmul(Li, M))
     return np.linalg.det(Fi)
 
 
+def lambda4(p):
+    w = distances.matrix(p)
+    w[w > 0] = strength.logistic(w[w > 0], beta[1], alpha[1])
+    L = rigidity.laplacian(w, p)
+    return np.linalg.eigvalsh(L)[..., 3]
+
+
 def keep_rigid(p):
-    u = - a * detFi(p[None])**(-a - 1) * D(detFi, p)
-    return -u.reshape(p.shape)
+    # u = -a * detFi(p[None])**(-a - 1) * gradient(detFi, p)
+    # u = -1 * np.log() / detFi(p[None]) * gradient(detFi, p)
+    u = -a * lambda4(p)**(-a - 1) * gradient(lambda4, p)
+    return -u
 
 
 def min_edges(p):
     w = distances.matrix(p)
-    w[w > 0] = lsd(w[w > 0], beta=beta_1, e=e_1)
+    w[w > 0] = strength.logistic_derivative(w[w > 0], beta[0], alpha[0])
     u = distances.edge_potencial_gradient(w, p)
     return -u.reshape(p.shape)
 
 
 def repulsion(p):
     w = distances.matrix(p)
-    w[w > 0] = connectivity.power_strength_derivative(w[w > 0], a=1)
+    w[w > 0] = strength.power_derivative(w[w > 0], a=1)
     u = distances.edge_potencial_gradient(w, p)
     return -u.reshape(p.shape)
 
@@ -76,34 +81,37 @@ def linspace(n, dmax):
 # ------------------------------------------------------------------
 
 
-def run(steps, logs, t_perf, planta, frames):
+def run(steps, logs, t_perf, A, dinamica, frames):
     # iteración
     bar = progressbar.ProgressBar(max_value=arg.tf).start()
     for k, t in steps[1:]:
-        # step planta
-        x = planta.x
+        # step dinamica
+        x = dinamica.x
 
         # Control
         t_a = np.empty(n)
         t_b = np.empty(n)
         u[:] = 0
-        for i in V:
+        A1 = subsets.adjacency(A)
+        for i in nodes:
             t_a[i] = time.perf_counter()
 
-            R[i] = disk_graph.neighborhood_band(x, i, R[i], dmin, dmax, inclusive=True)  # noqa
-            p = x[R[i]]
+            # R[i] = disk_graph.neighborhood_band(x, i, R[i], dmin, dmax, inclusive=True)  # noqa
+            # R[i] = disk_graph.neighborhood(x, i, dmax, inclusive=True)  # noqa
+            p = x[A1[i]]
 
-            u[R[i]] += keep_rigid(p) + 0.5 * min_edges(p) + (2 / n) * repulsion(p)  # noqa
+            u[A1[i]] += keep_rigid(p) + 0.5 * min_edges(p) + 2*a * repulsion(p)  # noqa
 
             t_b[i] = time.perf_counter()
 
-        x = planta.step(t, u)
+        x = dinamica.step(t, u)
 
         # Análisis
-        A = R.astype(int) - np.eye(n)
-        L = distances.laplacian(A, x)
+        # A = R.astype(int) - np.eye(n)
+        A = disk_graph.adjacency(x, dmax)
+        L = rigidity.laplacian(A, x)
 
-        M = rsn.shape_basis(x)
+        M = rsn.nontrivial_motions(x)
         F = M.T.dot(L).dot(M)
         J = np.abs(np.linalg.det(F))**a
         eigvals = np.linalg.eigvalsh(F)
@@ -114,7 +122,7 @@ def run(steps, logs, t_perf, planta, frames):
         logs.x[k] = x
         logs.u[k] = u
         logs.J[k] = (J, len(E))
-        logs.eig[k] = eigvals
+        logs.lambda4[k] = eigvals
         logs.avg_dist[k] = linalg.norma2(x[E[:, 0]] - x[E[:, 1]], axis=1).mean()  # noqa
 
         t_perf.append(np.mean(t_b - t_a))
@@ -133,7 +141,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
     parser.add_argument(
         '-s', '--step',
-        dest='h', default=100e-3, type=float, help='paso de simulación')
+        dest='h', default=50e-3, type=float, help='paso de simulación')
     parser.add_argument(
         '-t', '--ti',
         metavar='T0', default=0.0, type=float, help='tiempo inicial')
@@ -165,32 +173,40 @@ if __name__ == '__main__':
     t_perf = []
 
     n = arg.n
-    a = 2 / n   # 32 / n**2
-    V = range(n)
+    a = 1 / n  # 32 / n**2
+    nodes = np.arange(n)
+
+    L = 25  # 100
     dof = 2
-    dn = dof * n
-    dmax = 10
+    dmax = 0.4*L
+
+    dof = 2
+    # dmax = 10
     dmin = 0.7 * dmax
-    beta_1 = 10 / dmax
-    beta_2 = 40 / dmax
-    e_1 = dmax
-    e_2 = 0.7 * dmax
+    beta = (10 / dmax, 40 / dmax)
+    alpha = (dmax, 0.7 * dmax)
 
-    # np.random.seed(1)
-    x0 = np.random.uniform(-0.5 * dmax, 0.5 * dmax, (n, dof))
-    A0 = disk_graph.adjacency(x0, dmax)
+    np.random.seed(0)
+    x = np.random.uniform(-0.5 * dmax, 0.5 * dmax, (n, dof))
+    print(x, dmax)
+
+    A = disk_graph.adjacency(x, dmax)
     u = np.zeros((n, dof))
-    R = (A0 + np.eye(n)).astype(bool)
+    # R = (A + np.eye(n)).astype(bool)
+    A1 = subsets.adjacency(A)
 
-    planta = linear_models.integrator(x0, tiempo[0])
+    dinamica = linear_models.integrator(x, tiempo[0])
 
-    for i in V:
-        p = x0[R[i]]
+    for i in nodes:
+        xi = x[A1[i]]
 
-        Ai = disk_graph.adjacency(p, dmax)
-        Li = distances.laplacian(Ai, p)
-        if distances.rigidity(Li, dof):
-            print('Grafo {} rígido.'.format(i))
+        Ai = disk_graph.adjacency(xi, dmax)
+        if rigidity.algebraic_condition(Ai, xi):
+            Li = rigidity.laplacian(Ai, xi)
+            _lambda4 = np.linalg.eigvalsh(Li)[3]
+            print(
+                'Grafo {} rígido. Eigenvalue = {} ~ {}'.format(
+                    i, _lambda4, lambda4(xi)))
         else:
             print('Warning!: Grafo {} flexible.'.format(i))
 
@@ -198,28 +214,28 @@ if __name__ == '__main__':
         x=np.empty((tiempo.size, n, dof)),
         u=np.empty((tiempo.size, n, dof)),
         J=np.empty((tiempo.size, 2)),
-        eig=np.empty((tiempo.size, dn - 3)),
+        lambda4=np.empty((tiempo.size, dof*n - 3)),
         avg_dist=np.empty(tiempo.size)
         )
-    logs.x[0] = x0
+    logs.x[0] = x
     logs.u[0] = np.zeros((n, dof))
     logs.J[0] = None
-    logs.eig[0] = None
+    logs.lambda4[0] = None
     logs.avg_dist[0] = None
 
     frames = np.empty((tiempo.size, 3), dtype=np.ndarray)
-    E0 = disk_graph.edges(x0, dmax)
-    frames[0] = tiempo[0], x0, E0
+    E = disk_graph.edges(x, dmax)
+    frames[0] = tiempo[0], x, E
 
     # ------------------------------------------------------------------
     # Simulación
     # ------------------------------------------------------------------
-    logs, t_perf, frames = run(steps, logs, t_perf, planta, frames)
+    logs, t_perf, frames = run(steps, logs, t_perf, A, dinamica, frames)
 
     x = logs.x
     u = logs.u
     J = logs.J
-    eig = logs.eig
+    lambda4 = logs.lambda4
     avg_dist = logs.avg_dist
 
     st = arg.tf - arg.ti
@@ -270,8 +286,8 @@ if __name__ == '__main__':
     axes[2].set_xlabel('t [seg]')
     axes[2].set_ylabel(r'$\lambda(F)$')
     axes[2].grid(1)
-    # axes[2].semilogy(tiempo, eig, ds='steps')
-    axes[2].plot(tiempo, eig, ds='steps')
+    # axes[2].semilogy(tiempo, lambda4, ds='steps')
+    axes[2].plot(tiempo, lambda4, ds='steps')
     # axes[2].set_ylim(bottom=0)
     fig.savefig('/tmp/metricas.pdf', format='pdf')
 
@@ -290,7 +306,7 @@ if __name__ == '__main__':
         ax.set_xlim(-1.5*dmax, 1.5*dmax)
         ax.set_ylim(-1.5*dmax, 1.5*dmax)
         anim = network.plot.Animate(fig, ax, arg.h/2, frames, maxlen=50)
-        anim.set_teams({'ids': V, 'tail': True})
+        anim.set_teams({'ids': nodes, 'tail': True})
         anim.ax.legend()
         anim.run()
 
