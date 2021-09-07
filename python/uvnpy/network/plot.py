@@ -127,7 +127,9 @@ def nodes(ax, x, **kwargs):
 
 def edges(ax, x, E, **kwargs):
     """Plotear edges."""
-    d = x.shape[-1]
+    n, d = x.shape
+    if E.shape[0] == n and E.shape[1] == n:
+        E = core.edges_from_adjacency(E)
     if d == 2:
         edges = LineCollection(x[E], **kwargs)
     elif d == 3:
