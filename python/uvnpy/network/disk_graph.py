@@ -89,3 +89,13 @@ def neighborhood_band(
     idx = close + neighbors * between
     idx[i] = inclusive
     return idx
+
+
+def adjacency_histeresis(A, x, dmin, dmax):
+    r = x[:, None] - x
+    d2 = np.square(r).sum(axis=-1)
+    close = d2 < dmin**2
+    between = ~close * (d2 < dmax**2)
+    Ah = close + A * between
+    Ah[np.eye(len(x), dtype=bool)] = 0
+    return Ah
