@@ -6,6 +6,7 @@
 @date mié ago 11 21:15:33 -03 2021
 """
 import numpy as np
+import scipy.linalg
 from transformations import unit_vector
 
 
@@ -154,3 +155,30 @@ def algebraic_condition(A, x):
     L = laplacian(A, x)
     eig = np.linalg.eigvalsh(L)
     return eig[f] > 1e-3
+
+
+def trivial_motions(p):
+    """Matriz cuyas columnas son una BON del espacio pose.
+
+    args:
+        p: array de posiciones (n, dof)
+
+    returns
+        M: matriz (n*dof, n*dof)
+    """
+    n = len(p)
+    P = np.zeros((p.size, 3))
+    r_cm = p - p.mean(0)
+
+    P[::2, 0] = 1/np.sqrt(n)                    # dx
+    P[1::2, 1] = 1/np.sqrt(n)                   # dy
+    P[::2, 2] = -r_cm[:, 1]
+    P[1::2, 2] = r_cm[:, 0]
+    P[:, 2] /= np.sqrt(np.square(r_cm).sum())   # dt
+    return P
+
+
+def nontrivial_motions(p):
+    T = trivial_motions(p)
+    N = scipy.linalg.null_space(T.T)
+    return N

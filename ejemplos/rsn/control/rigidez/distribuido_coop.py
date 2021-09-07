@@ -14,7 +14,6 @@ from gpsic.toolkit import linalg
 from uvnpy.model import linear_models
 import uvnpy.network as network
 from uvnpy.network import disk_graph, strength, subsets
-import uvnpy.rsn as rsn
 from uvnpy.rsn import distances, rigidity
 from uvnpy.toolkit.calculus import gradient
 
@@ -28,7 +27,7 @@ def detFi(p):
     Ai = distances.matrix(p)
     Ai[Ai > 0] = strength.logistic(Ai[Ai > 0], beta[1], alpha[1])
 
-    M = rsn.nontrivial_motions(p.mean(0))
+    M = rigidity.nontrivial_motions(p.mean(0))
     Li = rigidity.laplacian(Ai, p)
     Fi = np.matmul(M.T, np.matmul(Li, M))
     return np.linalg.det(Fi)
@@ -111,7 +110,7 @@ def run(steps, logs, t_perf, A, dinamica, frames):
         A = disk_graph.adjacency(x, dmax)
         L = rigidity.laplacian(A, x)
 
-        M = rsn.nontrivial_motions(x)
+        M = rigidity.nontrivial_motions(x)
         F = M.T.dot(L).dot(M)
         J = np.abs(np.linalg.det(F))**a
         eigvals = np.linalg.eigvalsh(F)
