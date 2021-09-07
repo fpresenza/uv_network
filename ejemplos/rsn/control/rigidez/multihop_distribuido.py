@@ -14,12 +14,12 @@ from uvnpy.model import linear_models
 import uvnpy.network as network
 from uvnpy.network import disk_graph, strength, subsets
 from uvnpy.rsn import distances, rigidity
-from uvnpy.toolkit.calculus import gradient
+from uvnpy.toolkit.calculus import derivative_eval, gradient  # noqa
 
 # ------------------------------------------------------------------
 # Definición de variables globales, funciones y clases
 # ------------------------------------------------------------------
-Logs = collections.namedtuple('Logs', 'x u eig mindist')
+Logs = collections.namedtuple('Logs', 'x u eig maxdist')
 
 
 def rigidity_eigenvalue(A, x):
@@ -29,31 +29,62 @@ def rigidity_eigenvalue(A, x):
     return np.linalg.eigvalsh(L)[3]
 
 
-def objective(x, i):
-    d = distances.matrix(x)
-
-    wt = d.copy()
-    wt[wt > 0] = strength.logistic_derivative(wt[wt > 0], beta[0], alpha[0])
-    ut = distances.edge_potencial_gradient(wt, x)
-    # ut = 0
-
-    wc = d.copy()
-    wc[wc > 0] = strength.power_derivative(wc[wc > 0], 1)
-    uc = distances.edge_potencial_gradient(wc, x)
-    # uc = 0
-    ur = -a * lambda4(x)**(-a - 1) * gradient(lambda4, x)
-    u = 0.1*ut + a/2*uc + 3*ur
-    # print(i, lambda4(x))
-    # if np.isclose(lambda4(x), 0):
-    #     print(i)
-    return -u/2
-
-
-def lambda4(x):
+def weighted_rigidity_eigenvalue(x):
     w = distances.matrix(x)
     w[w > 0] = strength.logistic(w[w > 0], beta[1], alpha[1])
     L = rigidity.laplacian(w, x)
     return np.linalg.eigvalsh(L)[..., 3]
+
+
+def eigenvalue_product(x, M):
+    w = distances.matrix(x)
+    w[w > 0] = strength.logistic(w[w > 0], beta[1], alpha[1])
+
+    L = rigidity.laplacian(w, x)
+    S = np.matmul(M.T, np.matmul(L, M))
+    return np.linalg.det(S)
+
+
+def rigidity_maintenance(x):
+    # L = rigidity_matrix(x)
+    # e, V = np.linalg.eigh(L)
+    # dL_dx = derivative_eval(rigidity_matrix, x)
+    # v4 = V[:, 3]          # rigidity eigenvector
+    # lambda4 = e[3]
+    # dlambda4_dx = v4.dot(dL_dx).dot(v4).reshape(x.shape)
+    # ur = -a * lambda4**(-a - 1) * dlambda4_dx
+
+    # M = rigidity.nontrivial_motions(x)
+    L = rigidity_matrix(x)
+    e, V = np.linalg.eigh(L)
+    M = V[:, 3:]
+    detS = e[3:].prod()
+
+    ur = -a * detS**(-a - 1) * gradient(eigenvalue_product, x, M)
+
+    return -5*ur
+
+
+def rigidity_matrix(x):
+    w = distances.matrix(x)
+    w[w > 0] = strength.logistic(w[w > 0], beta[1], alpha[1])
+    L = rigidity.laplacian(w, x)
+    return L
+
+
+def disconnect(x):
+    w = distances.matrix(x)
+    w[w > 0] = strength.logistic_derivative(w[w > 0], beta[0], alpha[0])
+    u = distances.edge_potencial_gradient(w, x)
+    return -u
+
+
+def expand(x):
+    w = distances.matrix(x)
+    w[w > 0] = strength.power_derivative(w[w > 0], 5/n)
+    u = distances.edge_potencial_gradient(w, x)
+    return -15*u
+
 
 # ------------------------------------------------------------------
 # Función run
@@ -65,6 +96,7 @@ def run(steps, logs, t_perf, A, dinamica, frames):
     bar = progressbar.ProgressBar(max_value=arg.tf).start()
     u = np.zeros(dinamica.x.shape)
     eig = np.empty(n)
+    Ah = np.empty((2, n, n), dtype=bool)
 
     for k, t in steps[1:]:
         # step dinamica
@@ -73,34 +105,46 @@ def run(steps, logs, t_perf, A, dinamica, frames):
         # Control
         t_a = np.empty(n)
         t_b = np.empty(n)
-        u[:] = 0
-        Ah = subsets.multihop_adjacency(A, hops)
+        u_t = expand(x) + disconnect(x)
+        u[:] = u_t
+        R = subsets.reach(A, (0, 1, 2))
+        Ah[0] = sum(R[:2]).astype(bool)
+        Ah[1] = sum(R[:3]).astype(bool)
         for i in nodes:
-            t_a[i] = time.perf_counter()
-
-            Ni = Ah[i]
+            h = hops[i]
+            # print('\n', h, i)
+            Ni = Ah[h-1, i]
+            # print(Ni)
             Ai = A[Ni][:, Ni]
             xi = x[Ni]
             eig[i] = rigidity_eigenvalue(Ai, xi)
-            u[Ni] += objective(xi, i)
+            if eig[i] < 1e-6:
+                print(t, i)
+                raise ValueError('Zero eigenvalue')
 
+            t_a[i] = time.perf_counter()
+            u[Ni] += rigidity_maintenance(xi)
             t_b[i] = time.perf_counter()
+            # print(i, t_a[i] - t_b[i])
 
         # print(np.where(eig < 1e-5))
+        u *= 2
         x = dinamica.step(t, u)
 
         # Análisis
         # print(distances.matrix(x))
-        A = disk_graph.adjacency(x, dmax)
+        # A = disk_graph.adjacency(x, dmin)
+        A = disk_graph.adjacency_histeresis(A, x, dmin, dmax)
         E = network.edges_from_adjacency(A)
         frames[k] = t, x, E
 
         logs.x[k] = x
-        logs.u[k] = u
+        logs.u[k, :, 0] = np.linalg.norm(u_t, axis=1)
+        logs.u[k, :, 1] = np.linalg.norm(u - u_t, axis=1)
         logs.eig[k, 0] = rigidity_eigenvalue(A, x)
         logs.eig[k, 1:] = eig
         # print(distances.from_adjacency(A, x))
-        logs.mindist[k] = distances.from_adjacency(A, x).min()
+        logs.maxdist[k] = distances.from_adjacency(A, x).max()
 
         t_perf.append(np.mean(t_b - t_a))
         bar.update(np.round(t, 3))
@@ -118,7 +162,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
     parser.add_argument(
         '-s', '--step',
-        dest='h', default=50e-3, type=float, help='paso de simulación')
+        dest='h', default=100e-3, type=float, help='paso de simulación')
     parser.add_argument(
         '-t', '--ti',
         metavar='T0', default=0.0, type=float, help='tiempo inicial')
@@ -148,43 +192,60 @@ if __name__ == '__main__':
     steps = list(enumerate(tiempo))
     t_perf = []
 
-    n = 20  # 80
-    hops = 2
-    L = 25  # 100
-    a = 1 / n
+    n = 80
+    # hops = 3
+    L = 100
+    a = 5 / n
     dof = 2
-    dmax = 0.4*L
-    beta = (10 / dmax, 40 / dmax)
-    alpha = (dmax, 0.7 * dmax)
+    dmin = 0.4*L
+    dmax = 1.4 * dmin
+    beta = (5 / dmin, 40 / dmin)
+    alpha = (dmax, dmin)
 
     nodes = np.arange(n)
-    # x = np.random.uniform(-0.9*L, 0.9*L, (n, dof))
-    x = np.random.uniform(-0.3*L, 0.3*L, (n, dof))
-    # print(x, dmax)
-    A = disk_graph.adjacency(x, dmax)
-    print(subsets.multihop_adjacency(A, hops).sum(1))
+    x = np.random.uniform(-0.9*L, 0.9*L, (n, dof))
+    # x = np.random.uniform(-0.3*L, 0.3*L, (n, dof))
+    # print(x, dmin)
+    A = disk_graph.adjacency(x, dmin)
+    # print(subsets.multihop_adjacency(A, hops).sum(1))
     dinamica = linear_models.integrator(x, tiempo[0])
 
     logs = Logs(
         x=np.empty((tiempo.size, n, dof)),
         u=np.empty((tiempo.size, n, dof)),
         eig=np.empty((tiempo.size, 1 + n)),
-        mindist=np.empty(tiempo.size)
+        maxdist=np.empty(tiempo.size)
         )
     logs.x[0] = x
     logs.u[0] = np.zeros((n, dof))
     logs.eig[0, 0] = rigidity_eigenvalue(A, x)
-    subframeworks = [
-        subsets.multihop_subframework(A, x, i, hops) for i in range(n)]
-    logs.eig[0, 1:] = [rigidity_eigenvalue(Ai, xi) for Ai, xi in subframeworks]
-    print(logs.eig[0, 1:].min(), logs.eig[0, 1:].mean(), logs.eig[0, 1:].max())
 
-    logs.mindist[0] = distances.from_adjacency(A, x).min()
+    hops = np.empty(n, dtype=int)
+    for i in nodes:
+        subset_found = False
+        h = 0
+        while not subset_found:
+            h += 1
+            Ai, xi = subsets.multihop_subframework(A, x, i, h)
+            re = rigidity_eigenvalue(Ai, xi)
+            wre = weighted_rigidity_eigenvalue(xi)
+            if re > 1e-3:
+                subset_found = True
+                logs.eig[0, i+1] = re
+                print(
+                    'Node {}, hops = {}, RE = {} ~ {}'.format(i, h, re, wre))
+        hops[i] = h
+
+    logs.maxdist[0] = distances.from_adjacency(A, x).max()
 
     frames = np.empty((tiempo.size, 3), dtype=np.ndarray)
-    E = disk_graph.edges(x, dmax)
+    E = disk_graph.edges(x, dmin)
     frames[0] = tiempo[0], x, E
 
+    # xi = [xi for _, xi in subframeworks]
+    # l4 = np.array([
+    #     weighted_rigidity_eigenvalue(xi) for _, xi in subframeworks])
+    # print(l4.min(), l4.mean(), l4.max())
     # ------------------------------------------------------------------
     # Simulación
     # ------------------------------------------------------------------
@@ -193,7 +254,7 @@ if __name__ == '__main__':
     x = logs.x
     u = logs.u
     eig = logs.eig
-    mindist = logs.mindist
+    maxdist = logs.maxdist
 
     st = arg.tf - arg.ti
     rt = sum(t_perf)
@@ -232,33 +293,31 @@ if __name__ == '__main__':
     axes[0].set_xlabel('t [seg]')
     axes[0].set_ylabel(r'$\rho$')
     axes[0].grid(1)
-    axes[0].semilogy(tiempo, eig[:, 0], color='purple', ls='--', zorder=10)
-    axes[0].semilogy(tiempo, eig[:, 1:], color='0.7')
+    axes[0].semilogy(
+        tiempo, eig[:, 0].clip(1e-6), color='purple', ls='--', zorder=10)
+    axes[0].semilogy(tiempo, eig[:, 1:].clip(1e-6), color='0.7')
     # axes[1].set_ylim(bottom=0)
     fig.savefig('/tmp/metricas.pdf', format='pdf')
 
     axes[1].set_xlabel('t [seg]')
     axes[1].set_ylabel(r'$\rm{min}(d_{ij})$')
     axes[1].grid(1)
-    axes[1].plot(tiempo, mindist)
-    # axes[2].hlines(
-    #     [dmin / dmax, 1],
-    #     xmin=0, xmax=tiempo[-1], ls='--', color='k', alpha=0.7)
+    axes[1].plot(tiempo, maxdist)
     axes[1].set_ylim(bottom=0)
     fig.savefig('/tmp/metricas.pdf', format='pdf')
 
     if arg.animate:
         fig, ax = network.plot.figure()
-        ax.set_xlim(-1.5*L, 1.5*L)
-        ax.set_ylim(-1.5*L, 1.5*L)
+        ax.set_xlim(-2*L, 2*L)
+        ax.set_ylim(-2*L, 2*L)
         anim = network.plot.Animate(fig, ax, arg.h/2, frames, maxlen=50)
         anim.set_teams(
-            {'ids': np.delete(nodes, (8, 10)), 'tail': True,
+            {'ids': np.delete(nodes, (9, )), 'tail': True,
                 'style': {'color': 'b', 'marker': 'o', 'markersize': 5}},
-            {'ids': np.take(nodes, (8, 10)), 'tail': True,
+            {'ids': np.take(nodes, (9, )), 'tail': True,
                 'style': {'color': 'r', 'marker': 'o', 'markersize': 5}})
         anim.set_edgestyle(color='0.2', alpha=0.6, lw=0.8)
         anim.ax.legend()
-        anim.run()
+        anim.run('/tmp/multihop.mp4')
 
-    plt.show()
+    # plt.show()
