@@ -6,19 +6,23 @@
 @date jue mar 18 14:39:11 -03 2021
 """
 import numpy as np
+from numba import njit
 
 
+@njit
 def power(d, a):
     """Power function."""
     s = d**(-a)
     return s
 
 
+@njit
 def power_derivative(d, a):
     D = -a * d**(-a - 1)
     return D
 
 
+@njit
 def logistic(d, beta=1, e=0):
     """Logistic strength function.
 
@@ -35,6 +39,7 @@ def logistic(d, beta=1, e=0):
     return s
 
 
+@njit
 def logistic_derivative(d, beta=1, e=0):
     """Derivative  of the logistic function respect to distance."""
     D = - 0.5 * beta / (1 + np.cosh(beta * (d - e)))
