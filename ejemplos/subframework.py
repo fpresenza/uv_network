@@ -10,6 +10,13 @@ import matplotlib.pyplot as plt
 import uvnpy.network as network
 
 
+plt.rcParams['text.usetex'] = False
+plt.rcParams['pdf.fonttype'] = 42
+plt.rcParams['ps.fonttype'] = 42
+plt.rcParams['mathtext.fontset'] = 'dejavuserif'
+plt.rcParams['font.family'] = 'serif'
+
+
 fig, ax = plt.subplots(figsize=(2.5, 1.125))
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
