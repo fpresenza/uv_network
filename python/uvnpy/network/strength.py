@@ -23,24 +23,24 @@ def power_derivative(d, a):
 
 
 @njit
-def logistic(d, beta=1, e=0):
+def logistic(d, midpoint=0, steepness=1):
     """Logistic strength function.
 
     A logistic function or logistic curve is a common
     S-shaped curve (sigmoid curve) with equation
 
-        1 / (1 + exp(-beta * (d - e)))
+        1 / (1 + exp(-steepness * (d - midpoint)))
 
     d: distance between peers,
-    beta: the logistic growth rate or steepness of the curve,
-    e: the x value of the sigmoid's midpoint.
+    steepness: the logistic growth rate or steepness of the curve,
+    midpoint: the x value of the sigmoid's midpoint.
     """
-    s = 1 / (1 + np.exp(beta * (d - e)))
+    s = 1 / (1 + np.exp(steepness * (d - midpoint)))
     return s
 
 
 @njit
-def logistic_derivative(d, beta=1, e=0):
+def logistic_derivative(d, midpoint=0, steepness=1):
     """Derivative  of the logistic function respect to distance."""
-    D = - 0.5 * beta / (1 + np.cosh(beta * (d - e)))
+    D = - 0.5 * steepness / (1 + np.cosh(steepness * (d - midpoint)))
     return D
