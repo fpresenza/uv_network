@@ -9,6 +9,8 @@ import numpy as np
 import scipy.linalg
 from transformations import unit_vector
 
+from uvnpy.network import subsets
+
 
 def classic_matrix(D, p):
     """Matriz de rigidez clásica"""
@@ -149,11 +151,13 @@ def local_laplacian(p, q, w=np.array(1.)):
     return Li
 
 
-def algebraic_condition(A, x):
+def algebraic_condition(A, x, return_value=False):
     d = x.shape[-1]
     f = int(d * (d + 1)/2)
     L = laplacian(A, x)
     eig = np.linalg.eigvalsh(L)
+    if return_value:
+        return eig[f]
     return eig[f] > 1e-3
 
 
@@ -182,3 +186,29 @@ def nontrivial_motions(p):
     T = trivial_motions(p)
     N = scipy.linalg.null_space(T.T)
     return N
+
+
+def minimum_hops(A, x, threshold=1e-3):
+    if not algebraic_condition(A, x):
+        raise ValueError('Flexible Framework.')
+    n = A.shape[0]
+    d = x.shape[1]
+    f = int(d * (d + 1)/2)
+    hops = np.empty(n, dtype=int)
+    for i in range(n):
+        minimum_found = False
+        h = 0
+        while not minimum_found:
+            h += 1
+            if h > (n-1):
+                break
+            Ai, xi = subsets.multihop_subframework(A, x, i, h)
+            Li = laplacian(Ai, xi)
+            re = np.linalg.eigvalsh(Li)[f]
+            if re > threshold:
+                minimum_found = True
+        hops[i] = h
+    if minimum_found:
+        return hops
+    else:
+        raise StopIteration('Minimum hops not found.')
