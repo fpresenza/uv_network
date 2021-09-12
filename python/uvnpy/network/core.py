@@ -90,6 +90,9 @@ def laplacian_from_adjacency(A):
     return L
 
 
-def algebraic_connectivity(L):
-    a2 = np.linalg.eigbalsh(L)[1]
+def algebraic_connectivity(A, return_value=True):
+    L = laplacian_from_adjacency(A)
+    a2 = np.linalg.eigvalsh(L)[1]
+    if return_value:
+        return a2
     return a2 > 1e-5
