@@ -21,7 +21,7 @@ def derivative_eval(f, x, *args, **kwargs):
     (2 * x.size, *x.shape) and return an np.ndarray of shape
     (2 * x.size, *y.shape) in order to perform the differences.
     """
-    h = kwargs.get('h', 1e-3)
+    h = kwargs.pop('h', 1e-3)
     size = x.size
     dx = np.empty((2 * size,) + x.shape)
     p = np.diag(size * [h]).reshape(-1, *x.shape)
@@ -32,8 +32,8 @@ def derivative_eval(f, x, *args, **kwargs):
     return D
 
 
-def gradient(f, x, *args):
-    D = derivative_eval(f, x, *args)
+def gradient(f, x, *args, **kwargs):
+    D = derivative_eval(f, x, *args, **kwargs)
     return D.reshape(x.shape)
 
 
