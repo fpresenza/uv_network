@@ -9,14 +9,20 @@ import numpy as np
 from transformations import unit_vector
 
 
-def matrix(p):
+def matrix(x):
     """ Devuelve matriz de distancias.
 
     args:
-        p: array de posiciones (..., n, d)
+        x: array de posiciones (..., n, d)
     """
-    r = p[..., None, :] - p[..., None, :, :]
+    r = x[..., None, :] - x[..., None, :, :]
     dist = np.sqrt(np.square(r).sum(axis=-1))
+    return dist
+
+
+def matrix_between(x, y):
+    r = x[..., None, :] - y
+    dist = np.sqrt(np.square(r).sum(-1))
     return dist
 
 
@@ -62,12 +68,6 @@ def edge_potencial_gradient(A, p):
     r *= A[..., None]               # aplicar pesos
     grad = r.sum(1)
     return grad
-
-
-def local_matrix(p, q):
-    r = p[..., None, :] - q
-    dist = np.sqrt(np.square(r).sum(-1))
-    return dist
 
 
 def local_edge_potencial_gradient(p, q, w):
