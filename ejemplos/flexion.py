@@ -21,13 +21,13 @@ def filter_edges(E):
 
 fig, ax = plt.subplots(1, 2, figsize=(4, 2.5))
 
-h = 10
+k = 10
 mid = np.cumsum(4 * np.arange(50))
-print(mid[h])
-t = np.arange(-h, h+1, 1)
+print(mid[k])
+t = np.arange(-k, k+1, 1)
 X, Y = np.meshgrid(t, t)
 x = np.dstack([X, Y]).reshape(-1, 2)
-print(x[mid[h]])
+print(x[mid[k]])
 print('n = {}'.format(len(x)))
 
 for _ax in ax:
@@ -42,8 +42,8 @@ for _ax in ax:
         labelleft=False)   # labels along the bottom edge are off
     _ax.set_aspect('equal')
     _ax.grid(0)
-    _ax.set_xlim(-h-1, h+1)
-    _ax.set_ylim(-h-1, h+1)
+    _ax.set_xlim(-k-1, k+1)
+    _ax.set_ylim(-k-1, k+1)
 
 
 dmax = 1.5
@@ -61,7 +61,7 @@ u = V[:, [3]].reshape(-1, 2)
 
 x_n = x + u
 
-i = mid[h]
+i = mid[k]
 network.plot.nodes(ax[0], np.delete(x, i, 0), color='b', s=10, zorder=10)
 network.plot.edges(ax[0], x, E, color='0.2', alpha=0.6, lw=0.8)
 # network.plot.motions(ax[0], x, u, color='g', scale=2.5)
