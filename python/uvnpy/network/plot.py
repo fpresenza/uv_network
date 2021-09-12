@@ -32,7 +32,7 @@ class Animate(object):
             transform=self.ax.transAxes, color='green', fontsize=10)
         self.anim = None
         self.teams = {}
-        edgestyle = {'color': '0.2', 'linewidth': 0.7}
+        edgestyle = {'color': '0.2', 'linewidth': 0.7, 'zorder': 10}
         self.edges = LineCollection([], **edgestyle)
         self.ax.add_artist(self.edges)
 
@@ -41,15 +41,16 @@ class Animate(object):
             name = team.get('name', 'Team {}'.format(i))
             style = team.get(
                 'style', {'color': 'b', 'marker': 'o', 'markersize': '5'})
+            style.update(ls='', zorder=1)
             self.teams[name] = {}
             self.teams[name]['ids'] = team['ids']
             style.update(label=name)
-            line = self.ax.plot([], [], ls='', **style)
+            line = self.ax.plot([], [], **style)
             self.teams[name]['points'] = line[0]
             if team.get('tail'):
                 style.update(markersize=0.5, alpha=0.4)
                 style.pop('label')
-                line = self.ax.plot([], [], ls='', **style)
+                line = self.ax.plot([], [], **style)
                 self.teams[name]['tail'] = line[0]
 
     def set_edgestyle(self, **style):
