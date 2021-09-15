@@ -31,6 +31,12 @@ def neighborhood(A):
     return N
 
 
+def neighbors_from_edges(E, i):
+    e_in = E[E[:, 0] == i][:, 1]
+    e_out = E[E[:, 1] == i][:, 0]
+    return np.hstack([e_in, e_out])
+
+
 def multihop_neighborhood(A, hops):
     Ak = reach(A, range(hops+1))
     Nh = np.logical_not(sum(Ak[:-1]) + np.logical_not(Ak[-1]))
