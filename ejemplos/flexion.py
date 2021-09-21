@@ -21,7 +21,7 @@ def filter_edges(E):
 
 fig, ax = plt.subplots(1, 2, figsize=(4, 2.5))
 
-k = 10
+k = 6
 mid = np.cumsum(4 * np.arange(50))
 print(mid[k])
 t = np.arange(-k, k+1, 1)
@@ -53,7 +53,7 @@ A = network.adjacency_from_edges(len(x), E)
 L = rigidity.laplacian(A, x)
 e, V = np.linalg.eigh(L)
 # print(V)
-# print(e)
+print(e[3])
 
 u = V[:, [3]].reshape(-1, 2)
 # u -= u[0]
