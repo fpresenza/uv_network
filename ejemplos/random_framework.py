@@ -26,7 +26,7 @@ d_factor = 1.7
 dmax = d_factor / np.sqrt(density)
 print(dmax)
 
-for i in range(348, 2000):  # 1093
+for i in range(348, 2000):  # 348
     np.random.seed(i)
     x = np.random.uniform(-hL, hL, (n, 2))
     print(i)
@@ -75,7 +75,7 @@ network.plot.nodes(
     marker='o', color='royalblue', s=7, zorder=10, label=r'$1$')
 network.plot.nodes(
     axes[0], x[two_hop_rigid],
-    marker='D', color='orange', s=7, zorder=10, label=r'$2$')
+    marker='D', color='chocolate', s=7, zorder=10, label=r'$2$')
 network.plot.nodes(
     axes[0], x[three_hop_rigid],
     marker='s', color='mediumseagreen', s=7, zorder=10, label=r'$3$')
@@ -88,18 +88,18 @@ axes[0].legend(
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
     loc='center left', bbox_to_anchor=(-0.2, 0.25))
 
-i = np.argwhere(two_hop_rigid)[0, 0]
+i = np.argwhere(two_hop_rigid)[2, 0]
 _, xi = subsets.multihop_subframework(A, x, i, 2)
 
 network.plot.nodes(
     axes[1], np.delete(x, i, axis=0),
-    marker='o', color='gray', s=7, zorder=10)
-network.plot.nodes(
-    axes[1], x[i],
-    marker='D', color='orange', s=9, zorder=10)
+    marker='o', color='gray', s=7, zorder=1)
 network.plot.nodes(
     axes[1], xi,
-    marker='o', color='orange', s=7, zorder=10)
+    marker='o', color='orange', s=7, zorder=5)
+network.plot.nodes(
+    axes[1], x[i],
+    marker='D', color='chocolate', s=9, zorder=10)
 
 # network.plot.nodes(
 #     axes[1], x[three_hop_rigid],
