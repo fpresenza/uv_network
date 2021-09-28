@@ -28,7 +28,7 @@ def matrix(D, p):
         p: array de posiciones (n, d)
 
     returns
-        H: jacobiano (ne, n * d)
+        R: jacobiano (ne, n * d)
     """
     Dt = D.T
     r = unit_vector(Dt.dot(p), axis=-1)
@@ -44,7 +44,7 @@ def matrix_from_adjacency(A, p):
         p: array de posiciones (n, d)
 
     returns
-        H: (ne, n * d)
+        R: (ne, n * d)
     """
     n, d = p.shape
     r = unit_vector(p[:, None] - p, axis=-1)
@@ -69,7 +69,7 @@ def matrix_from_edges(E, p, w=np.array([1.])):
         p: array de posiciones (n, d)
 
     returns
-        H: (ne, n * d)
+        R: (ne, n * d)
     """
     n, d = p.shape
     r = unit_vector(p[E[:, 0]] - p[E[:, 1]], axis=-1)
@@ -83,10 +83,10 @@ def matrix_from_edges(E, p, w=np.array([1.])):
     return J
 
 
-def laplacian(A, p):
+def symmetric_matrix(A, p):
     """Laplaciano de rigidez.
 
-        L =  H^T W H
+        S =  R^T W R
 
     A[i, j] >= 0 respresenta el peso asociado a cada enlace.
 
@@ -95,35 +95,35 @@ def laplacian(A, p):
         p: array de posiciones (..., n, d)
 
     returns
-        L: laplaciano de rigidez (..., n * d, n * d)
+        S: laplaciano de rigidez (..., n * d, n * d)
     """
     n, d = p.shape[-2:]
     ii = np.eye(n, dtype=bool)
     r = unit_vector(p[..., None, :] - p[..., None, :, :], axis=-1)
     r[..., ii, :] = 0
-    L = - r[..., None] * r[..., None, :]    # outer product
-    L *= A[..., None, None]                 # aplicar pesos
-    L[..., ii, :, :] -= L.sum(p.ndim - 1)
-    L = L.swapaxes(-3, -2)
-    s = list(L.shape)
+    S = - r[..., None] * r[..., None, :]    # outer product
+    S *= A[..., None, None]                 # aplicar pesos
+    S[..., ii, :, :] -= S.sum(p.ndim - 1)
+    S = S.swapaxes(-3, -2)
+    s = list(S.shape)
     s[-4:] = n * d, n * d
-    return L.reshape(s)
+    return S.reshape(s)
 
 
-def complete_laplacian(p):
+def complete_symmetric_matrix(p):
     n, d = p.shape[-2:]
     ii = np.eye(n, dtype=bool)
     r = unit_vector(p[..., None, :] - p[..., None, :, :], axis=-1)
     r[..., ii, :] = 0
-    L = - r[..., None] * r[..., None, :]    # outer product
-    L[..., ii, :, :] -= L.sum(p.ndim - 1)
-    L = L.swapaxes(-3, -2)
-    s = list(L.shape)
+    S = - r[..., None] * r[..., None, :]    # outer product
+    S[..., ii, :, :] -= S.sum(p.ndim - 1)
+    S = S.swapaxes(-3, -2)
+    s = list(S.shape)
     s[-4:] = n * d, n * d
-    return L.reshape(s)
+    return S.reshape(s)
 
 
-def laplacian_diag(A, p):
+def symmetric_matrix_diag(A, p):
     """Bloques diagonales del laplaciano de rigidez.
 
     args:
@@ -137,28 +137,43 @@ def laplacian_diag(A, p):
     ii = np.eye(n, dtype=bool)
     r = unit_vector(p[..., None, :] - p[..., None, :, :], axis=-1)
     r[..., ii, :] = 0
-    L = r[..., None] * r[..., None, :]    # outer product
-    L *= A[..., None, None]               # aplicar pesos
-    diag = L.sum(p.ndim - 1)
+    S = r[..., None] * r[..., None, :]    # outer product
+    S *= A[..., None, None]               # aplicar pesos
+    diag = S.sum(p.ndim - 1)
     return diag
 
 
-def local_laplacian(p, q, w=np.array(1.)):
+def local_symmetric_matrix(p, q, w=np.array(1.)):
     r = unit_vector(p[:, None] - q, axis=2)
     rw = r * w[..., None]
-    L = r[..., None] * rw[..., None, :]
-    Li = L.sum(1)
-    return Li
+    S = r[..., None] * rw[..., None, :]
+    Si = S.sum(1)
+    return Si
 
 
-def algebraic_condition(A, x, return_value=False):
+def algebraic_condition(A, x, threshold=1e-3):
     d = x.shape[-1]
     f = int(d * (d + 1)/2)
-    L = laplacian(A, x)
-    eig = np.linalg.eigvalsh(L)
-    if return_value:
-        return eig[f]
-    return eig[f] > 1e-3
+    S = symmetric_matrix(A, x)
+    eig = np.linalg.eigvalsh(S)
+    return eig[f] > threshold
+
+
+def eigenvalue(A, x):
+    d = x.shape[1]
+    f = int(d * (d + 1)/2)
+    S = symmetric_matrix(A, x)
+    eig = np.linalg.eigvalsh(S)
+    return eig[f]
+
+
+def subframework_eigenvalue(A, x, i, h=1):
+    d = x.shape[1]
+    f = int(d * (d + 1)/2)
+    Ai, xi = subsets.multihop_subframework(A, x, i, h)
+    Si = symmetric_matrix(Ai, xi)
+    eig = np.linalg.eigvalsh(Si)
+    return eig[f]
 
 
 def trivial_motions(p):
@@ -189,7 +204,7 @@ def nontrivial_motions(p):
 
 
 def minimum_hops(A, x, threshold=1e-3):
-    if not algebraic_condition(A, x):
+    if not algebraic_condition(A, x, threshold):
         raise ValueError('Flexible Framework.')
     n = A.shape[0]
     d = x.shape[1]
@@ -203,8 +218,8 @@ def minimum_hops(A, x, threshold=1e-3):
             if h > (n-1):
                 break
             Ai, xi = subsets.multihop_subframework(A, x, i, h)
-            Li = laplacian(Ai, xi)
-            re = np.linalg.eigvalsh(Li)[f]
+            Si = symmetric_matrix(Ai, xi)
+            re = np.linalg.eigvalsh(Si)[f]
             if re > threshold:
                 minimum_found = True
         hops[i] = h
