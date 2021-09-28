@@ -7,6 +7,7 @@
 """
 import numpy as np
 import itertools
+import networkx as nx
 
 
 def undirected_edges(E):
@@ -96,3 +97,18 @@ def algebraic_connectivity(A, return_value=True):
     if return_value:
         return a2
     return a2 > 1e-5
+
+
+def degree(A):
+    return A.sum(-1)
+
+
+def geodesics(A):
+    G = nx.from_numpy_matrix(A)
+    spl = list(nx.shortest_path_length(G))
+    k = [list(_spl[1].keys()) for _spl in spl]
+    v = [list(_spl[1].values()) for _spl in spl]
+    idx = np.arange(len(A)).reshape(-1, 1)
+    lengths = np.empty(A.shape)
+    lengths[idx, k] = v
+    return lengths

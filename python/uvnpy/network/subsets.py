@@ -6,6 +6,9 @@
 @date mié ago 11 10:16:00 -03 2021
 """
 import numpy as np
+import networkx as nx
+
+import uvnpy.network as network
 
 
 def reach(A, hops):
@@ -43,6 +46,23 @@ def multihop_neighborhood(A, hops):
     return Nh
 
 
+def subgraph(A, i):
+    Ni = adjacency(A)[i]
+    Ai = A[Ni][:, Ni]
+    return Ai
+
+
+def multihop_subgraph(A, i, hops=1):
+    Ni = multihop_adjacency(A, hops)[i]
+    Ai = A[Ni][:, Ni]
+    return Ai
+
+
+def multihop_edges(A, i, hops=1):
+    Ai = multihop_subgraph(A, i, hops)
+    return Ai.sum()/2
+
+
 def subframework(A, x, i):
     Ni = adjacency(A)[i]
     Ai = A[Ni][:, Ni]
@@ -55,3 +75,36 @@ def multihop_subframework(A, x, i, hops=1):
     Ai = A[Ni][:, Ni]
     xi = x[Ni]
     return Ai, xi
+
+
+def neighborhood_load(A, hops):
+    _h = hops - 1
+    n = len(_h)
+    N = [multihop_adjacency(A, _h[i])[i] for i in range(n)]
+    deg = A.sum(1)
+    return deg.dot(N).sum()
+
+
+def weighted_neighborhood_load(A, hops):
+    """Calcula una metrica de carga de la red en base al grado de los nodos.
+
+        load = sum_{i in V} sum_{j in Vi} (hops_i - geo_ij) deg_j
+
+    args:
+        A: array(n x n)
+        hops = array(n, )
+    """
+    deg = A.sum(1)
+    geo = network.geodesics(A)
+    weights = (hops.reshape(-1, 1) - geo).clip(min=0)
+    return weights.dot(deg).sum()
+
+
+def weighted_node_neighborhood_load(A, i, hop):
+    deg = A.sum(1)
+    G = nx.from_numpy_matrix(A)
+    lengths = nx.single_source_shortest_path_length(G, i, cutoff=hop)
+    k, v = lengths.keys(), lengths.values()
+    geo = np.tile(hop, len(deg))
+    geo[list(k)] = list(v)
+    return sum((hop - geo) * deg)
