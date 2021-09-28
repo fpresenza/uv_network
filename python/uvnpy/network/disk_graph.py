@@ -79,10 +79,8 @@ def neighborhood(p, i, dmax=np.inf, inclusive=False):
     return idx
 
 
-def neighborhood_band(
-        p, i, neighbors,
-        dmin=1., dmax=np.inf, inclusive=False):
-    r = p[i] - p
+def neighborhood_histeresis(x, i, neighbors, dmin, dmax, inclusive=False):
+    r = x[i] - x
     d2 = np.square(r).sum(-1)
     close = d2 < dmin**2
     between = ~close * (d2 < dmax**2)
