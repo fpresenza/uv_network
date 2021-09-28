@@ -68,7 +68,7 @@ for i in range(3, n + 1):
     L = network.laplacian_from_adjacency(A)
     a2[i - 3] = np.linalg.eigvalsh(L)[1]
 
-    S = rigidity.laplacian(A, p)
+    S = rigidity.symmetric_matrix(A, p)
     l4[i - 3] = np.linalg.eigvalsh(S)[3]
 
     G = nx.from_numpy_matrix(A)
@@ -103,11 +103,11 @@ alpha = np.linalg.pinv(nodes[:, None]).dot(denominator - 1/2)
 # c = np.maximum(1/2, alpha*nodes)
 c = 1/2 + alpha*nodes
 f = np.sqrt(deg_max - 1) / deg_max
-gamma = 1 - f + 2/diam * (1 + f)
-print(gamma)
+b_0 = 1 - f + 2/diam * (1 + f)
+print(b_0)
 
-fig, ax = plt.subplots(figsize=(1.8, 1.5))
-fig.subplots_adjust(bottom=0.18, left=0.14)
+fig, ax = plt.subplots(figsize=(2.25, 1.5))
+fig.subplots_adjust(bottom=0.18, left=0.2)
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
@@ -115,24 +115,28 @@ ax.tick_params(
     labelsize='xx-small')
 ax.grid(1, lw=0.4)
 ax.set_xlabel('Diameter (D)', fontsize='x-small', labelpad=1)
-ax.semilogy(diam, a2, lw=0.9, label=r'$a(D)$')
+ax.set_ylabel('Connectivity  metrics', fontsize='x-small', labelpad=1)
+ax.semilogy(diam, a2, lw=0.9, label=r'$a(\mathcal{G})$')
 ax.semilogy(
-    diam, deg_avg/(2*alpha*diam**2),
-    ls='--', lw=0.9,
-    label=r'$\frac{\delta_{\mathrm{avg}}}{2\alpha D^2}$')
+    diam, b_0,
+    ls='dotted', label=r'$b_0$', color='k')
 ax.semilogy(
     diam, 2*edges/diam**2,
-    ls='--', lw=0.9, label=r'$\frac{2m}{D^2}$')
-ax.semilogy(
-    diam, gamma,
-    ls='--', lw=0.9, label=r'$\gamma(D)$')
+    ls='--', lw=0.9, label=r'$b_1$')
+# ax.semilogy(
+#     diam, deg_avg/(2*alpha*diam**2),
+#     ls='--', lw=0.9,
+#     label=r'$b_2$')
 # ax.plot(nodes, l4, label=r'$\lambda_4$')
 # ax.plot(nodes, energy, ls='--', label=r'$E$')
 # ax.plot(nodes, edges/(diam**2)/c,
 #   ls='--', label=r'$\frac{m/D^2}{1/2 + \alpha n}$')
 ax.legend(
-    fontsize='x-small', ncol=2, loc='upper right',
-    bbox_to_anchor=(1., 1.03))
+    fontsize='x-small',
+    handletextpad=0.1,
+    borderpad=0.2, ncol=3)
+# , ncol=2, loc='upper right',
+# bbox_to_anchor=(1., 1.03))
 fig.savefig('/tmp/bounds.pdf', format='pdf')
 
 fig, ax = plt.subplots()
