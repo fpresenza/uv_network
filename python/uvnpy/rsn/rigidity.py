@@ -83,8 +83,35 @@ def matrix_from_edges(E, p, w=np.array([1.])):
     return J
 
 
+def classic_symmetric_matrix(A, p):
+    """Matriz clasica de rigidez.
+
+        S =  R^T W R
+
+    A[i, j] >= 0 respresenta el peso asociado a cada enlace.
+
+    args:
+        A: matriz de adyacencia (..., n, n)
+        p: array de posiciones (..., n, d)
+
+    returns
+        S: laplaciano de rigidez (..., n * d, n * d)
+    """
+    n, d = p.shape[-2:]
+    ii = np.eye(n, dtype=bool)
+    r = p[..., None, :] - p[..., None, :, :]
+    r[..., ii, :] = 0
+    S = - r[..., None] * r[..., None, :]    # outer product
+    S *= A[..., None, None]                 # aplicar pesos
+    S[..., ii, :, :] -= S.sum(p.ndim - 1)
+    S = S.swapaxes(-3, -2)
+    s = list(S.shape)
+    s[-4:] = n * d, n * d
+    return S.reshape(s)
+
+
 def symmetric_matrix(A, p):
-    """Laplaciano de rigidez.
+    """Matriz normalizada de rigidez.
 
         S =  R^T W R
 
