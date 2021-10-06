@@ -5,6 +5,7 @@
 """
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
 import networkx as nx
 
 import uvnpy.network as network
@@ -32,7 +33,7 @@ for i in range(348, 2000):  # 348
     print(i)
     A = disk_graph.adjacency(x, dmax)
 
-    lambda4 = rigidity.algebraic_condition(A, x, return_value=True)
+    lambda4 = rigidity.eigenvalue(A, x)
     if lambda4 > 1e-3:
         G = nx.from_numpy_matrix(A)
         D = nx.diameter(G)
@@ -50,25 +51,25 @@ for i in range(348, 2000):  # 348
 
 
 fig, axes = plt.subplots(1, 2, figsize=(4, 2))
-# fig.subplots_adjust(wspace=0.24)
-for ax in axes:
+fig.subplots_adjust(wspace=0.215)
+axes = axes.ravel()
+for i, ax in enumerate(axes):
     ax.tick_params(
         axis='both',       # changes apply to the x-axis
         which='both',      # both major and minor ticks are affected
+        pad=1,
         labelsize='xx-small')
-
-    ax.set_aspect('equal')
     ax.grid(1, lw=0.4)
+    ax.set_aspect('equal')
     ax.set_xlim(-hL*1.1, hL*1.1)
     ax.set_ylim(-hL*1.1, hL*1.1)
-    ax.set_xticks([-50, 0, 50])
-    ax.set_yticks([-50, 0, 50])
-    ax.set_xticklabels([-50, 0, 50])
-    ax.set_yticklabels([-50, 0, 50])
-    # ax.set_xlabel('x', fontsize='x-small', labelpad=0.2)
-    # ax.set_ylabel('y', fontsize='x-small', labelpad=-2)
-    # ax.set_xlabel(r'$\mathrm{x}$', fontsize='x-small', labelpad=1)
-    # ax.set_ylabel(r'$\mathrm{y}$', fontsize='x-small', labelpad=1)
+    ax.set_xlabel(r'$\mathrm{x}$', fontsize='x-small', labelpad=0.6)
+    if i % 2 == 0:
+        ax.set_ylabel(r'$\mathrm{y}$', fontsize='x-small', labelpad=0)
+    ax.set_xticks([-hL, 0, hL])
+    ax.set_yticks([-hL, 0, hL])
+    ax.set_xticklabels([-hL, 0, hL])
+    ax.set_yticklabels([-hL, 0, hL])
 
 network.plot.nodes(
     axes[0], x[one_hop_rigid],
@@ -86,17 +87,19 @@ network.plot.edges(axes[0], x, A, color='0.6', lw=0.5)
 axes[0].legend(
     fontsize='xx-small', handlelength=1, labelspacing=0.3,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
-    loc='center left', bbox_to_anchor=(-0.2, 0.25))
+    loc='center right', bbox_to_anchor=(1.2, 0.25))
 
 i = np.argwhere(two_hop_rigid)[2, 0]
-_, xi = subsets.multihop_subframework(A, x, i, 2)
+Ai, xi = subsets.multihop_subframework(A, x, i, 2)
+circle = Circle(x[i], 5, facecolor='None', linewidth=0.5, edgecolor='k')
+axes[1].add_artist(circle)
 
 network.plot.nodes(
     axes[1], np.delete(x, i, axis=0),
     marker='o', color='gray', s=7, zorder=1)
 network.plot.nodes(
     axes[1], xi,
-    marker='o', color='orange', s=7, zorder=5)
+    marker='o', color='chocolate', s=7, zorder=5)
 network.plot.nodes(
     axes[1], x[i],
     marker='D', color='chocolate', s=9, zorder=10)
@@ -111,6 +114,7 @@ network.plot.nodes(
 #     axes[1], xi,
 #     marker='o', color='mediumseagreen', s=7, zorder=10)
 network.plot.edges(axes[1], x, A, color='0.6', lw=0.5)
+network.plot.edges(axes[1], xi, Ai, color='chocolate', lw=0.65)
 
 fig.savefig('/tmp/random_framework.pdf', format='pdf')
 
