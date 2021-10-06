@@ -42,9 +42,8 @@ for i in range(R):
         try:
             min_hops = rigidity.minimum_hops(A, x)
             edges[i, k] = int(A.sum()/2)
-            load[i, k] = subsets.neighborhood_load(A, min_hops)
-            load[i, k] /= (2*edges[i, k])
-            # print(min_hops[i, k].max(), np.allclose(load[i, k], 1))
+            load[i, k] = subsets.degree_load_flat(A, min_hops)
+            load[i, k] /= edges[i, k]
             G = nx.from_numpy_matrix(A)
             diam[i, k] = nx.diameter(G)
             max_min_hops[i, k] = min_hops.max()
@@ -92,17 +91,17 @@ for i in range(R):
         freq[i, k] = hop_rigid.mean() * 100
         # mean_edges[i, k] = edges[i, hop_rigid].mean()
         mean_load[i, k] = load[i, hop_rigid].mean()
-        sd = np.sqrt(load[i, hop_rigid].var())
-        lower_load[i, k] = 2*sd
-        upper_load[i, k] = 2*sd
-    # ax[0].plot(
-    #     hops, freq[i],
-    #     color=col[i], marker=mark[i], markersize=3, lw=0.7,
-    #     label=r'$\Omega = {}$'.format(dmax[i]))
+        # sd = np.sqrt(load[i, hop_rigid].var())
+        # lower_load[i, k] = 2*sd
+        # upper_load[i, k] = 2*sd
     ax[0].plot(
-        hops, freq[i].cumsum(),
+        hops, freq[i],
         color=col[i], marker=mark[i], markersize=3, lw=0.7,
         label=r'$\Omega = {}$'.format(dmax[i]))
+    # ax[0].plot(
+    #     hops, freq[i].cumsum(),
+    #     color=col[i], marker=mark[i], markersize=3, lw=0.7,
+    #     label=r'$\Omega = {}$'.format(dmax[i]))
     # ax[2].plot(
     #     hops, mean_edges[i]/K,
     #     color=col[i], marker=mark[i], markersize=3, lw=0.7)
@@ -142,11 +141,12 @@ ax[0].legend(
 
 ax[1].set_xticks(hops)
 ax[1].set_xticklabels(hops)
-ax[1].set_yticks([1, 2, 4, 10, 20])
-ax[1].set_yticklabels([1, 2, 4, 10, 20])
+ax[1].set_yticks([1, 2, 4, 10])
+ax[1].set_yticklabels([1, 2, 4, 10])
 # ax[1].set_ylim(bottom=1)
 ax[1].set_xlabel(r'Maximum extent ($\eta$)', fontsize='x-small', labelpad=0.6)
-ax[1].set_ylabel(r'Average load', fontsize='x-small', labelpad=1)
+ax[1].set_ylabel(
+    r'Normalized load ($\ell / m$)', fontsize='x-small', labelpad=1)
 
 fig.savefig('/tmp/multihops.pdf', format='pdf')
 
@@ -205,7 +205,7 @@ for i in range(R):
         max_min_hops[i]/diam[i], bins=10, range=(0, 1), density=True)
     bars = np.cumsum(np.diff(hops)) - 0.05
     ax.plot(
-        bars, freq.cumsum(),
+        bars, freq,
         marker=mark[i], color=col[i], markersize=3, lw=0.7,
         label=r'$\Omega= {}$'.format(dmax[i]))
 
