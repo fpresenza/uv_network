@@ -170,7 +170,8 @@ ax.quiver(
     x[R[:, 1], 0], x[R[:, 1], 1], r[:, 0], r[:, 1],
     color='mediumseagreen', angles='xy',
     scale_units='xy', scale=1, headwidth=6,
-    headlength=6, headaxislength=5)
+    headlength=6, headaxislength=5, linewidths=0.25,
+    edgecolor='mediumseagreen')
 
 fig.savefig('/tmp/routing_2.pdf', format='pdf')
 
@@ -231,12 +232,13 @@ E = np.array([
     [0, 6],
     [0, 11],
     [2, 15]])
+E = np.vstack([E, np.flip(E, axis=1)])
 r = x[E[:, 0]] - x[E[:, 1]]
-r = r - 0.6 * unit_vector(r, axis=1)
+r = r - 0.65 * unit_vector(r, axis=1)
 ax.quiver(
     x[E[:, 1], 0], x[E[:, 1], 1], r[:, 0], r[:, 1],
     color='lightcoral', angles='xy', scale_units='xy', scale=1, headwidth=6,
-    headlength=6, headaxislength=5)
+    headlength=6, headaxislength=5, linewidths=0.25, edgecolor='lightcoral')
 
 
 fig.savefig('/tmp/routing_3.pdf', format='pdf')
