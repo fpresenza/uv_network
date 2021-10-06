@@ -8,12 +8,15 @@ import collections
 import time
 import progressbar
 import numpy as np
+import networkx as nx
 
 from uvnpy.model import linear_models
-from uvnpy.network import disk_graph, subsets
+import uvnpy.network as network
+from uvnpy.network import disk_graph
 from uvnpy.rsn import distances, rigidity, control
 from uvnpy.toolkit import functions
 from uvnpy.rsn.localization import distances_to_neighbors_kalman
+from uvnpy.toolkit.calculus import gradient
 
 
 # ------------------------------------------------------------------
@@ -22,18 +25,40 @@ from uvnpy.rsn.localization import distances_to_neighbors_kalman
 Logs = collections.namedtuple('Logs', 'x hatx u fre re adjacency')
 
 
-def disconnect(x, dmin, dmax):
+def load(x, coeff, dmin, dmax):
     w = distances.matrix(x)
-    w[w > 0] = functions.logistic_derivative(w[w > 0], dmax, 5 / dmin)
-    u = distances.edge_potencial_gradient(w, x)
-    return -1*u
+    w[w > 0] = functions.logistic(w[w > 0], dmax, 5/dmax)
+    deg = w.sum(-1)
+    return 0.5 * (coeff * deg).sum(-1)
 
 
-def expand(x):
+def reduce_load(x, coeff, dmin, dmax):
+    u = gradient(load, x, coeff, dmin, dmax)
+    return -u
+
+
+def load2(x, A, center, h, dmin, dmax):
+    G = nx.from_numpy_matrix(A)
+    lengths = nx.single_source_shortest_path_length(G, center, cutoff=h)
+    k, v = lengths.keys(), lengths.values()
+    geo = np.tile(h, len(A))
+    geo[list(k)] = list(v)
+    w = distances.matrix(x)
+    w[w > 0] = functions.logistic(w[w > 0], dmax, 5/dmax)
+    deg = w.sum(-1)
+    return 0.5 * ((h - geo) * deg).sum(-1)
+
+
+def reduce_load2(x, A, center, h, dmin, dmax):
+    u = gradient(load, x, A, center, h, dmin, dmax)
+    return -u
+
+
+def collision_avoidance(x):
     w = distances.matrix(x)
     w[w > 0] = functions.power_derivative(w[w > 0], 1)
     u = distances.edge_potencial_gradient(w, x)
-    return -1*u
+    return -u
 
 
 def update_adjacency(A, Vi, x, hatx, i, dmin, dmax):
@@ -63,19 +88,12 @@ def run(steps, logs, t_perf, A, dinamica):
     bar = progressbar.ProgressBar(max_value=arg.tf).start()
     u = np.zeros(dinamica.x.shape)
     re = np.empty(n)
-    hmax = hops.max()
-    Ah = np.empty((hmax, n, n), dtype=bool)
 
     for k, t in steps[1:]:
         x = dinamica.x
 
         u[:] = 0
-        R = subsets.reach(A, range(hmax+1))
-        Ah[0] = (R[0] + R[1]).astype(bool)
-        Ah[1] = Ah[0] + R[2].astype(bool)
-        Ah[2] = Ah[1] + R[3].astype(bool)
-        Ah[3] = Ah[2] + R[4].astype(bool)
-        # Ah[4] = Ah[3] + R[5].astype(bool)
+        G = network.geodesics(A)
 
         hatx = np.array([localization[i].x for i in nodes])
         hatP = np.array([localization[i].P for i in nodes])
@@ -84,39 +102,49 @@ def run(steps, logs, t_perf, A, dinamica):
             print('\n error: ', err.argmax(), err.max())
 
         t_a = time.perf_counter()
+        """parte de control"""
         for i in nodes:
-            h = hops[i]
-            # print('\n', h, i)
-            Vi = Ah[h-1, i]
-            # print(Vi)
-            Ni = A[i].astype(bool)
-            if sum(Vi) > 1:
-                """ check si el nodo no esta solo """
-                # print(Vi)
-                Ai = A[Vi][:, Vi]
-                # xi = x[Vi]
-
-                hatxi = hatx[Vi]
-                xj = hatx[Ni]
-                Pj = hatP[Ni]
-                localization[i].update_neighbors(xj, Pj)
-                di = distances.matrix_between(x[i], xj)
-                zi = np.random.normal(di, range_cov)
-                localization[i].step(t, u[i], zi)
-
-                re[i] = rigidity.eigenvalue(Ai, hatxi)
-                if re[i] < 1e-6:
-                    print('\n Zero eig. Node: {}, re = {}'.format(i, re[i]))
-                u[Vi] += expand(hatxi)
-                u[Vi] += disconnect(hatxi, dmin, dmax)
-                u[Vi] += maintenance[i].update(hatxi)
-
-                A = update_adjacency(A, Vi, x, hatx, i, dmin, dmax)
-            else:
+            hi = hops[i]
+            Vi = G[i] <= hi
+            """ check si el nodo no esta solo """
+            if not Vi.any():
                 print('Desconexión. Nodo: {}'.format(i))
+            # center = sum(Vi[:i])  # me dice que lugar ocupa i el vector x_i
+            Ni = A[i].astype(bool)
+            Ai = A[Vi][:, Vi]
+            xi = x[Vi]
+            hatxi = hatx[Vi]
+
+            re[i] = rigidity.eigenvalue(Ai, xi)
+            if re[i] < 1e-6:
+                print('\n Flexibility. Node: {}, re = {}'.format(i, re[i]))
+            u[Vi] += collision_avoidance(hatxi)
+            # u[Vi] += reduce_load2(xi, Ai, center, hi, dmin, dmax)
+            u[Vi] += 3*reduce_load(hatxi, (G[i] < hi)[Vi], dmin, dmax)
+            u[Vi] += 3*maintenance[i].update(hatxi)
+
+            A = update_adjacency(A, Vi, x, hatx, i, dmin, dmax)
+
+        """parte de localizacion"""
+        for i in nodes:
+            hi = hops[i]
+            Vi = G[i] <= hi
+            Ni = A[i].astype(bool)
+
+            xj = hatx[Ni]
+            Pj = hatP[Ni]
+            localization[i].update_neighbors(xj, Pj)
+            di = distances.matrix_between(x[i], xj)
+            zi = np.random.normal(di, range_sd)
+            localization[i].step(t, u[i], zi)
+            if i in [15, 41]:
+                pi = np.random.normal(x[i], pos_sd)
+                Pi = localization[i].P
+                Ki = Pi.dot(np.linalg.inv(Pi + pos_sd**2 * np.eye(2)))
+                localization[i]._x += Ki.dot(pi - hatx[i])
 
         t_b = time.perf_counter()
-        u = 0.8*sat(u)
+        u = 1.25*sat(u)
         x = dinamica.step(t, u)
 
         # Análisis
@@ -190,7 +218,7 @@ x = np.array([
     [-28.44919496, -57.92799531],    # noqa
     [  7.43613592, -80.81747392],    # noqa
     [ 58.59127795,  38.05985518],    # noqa
-    [-82.08299252, -76.22563786],    # noqa
+    # [-82.08299252, -76.22563786],    # noqa
     [-88.21786015,  88.85789947],    # noqa
     [ 27.66202478, -53.76242414],    # noqa
     [-23.8953201 ,  65.2702383 ],    # noqa
@@ -203,7 +231,7 @@ x = np.array([
     [ 41.23381654,  84.10803078],    # noqa
     [-60.41094967, -10.82328944],    # noqa
     [ 45.35057755,  -9.23386923],    # noqa
-    [-64.06210042, -55.27964615],    # noqa
+    # [-64.06210042, -55.27964615],    # noqa
     [ 90.04205222, -41.49352746],    # noqa
     [ 70.44332818, -64.7347392 ],    # noqa
     [ 59.94675015, -69.65317635],    # noqa
@@ -251,13 +279,14 @@ hatx = x + np.random.normal(0, p, (n, 2))
 Pi = p**2 * np.eye(2)
 q = 0.05
 Q = q**2 * np.eye(2)
-range_cov = 3.
+range_sd = 3.
+pos_sd = 3.
 dt = arg.h
 
 maintenance = [
-    control.rigidity_maintenance(dof, dmin, 20 / dmin, 1/3) for _ in nodes]
+    control.rigidity_maintenance(dof, dmin, 20/dmin, 1/3) for _ in nodes]
 localization = [distances_to_neighbors_kalman(
-    hatx[i], Pi, Q * dt, range_cov, tiempo[0]) for i in nodes]
+    hatx[i], Pi, Q * dt, range_sd**2, tiempo[0]) for i in nodes]
 
 hops = rigidity.minimum_hops(A, x)
 print(hops)

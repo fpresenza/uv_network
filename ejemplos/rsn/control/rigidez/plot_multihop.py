@@ -7,6 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from uvnpy import network
+from uvnpy.network import subsets
+
 
 plt.rcParams['text.usetex'] = False
 plt.rcParams['pdf.fonttype'] = 42
@@ -25,6 +27,7 @@ A = np.loadtxt('/tmp/adjacency.csv', delimiter=',')
 hops = np.loadtxt('/tmp/hops.csv', delimiter=',')
 n = int(len(x[0])/2)
 nodes = np.arange(n)
+hops = hops.astype(int)
 
 # reshapes
 x = x.reshape(len(t), n, 2)
@@ -32,7 +35,21 @@ hatx = hatx.reshape(len(t), n, 2)
 print(x[0], hatx[0])
 u = u.reshape(len(t), n, 2)
 A = A.reshape(len(t), n, n)
+
+
+# slice
+kf = np.argmin(np.abs(t - 200))
+t = t[:kf]
+x = x[:kf]
+hatx = hatx[:kf]
+u = u[:kf]
+fre = fre[:kf]
+re = re[:kf]
+A = A[:kf]
+
+# calculos
 edges = A.sum(-1).sum(-1)/2
+load = [subsets.degree_load_flat(a, hops) for a in A]
 
 fig, axes = plt.subplots(2, 2, figsize=(10, 4))
 
@@ -78,26 +95,26 @@ axes[0].set_ylim(bottom=1e-3)
 plt.gca().set_prop_cycle(None)
 
 axes[1].set_xlabel(r'$t$ (sec)', fontsize='x-small', labelpad=0.6)
-axes[1].set_ylabel(r'Number of edges', fontsize='x-small', labelpad=0.6)
-axes[1].plot(t, edges, lw=0.8)
-axes[1].hlines(2*n-2, t[0], t[-1], color='k', ls='--', lw=0.8)
-axes[1].set_ylim(bottom=100)
+axes[1].set_ylabel(
+    r'Normalized load ($\ell/m$)', fontsize='x-small', labelpad=0.6)
+# axes[1].plot(t, edges, lw=0.8)
+axes[1].plot(t, load/edges[0], lw=0.8)
+# axes[1].hlines(2*n-3, t[0], t[-1], color='k', ls='--', lw=0.8)
+axes[1].set_ylim(bottom=1)
 fig.savefig('/tmp/simu_metrics.pdf', format='pdf')
 
 # instantes
-# instants = np.array([15., 35, 60, 100, 150, 200])
-N = 6
-instants = np.array([0., 30, 80, 250])
+instants = np.array([0., 200])
 lim = x.max()
 one_hop_rigid = hops == 1
 two_hop_rigid = hops == 2
 three_hop_rigid = hops == 3
 four_hop_rigid = hops == 4
 
-fig, axes = plt.subplots(2, 2, figsize=(3.5, 3.5))
-fig.subplots_adjust(wspace=0.38)
+fig, axes = plt.subplots(1, 2, figsize=(4, 2))
+fig.subplots_adjust(wspace=0.215)
 axes = axes.ravel()
-for ax in axes:
+for i, ax in enumerate(axes):
     ax.tick_params(
         axis='both',       # changes apply to the x-axis
         which='both',      # both major and minor ticks are affected
@@ -105,10 +122,9 @@ for ax in axes:
         labelsize='xx-small')
     ax.grid(1, lw=0.4)
     ax.set_aspect('equal')
-    ax.set_xlabel(r'$x$', fontsize='x-small', labelpad=0.6)
-    ax.set_ylabel(r'$y$', fontsize='x-small', labelpad=-2)
-    ax.set_xlim(-lim, lim)
-    ax.set_ylim(-lim, lim)
+    ax.set_xlabel(r'$\mathrm{x}$', fontsize='x-small', labelpad=0.6)
+    if i % 2 == 0:
+        ax.set_ylabel(r'$\mathrm{y}$', fontsize='x-small', labelpad=0)
     ax.set_xticks([-100, 0, 100])
     ax.set_yticks([-100, 0, 100])
     ax.set_xticklabels([-100, 0, 100])
@@ -116,6 +132,8 @@ for ax in axes:
 
 for tk, ax in zip(instants, axes):
     k = np.argmin(np.abs(t - tk))
+    ax.set_xlim(-lim, lim)
+    ax.set_ylim(-lim, lim)
     ax.text(
             0.05, 0.01, r't = {:.2f}s'.format(tk),
             verticalalignment='bottom', horizontalalignment='left',
@@ -138,7 +156,8 @@ axes[0].legend(
     fontsize='xx-small',
     handletextpad=0.0,
     borderpad=0.2,
-    ncol=4, columnspacing=0.2)
+    ncol=4, columnspacing=0.2,
+    loc='upper center')
 
 fig.savefig('/tmp/instants.pdf', format='pdf')
 
@@ -185,6 +204,6 @@ anim.set_teams(
 anim.set_edgestyle(color='0.4', alpha=0.6, lw=0.8)
 # anim.ax.legend(ncol=5)
 # anim.run()
-anim.run('/tmp/multihop.mp4')
+# anim.run('/tmp/multihop.mp4')
 
 plt.show()

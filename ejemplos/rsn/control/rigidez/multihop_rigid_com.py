@@ -10,6 +10,7 @@ import progressbar
 import numpy as np
 
 from uvnpy.model import linear_models
+import uvnpy.network as network
 from uvnpy.network import disk_graph, subsets
 from uvnpy.rsn import distances, rigidity, control
 from uvnpy.toolkit import functions
@@ -22,18 +23,43 @@ from uvnpy.rsn.localization import distances_to_neighbors_kalman
 Logs = collections.namedtuple('Logs', 'x hatx u fre re adjacency')
 
 
-def disconnect(x, dmin, dmax):
-    w = distances.matrix(x)
-    w[w > 0] = functions.logistic_derivative(w[w > 0], dmax, 5 / dmin)
-    u = distances.edge_potencial_gradient(w, x)
-    return -1*u
+# def reduce_load(Ai, xi, idx, h, dmin, dmax):
+#     Gi = nx.from_numpy_matrix(Ai)
+#     lengths = nx.single_source_shortest_path_length(Gi, idx, cutoff=h)
+#     k, v = lengths.keys(), lengths.values()
+#     geo = np.tile(h, len(Ai))
+#     geo[list(k)] = list(v)
+#     w = distances.matrix(xi)
+#     w[w > 0] = functions.logistic_derivative(w[w > 0], dmax, 5 / dmin)
+#     ddeg = w.sum(1)     # derivada del degree
+#     return sum((h - geo) * ddeg)
+
+
+def load_coefficients(A, hops):
+    geo = network.geodesics(A)
+    coeff = (hops.reshape(-1, 1) - geo).clip(min=0)
+    return coeff
+
+
+# def disconnect(x, dmin, dmax):
+#     w = distances.matrix(x)
+#     w[w > 0] = functions.logistic_derivative(w[w > 0], dmax, 5 / dmin)
+#     u = distances.edge_potencial_gradient(w, x)
+#     return -1*u
+
+
+def reduce_load(xi, xj, cj, dmin, dmax):
+    dw = distances.matrix_between(xi, xj)
+    dw[dw > 0] = functions.logistic_derivative(dw[dw > 0], dmax, 5 / dmin)
+    u = distances.local_edge_potencial_gradient(xi, xj, cj*dw)
+    return -0.5 * u
 
 
 def expand(x):
     w = distances.matrix(x)
     w[w > 0] = functions.power_derivative(w[w > 0], 1)
     u = distances.edge_potencial_gradient(w, x)
-    return -1*u
+    return -u
 
 
 def update_adjacency(A, Vi, x, hatx, i, dmin, dmax):
@@ -64,59 +90,66 @@ def run(steps, logs, t_perf, A, dinamica):
     u = np.zeros(dinamica.x.shape)
     re = np.empty(n)
     hmax = hops.max()
-    Ah = np.empty((hmax, n, n), dtype=bool)
+    Ah = np.empty((hmax+1, n, n), dtype=bool)
 
     for k, t in steps[1:]:
         x = dinamica.x
 
         u[:] = 0
         R = subsets.reach(A, range(hmax+1))
-        Ah[0] = (R[0] + R[1]).astype(bool)
-        Ah[1] = Ah[0] + R[2].astype(bool)
-        Ah[2] = Ah[1] + R[3].astype(bool)
-        Ah[3] = Ah[2] + R[4].astype(bool)
-        # Ah[4] = Ah[3] + R[5].astype(bool)
+        Ah[0] = R[0].astype(bool)
+        Ah[1] = Ah[0] + R[1].astype(bool)
+        Ah[2] = Ah[1] + R[2].astype(bool)
+        Ah[3] = Ah[2] + R[3].astype(bool)
+        Ah[4] = Ah[3] + R[4].astype(bool)
 
-        hatx = np.array([localization[i].x for i in nodes])
-        hatP = np.array([localization[i].P for i in nodes])
-        err = np.linalg.norm(x - hatx, axis=1)
-        if err.max() > 12:
-            print('\n error: ', err.argmax(), err.max())
+        # hatx = np.array([localization[i].x for i in nodes])
+        # hatP = np.array([localization[i].P for i in nodes])
+        # err = np.linalg.norm(x - hatx, axis=1)
+        # if err.max() > 12:
+        #     print('\n error: ', err.argmax(), err.max())
+
+        coeff = load_coefficients(A, hops)
+        # dw = distances.matrix(x)
+        # dw[dw > 0] = functions.logistic_derivative(
+        #   dw[dw > 0], dmax, 5 / dmin)
 
         t_a = time.perf_counter()
         for i in nodes:
             h = hops[i]
             # print('\n', h, i)
-            Vi = Ah[h-1, i]
+            Vi = Ah[h, i]
+            # idx = sum(Vi[:i])  # me dice que lugar ocupa i el vector x_i
             # print(Vi)
             Ni = A[i].astype(bool)
             if sum(Vi) > 1:
                 """ check si el nodo no esta solo """
-                # print(Vi)
                 Ai = A[Vi][:, Vi]
-                # xi = x[Vi]
+                xi = x[Vi]
 
-                hatxi = hatx[Vi]
-                xj = hatx[Ni]
-                Pj = hatP[Ni]
-                localization[i].update_neighbors(xj, Pj)
-                di = distances.matrix_between(x[i], xj)
-                zi = np.random.normal(di, range_cov)
-                localization[i].step(t, u[i], zi)
+                # hatxi = hatx[Vi]
+                # xj = hatx[Ni]
+                # Pj = hatP[Ni]
+                # localization[i].update_neighbors(xj, Pj)
+                # di = distances.matrix_between(x[i], xj)
+                # zi = np.random.normal(di, range_cov)
+                # localization[i].step(t, u[i], zi)
 
-                re[i] = rigidity.eigenvalue(Ai, hatxi)
+                re[i] = rigidity.eigenvalue(Ai, xi)
                 if re[i] < 1e-6:
                     print('\n Zero eig. Node: {}, re = {}'.format(i, re[i]))
-                u[Vi] += expand(hatxi)
-                u[Vi] += disconnect(hatxi, dmin, dmax)
-                u[Vi] += maintenance[i].update(hatxi)
+                u[Vi] += expand(xi)
+                # u[Vi] += disconnect(hatxi, dmin, dmax)
+                u[i] += 4*reduce_load(
+                    x[i], x[Ni], sum(coeff[:, Ni]), dmin, dmax)
+                u[Vi] += maintenance[i].update(xi)
 
-                A = update_adjacency(A, Vi, x, hatx, i, dmin, dmax)
+                A = update_adjacency(A, Vi, x, x, i, dmin, dmax)
             else:
                 print('Desconexión. Nodo: {}'.format(i))
 
         t_b = time.perf_counter()
-        u = 0.8*sat(u)
+        u = 1.75*sat(u)
         x = dinamica.step(t, u)
 
         # Análisis
