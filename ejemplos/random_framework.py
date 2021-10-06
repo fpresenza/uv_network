@@ -62,7 +62,7 @@ for i, ax in enumerate(axes):
     ax.grid(1, lw=0.4)
     ax.set_aspect('equal')
     ax.set_xlim(-hL*1.1, hL*1.1)
-    ax.set_ylim(-hL*1.1, hL*1.1)
+    ax.set_ylim(-hL*1.1, hL*1.4)
     ax.set_xlabel(r'$\mathrm{x}$', fontsize='x-small', labelpad=0.6)
     if i % 2 == 0:
         ax.set_ylabel(r'$\mathrm{y}$', fontsize='x-small', labelpad=0)
@@ -73,21 +73,21 @@ for i, ax in enumerate(axes):
 
 network.plot.nodes(
     axes[0], x[one_hop_rigid],
-    marker='o', color='royalblue', s=7, zorder=10, label=r'$1$')
+    marker='o', color='royalblue', s=7, zorder=10, label=r'$1$-hop')
 network.plot.nodes(
     axes[0], x[two_hop_rigid],
-    marker='D', color='chocolate', s=7, zorder=10, label=r'$2$')
+    marker='D', color='chocolate', s=7, zorder=10, label=r'$2$-hop')
 network.plot.nodes(
     axes[0], x[three_hop_rigid],
-    marker='s', color='mediumseagreen', s=7, zorder=10, label=r'$3$')
+    marker='s', color='mediumseagreen', s=7, zorder=10, label=r'$3$-hop')
 # network.plot.nodes(
 #     axes[0], x[four_hop_rigid],
 #     marker='^', color='lightcoral', s=7, zorder=10, label=r'$4$')
 network.plot.edges(axes[0], x, A, color='0.6', lw=0.5)
 axes[0].legend(
-    fontsize='xx-small', handlelength=1, labelspacing=0.3,
+    fontsize='xx-small', handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
-    loc='center right', bbox_to_anchor=(1.2, 0.25))
+    ncol=3, columnspacing=0.2, loc='upper center')
 
 i = np.argwhere(two_hop_rigid)[2, 0]
 Ai, xi = subsets.multihop_subframework(A, x, i, 2)
@@ -96,10 +96,10 @@ axes[1].add_artist(circle)
 
 network.plot.nodes(
     axes[1], np.delete(x, i, axis=0),
-    marker='o', color='gray', s=7, zorder=1)
+    marker='o', color='gray', s=7, zorder=1, label=r'$\notin \mathcal{F}_i$')
 network.plot.nodes(
     axes[1], xi,
-    marker='o', color='chocolate', s=7, zorder=5)
+    marker='o', color='chocolate', s=7, zorder=5, label=r'$\in \mathcal{F}_i$')
 network.plot.nodes(
     axes[1], x[i],
     marker='D', color='chocolate', s=9, zorder=10)
@@ -115,6 +115,10 @@ network.plot.nodes(
 #     marker='o', color='mediumseagreen', s=7, zorder=10)
 network.plot.edges(axes[1], x, A, color='0.6', lw=0.5)
 network.plot.edges(axes[1], xi, Ai, color='chocolate', lw=0.65)
+axes[1].legend(
+    fontsize='xx-small', handlelength=1, labelspacing=0.4,
+    borderpad=0.2, handletextpad=0.2, framealpha=1.,
+    ncol=3, columnspacing=0.2, loc='upper center')
 
 fig.savefig('/tmp/random_framework.pdf', format='pdf')
 

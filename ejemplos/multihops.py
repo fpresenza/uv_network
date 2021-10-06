@@ -28,11 +28,11 @@ dmax = np.array([25, 20, 17.5])
 
 R = len(dmax)
 N = 250
-# min_hops = np.zeros((R, N, n), dtype=int)
+rigidity_extent = np.zeros((R, N), dtype=np.ndarray)
 edges = np.zeros((R, N), dtype=int)
 load = np.zeros((R, N))
-max_min_hops = np.zeros((R, N))
-diam = np.zeros((R, N))
+max_rigidity_extent = np.zeros((R, N))
+diam = np.zeros((R, N), dtype=int)
 
 for i in range(R):
     k = 0
@@ -40,14 +40,14 @@ for i in range(R):
         x = np.random.uniform(-hL, hL, (n, 2))
         A = disk_graph.adjacency(x, dmax[i])
         try:
-            min_hops = rigidity.minimum_hops(A, x)
+            rigidity_extent[i, k] = rigidity.minimum_hops(A, x)
             edges[i, k] = int(A.sum()/2)
-            load[i, k] = subsets.degree_load_flat(A, min_hops)
+            load[i, k] = subsets.degree_load_std(A, rigidity_extent[i, k])
             load[i, k] /= edges[i, k]
             G = nx.from_numpy_matrix(A)
             diam[i, k] = nx.diameter(G)
-            max_min_hops[i, k] = min_hops.max()
-            # print(k, max_min_hops[i, k], diam[i, k])
+            max_rigidity_extent[i, k] = rigidity_extent[i, k].max()
+            # print(k, max_rigidity_extent[i, k], diam[i, k])
             # print(k)
             print(i, k)
             k += 1
@@ -58,167 +58,80 @@ for i in range(R):
             print(e)
             pass
 
-# print(min_hops.max())
-# print(max_min_hops)
+# print(rigidity_extent.max())
+# print(max_rigidity_extent)
 # print(diam)
-print(load)
+print(diam)
 
+# porcentajes
+figs = [None, None, None]
+axes = [None, None, None]
+figs[0], axes[0] = plt.subplots(figsize=(2, 1.5))
+figs[1], axes[1] = plt.subplots(figsize=(2, 1.5))
+figs[2], axes[2] = plt.subplots(figsize=(2, 1.5))
+figs[0].subplots_adjust(left=0.18, bottom=0.2, right=0.9)
+figs[1].subplots_adjust(left=0.225, bottom=0.2, right=0.8)
+figs[2].subplots_adjust(left=0.225, bottom=0.2, right=0.8)
 
-fig, ax = plt.subplots(1, 2, figsize=(4, 1.5))
-ax = ax.ravel()
-fig.subplots_adjust(wspace=0.33, bottom=0.2)
-for _ax in ax:
-    _ax.tick_params(
+for ax in axes:
+    ax.tick_params(
         axis='both',       # changes apply to the x-axis
         which='both',      # both major and minor ticks are affected
         pad=1,
         labelsize='xx-small')
-    _ax.grid(1, lw=0.4)
-
-# porcentajes
+    ax.grid(1, lw=0.4)
+mark = ['s', '^', 'o']
+col = ['C2', 'C1', 'C0']
+width = 0.27
 hops = np.arange(1, 10).astype(int)
 freq = np.zeros((R, len(hops)))
-# mean_edges = np.zeros((R, len(hops)))
 mean_load = np.zeros((R, len(hops)))
-lower_load = np.zeros((R, len(hops)))
-upper_load = np.zeros((R, len(hops)))
-# K = n*(n - 1)/2
-mark = ['s', '^', 'o']
-col = ['C2', 'C1', 'C0']
 for i in range(R):
     for k, hop in enumerate(hops):
-        hop_rigid = max_min_hops[i] == hop
+        hop_rigid = max_rigidity_extent[i] == hop
         freq[i, k] = hop_rigid.mean() * 100
-        # mean_edges[i, k] = edges[i, hop_rigid].mean()
-        mean_load[i, k] = load[i, hop_rigid].mean()
-        # sd = np.sqrt(load[i, hop_rigid].var())
-        # lower_load[i, k] = 2*sd
-        # upper_load[i, k] = 2*sd
-    ax[0].plot(
-        hops, freq[i],
+        mean_load[i, k] = load[i, max_rigidity_extent[i] == hop].mean()
+    axes[0].bar(
+        hops + width*(i-1), freq[i], width,
+        color=col[i],
+        label=r'$\Omega = {}$'.format(dmax[i]))
+    diam_lims = np.arange(diam[i].min(), diam[i].max() + 1)
+    diam_count = np.bincount(diam[i])
+    axes[1].bar(
+        diam_lims + width*(i-1), diam_count[diam_lims] / diam[i].size * 100,
+        width, color=col[i])
+    # axes[1].xaxis_date()
+    axes[2].semilogy(
+        hops, mean_load[i],
         color=col[i], marker=mark[i], markersize=3, lw=0.7,
         label=r'$\Omega = {}$'.format(dmax[i]))
-    # ax[0].plot(
-    #     hops, freq[i].cumsum(),
-    #     color=col[i], marker=mark[i], markersize=3, lw=0.7,
-    #     label=r'$\Omega = {}$'.format(dmax[i]))
-    # ax[2].plot(
-    #     hops, mean_edges[i]/K,
-    #     color=col[i], marker=mark[i], markersize=3, lw=0.7)
-    ax[1].semilogy(
-        hops, mean_load[i],
-        color=col[i], marker=mark[i], markersize=3, lw=0.7)
-    # ax[1].errorbar(
-    #     hops, mean_load[i], xerr=None,
-    #     yerr=np.vstack([lower_load[i], upper_load[i]]), capsize=3,
-    #     color=col[i], marker=mark[i], markersize=3, lw=0.7)
 
-# print(freq)
-# print(freq.cumsum(axis=1))
-ax[0].set_xticks(hops)
-ax[0].set_xticklabels(hops)
-# ax[0].set_ylim(bottom=0)
-ax[0].set_xlabel(r'Maximum extent ($\eta$)', fontsize='x-small', labelpad=0.6)
-ax[0].set_ylabel(r'$\%$ of networks', fontsize='x-small', labelpad=1)
-ax[0].legend(
+axes[0].set_xticks(hops)
+axes[0].set_xticklabels(hops)
+axes[0].set_xlabel(
+    r'Max. rigidity extent ($\eta$)', fontsize='x-small', labelpad=0.6)
+axes[0].set_ylabel(r'Frequency ($\%$)', fontsize='x-small', labelpad=1)
+axes[0].legend(
+    fontsize='xx-small', handlelength=1.5, labelspacing=0.5, borderpad=0.2)
+figs[0].savefig('/tmp/rigidity_extent.pdf', format='pdf')
+
+axes[1].set_xticks(np.arange(diam.min(), diam.max() + 1))
+axes[1].set_xticklabels(np.arange(diam.min(), diam.max() + 1))
+axes[1].set_xlabel(r'Diameter (D)', fontsize='x-small', labelpad=0.6)
+axes[1].set_ylabel(r'Frequency ($\%$)', fontsize='x-small', labelpad=1)
+figs[1].savefig('/tmp/diameter.pdf', format='pdf')
+
+axes[2].set_xticks(hops)
+axes[2].set_xticklabels(hops)
+axes[2].set_yticks([1, 2, 4, 10, 20])
+axes[2].set_yticklabels([1, 2, 4, 10, 20])
+axes[2].set_xlabel(
+    r'Max. rigidity extent ($\eta$)', fontsize='x-small', labelpad=0.6)
+axes[2].set_ylabel(
+    r'Load ($\ell / m$)', fontsize='x-small', labelpad=1)
+axes[2].legend(
     fontsize='xx-small', handlelength=2, labelspacing=0.5, borderpad=0.2)
 
-# ax[1].set_xticks(hops)
-# ax[1].set_xticklabels(hops)
-# ax[1].set_ylim(bottom=0)
-# ax[1].set_xlabel(
-#     r'Maximum extent ($\eta$)', fontsize='x-small', labelpad=0.6)
-# ax[1].set_ylabel(r'Cumulative $\%$', fontsize='x-small', labelpad=1)
-# ax[1].legend(
-#     fontsize='xx-small', handlelength=1, labelspacing=0.3, borderpad=0.2)
-
-# ax[2].set_xticks(hops)
-# ax[2].set_xticklabels(hops)
-# ax[2].set_ylim(bottom=0)
-# ax[2].set_xlabel(
-#     r'Maximum extent ($\eta$)', fontsize='x-small', labelpad=0.6)
-# ax[2].set_ylabel(r'Average density', fontsize='x-small', labelpad=1)
-
-ax[1].set_xticks(hops)
-ax[1].set_xticklabels(hops)
-ax[1].set_yticks([1, 2, 4, 10])
-ax[1].set_yticklabels([1, 2, 4, 10])
-# ax[1].set_ylim(bottom=1)
-ax[1].set_xlabel(r'Maximum extent ($\eta$)', fontsize='x-small', labelpad=0.6)
-ax[1].set_ylabel(
-    r'Normalized load ($\ell / m$)', fontsize='x-small', labelpad=1)
-
-fig.savefig('/tmp/multihops.pdf', format='pdf')
-
-
-# hops por nodo
-# fig, ax = plt.subplots(figsize=(1.5, 1.5))
-# fig.subplots_adjust(bottom=0.225, left=0.23)
-# ax.tick_params(
-#     axis='both',       # changes apply to the x-axis
-#     which='both',      # both major and minor ticks are affected
-#     pad=1,
-#     labelsize='xx-small')
-# ax.grid(1, lw=0.4)
-
-# hops = np.arange(1, 10).astype(int)
-# freq = np.zeros((R, len(hops)))
-# mark = ['s', '^', 'o']
-# for i in range(R):
-#     for k, h in enumerate(hops):
-#         freq[i, k] = (min_hops[i] == h).mean() * 100
-#     ax.plot(
-#         hops, freq[i],
-#         marker=mark[i], markersize=3, lw=0.7,
-#         label=r'$\Omega = {}$'.format(dmax[i]))
-# print(freq.cumsum(axis=1))
-# ax.set_xticks(hops[::2])
-# ax.set_xticklabels(hops[::2])
-# ax.set_xlabel(r'Extent ($\eta_i$)', fontsize='x-small')
-# ax.set_ylabel(r'$\%$ of nodes', fontsize='x-small', labelpad=1)
-# ax.legend(
-#     fontsize='xx-small', handlelength=1,
-#     labelspacing=0.3, borderpad=0.2)
-
-# fig.savefig('/tmp/multihops_nodes.pdf', format='pdf')
-
-
-# hist de hops / diam
-fig, ax = plt.subplots(figsize=(2, 1.5))
-fig.subplots_adjust(bottom=0.25, left=0.2)
-ax.tick_params(
-    axis='both',       # changes apply to the x-axis
-    which='both',      # both major and minor ticks are affected
-    labelsize='xx-small')
-
-ax.grid(1, lw=0.4)
-ax.set_xlim(0, 1)
-ax.set_xticks(np.arange(0, 1.1, 0.1))
-ax.set_xticklabels(np.round(np.arange(0, 1.1, 0.1), 1))
-ax.set_yticks(np.arange(0, 9, 2))
-ax.set_yticklabels(np.arange(0, 90, 20))
-
-mark = ['s', '^', 'o']
-col = ['C2', 'C1', 'C0']
-for i in range(R):
-    freq, hops = np.histogram(
-        max_min_hops[i]/diam[i], bins=10, range=(0, 1), density=True)
-    bars = np.cumsum(np.diff(hops)) - 0.05
-    ax.plot(
-        bars, freq,
-        marker=mark[i], color=col[i], markersize=3, lw=0.7,
-        label=r'$\Omega= {}$'.format(dmax[i]))
-
-    # ax.hist(
-    #     max_min_hops[i]/diam[i], color=col[i],
-    #     bins=10, range=(0, 1), histtype='bar', density=True, stacked=True)
-
-ax.set_xlabel(r'Max. extent ($\eta$) / diameter (D)', fontsize='x-small')
-ax.set_ylabel(r'$\%$ of networks', fontsize='x-small')
-ax.legend(
-    fontsize='xx-small', handlelength=1, labelspacing=0.3, borderpad=0.2)
-
-fig.savefig('/tmp/multihops_diam.pdf', format='pdf')
-
+figs[2].savefig('/tmp/load.pdf', format='pdf')
 
 plt.show()

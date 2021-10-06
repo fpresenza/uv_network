@@ -106,8 +106,9 @@ f = np.sqrt(deg_max - 1) / deg_max
 b_0 = 1 - f + 2/diam * (1 + f)
 print(b_0)
 
-fig, ax = plt.subplots(figsize=(2.25, 1.25))
-fig.subplots_adjust(bottom=0.2, left=0.22)
+fig, ax = plt.subplots(figsize=(2, 1.5))
+# fig.subplots_adjust(bottom=0.2, left=0.22)
+fig.subplots_adjust(left=0.255, bottom=0.2)
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
@@ -115,7 +116,7 @@ ax.tick_params(
     labelsize='xx-small')
 ax.grid(1, lw=0.4)
 ax.set_xlabel('Diameter (D)', fontsize='x-small', labelpad=1)
-ax.set_ylabel('Connectivity \n bounds', fontsize='x-small', labelpad=1)
+ax.set_ylabel('Connectivity bounds', fontsize='x-small', labelpad=1)
 ax.semilogy(diam, a2, lw=0.9, label=r'$a(\mathcal{G})$')
 ax.semilogy(
     diam, b_0,
@@ -159,4 +160,4 @@ ax.plot(nodes, c, color='g', ls='--', label=r'$1/2 + \alpha n$')
 ax.hlines(1/2, nodes[0], nodes[-1], color='k', ls='--', label=r'$1/2$')
 ax.legend()
 
-# plt.show()
+plt.show()
