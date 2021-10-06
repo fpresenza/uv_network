@@ -77,12 +77,28 @@ def multihop_subframework(A, x, i, hops=1):
     return Ai, xi
 
 
+def degree_load(A, coeff):
+    deg = A.sum(1)
+    return 0.5 * coeff.dot(deg).sum()
+
+
+def degree_load_flat(A, hops):
+    """La funcion de peso es 1 para todo nodo en Vi excepto para
+    aquellos en la frontera que tienen peso 0."""
+    hmax = np.max(hops)
+    n = len(hops)
+    R = reach(A, range(hmax))
+    Ah = R.cumsum(axis=0).astype(bool)
+    coeff = np.array([Ah[hops[i]-1, i] for i in range(n)])
+    return degree_load(A, coeff)
+
+
 def neighborhood_load(A, hops):
     _h = hops - 1
     n = len(_h)
     N = [multihop_adjacency(A, _h[i])[i] for i in range(n)]
     deg = A.sum(1)
-    return deg.dot(N).sum()
+    return np.dot(N, deg).sum()/2
 
 
 def weighted_neighborhood_load(A, hops):
