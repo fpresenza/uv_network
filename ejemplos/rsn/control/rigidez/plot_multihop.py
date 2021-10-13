@@ -49,7 +49,7 @@ A = A[:kf]
 
 # calculos
 edges = A.sum(-1).sum(-1)/2
-load = [subsets.degree_load_flat(a, hops) for a in A]
+load = np.array([subsets.degree_load_std(a, hops) for a in A])
 
 fig, axes = plt.subplots(2, 2, figsize=(10, 4))
 
@@ -75,10 +75,10 @@ axes[1, 1].set_xlabel(r'$t [seg]$')
 axes[1, 1].set_ylabel(r'$u_y [m/s]$')
 axes[1, 1].grid(1)
 axes[1, 1].plot(t, u[..., 1])
-fig.savefig('/tmp/control.pdf', format='pdf')
+fig.savefig('/tmp/control.png', format='png', dpi=300)
 
-fig, axes = plt.subplots(1, 2, figsize=(4, 1.5))
-fig.subplots_adjust(bottom=0.18, wspace=0.33)
+fig, axes = plt.subplots(1, 2, figsize=(3.4, 1.25))
+fig.subplots_adjust(bottom=0.215, top=0.925, wspace=0.33, right=0.975)
 for ax in axes:
     ax.tick_params(
         axis='both',       # changes apply to the x-axis
@@ -89,30 +89,36 @@ for ax in axes:
 
 axes[0].set_xlabel(r'$t$ (sec)', fontsize='x-small', labelpad=0.6)
 axes[0].set_ylabel(r'Rigidity eigenvalues', fontsize='x-small', labelpad=0.6)
-axes[0].semilogy(t, re, lw=0.8)
-axes[0].semilogy(t, fre, ls='--', color='k', lw=0.8)
+axes[0].semilogy(t, re.min(axis=1), lw=0.8, label='min')
+axes[0].semilogy(t, re.mean(axis=1), lw=0.8, label='mean')
+axes[0].semilogy(t, re.max(axis=1), lw=0.8, label='max')
+axes[0].semilogy(t, fre, ls='--', color='k', lw=0.8, label='whole')
 axes[0].set_ylim(bottom=1e-3)
+axes[0].legend(
+    fontsize='xx-small', handlelength=1, labelspacing=0.4,
+    borderpad=0.2, handletextpad=0.2, framealpha=1.,
+    ncol=2, columnspacing=1)
 plt.gca().set_prop_cycle(None)
 
 axes[1].set_xlabel(r'$t$ (sec)', fontsize='x-small', labelpad=0.6)
 axes[1].set_ylabel(
-    r'Normalized load ($\ell/m$)', fontsize='x-small', labelpad=0.6)
+    r'Std. Load', fontsize='x-small', labelpad=0.6)
 # axes[1].plot(t, edges, lw=0.8)
-axes[1].plot(t, load/edges[0], lw=0.8)
+axes[1].plot(t, load/2/edges[0], lw=0.8)
 # axes[1].hlines(2*n-3, t[0], t[-1], color='k', ls='--', lw=0.8)
 axes[1].set_ylim(bottom=1)
-fig.savefig('/tmp/simu_metrics.pdf', format='pdf')
+fig.savefig('/tmp/simu_metrics.png', format='png', dpi=300)
 
 # instantes
 instants = np.array([0., 200])
-lim = x.max()
+lim = np.abs(x).max()
 one_hop_rigid = hops == 1
 two_hop_rigid = hops == 2
 three_hop_rigid = hops == 3
 four_hop_rigid = hops == 4
 
-fig, axes = plt.subplots(1, 2, figsize=(4, 2))
-fig.subplots_adjust(wspace=0.215)
+fig, axes = plt.subplots(1, 2, figsize=(3.4, 2))
+fig.subplots_adjust(wspace=0.215, left=0.11, right=0.975)
 axes = axes.ravel()
 for i, ax in enumerate(axes):
     ax.tick_params(
@@ -140,17 +146,30 @@ for tk, ax in zip(instants, axes):
             transform=ax.transAxes, color='k', fontsize=5)
     network.plot.nodes(
         ax, x[k, one_hop_rigid],
-        marker='o', color='royalblue', s=7, zorder=10, label=r'$1$')
+        marker='o', color='royalblue', s=7, zorder=20, label=r'$1$')
     network.plot.nodes(
         ax, x[k, two_hop_rigid],
-        marker='D', color='chocolate', s=7, zorder=10, label=r'$2$')
+        marker='D', color='chocolate', s=7, zorder=20, label=r'$2$')
     network.plot.nodes(
         ax, x[k, three_hop_rigid],
-        marker='s', color='mediumseagreen', s=7, zorder=10, label=r'$3$')
+        marker='s', color='mediumseagreen', s=7, zorder=20, label=r'$3$')
     network.plot.nodes(
         ax, x[k, four_hop_rigid],
         marker='^', color='purple', s=7, zorder=10, label=r'$4$')
-    network.plot.edges(ax, x[k], A[k], color='0.6', lw=0.5)
+    network.plot.edges(ax, x[k], A[k], color='k', lw=0.5)
+
+network.plot.nodes(
+    axes[1], x[::20, one_hop_rigid],
+    marker='.', color='royalblue', s=1, zorder=1, lw=0.5)
+network.plot.nodes(
+    axes[1], x[::20, two_hop_rigid],
+    marker='.', color='chocolate', s=1, zorder=1, lw=0.5)
+network.plot.nodes(
+    axes[1], x[::20, three_hop_rigid],
+    marker='.', color='mediumseagreen', s=1, zorder=1, lw=0.5)
+network.plot.nodes(
+    axes[1], x[::20, four_hop_rigid],
+    marker='.', color='purple', s=1, zorder=1, lw=0.5)
 
 axes[0].legend(
     fontsize='xx-small',
@@ -159,7 +178,7 @@ axes[0].legend(
     ncol=4, columnspacing=0.2,
     loc='upper center')
 
-fig.savefig('/tmp/instants.pdf', format='pdf')
+fig.savefig('/tmp/instants.png', format='png', dpi=300)
 
 
 # animacion
