@@ -7,8 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import networkx as nx  # noqa
 
-from uvnpy.network import disk_graph, subsets
-from uvnpy.rsn import rigidity
+from uvnpy.network import disk_graph, subsets  # noqa
+from uvnpy.rsn import rigidity  # noqa
 
 # gpsic.plotting.core.set_pubstyle(style='sans-serif')
 plt.rcParams['text.usetex'] = False
@@ -17,44 +17,54 @@ plt.rcParams['ps.fonttype'] = 42
 plt.rcParams['mathtext.fontset'] = 'dejavuserif'
 plt.rcParams['font.family'] = 'serif'
 
-area = 100  # inverso del area que le corresponde a cada agente
+
+def grid(n, sep):
+    k = np.ceil(np.sqrt(n)) / 2
+    nums = np.arange(-k, k) * sep
+    g = np.meshgrid(nums, nums)
+    return np.vstack(np.dstack(g))[:n]
+
+
+# area = 50  # inverso del area que le corresponde a cada agente
 # d_factor = np.array([1.75, 2.0, 2.5])
 # dmax = d_factor / np.sqrt(density)
 dmax = np.array([25.])
+sep = dmax / 2
 
 R = len(dmax)
-N = 100
-rigid_hops = np.zeros((R, N), dtype=np.ndarray)
-nodes = np.zeros((R, N), dtype=int)
-edges = np.zeros((R, N), dtype=int)
-load = np.zeros((R, N))
-max_rigid_hops = np.zeros((R, N))
+N = 500 - 3
+K = 10
+rigidity_extent = np.zeros((N, K), dtype=np.ndarray)
+nodes = np.zeros((N, K), dtype=int)
+edges = np.zeros((N, K), dtype=int)
+load = np.zeros((N, K))
+max_rigidity_extent = np.zeros((N, K))
 
-for i in range(R):
+for i in range(N):
     k = 0
-    while k < N:
-        n = np.random.choice(np.arange(3, 100))
-        hL = np.sqrt(n*area)/2
-        x = np.random.uniform(-hL, hL, (n, 2))
+    while k < K:
+        n = i + 3
+        x = grid(n, sep) + np.random.uniform(-sep/2, sep/2, (n, 2))
         A = disk_graph.adjacency(x, dmax)
-        try:
-            rigid_hops[i, k] = rigidity.minimum_hops(A, x)
-            max_rigid_hops[i, k] = rigid_hops[i, k].max()
-            nodes[i, k] = n
-            edges[i, k] = int(A.sum()/2)
-            load[i, k] = subsets.degree_load_std(A, rigid_hops[i, k])
-            load[i, k] /= edges[i, k]
-            print(i, k)
-            k += 1
-        except ValueError as e:
-            pass
-        except StopIteration as e:
-            print(e)
-            pass
+        # try:
+        #     rigidity.algebraic_condition(A, x)
+        #     rigidity_extent[i, k] = rigidity.minimum_hops(A, x)
+        # #     max_rigidity_extent[i, k] = rigidity_extent[i, k].max()
+        nodes[i, k] = n
+        edges[i, k] = int(A.sum()/2)
+        # #     load[i, k] = subsets.degree_load_std(A, rigidity_extent[i, k])
+        # #     load[i, k] /= edges[i, k]
+        #     print(i, k)
+        k += 1
+        # except ValueError as e:
+        #     pass
+        # except StopIteration as e:
+        #     print(e)
+        #     pass
 
 print(nodes)
-print(rigid_hops)
-print(max_rigid_hops.max())
+# print(rigidity_extent)
+# print(max_rigidity_extent.max())
 # versus number of nodes
 fig, ax = plt.subplots(1, 2, figsize=(6, 3.5))
 ax = ax.ravel()
@@ -66,23 +76,9 @@ for _ax in ax:
         pad=1,
         labelsize='xx-small')
     _ax.grid(1, lw=0.4)
-mark = ['s', '^', 'o']
-col = ['C2', 'C1', 'C0']
-max_hops = int(max_rigid_hops.max())
-for i in range(R):
-    counts = np.zeros((100, max_hops))
-    for k in range(N):
-        n = nodes[i, k]
-        counts[n] += np.bincount(rigid_hops[i, k], minlength=max_hops+1)[1:]
-
-unique_nodes = np.unique(nodes.ravel())
-counts = counts[unique_nodes]
-counts /= counts.sum(axis=1).reshape(-1, 1)
-counts *= 100
-# print(edges)
-for i in range(max_hops):
-    ax[0].plot(unique_nodes, counts[:, i], markersize=3)
-ax[1].scatter(nodes, 2*edges/nodes, s=3)
+degree = 2*edges/nodes
+ax[0].scatter(nodes[:, 1], degree.mean(1), s=3)
+ax[0].set_ylim(0, 10)
 # ax[1].plot(unique_nodes, np.repeat(p0[0], len(unique_nodes)))
 # ax[1].set_ylim(0, 10)
 
