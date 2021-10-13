@@ -96,7 +96,7 @@ axes[1].add_artist(circle)
 
 network.plot.nodes(
     axes[1], np.delete(x, i, axis=0),
-    marker='o', color='gray', s=7, zorder=1, label=r'$\notin \mathcal{F}_i$')
+    marker='o', color='gray', s=2, zorder=5, label=r'$\notin \mathcal{F}_i$')
 network.plot.nodes(
     axes[1], xi,
     marker='o', color='chocolate', s=7, zorder=5, label=r'$\in \mathcal{F}_i$')
@@ -113,13 +113,13 @@ network.plot.nodes(
 # network.plot.nodes(
 #     axes[1], xi,
 #     marker='o', color='mediumseagreen', s=7, zorder=10)
-network.plot.edges(axes[1], x, A, color='0.6', lw=0.5)
-network.plot.edges(axes[1], xi, Ai, color='chocolate', lw=0.65)
+network.plot.edges(axes[1], x, A, color='0.6', lw=0.5, zorder=1)
+network.plot.edges(axes[1], xi, Ai, color='chocolate', lw=0.65, zorder=1)
 axes[1].legend(
     fontsize='xx-small', handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
-    ncol=3, columnspacing=0.2, loc='upper center')
+    ncol=3, columnspacing=1, loc='upper center')
 
-fig.savefig('/tmp/random_framework.pdf', format='pdf')
+fig.savefig('/tmp/random_framework.pdf', format='png', dpi=300)
 
 plt.show()
