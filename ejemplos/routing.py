@@ -65,7 +65,7 @@ diam = nx.algorithms.distance_measures.diameter(G)
 print(diam)
 min_hops = rigidity.minimum_hops(A, x)
 
-fig, ax = plt.subplots(figsize=(1.65, 1.75))
+fig, ax = plt.subplots(figsize=(1.65, 1.65))
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
@@ -93,10 +93,10 @@ for i, xi in enumerate(x):
         fontsize='x-small', weight='normal',
         horizontalalignment='center',
         verticalalignment='center', zorder=20)
-fig.savefig('/tmp/routing_1.pdf', format='pdf')
+fig.savefig('/tmp/routing_1.png', format='png', dpi=300)
 
-
-fig, ax = plt.subplots(figsize=(1.65, 1.75))
+# sub-framework i=0
+fig, ax = plt.subplots(figsize=(1.65, 1.65))
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
@@ -109,7 +109,6 @@ ax.tick_params(
 # ax.grid(0, lw=0.4)
 # ax.set_aspect('equal')
 
-# sub-framework i=0
 N1 = subsets.multihop_neighborhood(A, 1)
 N2 = subsets.multihop_neighborhood(A, 2)
 N3 = subsets.multihop_neighborhood(A, 3)
@@ -118,8 +117,8 @@ N4 = subsets.multihop_neighborhood(A, 4)
 network.plot.nodes(ax, x[0], color='mediumseagreen', s=60, zorder=10)
 network.plot.nodes(ax, x[N1[0]], color='mediumseagreen', s=60, zorder=10)
 network.plot.nodes(ax, x[N2[0]], color='mediumseagreen', s=60, zorder=10)
-network.plot.nodes(ax, x[N3[0]], color='0.6', s=60, zorder=10)
-network.plot.nodes(ax, x[N4[0]], color='0.6', s=60, zorder=10)
+network.plot.nodes(ax, x[N3[0]], color='0.6', s=20, zorder=10)
+network.plot.nodes(ax, x[N4[0]], color='0.6', s=20, zorder=10)
 network.plot.edges(ax, x, A, color='0.2', alpha=0.6, lw=0.7, zorder=1)
 
 ax.annotate(
@@ -131,23 +130,23 @@ ax.annotate(
 tags = np.vstack(
     [0, np.argwhere(N1[0]), np.argwhere(N2[0])]).ravel()
 print(tags)
-for i, xi in enumerate(x[N1[0]]):
-    ax.annotate(
-        r'$j_{}$'.format(i+1), xy=xi, color='k',
-        fontsize='x-small', weight='normal',
-        horizontalalignment='center',
-        verticalalignment='center', zorder=20)
-for k, xk in enumerate(x[N2[0]][:-1]):
-    ax.annotate(
-        r'$j_{}$'.format(k+i+2), xy=xk, color='k',
-        fontsize='x-small', weight='normal',
-        horizontalalignment='center',
-        verticalalignment='center', zorder=20)
-ax.annotate(
-    r'$j_{10}$', xy=x[N2[0]][-1], color='k',
-    fontsize='x-small', weight='normal',
-    horizontalalignment='center',
-    verticalalignment='center', zorder=20)
+# for i, xi in enumerate(x[N1[0]]):
+#     ax.annotate(
+#         r'$j_{}$'.format(i+1), xy=xi, color='k',
+#         fontsize='x-small', weight='normal',
+#         horizontalalignment='center',
+#         verticalalignment='center', zorder=20)
+# for k, xk in enumerate(x[N2[0]][:-1]):
+#     ax.annotate(
+#         r'$j_{}$'.format(k+i+2), xy=xk, color='k',
+#         fontsize='x-small', weight='normal',
+#         horizontalalignment='center',
+#         verticalalignment='center', zorder=20)
+# ax.annotate(
+#     r'$j_{10}$', xy=x[N2[0]][-1], color='k',
+#     fontsize='x-small', weight='normal',
+#     horizontalalignment='center',
+#     verticalalignment='center', zorder=20)
 
 # A2, x2 = subsets.multihop_subframework(A, x, i=0, hops=2)
 # E2 = network.edges_from_adjacency(A2)
@@ -172,11 +171,10 @@ ax.quiver(
     scale_units='xy', scale=1, headwidth=6,
     headlength=6, headaxislength=5, linewidths=0.25,
     edgecolor='mediumseagreen')
-
-fig.savefig('/tmp/routing_2.pdf', format='pdf')
+fig.savefig('/tmp/routing_3.png', format='png', dpi=300)
 
 # membership i=0
-fig, ax = plt.subplots(figsize=(1.65, 1.75))
+fig, ax = plt.subplots(figsize=(1.65, 1.65))
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
@@ -193,7 +191,7 @@ M = N1[0]
 M[0] = True
 M[15] = True
 network.plot.nodes(ax, x[M], color='lightcoral', s=60, zorder=10)
-network.plot.nodes(ax, x[np.logical_not(M)], color='0.6', s=60, zorder=10)
+network.plot.nodes(ax, x[np.logical_not(M)], color='0.6', s=20, zorder=10)
 network.plot.edges(ax, x, A, color='0.2', alpha=0.6, lw=0.7, zorder=1)
 
 ax.annotate(
@@ -201,31 +199,31 @@ ax.annotate(
     fontsize='x-small', weight='normal',
     horizontalalignment='center',
     verticalalignment='center', zorder=20)
-ax.annotate(
-    r'$j_1$', xy=x[2], color='k',
-    fontsize='x-small', weight='normal',
-    horizontalalignment='center',
-    verticalalignment='center', zorder=20)
-ax.annotate(
-    r'$j_2$', xy=x[5], color='k',
-    fontsize='x-small', weight='normal',
-    horizontalalignment='center',
-    verticalalignment='center', zorder=20)
-ax.annotate(
-    r'$j_3$', xy=x[6], color='k',
-    fontsize='x-small', weight='normal',
-    horizontalalignment='center',
-    verticalalignment='center', zorder=20)
-ax.annotate(
-    r'$j_4$', xy=x[11], color='k',
-    fontsize='x-small', weight='normal',
-    horizontalalignment='center',
-    verticalalignment='center', zorder=20)
-ax.annotate(
-    r'$j_{10}$', xy=x[15], color='k',
-    fontsize='x-small', weight='normal',
-    horizontalalignment='center',
-    verticalalignment='center', zorder=20)
+# ax.annotate(
+#     r'$j_1$', xy=x[2], color='k',
+#     fontsize='x-small', weight='normal',
+#     horizontalalignment='center',
+#     verticalalignment='center', zorder=20)
+# ax.annotate(
+#     r'$j_2$', xy=x[5], color='k',
+#     fontsize='x-small', weight='normal',
+#     horizontalalignment='center',
+#     verticalalignment='center', zorder=20)
+# ax.annotate(
+#     r'$j_3$', xy=x[6], color='k',
+#     fontsize='x-small', weight='normal',
+#     horizontalalignment='center',
+#     verticalalignment='center', zorder=20)
+# ax.annotate(
+#     r'$j_4$', xy=x[11], color='k',
+#     fontsize='x-small', weight='normal',
+#     horizontalalignment='center',
+#     verticalalignment='center', zorder=20)
+# ax.annotate(
+#     r'$j_{10}$', xy=x[15], color='k',
+#     fontsize='x-small', weight='normal',
+#     horizontalalignment='center',
+#     verticalalignment='center', zorder=20)
 E = np.array([
     [0, 2],
     [0, 5],
@@ -239,8 +237,6 @@ ax.quiver(
     x[E[:, 1], 0], x[E[:, 1], 1], r[:, 0], r[:, 1],
     color='lightcoral', angles='xy', scale_units='xy', scale=1, headwidth=6,
     headlength=6, headaxislength=5, linewidths=0.25, edgecolor='lightcoral')
-
-
-fig.savefig('/tmp/routing_3.pdf', format='pdf')
+fig.savefig('/tmp/routing_2.png', format='png', dpi=300)
 
 plt.show()
