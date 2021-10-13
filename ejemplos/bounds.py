@@ -21,7 +21,7 @@ plt.rcParams["legend.labelspacing"] = 0.3
 plt.rcParams["legend.handlelength"] = 1.0
 plt.rcParams["legend.columnspacing"] = 1.0
 
-n = 100
+n = 60
 x = np.empty((n, 2), dtype=float)
 x[::2, 0] = np.arange(int(n/2))
 x[::2, 1] = 0
@@ -29,25 +29,28 @@ x[1::2, 0] = 1/2 + np.arange(int(n/2))
 x[1::2, 1] = np.sqrt(3)/2
 
 dmax = 1.1
-E = disk_graph.edges(x, dmax)
+# E = disk_graph.edges(x, dmax)
+A = disk_graph.adjacency(x, dmax)
+x *= 2
+cut = 20
+fig, ax = plt.subplots(figsize=(4, 1))
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='xx-small')
+ax.set_aspect('equal')
+ax.grid(1, lw=0.3)
+xticks = np.append(np.arange(0, cut, 2), 19)
+ax.set_xticks(xticks)
+ax.set_xticklabels(xticks)
+ax.set_ylim(-0.5, 2.5)
+ax.set_yticks([0, 2])
+ax.set_yticklabels([0, 2])
+network.plot.nodes(ax, x[:cut], color='b', s=12, zorder=10)
+network.plot.edges(ax, x[:cut], A[:cut, :cut], color='k', lw=0.7, zorder=1)
+fig.savefig('/tmp/slim.pdf', format='pdf')
 
-# fig, ax = plt.subplots()
-
-# ax.tick_params(
-#     axis='both',       # changes apply to the x-axis
-#     which='both',      # both major and minor ticks are affected
-#     bottom=False,      # ticks along the bottom edge are off
-#     top=False,         # ticks along the top edge are off
-#     left=False,
-#     right=False,
-#     labelbottom=False,
-#     labelleft=False)   # labels along the bottom edge are off
-# ax.set_aspect('equal')
-# ax.grid(1)
-# ax.set_ylim(-1, 2)
-
-# network.plot.nodes(ax, x, color='b')
-# network.plot.edges(ax, x, E, color='k', alpha=0.6)
 
 a2 = np.empty(n - 2)
 l4 = np.empty(n - 2)
@@ -116,14 +119,16 @@ ax.tick_params(
     labelsize='xx-small')
 ax.grid(1, lw=0.4)
 ax.set_xlabel('Diameter (D)', fontsize='x-small', labelpad=1)
-ax.set_ylabel('Connectivity bounds', fontsize='x-small', labelpad=1)
+ax.set_ylabel('Eigenvalue bounds', fontsize='x-small', labelpad=1)
 ax.semilogy(diam, a2, lw=0.9, label=r'$a(\mathcal{G})$')
+ax.semilogy(diam, l4, lw=0.9, label=r'$\rho(\mathcal{F})$')
 ax.semilogy(
     diam, b_0,
     ls='dotted', label=r'$b_0$', color='k')
 ax.semilogy(
     diam, 2*edges/diam**2,
     ls='--', lw=0.9, label=r'$b_1$')
+ax.set_ylim(bottom=1e-5)
 # ax.semilogy(
 #     diam, deg_avg/(2*alpha*diam**2),
 #     ls='--', lw=0.9,
@@ -135,8 +140,7 @@ ax.semilogy(
 ax.legend(
     fontsize='x-small',
     handletextpad=0.1,
-    borderpad=0.2, ncol=3)
-# , ncol=2, loc='upper right',
+    borderpad=0.2, ncol=2, columnspacing=0.2)
 # bbox_to_anchor=(1., 1.03))
 fig.savefig('/tmp/bounds.pdf', format='pdf')
 
