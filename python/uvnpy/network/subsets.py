@@ -79,7 +79,7 @@ def multihop_subframework(A, x, i, hops=1):
 
 def degree_load(A, coeff):
     deg = A.sum(1)
-    return 0.5 * coeff.dot(deg).sum()
+    return coeff.dot(deg).sum()
 
 
 def degree_load_flat(A, hops):
