@@ -8,12 +8,12 @@ import collections
 import time
 import progressbar
 import numpy as np
-import networkx as nx
 
 from uvnpy.model import linear_models
 import uvnpy.network as network
 from uvnpy.network import disk_graph
-from uvnpy.rsn import distances, rigidity, control
+from uvnpy.rsn import distances, rigidity
+from uvnpy.control import centralized_rigidity_maintenance
 from uvnpy.toolkit import functions
 from uvnpy.rsn.localization import distances_to_neighbors_kalman
 from uvnpy.toolkit.calculus import gradient
@@ -37,23 +37,6 @@ def reduce_load(x, coeff, dmin, dmax):
     return -u
 
 
-def load2(x, A, center, h, dmin, dmax):
-    G = nx.from_numpy_matrix(A)
-    lengths = nx.single_source_shortest_path_length(G, center, cutoff=h)
-    k, v = lengths.keys(), lengths.values()
-    geo = np.tile(h, len(A))
-    geo[list(k)] = list(v)
-    w = distances.matrix(x)
-    w[w > 0] = functions.logistic(w[w > 0], dmax, 5/dmax)
-    deg = w.sum(-1)
-    return 0.5 * ((h - geo) * deg).sum(-1)
-
-
-def reduce_load2(x, A, center, h, dmin, dmax):
-    u = gradient(load, x, A, center, h, dmin, dmax)
-    return -u
-
-
 def collision_avoidance(x):
     w = distances.matrix(x)
     w[w > 0] = functions.power_derivative(w[w > 0], 1)
@@ -62,10 +45,13 @@ def collision_avoidance(x):
 
 
 def update_adjacency(A, Vi, x, hatx, i, dmin, dmax):
+    """Toma los nuevos vecinos, y se fija si con ellos
+    el framework resultante es rigido.
+    Este protocolo ad-hoc en realidad hay que """
     Ni = A[i].astype(bool)
     _Ni = disk_graph.neighborhood_histeresis(
         x, i, Ni, dmin, dmax)
-    _Vi = Vi + _Ni
+    _Vi = Vi + _Ni      # aca deberia reemplazar por los nuevos no un "or"
     _Ai = A[_Vi][:, _Vi]
     _xi = hatx[_Vi]
     _re = rigidity.eigenvalue(_Ai, _xi)
@@ -119,7 +105,6 @@ def run(steps, logs, t_perf, A, dinamica):
             if re[i] < 1e-6:
                 print('\n Flexibility. Node: {}, re = {}'.format(i, re[i]))
             u[Vi] += collision_avoidance(hatxi)
-            # u[Vi] += reduce_load2(xi, Ai, center, hi, dmin, dmax)
             u[Vi] += 3*reduce_load(hatxi, (G[i] < hi)[Vi], dmin, dmax)
             u[Vi] += 3*maintenance[i].update(hatxi)
 
@@ -148,12 +133,6 @@ def run(steps, logs, t_perf, A, dinamica):
         x = dinamica.step(t, u)
 
         # Análisis
-
-        # A_ = disk_graph.adjacency_histeresis(A, x, dmin, dmax)
-        # print(A - A_)
-        # G = nx.from_numpy_matrix(A)
-        # print('\n', nx.diameter(G))
-
         logs.x[k] = x.ravel()
         logs.hatx[k] = hatx.ravel()
         logs.u[k] = u.ravel()
@@ -194,9 +173,9 @@ steps = list(enumerate(tiempo))
 t_perf = []
 
 lim = 100
-dof = 2
+dim = 2
 # np.random.seed(19)
-# x = np.random.uniform(-0.9*lim, 0.9*lim, (80, dof))
+# x = np.random.uniform(-0.9*lim, 0.9*lim, (80, dim))
 # x[38] += (2, -4)
 # rmv = (
 #    3, 5, 7, 14, 25, 32, 33, 41, 43, 46, 50, 51, 62, 63, 68, 77, 78, 79)
@@ -284,7 +263,7 @@ pos_sd = 3.
 dt = arg.h
 
 maintenance = [
-    control.rigidity_maintenance(dof, dmin, 20/dmin, 1/3) for _ in nodes]
+    centralized_rigidity_maintenance(dim, dmin, 20/dmin, 1/3) for _ in nodes]
 localization = [distances_to_neighbors_kalman(
     hatx[i], Pi, Q * dt, range_sd**2, tiempo[0]) for i in nodes]
 
@@ -292,16 +271,16 @@ hops = rigidity.minimum_hops(A, x)
 print(hops)
 
 logs = Logs(
-    x=np.empty((tiempo.size, n*dof)),
-    hatx=np.empty((tiempo.size, n*dof)),
-    u=np.empty((tiempo.size, n*dof)),
+    x=np.empty((tiempo.size, n*dim)),
+    hatx=np.empty((tiempo.size, n*dim)),
+    u=np.empty((tiempo.size, n*dim)),
     fre=np.zeros(tiempo.size),
     re=np.zeros((tiempo.size, n)),
     adjacency=np.empty((tiempo.size, n**2), dtype=int),
     )
 logs.x[0] = x.ravel()
 logs.hatx[0] = hatx.ravel()
-logs.u[0] = np.zeros(n*dof)
+logs.u[0] = np.zeros(n*dim)
 logs.fre[0] = rigidity.eigenvalue(A, x)
 logs.re[0] = [
     rigidity.subframework_eigenvalue(A, x, i, h) for i, h in enumerate(hops)]
