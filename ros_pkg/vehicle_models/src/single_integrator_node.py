@@ -6,110 +6,92 @@
 @date jue 02 dic 2021 14:27:42 -03
 """
 import rospy
-from geometry_msgs.msg import VectorStamped
-
-
-# from uvnpy.linear_models import integrator
+from geometry_msgs.msg import Vector3Stamped
 
 
 class SingleIntegratorNode(object):
     """
-    Este nodo lee un msg Vector3Stamped, integra la posicion y
-    publica otro Vector3Stamped
+    Este nodo lee un msg Vector3Stamped, integra la velocidad
+    comandada (cmd_vel) y la publica otro Vector3Stamped (position)
     """
     def __init__(self):
         # Identificar vehiculo
         self.namespace = rospy.get_namespace()
-        self.vehicle_id = rospy.get_param('~vehicle_id')
+        self.vehicle_id = rospy.get_param(
+            rospy.search_param(self.namespace + 'vehicle_id'))
 
-        # Topicos
+        # Modelo dinamico
+        self.rostime = rospy.get_rostime()
+
+        # Suscriber cmd_vel
+        self.cmd_vel_msg = Vector3Stamped()
+        self.cmd_vel_topic = 'cmd_vel'
+        self.cmd_vel_sub = rospy.Subscriber(
+            name=self.cmd_vel_topic,
+            data_class=Vector3Stamped,
+            callback=self.update_cmd_vel,
+            queue_size=1)
+        rospy.loginfo(
+            '[SIN-%s] Subscribing to topic: %s',
+            self.vehicle_id, self.cmd_vel_topic)
+
+        # Publisher posicion
+        initial_position = rospy.get_param(
+            rospy.search_param(self.namespace + 'position'))
         self.position_topic = 'position'
-        # initial_position = rospy.get_param('~')
-        self.position_msg = VectorStamped(x=0., y=0., z=0.)
+        self.position_msg = Vector3Stamped()
+        self.position_msg.vector.x = initial_position[0]
+        self.position_msg.vector.y = initial_position[1]
+        self.position_msg.vector.z = initial_position[2]
         self.position_pub = rospy.Publisher(
-            name=self.position_msg,
-            data_class=VectorStamped,
+            name=self.position_topic,
+            data_class=Vector3Stamped,
             queue_size=1)
         rospy.loginfo(
             '[SIN-%s] Publishing to topic: %s',
             self.vehicle_id, self.position_topic)
 
-        # self.integrator = integrator()
+        # Fix rate to send position msgs
+        self.rate = rospy.get_param('~rate', 1)   # Hz
+        self.rate = 1
+        self.sleeper = rospy.Rate(self.rate)
 
-        # Envia por msg el estado inicial
-        # init_signal_out_msg = FloatArrayStamped()
-        # init_signal_out_msg.data = self.init_signal_out
-        # init_signal_out_msg.header.stamp = rospy.Time.now()
-        # rospy.logdebug(
-        #     '[%s] Publishing initial /%s: %s',
-        #     self.nodeID, self.signal_out_topic, init_signal_out_msg)
-        # self.position_pub.publish(init_signal_out_msg)
+        rospy.loginfo('[SIN-%s] Node initialized.', self.vehicle_id)
+        rospy.logdebug('[SIN-%s] Node debugging.', self.vehicle_id)
 
-        # rospy.loginfo(
-        #     '[%s] Waiting for /%s msg to initialize...',
-        #     self.nodeID, self.signal_in_topic)
-        # signal_in_msg = rospy.wait_for_message(
-        #     self.signal_in_topic, FloatArrayStamped)
-        # rospy.loginfo(
-        #     '[%s] First /%s msg received.',
-        #     self.nodeID, self.signal_in_topic)
-        # rospy.logdebug(
-        #     '[%s] /%s received = \n%s',
-        #     self.nodeID, self.signal_in_topic, signal_in_msg)
+    def update_cmd_vel(self, cmd_vel):
+        self.cmd_vel_msg.x = cmd_vel.vector.x
+        self.cmd_vel_msg.vector.y = cmd_vel.vector.y
+        self.cmd_vel_msg.vector.z = cmd_vel.vector.z
 
-        # self.init_time =  init_signal_out_msg.header.stamp.to_sec()
-        # self.previous_time = self.init_time
-
-        # self.signal_in_sub = rospy.Subscriber(
-        #     name=self.signal_in_topic,
-        #     data_class=FloatArrayStamped,
-        #     callback=self.update,
-        #     queue_size=MSG_QUEUE_MAXLEN
-        # )
-        # rospy.loginfo(
-        #     '[%s] Subscribing to topic: %s',
-        #     self.nodeID, self.signal_in_topic)
-
-        # self.model = Holonomic(
-        #     dof=self.dof,
-        #     init_time=self.init_time,
-        #     init_state=self.init_signal_out
-        # )
-
-        # rospy.loginfo('[%s] Node initialized.', self.nodeID)
-        # rospy.logdebug('[%s] Node debugging.', self.nodeID)
-
-    def update(self, signal_in):
+    def spin(self):
+        """Send position msg at a fixed rate
         """
-        Update system signal_out and Publish
-        """
-        rospy.logdebug(
-            '%s] Current /%s = \n%s',
-            self.nodeID, self.signal_out_topic, self.model.X)
-        # dt = signal_in.header.stamp.to_sec() - self.previous_time
-        curr_time = signal_in.header.stamp.to_sec()
-        # rospy.logdebug('[%s] Time between samples = %s', self.nodeID, dt)
-        # self.signal_out.data = self.model.first_order_integrator(signal_in.data, dt)  # noqa
-        self.signal_out.data = self.model.first_order_integrator(
-            signal_in.data, curr_time)
-        self.signal_out.header.stamp = rospy.Time.now()
-        self.position_pub.publish(self.signal_out)
-        rospy.logdebug(
-            '[%s] New /%s published.',
-            self.nodeID, self.signal_out_topic)
-        rospy.logdebug(
-            '[%s] New %/s = \n%s',
-            self.nodeID, self.signal_out_topic, self.signal_out)
+        while not rospy.is_shutdown():
+            # Actualizo tiempo
+            now = rospy.get_rostime()
+            elapsed = now.to_sec() - self.rostime.to_sec()
+            self.rostime = now
 
-        # self.previous_time = signal_in.header.stamp.to_sec()
+            # Preparo y publico msg
+            self.position_msg.vector.x += elapsed * self.cmd_vel_msg.vector.x
+            self.position_msg.vector.y += elapsed * self.cmd_vel_msg.vector.y
+            self.position_msg.vector.z += elapsed * self.cmd_vel_msg.vector.z
+            self.position_msg.header.stamp = now
+            self.position_pub.publish(self.position_msg)
+            rospy.logdebug(
+                '[SIN-%s] Current position published.', self.vehicle_id)
+
+            self.sleeper.sleep()
 
     def shutdown(self):
         """
         Execute when shutting down
         """
         try:
-            self.signal_in_sub.unregister()
+            self.cmd_vel_sub.unregister()
             self.position_pub.unregister()
+            rospy.loginfo('[SIN-%s] Node shut down.', self.vehicle_id)
         except AttributeError:
             pass
 
@@ -122,10 +104,10 @@ def main():
     node = SingleIntegratorNode()
 
     try:
-        rospy.spin()
-    except KeyboardInterrupt, rospy.ROSInterruptException:
+        node.spin()
+    except (KeyboardInterrupt, rospy.ROSInterruptException):
         rospy.loginfo(
-            '[%s] Received Keyboard Interrupt (^C).  Shutting down.',
+            '[SIN-%s] Received Keyboard Interrupt (^C).  Shutting down.',
             node.cluster_type)
 
     node.shutdown()
