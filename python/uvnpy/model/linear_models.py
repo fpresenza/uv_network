@@ -7,8 +7,6 @@
 """
 import numpy as np
 
-from gpsic.integradores import EulerExplicito
-
 
 class integrator(object):
     def __init__(self, xi, ti=0.):
@@ -47,26 +45,28 @@ class random_walk(integrator):
         return x
 
 
-class doble_integrador(EulerExplicito):
-    def __init__(self, xi=[0.], ti=0.):
+class double_integrator(object):
+    def __init__(self, xi, vi, ti=0.):
         """ Modelo de vehiculo doble integrador. """
-        super(doble_integrador, self).__init__(xi, ti)
         self._dx = np.zeros_like(xi, dtype=float)
+        self.init(xi, vi, ti)
+
+    def init(self, xi, vi, ti=0.):
+        self.t = ti
+        self._x = xi.copy()
+        self._v = vi.copy()
 
     @property
     def x(self):
         return self._x.copy()
 
     @property
-    def dx(self):
-        return self._dx.copy()
-
-    def dinamica(self, x, t, u):
-        n = len(u)
-        self._dx[:n] = x[n:]
-        self._dx[n:] = np.asarray(u)
-        return self._dx
+    def v(self):
+        return self._v.copy()
 
     def step(self, t, u):
-        x = super(doble_integrador, self).step(t, ([u], ))
-        return x
+        dt = t - self.t
+        self.t = t
+        self._x += dt * self._v
+        self._v += dt * u
+        return self.x, self.v
