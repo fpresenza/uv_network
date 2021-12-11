@@ -13,7 +13,7 @@ from uvnpy.model import linear_models
 import uvnpy.network as network
 from uvnpy.network import disk_graph
 from uvnpy.rsn import distances, rigidity
-from uvnpy.control import centralized_rigidity_maintenance
+from uvnpy.rsn.control import centralized_rigidity_maintenance
 from uvnpy.toolkit import functions
 from uvnpy.rsn.localization import distances_to_neighbors_kalman
 from uvnpy.toolkit.calculus import gradient
