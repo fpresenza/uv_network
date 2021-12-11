@@ -14,19 +14,12 @@ class decentralized_localization(object):
         self.init(xi, ti)
 
     @property
-    def x(self):
+    def position(self):
         return self._x.copy()
 
     def init(self, xi, ti=0.):
         self.t = ti
         self._x = xi.copy()
-        self.xj = None
-        self.wj = None
-
-    def update_neighbors(self, xj, wj):
-        """actualizar estado y pesos asociado a los vecinos"""
-        self.xj = xj
-        self.wj = wj
 
 
 class distances_to_neighbors_gradient(decentralized_localization):
@@ -56,20 +49,20 @@ class distances_to_neighbors_gradient(decentralized_localization):
         x = self._x + u * dt
         return x
 
-    def observation_model(self, z):
+    def observation_model(self, z, xj, Pj):
         """Observacion de distancia con vecinos
 
         z: mediciones
         xj: posicion de vecinos
         wj: peso de imporancia asociado a cada medicion
         """
-        r = self._x - self.xj
+        r = self._x - xj
         d = np.sqrt(np.square(r).sum(axis=1))
-        m = self.wj * (z - d)/d
+        m = Pj * (z - d)/d
         g = sum(r * m[:, None])
         return g
 
-    def step(self, t, u, z, dyn_args=(), obs_args=()):
+    def prediction_step(self, t, u, *args):
         """Paso del gradiente descendiente.
 
         t: instante de tiempo
@@ -78,21 +71,24 @@ class distances_to_neighbors_gradient(decentralized_localization):
         """
         dt = t - self.t
         self.t = t
-        x_dyn = self.dynamic_model(dt, u, *dyn_args)
-        g_obs = self.observation_model(z, *obs_args)
-        self._x += self.alpha * (g_obs - self.W.dot(self._x - x_dyn))
+        x = self.dynamic_model(dt, u, *args)
+        self._x -= self.W.dot(self._x - x)
+
+    def correction_step(self, z, xj, Pj, *args):
+        g_obs = self.observation_model(z, xj, Pj, *args)
+        self._x += self.alpha * g_obs
 
 
 class distances_to_neighbors_kalman(decentralized_localization):
-    def __init__(self, xi, Pi, Q, R, ti=0.):
-        """Filtro de kalman sin correlación cruzada."""
+    def __init__(self, xi, Pi, Qu, Rz, ti=0.):
+        """Filtro de kalman sin correlacion cruzada."""
         super(distances_to_neighbors_kalman, self).__init__(xi, ti)
         self._P = Pi.copy()
-        self.Q = Q
-        self.R = R
+        self.ctrl_cov = Qu
+        self.range_cov = Rz
 
     @property
-    def P(self):
+    def covariance(self):
         return self._P.copy()
 
     def dynamic_model(self, dt, u):
@@ -100,43 +96,43 @@ class distances_to_neighbors_kalman(decentralized_localization):
 
         dt: paso de tiempo
         u: accion de control
-        w: peso de imporancia relativa
         """
         x = self._x + u * dt
         F = np.eye(len(x))
-        return x, F, self.Q
+        Q = self.ctrl_cov * dt
+        return x, F, Q
 
-    def observation_model(self, z):
+    def observation_model(self, z, xj, Pj):
         """Observacion de distancia con vecinos
 
         z: mediciones
-        xj: posicion de vecinos
-        wj: peso de imporancia asociado a cada medicion
         """
-        r = self._x - self.xj
-        d = np.sqrt(np.square(r).sum(axis=1))
-        dz = z - d
+        r = self._x - xj
+        d = np.sqrt(np.square(r).sum(axis=-1, keepdims=True))
+        d = d.ravel()
+        dz = z.ravel() - d
         H = r / d[:, None]
-        Rj = np.matmul(H[:, None], np.matmul(self.wj, H[:, :,  None]))
-        R = np.diag((Rj + self.R).ravel())
+        Rj = np.matmul(H[:, None], np.matmul(Pj, H[:, :,  None]))
+        R = np.diag((Rj + self.range_cov).ravel())
         return dz, H, R
 
-    def step(self, t, u, z, dyn_args=(), obs_args=()):
-        """Paso del gradiente descendiente.
-
+    def prediction_step(self, t, u, *args):
+        """
         t: instante de tiempo
         u: accion de control
-        z: observaciones
         """
         dt = t - self.t
         self.t = t
 
-        # prediccion
-        x, F, Q = self.dynamic_model(dt, u, *dyn_args)
-        self._x = x
-        self._P = F.dot(self._P).dot(F.T) + Q
+        x, F, Q = self.dynamic_model(dt, u, *args)
+        self._x[:] = x
+        self._P[:] = F.dot(self._P).dot(F.T) + Q
 
-        dz, H, R = self.observation_model(z, *obs_args)
+    def correction_step(self, z, xj, Pj, *args):
+        """
+        z: mediciones
+        """
+        dz, H, R = self.observation_model(z, xj, Pj, *args)
         Pz = H.dot(self._P).dot(H.T) + R
         K = self._P.dot(H.T).dot(np.linalg.inv(Pz))
 
