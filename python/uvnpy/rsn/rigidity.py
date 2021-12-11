@@ -242,15 +242,10 @@ def minimum_hops(A, x, threshold=1e-3):
         h = 0
         while not minimum_found:
             h += 1
-            if h > (n-1):
-                break
             Ai, xi = subsets.multihop_subframework(A, x, i, h)
             Si = symmetric_matrix(Ai, xi)
             re = np.linalg.eigvalsh(Si)[f]
             if re > threshold:
                 minimum_found = True
         hops[i] = h
-    if minimum_found:
-        return hops
-    else:
-        raise StopIteration('Minimum hops not found.')
+    return hops
