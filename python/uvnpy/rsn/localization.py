@@ -49,7 +49,7 @@ class distances_to_neighbors_gradient(decentralized_localization):
         x = self._x + u * dt
         return x
 
-    def observation_model(self, z, xj, Pj):
+    def distances_model(self, z, xj, Pj):
         """Observacion de distancia con vecinos
 
         z: mediciones
@@ -62,7 +62,7 @@ class distances_to_neighbors_gradient(decentralized_localization):
         g = sum(r * m[:, None])
         return g
 
-    def prediction_step(self, t, u, *args):
+    def dynamic_step(self, t, u, *args):
         """Paso del gradiente descendiente.
 
         t: instante de tiempo
@@ -74,18 +74,27 @@ class distances_to_neighbors_gradient(decentralized_localization):
         x = self.dynamic_model(dt, u, *args)
         self._x -= self.W.dot(self._x - x)
 
-    def correction_step(self, z, xj, Pj, *args):
-        g_obs = self.observation_model(z, xj, Pj, *args)
+    def distances_step(self, z, xj, Pj, *args):
+        g_obs = self.distances_model(z, xj, Pj, *args)
         self._x += self.alpha * g_obs
 
 
 class distances_to_neighbors_kalman(decentralized_localization):
-    def __init__(self, xi, Pi, Qu, Rz, ti=0.):
-        """Filtro de kalman sin correlacion cruzada."""
+    def __init__(self, xi, Pi, Qu, Rd, Rp, ti=0.):
+        """Filtro de kalman sin correlacion cruzada.
+
+        args:
+            xi: posicion inicial
+            Pi: covarianza inicial
+            Qu: covarianza del paso de control
+            Rd: covarianza de la medicion de distancias
+            Rp: covarianza del posicionamiento global
+        """
         super(distances_to_neighbors_kalman, self).__init__(xi, ti)
         self._P = Pi.copy()
         self.ctrl_cov = Qu
-        self.range_cov = Rz
+        self.range_cov = Rd
+        self.gps_cov = Rp
 
     @property
     def covariance(self):
@@ -102,7 +111,7 @@ class distances_to_neighbors_kalman(decentralized_localization):
         Q = self.ctrl_cov * dt
         return x, F, Q
 
-    def observation_model(self, z, xj, Pj):
+    def distances_model(self, z, xj, Pj):
         """Observacion de distancia con vecinos
 
         z: mediciones
@@ -116,7 +125,7 @@ class distances_to_neighbors_kalman(decentralized_localization):
         R = np.diag((Rj + self.range_cov).ravel())
         return dz, H, R
 
-    def prediction_step(self, t, u, *args):
+    def dynamic_step(self, t, u, *args):
         """
         t: instante de tiempo
         u: accion de control
@@ -128,13 +137,25 @@ class distances_to_neighbors_kalman(decentralized_localization):
         self._x[:] = x
         self._P[:] = F.dot(self._P).dot(F.T) + Q
 
-    def correction_step(self, z, xj, Pj, *args):
+    def distances_step(self, z, xj, Pj, *args):
         """
-        z: mediciones
+        z: mediciones de distancia
+        xj: stack de posiciones vecinos
+        Pj: stack de covarianzas vecinos
         """
-        dz, H, R = self.observation_model(z, xj, Pj, *args)
+        dz, H, R = self.distances_model(z, xj, Pj, *args)
         Pz = H.dot(self._P).dot(H.T) + R
         K = self._P.dot(H.T).dot(np.linalg.inv(Pz))
 
         self._x += K.dot(dz)
         self._P -= K.dot(H).dot(self._P)
+
+    def gps_step(self, z):
+        """
+        z: mediciones de gps
+        """
+        dz = z - self._x
+        Pz = self._P + self.gps_cov
+        K = self._P.dot(np.linalg.inv(Pz))
+        self._x += K.dot(dz)
+        self._P -= K.dot(self._P)

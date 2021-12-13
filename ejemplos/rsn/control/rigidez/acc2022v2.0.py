@@ -25,13 +25,17 @@ Logs = collections.namedtuple(
 
 
 class Formation(object):
-    def __init__(self, node_ids, agent_model, pos, cov, range, sensor_noise):
+    def __init__(
+            self, node_ids, agent_model,
+            pos, cov, comm_range, range_cov, gps_cov):
         """Clase para simular una red de agentes de forma centralizada"""
         self.n = len(node_ids)
         self.dim = pos.shape[1]
-        self.dmin = np.min(range)
-        self.dmax = np.max(range)
-        self.sensor_noise = sensor_noise
+        self.timestamp = None
+        self.dmin = np.min(comm_range)
+        self.dmax = np.max(comm_range)
+        self.range_cov = range_cov
+        self.gps_cov = gps_cov
         self.vehicles = np.empty(n, dtype=np.ndarray)
         self.position_array = np.empty(n, dtype=np.ndarray)
         self.est_position_array = np.empty(n, dtype=np.ndarray)
@@ -59,18 +63,27 @@ class Formation(object):
         re = rigidity.eigenvalue(A, self.position)
         return re
 
+    def update_time(self, t):
+        self.timestamp = t
+        [v.update_time(t) for v in self.vehicles]
+
     def update_proximity(self):
         A = disk_graph.adjacency(self.position, self.dmin)
         self.proximity_matrix = A.astype(bool)
 
-    def spread(self, node_id, timestamp):
+    def get_gps(self, node_id):
         center = self.vehicles[node_id]
-        msg = center.send_msg(timestamp)
+        gps_measurement = np.random.normal(center.dm.x, self.gps_cov)
+        self.vehicles[node_id].gps = {self.timestamp: gps_measurement}
+
+    def spread_from(self, node_id):
+        center = self.vehicles[node_id]
+        msg = center.send_msg()
         neighbors = self.vehicles[self.proximity_matrix[node_id]]
         for neighbor in neighbors:
-            range_measurement = distances.matrix_between(
-                center.dm.x, neighbor.dm.x)
-            range_measurement += np.random.normal(self.sensor_noise)
+            range_measurement = np.random.normal(
+                distances.matrix_between(center.dm.x, neighbor.dm.x),
+                self.range_cov)
             neighbor.receive_msg(msg, range_measurement)
 
 
@@ -87,19 +100,18 @@ def run(steps, formation, logs):
     for k, t in steps[1:]:
         t_a = time.perf_counter()
 
+        formation.update_time(t)
         formation.update_proximity()
 
         """parte de localizacion"""
-        for i in node_ids:
-            formation[i].control_step(t)
-            formation[i].localization_step()
-            # if i in [15, 41]:
-            #     pi = np.random.normal(x[i], pos_sd)
-            #     Pi = localization[i].P
-            #     Ki = Pi.dot(np.linalg.inv(Pi + pos_sd**2 * np.eye(2)))
-            #     localization[i]._x += Ki.dot(pi - hatx[i])
+        formation.get_gps(6)
+        formation.get_gps(8)
 
-            formation.spread(i, t)
+        for i in node_ids:
+            formation[i].control_step()
+            formation[i].localization_step()
+
+            formation.spread_from(i)
 
         t_b = time.perf_counter()
 
@@ -171,7 +183,9 @@ formation = Formation(
     node_ids,
     subframework_rigidity.single_integrator,
     pos, cov,
-    (dmin, dmax), 0.2)
+    comm_range=(dmin, dmax),
+    range_cov=1.,
+    gps_cov=1.)
 # ------------------------------------------------------------------
 # Simulación
 # ------------------------------------------------------------------
@@ -193,22 +207,27 @@ logs.fre[0] = formation.rigidity_eigenvalue
 
 logs = run(steps, formation, logs)
 
-di = distances.matrix(logs.position[0].reshape(-1, 2))
-est_di = distances.matrix(logs.est_position[0].reshape(-1, 2))
-est_df = distances.matrix(logs.est_position[-1].reshape(-1, 2))
+xi = logs.position[0]
+est_xi = logs.est_position[0]
+est_xf = logs.est_position[-1]
 
-print(np.linalg.norm(di - est_di, 'fro'))
-print(np.linalg.norm(di - est_df, 'fro'))
+print(np.linalg.norm(xi - est_xi))
+print(np.linalg.norm(xi - est_xf))
 
 
 fig, ax = network.plot.figure()
 network.plot.nodes(ax, logs.position[0].reshape(-1, 2), marker='o')
 network.plot.edges(
     ax, logs.position[0].reshape(-1, 2), formation.proximity_matrix)
+
 for est_pos in logs.est_position:
-    network.plot.nodes(ax, est_pos.reshape(-1, 2), color='brown', marker='.')
     network.plot.nodes(
-        ax, logs.est_position[-1].reshape(-1, 2), color='red', marker='x')
+        ax, est_pos.reshape(-1, 2), color='gray', marker='.', s=10)
+
+network.plot.nodes(
+    ax, logs.est_position[-1].reshape(-1, 2), color='red', marker='x')
+network.plot.nodes(
+    ax, logs.est_position[0].reshape(-1, 2), color='blue', marker='o', s=10)
 
 plt.show()
 

@@ -22,21 +22,27 @@ neighbor_data = collections.namedtuple(
 
 
 class single_integrator(object):
-    def __init__(self, id, pos, est_pos, cov):
-        ctrl_cov = 0.05**2 * np.eye(2)
-        range_cov = 0.2
+    def __init__(self, id, pos, est_pos, cov, t=0):
         self.id = id
         self.dim = len(pos)
+        self.current_time = t
         self.dm = integrator(pos)
         # self.ctrl = decentralized_rigidity_maintenance()
+        ctrl_cov = 0.05**2 * np.eye(self.dim)
+        range_cov = 1.
+        self.gps_cov = gps_cov = 1. * np.eye(self.dim)
         self.loc = distances_to_neighbors_kalman(
-            est_pos, cov, ctrl_cov, range_cov)
+            est_pos, cov, ctrl_cov, range_cov, gps_cov)
         self.neighbors = {}
+        self.gps = {}
 
-    def send_msg(self, timestamp):
+    def update_time(self, t):
+        self.current_time = t
+
+    def send_msg(self):
         msg = interagent_msg(
             id=self.id,
-            timestamp=timestamp,
+            timestamp=self.current_time,
             position=self.loc.position,
             covariance=self.loc.covariance)
         return msg
@@ -50,19 +56,23 @@ class single_integrator(object):
             position=msg.position,
             covariance=msg.covariance)
 
-    def control_step(self, t):
+    def control_step(self):
         u = np.zeros(self.dim)
-        self.dm.step(t, u)
-        self.loc.prediction_step(t, u)
+        self.dm.step(self.current_time, u)
+        self.loc.dynamic_step(self.current_time, u)
 
     def localization_step(self):
         if len(self.neighbors) > 0:
             neighbors_data = self.neighbors.values()
+            z = np.array([
+                neighbor.range for neighbor in neighbors_data])
             xj = np.array([
                 neighbor.position for neighbor in neighbors_data])
             Pj = np.array([
                 neighbor.covariance for neighbor in neighbors_data])
-            z = np.array([
-                neighbor.range for neighbor in neighbors_data])
-            self.loc.correction_step(z, xj, Pj)
+            self.loc.distances_step(z, xj, Pj)
             self.neighbors.clear()
+        if len(self.gps) > 0:
+            z = self.gps[max(self.gps.keys())]
+            self.loc.gps_step(z)
+            self.gps.clear()
