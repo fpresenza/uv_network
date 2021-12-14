@@ -36,12 +36,14 @@ class Formation(object):
         self.dmax = np.max(comm_range)
         self.range_cov = range_cov
         self.gps_cov = gps_cov
-        self.vehicles = np.empty(n, dtype=np.ndarray)
+        self.vehicles = np.empty(n, dtype=object)
         self.position_array = np.empty(n, dtype=np.ndarray)
         self.est_position_array = np.empty(n, dtype=np.ndarray)
+        A = disk_graph.adjacency(pos, self.dmin)
+        extents = rigidity.extents(A, pos)
         for i in node_ids:
             est_pos = np.random.multivariate_normal(pos[i], cov)
-            self.vehicles[i] = agent_model(i, pos[i], est_pos, cov)
+            self.vehicles[i] = agent_model(i, pos[i], est_pos, cov, extents[i])
             self.position_array[i] = self.vehicles[i].dm._x         # asigna el address # noqa
             self.est_position_array[i] = self.vehicles[i].loc._x    # asigna el address # noqa
         self.update_proximity()
@@ -63,6 +65,11 @@ class Formation(object):
         re = rigidity.eigenvalue(A, self.position)
         return re
 
+    @property
+    def extents(self):
+        h = rigidity.extents(self.proximity_matrix, self.position)
+        return h
+
     def update_time(self, t):
         self.timestamp = t
         [v.update_time(t) for v in self.vehicles]
@@ -76,7 +83,7 @@ class Formation(object):
         gps_measurement = np.random.normal(center.dm.x, self.gps_cov)
         self.vehicles[node_id].gps = {self.timestamp: gps_measurement}
 
-    def spread_from(self, node_id):
+    def broadcast(self, node_id):
         center = self.vehicles[node_id]
         msg = center.send_msg()
         neighbors = self.vehicles[self.proximity_matrix[node_id]]
@@ -97,6 +104,9 @@ def run(steps, formation, logs):
     bar = progressbar.ProgressBar(maxval=arg.tf).start()
     perf_time = []
 
+    G = network.geodesics(formation.proximity_matrix)
+    h = formation.extents.reshape(-1, 1)
+
     for k, t in steps[1:]:
         t_a = time.perf_counter()
 
@@ -107,11 +117,18 @@ def run(steps, formation, logs):
         formation.get_gps(6)
         formation.get_gps(8)
 
-        for i in node_ids:
-            formation[i].control_step()
-            formation[i].localization_step()
+        g = np.zeros((n, n))
 
-            formation.spread_from(i)
+        for i in node_ids:
+            # formation[i].control_step()
+            # formation[i].localization_step()
+
+            formation.broadcast(i)
+            for vj in formation[i].inclusion_group.values():
+                j = vj.center
+                g[j, i] = vj.geodesic
+
+        print(k, np.allclose(G * (G <= h), g))
 
         t_b = time.perf_counter()
 
@@ -211,8 +228,8 @@ xi = logs.position[0]
 est_xi = logs.est_position[0]
 est_xf = logs.est_position[-1]
 
-print(np.linalg.norm(xi - est_xi))
-print(np.linalg.norm(xi - est_xf))
+# print(np.linalg.norm(xi - est_xi))
+# print(np.linalg.norm(xi - est_xf))
 
 
 fig, ax = network.plot.figure()

@@ -12,19 +12,41 @@ from uvnpy.model.linear_models import integrator
 from uvnpy.rsn.localization import distances_to_neighbors_kalman
 
 
-interagent_msg = collections.namedtuple(
-    'interagent_msg',
-    'id, timestamp, position, covariance')
+InterAgentMsg = collections.namedtuple(
+    'InterAgentMsg',
+    'id, \
+    timestamp, \
+    position, \
+    covariance, \
+    tokens')
 
-neighbor_data = collections.namedtuple(
+NeigborhoodData = collections.namedtuple(
     'neighbors',
-    'id, timestamp, hops, range, position, covariance')
+    'id, \
+    timestamp, \
+    range, \
+    position, \
+    covariance')
+
+TokenData = collections.namedtuple(
+    'TokenData',
+    'center, \
+    timestamp, \
+    extent, \
+    geodesic')
+
+TokenData.__new__.__defaults__ = (
+    None,
+    None,
+    None,
+    np.inf)
 
 
 class single_integrator(object):
-    def __init__(self, id, pos, est_pos, cov, t=0):
+    def __init__(self, id, pos, est_pos, cov, extent=None, t=0):
         self.id = id
         self.dim = len(pos)
+        self.extent = extent
         self.current_time = t
         self.dm = integrator(pos)
         # self.ctrl = decentralized_rigidity_maintenance()
@@ -34,27 +56,47 @@ class single_integrator(object):
         self.loc = distances_to_neighbors_kalman(
             est_pos, cov, ctrl_cov, range_cov, gps_cov)
         self.neighbors = {}
+        self.inclusion_group = {
+            self.id: TokenData(
+                center=self.id,
+                timestamp=self.current_time,
+                extent=self.extent,
+                geodesic=0)
+        }
         self.gps = {}
 
     def update_time(self, t):
         self.current_time = t
 
     def send_msg(self):
-        msg = interagent_msg(
+        IG = self.inclusion_group
+        tokens = [
+            token for token in IG.values() if token.geodesic < token.extent]
+        msg = InterAgentMsg(
             id=self.id,
             timestamp=self.current_time,
             position=self.loc.position,
-            covariance=self.loc.covariance)
+            covariance=self.loc.covariance,
+            tokens=tokens)
+        # self.inclusion_group = {self.id = self.inclusion_group[self.id]}
         return msg
 
     def receive_msg(self, msg, range_measurment):
-        self.neighbors[msg.id] = neighbor_data(
+        self.neighbors[msg.id] = NeigborhoodData(
             id=msg.id,
             timestamp=msg.timestamp,
-            hops=1,
             range=range_measurment,
             position=msg.position,
             covariance=msg.covariance)
+        IG = self.inclusion_group
+        for token in msg.tokens:
+            tc = token.center
+            IG[tc] = IG.get(tc, TokenData(center=tc))
+            current_geodesic = IG[tc].geodesic
+            IG[tc] = IG[tc]._replace(
+                timestamp=token.timestamp,
+                extent=token.extent,
+                geodesic=min(current_geodesic, token.geodesic + 1))
 
     def control_step(self):
         u = np.zeros(self.dim)
