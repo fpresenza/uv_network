@@ -230,7 +230,7 @@ def nontrivial_motions(p):
     return N
 
 
-def minimum_hops(A, x, threshold=1e-3):
+def extents(A, x, threshold=1e-3):
     if not algebraic_condition(A, x, threshold):
         raise ValueError('Flexible Framework.')
     n = A.shape[0]
