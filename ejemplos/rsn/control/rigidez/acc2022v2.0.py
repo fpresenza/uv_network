@@ -47,6 +47,7 @@ class Formation(object):
             self.position_array[i] = self.vehicles[i].dm._x         # asigna el address # noqa
             self.est_position_array[i] = self.vehicles[i].loc._x    # asigna el address # noqa
         self.update_proximity()
+        self.cloud = {}
 
     def __getitem__(self, i):
         return self.vehicles[i]
@@ -91,7 +92,14 @@ class Formation(object):
             range_measurement = np.random.normal(
                 distances.matrix_between(center.dm.x, neighbor.dm.x),
                 self.range_cov)
-            neighbor.receive_msg(msg, range_measurement)
+            self.cloud[center.id, neighbor.id] = (msg, range_measurement)
+
+    def receive(self, node_id):
+        cloud = self.cloud.copy()
+        for (s, t), (msg, range_measurement) in cloud.items():
+            if t == node_id:
+                self.vehicles[node_id].receive_msg(msg, range_measurement)
+                self.cloud.pop((s, t))
 
 
 # ------------------------------------------------------------------
@@ -114,19 +122,27 @@ def run(steps, formation, logs):
         formation.update_proximity()
 
         """parte de localizacion"""
-        formation.get_gps(6)
-        formation.get_gps(8)
+        # formation.get_gps(6)
+        # formation.get_gps(8)
 
         g = np.zeros((n, n))
 
         for i in node_ids:
             # formation[i].control_step()
             # formation[i].localization_step()
-
             formation.broadcast(i)
+
+        for i in node_ids:
+            formation.receive(i)
+
+        print(formation.cloud)
+
+        for i in node_ids:
             for vj in formation[i].inclusion_group.tokens():
                 j = vj.center
                 g[j, i] = vj.geodesic
+
+        print(g)
 
         print(k, np.allclose(G * (G <= h), g))
 
