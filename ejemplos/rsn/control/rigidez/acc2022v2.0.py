@@ -124,7 +124,7 @@ def run(steps, formation, logs):
             # formation[i].localization_step()
 
             formation.broadcast(i)
-            for vj in formation[i].inclusion_group.values():
+            for vj in formation[i].inclusion_group.tokens():
                 j = vj.center
                 g[j, i] = vj.geodesic
 
