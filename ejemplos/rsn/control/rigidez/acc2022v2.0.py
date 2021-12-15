@@ -95,6 +95,8 @@ class Formation(object):
             self.cloud[center.id, neighbor.id] = (msg, range_measurement)
 
     def receive(self, node_id):
+        # cambiar para que cada nodo loopee solo
+        # los msgs q los tienen como target.
         cloud = self.cloud.copy()
         for (s, t), (msg, range_measurement) in cloud.items():
             if t == node_id:
@@ -112,39 +114,49 @@ def run(steps, formation, logs):
     bar = progressbar.ProgressBar(maxval=arg.tf).start()
     perf_time = []
 
-    G = network.geodesics(formation.proximity_matrix)
-    h = formation.extents.reshape(-1, 1)
+    geodesics = np.empty((n_steps, n, n))
+    geodesics[0] = network.geodesics(formation.proximity_matrix)
+    extents = np.empty((n_steps, n))
+    extents[0] = formation.extents
+
+    est_geodesics = np.full((n_steps, n, n), n)
 
     for k, t in steps[1:]:
         t_a = time.perf_counter()
 
         formation.update_time(t)
         formation.update_proximity()
+        if k > 5:
+            formation.proximity_matrix[0, 1] = formation.proximity_matrix[1, 0] = 0   # noqa
+            formation.proximity_matrix[4, 9] = formation.proximity_matrix[9, 4] = 1   # noqa
 
         """parte de localizacion"""
         # formation.get_gps(6)
         # formation.get_gps(8)
 
-        g = np.zeros((n, n))
+        geodesics[k] = network.geodesics(formation.proximity_matrix)
+        extents[k] = extents[k - 1]
 
         for i in node_ids:
             # formation[i].control_step()
             # formation[i].localization_step()
             formation.broadcast(i)
+            # formation[i].inclusion_group.clear()
 
         for i in node_ids:
             formation.receive(i)
 
-        print(formation.cloud)
+        # for i in node_ids:
+            # print(k, i, formation[i].current_time)
+            # if i == 0:
+            #     print(k, formation[i].neighbors)
 
         for i in node_ids:
             for vj in formation[i].inclusion_group.tokens():
                 j = vj.center
-                g[j, i] = vj.geodesic
+                est_geodesics[k, j, i] = vj.geodesic
 
-        print(g)
-
-        print(k, np.allclose(G * (G <= h), g))
+        # print(k, est_geodesics[k])
 
         t_b = time.perf_counter()
 
@@ -160,6 +172,27 @@ def run(steps, formation, logs):
         bar.update(np.round(t, 3))
 
     bar.finish()
+
+    # print(geodesics[:, 0, 2])
+
+    fig, ax = plt.subplots(10, 10)
+    # ax = ax.ravel()
+    for i in node_ids:
+        for j in node_ids:
+            ax[i, j].plot(extents[:, i], ds='steps-post', color='C2')
+            ax[i, j].plot(geodesics[:, i, j], ds='steps-post', color='C0')
+            ax[i, j].plot(
+                est_geodesics[:, i, j], ds='steps-post', ls='--', color='k')
+            ax[i, j].set_xticks(range(n_steps))
+            ax[i, j].set_xticklabels([])
+            ax[i, j].set_ylim(-0.25, 3.25)
+            ax[i, j].set_yticks([0, 1, 2, 3])
+            ax[i, j].set_yticklabels([])
+            if np.all(geodesics[:, i, j] > extents[:, i]):
+                ax[i, j].set_facecolor('0.8')
+            # if np.any(geodesics[:, i, j] > extents[:, i]):
+            #     ax[i, j].set_facecolor('0.8')
+    plt.show()
 
     st = arg.tf
     rt = sum(perf_time)
@@ -248,21 +281,21 @@ est_xf = logs.est_position[-1]
 # print(np.linalg.norm(xi - est_xf))
 
 
-fig, ax = network.plot.figure()
-network.plot.nodes(ax, logs.position[0].reshape(-1, 2), marker='o')
-network.plot.edges(
-    ax, logs.position[0].reshape(-1, 2), formation.proximity_matrix)
+# fig, ax = network.plot.figure()
+# network.plot.nodes(ax, logs.position[0].reshape(-1, 2), marker='o')
+# network.plot.edges(
+#     ax, logs.position[0].reshape(-1, 2), formation.proximity_matrix)
 
-for est_pos in logs.est_position:
-    network.plot.nodes(
-        ax, est_pos.reshape(-1, 2), color='gray', marker='.', s=10)
+# for est_pos in logs.est_position:
+#     network.plot.nodes(
+#         ax, est_pos.reshape(-1, 2), color='gray', marker='.', s=10)
 
-network.plot.nodes(
-    ax, logs.est_position[-1].reshape(-1, 2), color='red', marker='x')
-network.plot.nodes(
-    ax, logs.est_position[0].reshape(-1, 2), color='blue', marker='o', s=10)
+# network.plot.nodes(
+#     ax, logs.est_position[-1].reshape(-1, 2), color='red', marker='x')
+# network.plot.nodes(
+#     ax, logs.est_position[0].reshape(-1, 2), color='blue', marker='o', s=10)
 
-plt.show()
+# plt.show()
 
 # np.savetxt('/tmp/t.csv', time_interval, delimiter=',')
 # np.savetxt('/tmp/x.csv', logs.x, delimiter=',')

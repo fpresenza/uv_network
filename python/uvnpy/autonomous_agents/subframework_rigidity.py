@@ -59,6 +59,7 @@ class single_integrator(object):
             position=self.loc.position,
             covariance=self.loc.covariance,
             tokens=self.inclusion_group.broadcast())
+        self.inclusion_group.clear()
         return msg
 
     def receive_msg(self, msg, range_measurment):

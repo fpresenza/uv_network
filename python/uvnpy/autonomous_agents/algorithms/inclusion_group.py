@@ -30,6 +30,7 @@ class InclusionGroup(object):
         El grupo de inclusion del nodo "i" es el conjunto de nodos "j"
         tales que el nodo "i" pertenece a los grupos Gj.
         """
+        self.id = node_id
         self._ig = {
             node_id: TokenData(
                 center=node_id,
@@ -40,13 +41,13 @@ class InclusionGroup(object):
     def __getitem__(self, center):
         return self._ig[center]
 
-    def tokens(self):
-        return self._ig.values()
-
-    def members(self):
+    def __call__(self):
         """Devuelve un tuple con los ids del grupo"""
         m = tuple(token.center for token in self._ig.values())
         return m
+
+    def tokens(self):
+        return self._ig.values()
 
     def broadcast(self):
         """Envia a sus vecinos info de los nodos "j" en el grupo de inclusion
@@ -57,9 +58,16 @@ class InclusionGroup(object):
     def update(self, token):
         """Actualiza la informacion de los nodos del grupo de inclusion al
         recibir un token"""
-        center = token.center
-        self._ig[center] = self._ig.get(center, TokenData(center=center))
-        self._ig[center] = self._ig[center]._replace(
-            timestamp=token.timestamp,
-            extent=token.extent,
-            geodesic=min(self._ig[center].geodesic, token.geodesic + 1))
+        # center = token.center
+        # self._ig[center] = self._ig.get(center, TokenData(center=center))
+        # self._ig[center] = self._ig[center]._replace(
+        #     timestamp=token.timestamp,
+        #     extent=token.extent,
+        #     geodesic=min(self._ig[center].geodesic, token.geodesic + 1))
+        token = token._replace(geodesic=token.geodesic + 1)
+        self._ig[token.center] = self._ig.get(token.center, token)
+        if token.geodesic < self._ig[token.center].geodesic:
+            self._ig[token.center] = token
+
+    def clear(self):
+        self._ig = {self.id: self._ig[self.id]}
