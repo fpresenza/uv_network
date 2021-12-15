@@ -113,48 +113,44 @@ def run(steps, formation, logs):
 
     geodesics = np.empty((n_steps, n, n))
     geodesics[0] = network.geodesics(formation.proximity_matrix)
+    est_geodesics = np.full((n_steps, n, n), n)
     extents = np.empty((n_steps, n))
     extents[0] = formation.extents
 
-    est_geodesics = np.full((n_steps, n, n), n)
+    for i in node_ids:
+        formation.broadcast(i)
 
     for k, t in steps[1:]:
         t_a = time.perf_counter()
 
         formation.update_time(t)
-        formation.update_proximity()
-        if k > 5:
-            formation.proximity_matrix[0, 1] = formation.proximity_matrix[1, 0] = 0   # noqa
-            formation.proximity_matrix[4, 9] = formation.proximity_matrix[9, 4] = 1   # noqa
+        geodesics[k] = network.geodesics(formation.proximity_matrix)
+        extents[k] = extents[k - 1]
 
         """parte de localizacion"""
         # formation.get_gps(6)
         # formation.get_gps(8)
 
-        geodesics[k] = network.geodesics(formation.proximity_matrix)
-        extents[k] = extents[k - 1]
-
-        for i in node_ids:
-            # formation[i].control_step()
-            # formation[i].localization_step()
-            formation.broadcast(i)
-
         for i in node_ids:
             formation.receive(i)
 
-        # for i in node_ids:
-            # print(k, i, formation[i].current_time)
-            # if i == 0:
-            #     print(k, formation[i].neighbors)
-
-        for i in node_ids:
+            # formation[i].localization_step()
             for vj in formation[i].inclusion_group.tokens():
                 j = vj.center
                 est_geodesics[k, j, i] = vj.geodesic
 
-        # print(k, est_geodesics[k])
+        for i in node_ids:
+            formation.broadcast(i)
+
+        for i in node_ids:
+            formation[i].control_step()
 
         t_b = time.perf_counter()
+
+        formation.update_proximity()
+        if 5 < k < 10:
+            formation.proximity_matrix[0, 1] = formation.proximity_matrix[1, 0] = 0   # noqa
+            formation.proximity_matrix[4, 9] = formation.proximity_matrix[9, 4] = 1   # noqa
 
         # log data
         logs.position[k] = formation.position.ravel()
@@ -233,6 +229,18 @@ pos = np.array([
     [0.2778, 6.4405],
     [7.6862, 5.5808],
     [-1.0463, -0.8862]])
+
+# pos = np.array([
+#     [-1.4936,  3.9658],
+#     [-8.9979, -3.558 ],
+#     [-6.3584, -7.3379],
+#     [-5.6473, -2.7799],
+#     [-1.8582,  0.6987],
+#     [-1.4545,  3.334 ],
+#     [-5.3199,  6.8061],
+#     [-8.507 ,  3.0684],
+#     [-1.4885,  1.0564],
+#     [-6.473 , -5.4342]])
 
 cov = 1**2 * np.eye(2)
 

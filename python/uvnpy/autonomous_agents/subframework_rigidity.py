@@ -38,6 +38,7 @@ class single_integrator(object):
         self.extent = extent
         self.current_time = t
         self.dm = integrator(pos)
+        self.control_action = np.zeros(self.dim)
         # self.ctrl = decentralized_rigidity_maintenance()
         ctrl_cov = 0.05**2 * np.eye(self.dim)
         range_cov = 1.
@@ -72,11 +73,11 @@ class single_integrator(object):
         [self.inclusion_group.update(token) for token in msg.tokens]
 
     def control_step(self):
-        u = np.zeros(self.dim)
-        self.dm.step(self.current_time, u)
-        self.loc.dynamic_step(self.current_time, u)
+        self.control_action = np.zeros(self.dim)
+        self.dm.step(self.current_time, self.control_action)
 
     def localization_step(self):
+        self.loc.dynamic_step(self.current_time, self.control_action)
         if len(self.neighbors) > 0:
             neighbors_data = self.neighbors.values()
             z = np.array([
