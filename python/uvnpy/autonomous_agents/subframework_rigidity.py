@@ -59,7 +59,7 @@ class single_integrator(object):
             timestamp=self.current_time,
             position=self.loc.position,
             covariance=self.loc.covariance,
-            tokens=self.inclusion_group.broadcast())
+            tokens=self.inclusion_group.broadcast(self.current_time))
         self.inclusion_group.clear()
         return msg
 

@@ -9,18 +9,20 @@ import numpy as np
 import collections
 
 
-TokenData = collections.namedtuple(
-    'TokenData',
+Token = collections.namedtuple(
+    'Token',
     'center, \
     timestamp, \
     extent, \
-    geodesic')
+    geodesic, \
+    action')
 
-TokenData.__new__.__defaults__ = (
+Token.__new__.__defaults__ = (
     None,
     None,
     None,
-    np.inf)
+    np.inf,
+    None)
 
 
 class InclusionGroup(object):
@@ -32,38 +34,44 @@ class InclusionGroup(object):
         """
         self.id = node_id
         self._ig = {
-            node_id: TokenData(
+            node_id: Token(
                 center=node_id,
                 timestamp=t,
                 extent=node_extent,
-                geodesic=0)}
+                geodesic=0,
+                action={})}
 
     def __getitem__(self, center):
         return self._ig[center]
 
     def __call__(self):
-        """Devuelve un tuple con los ids del grupo"""
+        """Devuelve un tuple con los ids del grupo de inclusion"""
         m = tuple(token.center for token in self._ig.values())
         return m
 
     def tokens(self):
         return self._ig.values()
 
-    def broadcast(self):
+    def extents(self):
+        """Devuelve un tuple con los extents del grupo de inclusion"""
+        h = tuple(token.extent for token in self._ig.values())
+        return h
+
+    def geodesics(self):
+        """Devuelve un tuple con los extents del grupo de inclusion"""
+        h = tuple(token.geodesic for token in self._ig.values())
+        return h
+
+    def broadcast(self, t):
         """Envia a sus vecinos info de los nodos "j" en el grupo de inclusion
         si el nodo "i" no es un nodo en la ultima capa de Gj"""
+        self._ig[self.id] = self._ig[self.id]._replace(timestamp=t)
         tokens = [tk for tk in self._ig.values() if tk.geodesic < tk.extent]
         return tokens
 
     def update(self, token):
         """Actualiza la informacion de los nodos del grupo de inclusion al
         recibir un token"""
-        # center = token.center
-        # self._ig[center] = self._ig.get(center, TokenData(center=center))
-        # self._ig[center] = self._ig[center]._replace(
-        #     timestamp=token.timestamp,
-        #     extent=token.extent,
-        #     geodesic=min(self._ig[center].geodesic, token.geodesic + 1))
         token = token._replace(geodesic=token.geodesic + 1)
         self._ig[token.center] = self._ig.get(token.center, token)
         if token.geodesic < self._ig[token.center].geodesic:
