@@ -62,10 +62,11 @@ class InclusionGroup(object):
         h = tuple(token.geodesic for token in self._ig.values())
         return h
 
-    def broadcast(self, t):
+    def broadcast(self, t, u):
         """Envia a sus vecinos info de los nodos "j" en el grupo de inclusion
         si el nodo "i" no es un nodo en la ultima capa de Gj"""
-        self._ig[self.id] = self._ig[self.id]._replace(timestamp=t)
+        self._ig[self.id] = self._ig[self.id]._replace(
+            timestamp=t, action=u)
         tokens = [tk for tk in self._ig.values() if tk.geodesic < tk.extent]
         return tokens
 

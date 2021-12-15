@@ -54,12 +54,14 @@ class single_integrator(object):
         self.current_time = t
 
     def send_msg(self):
+        token_list = self.inclusion_group.broadcast(
+            self.current_time, self.control_action)
         msg = InterAgentMsg(
             id=self.id,
             timestamp=self.current_time,
             position=self.loc.position,
             covariance=self.loc.covariance,
-            tokens=self.inclusion_group.broadcast(self.current_time))
+            tokens=token_list)
         self.inclusion_group.clear()
         return msg
 
