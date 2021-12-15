@@ -47,7 +47,7 @@ class Formation(object):
             self.position_array[i] = self.vehicles[i].dm._x         # asigna el address # noqa
             self.est_position_array[i] = self.vehicles[i].loc._x    # asigna el address # noqa
         self.update_proximity()
-        self.cloud = {}
+        self.cloud = {v.id: [] for v in self.vehicles}
 
     def __getitem__(self, i):
         return self.vehicles[i]
@@ -92,16 +92,13 @@ class Formation(object):
             range_measurement = np.random.normal(
                 distances.matrix_between(center.dm.x, neighbor.dm.x),
                 self.range_cov)
-            self.cloud[center.id, neighbor.id] = (msg, range_measurement)
+            self.cloud[neighbor.id].append((msg, range_measurement))
 
     def receive(self, node_id):
-        # cambiar para que cada nodo loopee solo
-        # los msgs q los tienen como target.
         cloud = self.cloud.copy()
-        for (s, t), (msg, range_measurement) in cloud.items():
-            if t == node_id:
-                self.vehicles[node_id].receive_msg(msg, range_measurement)
-                self.cloud.pop((s, t))
+        for (msg, range_measurement) in cloud[node_id]:
+            self.vehicles[node_id].receive_msg(msg, range_measurement)
+        self.cloud[node_id].clear()
 
 
 # ------------------------------------------------------------------
@@ -141,7 +138,6 @@ def run(steps, formation, logs):
             # formation[i].control_step()
             # formation[i].localization_step()
             formation.broadcast(i)
-            # formation[i].inclusion_group.clear()
 
         for i in node_ids:
             formation.receive(i)
