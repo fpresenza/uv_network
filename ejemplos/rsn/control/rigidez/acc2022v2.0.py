@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import uvnpy.network as network
 from uvnpy.network import disk_graph
 from uvnpy.rsn import distances, rigidity
-from uvnpy.autonomous_agents import subframework_rigidity
+from uvnpy.autonomous_agents import subframework_rigidity_agent
 
 
 # ------------------------------------------------------------------
@@ -60,13 +60,11 @@ class Formation(object):
     def est_position(self):
         return np.vstack(self.est_position_array)
 
-    @property
     def rigidity_eigenvalue(self):
         A = disk_graph.adjacency(self.position, self.dmin)
         re = rigidity.eigenvalue(A, self.position)
         return re
 
-    @property
     def extents(self):
         h = rigidity.extents(self.proximity_matrix, self.position)
         return h
@@ -115,7 +113,7 @@ def run(steps, formation, logs):
     geodesics[0] = network.geodesics(formation.proximity_matrix)
     est_geodesics = np.full((n_steps, n, n), n)
     extents = np.empty((n_steps, n))
-    extents[0] = formation.extents
+    extents[0] = formation.extents()
 
     for i in node_ids:
         formation.broadcast(i)
@@ -131,26 +129,33 @@ def run(steps, formation, logs):
         # formation.get_gps(6)
         # formation.get_gps(8)
 
+        print('---', k, '---')
         for i in node_ids:
             formation.receive(i)
+            # print(k, i, 4 in formation[i].routing.action)
+            print(k, i, formation[i].routing.state_members())
+            # print(i, formation[i].routing.action_geodesics())
 
             # formation[i].localization_step()
-            for vj in formation[i].inclusion_group.tokens():
-                j = vj.center
-                est_geodesics[k, j, i] = vj.geodesic
+            j = formation[i].routing.action_members()
+            gij = formation[i].routing.action_geodesics()
+            est_geodesics[k, j, i] = gij
+            # for vj in formation[i].routing.action_tokens():
+            #     j = vj.center
+            #     est_geodesics[k, j, i] = vj.hops_travelled
 
         for i in node_ids:
             formation.broadcast(i)
 
-        for i in node_ids:
-            formation[i].control_step()
+        # for i in node_ids:
+        #     formation[i].control_step()
 
         t_b = time.perf_counter()
 
         formation.update_proximity()
-        if 5 < k < 10:
-            formation.proximity_matrix[0, 1] = formation.proximity_matrix[1, 0] = 0   # noqa
-            formation.proximity_matrix[4, 9] = formation.proximity_matrix[9, 4] = 1   # noqa
+        # if 5 < k < 10:
+            # formation.proximity_matrix[0, 1] = formation.proximity_matrix[1, 0] = 0   # noqa
+            # formation.proximity_matrix[4, 9] = formation.proximity_matrix[9, 4] = 1   # noqa
 
         # log data
         logs.position[k] = formation.position.ravel()
@@ -161,7 +166,7 @@ def run(steps, formation, logs):
         # logs.adjacency[k] = A.ravel()
 
         perf_time.append((t_b - t_a)/n)
-        bar.update(np.round(t, 3))
+        # bar.update(np.round(t, 3))
 
     bar.finish()
 
@@ -251,7 +256,7 @@ dmax = lim
 
 formation = Formation(
     node_ids,
-    subframework_rigidity.single_integrator,
+    subframework_rigidity_agent.single_integrator,
     pos, cov,
     comm_range=(dmin, dmax),
     range_cov=1.,
@@ -271,7 +276,7 @@ logs = Logs(
 logs.position[0] = formation.position.ravel()
 logs.est_position[0] = formation.est_position.ravel()
 logs.action[0] = np.zeros(n*dim)
-logs.fre[0] = formation.rigidity_eigenvalue
+logs.fre[0] = formation.rigidity_eigenvalue()
 # logs.re[0] = []
 # logs.adjacency[0] = A.ravel()
 
@@ -285,21 +290,21 @@ est_xf = logs.est_position[-1]
 # print(np.linalg.norm(xi - est_xf))
 
 
-# fig, ax = network.plot.figure()
-# network.plot.nodes(ax, logs.position[0].reshape(-1, 2), marker='o')
-# network.plot.edges(
-#     ax, logs.position[0].reshape(-1, 2), formation.proximity_matrix)
+fig, ax = network.plot.figure()
+network.plot.nodes(ax, logs.position[0].reshape(-1, 2), marker='o')
+network.plot.edges(
+    ax, logs.position[0].reshape(-1, 2), formation.proximity_matrix)
 
-# for est_pos in logs.est_position:
-#     network.plot.nodes(
-#         ax, est_pos.reshape(-1, 2), color='gray', marker='.', s=10)
+for est_pos in logs.est_position:
+    network.plot.nodes(
+        ax, est_pos.reshape(-1, 2), color='gray', marker='.', s=10)
 
-# network.plot.nodes(
-#     ax, logs.est_position[-1].reshape(-1, 2), color='red', marker='x')
-# network.plot.nodes(
-#     ax, logs.est_position[0].reshape(-1, 2), color='blue', marker='o', s=10)
+network.plot.nodes(
+    ax, logs.est_position[-1].reshape(-1, 2), color='red', marker='x')
+network.plot.nodes(
+    ax, logs.est_position[0].reshape(-1, 2), color='blue', marker='o', s=10)
 
-# plt.show()
+plt.show()
 
 # np.savetxt('/tmp/t.csv', time_interval, delimiter=',')
 # np.savetxt('/tmp/x.csv', logs.x, delimiter=',')

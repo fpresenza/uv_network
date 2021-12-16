@@ -11,7 +11,7 @@ import collections
 from uvnpy.model.linear_models import integrator
 # from uvnpy.rsn.control import decentralized_rigidity_maintenance
 from uvnpy.rsn.localization import distances_to_neighbors_kalman
-from uvnpy.autonomous_agents.algorithms import InclusionGroup
+from uvnpy.autonomous_agents import routing_protocols
 
 
 InterAgentMsg = collections.namedtuple(
@@ -20,15 +20,27 @@ InterAgentMsg = collections.namedtuple(
     timestamp, \
     position, \
     covariance, \
-    tokens')
+    action_tokens, \
+    state_tokens')
+
 
 NeigborhoodData = collections.namedtuple(
-    'neighbors',
+    'NeigborhoodData',
     'id, \
     timestamp, \
-    range, \
+    covariance, \
     position, \
-    covariance')
+    range')
+
+
+class Neighborhood(dict):
+    def update(self, id, timestamp, position, covariance, range_measurement):
+        self[id] = NeigborhoodData(
+            id=id,
+            timestamp=timestamp,
+            position=position,
+            covariance=covariance,
+            range=range_measurement)
 
 
 class single_integrator(object):
@@ -45,8 +57,8 @@ class single_integrator(object):
         self.gps_cov = gps_cov = 1. * np.eye(self.dim)
         self.loc = distances_to_neighbors_kalman(
             est_pos, cov, ctrl_cov, range_cov, gps_cov)
-        self.neighbors = {}
-        self.inclusion_group = InclusionGroup(
+        self.neighborhood = Neighborhood()
+        self.routing = routing_protocols.subframework_rigidity(
             self.id, self.extent, self.current_time)
         self.gps = {}
 
@@ -54,25 +66,28 @@ class single_integrator(object):
         self.current_time = t
 
     def send_msg(self):
-        token_list = self.inclusion_group.broadcast(
-            self.current_time, self.control_action)
+        action_tokens, state_tokens = self.routing.broadcast(
+            self.current_time,
+            self.control_action,
+            self.loc.position,
+            self.loc.covariance)
         msg = InterAgentMsg(
             id=self.id,
             timestamp=self.current_time,
             position=self.loc.position,
             covariance=self.loc.covariance,
-            tokens=token_list)
-        self.inclusion_group.clear()
+            action_tokens=action_tokens,
+            state_tokens=state_tokens)
+        self.routing.restart()
         return msg
 
-    def receive_msg(self, msg, range_measurment):
-        self.neighbors[msg.id] = NeigborhoodData(
-            id=msg.id,
-            timestamp=msg.timestamp,
-            range=range_measurment,
-            position=msg.position,
-            covariance=msg.covariance)
-        [self.inclusion_group.update(token) for token in msg.tokens]
+    def receive_msg(self, msg, range_measurement):
+        self.neighborhood.update(
+            msg.id, msg.timestamp,
+            msg.position, msg.covariance,
+            range_measurement)
+        [self.routing.update_action(token) for token in msg.action_tokens]
+        [self.routing.update_state(token) for token in msg.state_tokens]
 
     def control_step(self):
         self.control_action = np.zeros(self.dim)
@@ -80,8 +95,8 @@ class single_integrator(object):
 
     def localization_step(self):
         self.loc.dynamic_step(self.current_time, self.control_action)
-        if len(self.neighbors) > 0:
-            neighbors_data = self.neighbors.values()
+        if len(self.neighborhood) > 0:
+            neighbors_data = self.neighborhood.values()
             z = np.array([
                 neighbor.range for neighbor in neighbors_data])
             xj = np.array([
@@ -89,7 +104,7 @@ class single_integrator(object):
             Pj = np.array([
                 neighbor.covariance for neighbor in neighbors_data])
             self.loc.distances_step(z, xj, Pj)
-            self.neighbors.clear()
+            self.neighborhood.clear()
         if len(self.gps) > 0:
             z = self.gps[max(self.gps.keys())]
             self.loc.gps_step(z)
