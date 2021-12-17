@@ -86,9 +86,8 @@ class subframework_rigidity(object):
 
     def state_rebroadcast(self, token):
         center = self.id == token.center
-        in_path = np.any([(len(p) > 1) and (self.id in p) for p in token.path])
-        hops_left = token.hops_travelled < token.hops_to_target
-        broadcast = center or in_path and hops_left
+        in_path = np.any([self.id in p[1:-1] for p in token.path])
+        broadcast = center or in_path
         return broadcast
 
     def state_tokens(self):
@@ -108,9 +107,7 @@ class subframework_rigidity(object):
         self.state[self.id] = self.state[self.id]._replace(
             timestamp=timestamp,
             hops_to_target=max(1, max(self.action_geodesics())),
-            path=[
-                tkn.path[:-1] for tkn in self.action_tokens() if
-                len(tkn.path) > 1],
+            path=[tkn.path for tkn in self.action_tokens()],
             data=State(position, covariance))
         action_tokens = [
             tkn for tkn in self.action.values() if
