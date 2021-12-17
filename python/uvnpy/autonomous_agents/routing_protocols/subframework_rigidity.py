@@ -18,6 +18,7 @@ Token = collections.namedtuple(
     timestamp, \
     hops_to_target, \
     hops_travelled, \
+    path, \
     data')
 
 Token.__new__.__defaults__ = (
@@ -25,6 +26,7 @@ Token.__new__.__defaults__ = (
     None,
     None,
     np.inf,
+    None,
     None)
 
 State = collections.namedtuple(
@@ -55,6 +57,7 @@ class subframework_rigidity(object):
             timestamp=t,
             hops_to_target=node_extent,
             hops_travelled=0,
+            path=[self.id],
             data={})
         self.state = {}
         self.state[node_id] = Token(
@@ -62,6 +65,7 @@ class subframework_rigidity(object):
             timestamp=t,
             hops_to_target=1,
             hops_travelled=0,
+            path=None,
             data=State())
 
     def action_tokens(self):
@@ -72,7 +76,7 @@ class subframework_rigidity(object):
         m = tuple(token.center for token in self.action.values())
         return m
 
-    def action_relay(self, token):
+    def action_rebroadcast(self, token):
         return token.hops_travelled < token.hops_to_target
 
     def action_geodesics(self):
@@ -80,8 +84,12 @@ class subframework_rigidity(object):
         g = tuple(token.hops_travelled for token in self.action.values())
         return g
 
-    def state_relay(self, token):
-        return radial_broadcast(token.hops_travelled, token.hops_to_target)
+    def state_rebroadcast(self, token):
+        center = self.id == token.center
+        in_path = np.any([(len(p) > 1) and (self.id in p) for p in token.path])
+        hops_left = token.hops_travelled < token.hops_to_target
+        broadcast = center or in_path and hops_left
+        return broadcast
 
     def state_tokens(self):
         return tuple(self.state.values())
@@ -100,17 +108,23 @@ class subframework_rigidity(object):
         self.state[self.id] = self.state[self.id]._replace(
             timestamp=timestamp,
             hops_to_target=max(1, max(self.action_geodesics())),
+            path=[
+                tkn.path[:-1] for tkn in self.action_tokens() if
+                len(tkn.path) > 1],
             data=State(position, covariance))
         action_tokens = [
-            tkn for tkn in self.action.values() if self.action_relay(tkn)]
+            tkn for tkn in self.action.values() if
+            self.action_rebroadcast(tkn)]
         state_tokens = [
-            tkn for tkn in self.state.values() if self.state_relay(tkn)]
+            tkn for tkn in self.state.values() if self.state_rebroadcast(tkn)]
         return action_tokens, state_tokens
 
     def update_action(self, token):
         """Actualiza la informacion de los nodos del grupo de inclusion al
         recibir un token"""
-        token = token._replace(hops_travelled=token.hops_travelled + 1)
+        token = token._replace(
+            hops_travelled=token.hops_travelled + 1,
+            path=token.path + [self.id])
         self.action[token.center] = self.action.get(token.center, token)
         if token.hops_travelled < self.action[token.center].hops_travelled:
             self.action[token.center] = token
@@ -118,7 +132,8 @@ class subframework_rigidity(object):
     def update_state(self, token):
         """Actualiza la informacion de los nodos del grupo de inclusion al
         recibir un token"""
-        token = token._replace(hops_travelled=token.hops_travelled + 1)
+        token = token._replace(
+            hops_travelled=token.hops_travelled + 1)
         self.state[token.center] = self.state.get(token.center, token)
         if token.hops_travelled < self.state[token.center].hops_travelled:
             self.state[token.center] = token

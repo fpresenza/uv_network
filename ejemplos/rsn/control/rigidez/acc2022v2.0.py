@@ -8,7 +8,7 @@ import collections
 import time
 import progressbar
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt    # noqa
 
 import uvnpy.network as network
 from uvnpy.network import disk_graph
@@ -134,7 +134,6 @@ def run(steps, formation, logs):
             formation.receive(i)
             # print(k, i, 4 in formation[i].routing.action)
             print(k, i, formation[i].routing.state_members())
-            # print(i, formation[i].routing.action_geodesics())
 
             # formation[i].localization_step()
             j = formation[i].routing.action_members()
@@ -144,8 +143,12 @@ def run(steps, formation, logs):
             #     j = vj.center
             #     est_geodesics[k, j, i] = vj.hops_travelled
 
+        # print(formation[7].routing.state_tokens())
+        # print([tkn.path for tkn in formation[7].routing.action_tokens()])
         for i in node_ids:
             formation.broadcast(i)
+        # print([tkn.path for tkn in formation[7].routing.state_tokens()])
+        # print(formation[0].routing.state[0].hops_to_target)
 
         # for i in node_ids:
         #     formation[i].control_step()
@@ -172,24 +175,24 @@ def run(steps, formation, logs):
 
     # print(geodesics[:, 0, 2])
 
-    fig, ax = plt.subplots(10, 10)
-    # ax = ax.ravel()
-    for i in node_ids:
-        for j in node_ids:
-            ax[i, j].plot(extents[:, i], ds='steps-post', color='C2')
-            ax[i, j].plot(geodesics[:, i, j], ds='steps-post', color='C0')
-            ax[i, j].plot(
-                est_geodesics[:, i, j], ds='steps-post', ls='--', color='k')
-            ax[i, j].set_xticks(range(n_steps))
-            ax[i, j].set_xticklabels([])
-            ax[i, j].set_ylim(-0.25, 3.25)
-            ax[i, j].set_yticks([0, 1, 2, 3])
-            ax[i, j].set_yticklabels([])
-            if np.all(geodesics[:, i, j] > extents[:, i]):
-                ax[i, j].set_facecolor('0.8')
-            # if np.any(geodesics[:, i, j] > extents[:, i]):
-            #     ax[i, j].set_facecolor('0.8')
-    plt.show()
+    # fig, ax = plt.subplots(10, 10)
+    # # ax = ax.ravel()
+    # for i in node_ids:
+    #     for j in node_ids:
+    #         ax[i, j].plot(extents[:, i], ds='steps-post', color='C2')
+    #         ax[i, j].plot(geodesics[:, i, j], ds='steps-post', color='C0')
+    #         ax[i, j].plot(
+    #             est_geodesics[:, i, j], ds='steps-post', ls='--', color='k')
+    #         ax[i, j].set_xticks(range(n_steps))
+    #         ax[i, j].set_xticklabels([])
+    #         ax[i, j].set_ylim(-0.25, 3.25)
+    #         ax[i, j].set_yticks([0, 1, 2, 3])
+    #         ax[i, j].set_yticklabels([])
+    #         if np.all(geodesics[:, i, j] > extents[:, i]):
+    #             ax[i, j].set_facecolor('0.8')
+    #         # if np.any(geodesics[:, i, j] > extents[:, i]):
+    #         #     ax[i, j].set_facecolor('0.8')
+    # plt.show()
 
     st = arg.tf
     rt = sum(perf_time)
@@ -290,21 +293,21 @@ est_xf = logs.est_position[-1]
 # print(np.linalg.norm(xi - est_xf))
 
 
-fig, ax = network.plot.figure()
-network.plot.nodes(ax, logs.position[0].reshape(-1, 2), marker='o')
-network.plot.edges(
-    ax, logs.position[0].reshape(-1, 2), formation.proximity_matrix)
+# fig, ax = network.plot.figure()
+# network.plot.nodes(ax, logs.position[0].reshape(-1, 2), marker='o')
+# network.plot.edges(
+#     ax, logs.position[0].reshape(-1, 2), formation.proximity_matrix)
 
-for est_pos in logs.est_position:
-    network.plot.nodes(
-        ax, est_pos.reshape(-1, 2), color='gray', marker='.', s=10)
+# for est_pos in logs.est_position:
+#     network.plot.nodes(
+#         ax, est_pos.reshape(-1, 2), color='gray', marker='.', s=10)
 
-network.plot.nodes(
-    ax, logs.est_position[-1].reshape(-1, 2), color='red', marker='x')
-network.plot.nodes(
-    ax, logs.est_position[0].reshape(-1, 2), color='blue', marker='o', s=10)
+# network.plot.nodes(
+#     ax, logs.est_position[-1].reshape(-1, 2), color='red', marker='x')
+# network.plot.nodes(
+#     ax, logs.est_position[0].reshape(-1, 2), color='blue', marker='o', s=10)
 
-plt.show()
+# plt.show()
 
 # np.savetxt('/tmp/t.csv', time_interval, delimiter=',')
 # np.savetxt('/tmp/x.csv', logs.x, delimiter=',')
