@@ -128,17 +128,19 @@ def run(steps, formation, logs):
         extents[k] = extents[k - 1]
 
         """parte de localizacion"""
-        formation.get_gps(6)
-        formation.get_gps(8)
+        # formation.get_gps(6)
+        # formation.get_gps(8)
 
         print('---', k, '---')
         for i in node_ids:
             formation.receive(i)
             # print(k, i, 4 in formation[i].routing.action)
             # state_tokens = formation[i].routing.state.values()
+            # print([tkn.center for tkn in state_tokens])
 
-            formation[i].localization_step()
+            # formation[i].localization_step()
             action_tokens = formation[i].routing.action.values()
+            # print([tkn.center for tkn in action_tokens])
             j = [token.center for token in action_tokens]
             gij = [token.hops_travelled for token in action_tokens]
             est_geodesics[k, j, i] = gij
@@ -147,7 +149,6 @@ def run(steps, formation, logs):
             #     est_geodesics[k, j, i] = vj.hops_travelled
 
         # print(formation[7].routing.state_tokens())
-        # print([tkn.path for tkn in formation[6].routing.state_tokens()])
         for i in node_ids:
             formation.broadcast(i)
         # print([tkn.path for tkn in formation[7].routing.state_tokens()])
@@ -176,8 +177,6 @@ def run(steps, formation, logs):
         # bar.update(np.round(t, 3))
 
     bar.finish()
-
-    # print(geodesics[:, 0, 2])
 
     # fig, ax = plt.subplots(10, 10)
     # # ax = ax.ravel()
@@ -298,22 +297,21 @@ est_xf = logs.est_position[-1]
 # print(np.linalg.norm(xi - est_xi))
 # print(np.linalg.norm(xi - est_xf))
 
+# fig, ax = network.plot.figure()
+# network.plot.nodes(ax, logs.position[0].reshape(-1, 2), marker='o')
+# network.plot.edges(
+#     ax, logs.position[0].reshape(-1, 2), formation.proximity_matrix)
 
-fig, ax = network.plot.figure()
-network.plot.nodes(ax, logs.position[0].reshape(-1, 2), marker='o')
-network.plot.edges(
-    ax, logs.position[0].reshape(-1, 2), formation.proximity_matrix)
+# for est_pos in logs.est_position:
+#     network.plot.nodes(
+#         ax, est_pos.reshape(-1, 2), color='gray', marker='.', s=10)
 
-for est_pos in logs.est_position:
-    network.plot.nodes(
-        ax, est_pos.reshape(-1, 2), color='gray', marker='.', s=10)
+# network.plot.nodes(
+#     ax, logs.est_position[-1].reshape(-1, 2), color='red', marker='x')
+# network.plot.nodes(
+#     ax, logs.est_position[0].reshape(-1, 2), color='blue', marker='o', s=10)
 
-network.plot.nodes(
-    ax, logs.est_position[-1].reshape(-1, 2), color='red', marker='x')
-network.plot.nodes(
-    ax, logs.est_position[0].reshape(-1, 2), color='blue', marker='o', s=10)
-
-plt.show()
+# plt.show()
 
 # np.savetxt('/tmp/t.csv', time_interval, delimiter=',')
 # np.savetxt('/tmp/x.csv', logs.x, delimiter=',')

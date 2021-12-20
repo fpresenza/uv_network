@@ -57,21 +57,9 @@ class subframework_rigidity(object):
         el nodo esta en un camino que une dos nodos que desean comunicarse.
         """
         self.id = node_id
+        self.extent = node_extent
         self.action = {}
-        self.action[node_id] = Token(
-            center=node_id,
-            timestamp=t,
-            hops_to_target=node_extent,
-            hops_travelled=0,
-            path=[self.id],
-            data={})
         self.state = {}
-        self.state[node_id] = Token(
-            center=node_id,
-            timestamp=t,
-            hops_travelled=0,
-            path=None,
-            data=State())
 
     def action_tokens(self):
         return tuple(self.action.values())
@@ -88,44 +76,49 @@ class subframework_rigidity(object):
     def broadcast(self, timestamp, action, position, covariance):
         """Prepara las listas con los tokens que se deben enviar.
         Luego elimina todos los tokens recibidos de otros nodos."""
-        self.action[self.id] = self.action[self.id]._replace(
-            timestamp=timestamp,
-            data=action)
-        self.state[self.id] = self.state[self.id]._replace(
-            timestamp=timestamp,
-            path=[tkn.path for tkn in self.action_tokens()],
-            data=State(position, covariance))
-
-        self_action_token = self.action.pop(self.id)
         action_tokens = dict([
             (tkn.center, tkn) for tkn in self.action.values()
             if self.to_target(tkn)])
+        self_action_token = Token(
+            center=self.id,
+            timestamp=timestamp,
+            hops_to_target=self.extent,
+            hops_travelled=0,
+            path=[self.id],
+            data=action)
         action_tokens[self.id] = self_action_token
 
-        self_state_token = self.state.pop(self.id)
         state_tokens = dict([
             (tkn.center, tkn) for tkn in self.state.values()
             if self.in_path(tkn)])
+        self_state_token = Token(
+            center=self.id,
+            timestamp=timestamp,
+            hops_travelled=0,
+            path=[tkn.path for tkn in self.action_tokens()],
+            data=State(position, covariance))
         state_tokens[self.id] = self_state_token
 
-        self.action = {self.id: self_action_token}
-        self.state = {self.id: self_state_token}
+        self.action.clear()
+        self.state.clear()
 
         return action_tokens, state_tokens
 
     def update_action(self, token):
         """Actualiza la informacion de accion que es recibida"""
-        token = token._replace(
-            hops_travelled=token.hops_travelled + 1,
-            path=token.path + [self.id])
-        self.action[token.center] = self.action.get(token.center, token)
-        if token.hops_travelled < self.action[token.center].hops_travelled:
-            self.action[token.center] = token
+        if token.center != self.id:
+            token = token._replace(
+                hops_travelled=token.hops_travelled + 1,
+                path=token.path + [self.id])
+            self.action[token.center] = self.action.get(token.center, token)
+            if token.hops_travelled < self.action[token.center].hops_travelled:
+                self.action[token.center] = token
 
     def update_state(self, token):
         """Actualiza la informacion de estado que es recibida"""
-        token = token._replace(
-            hops_travelled=token.hops_travelled + 1)
-        self.state[token.center] = self.state.get(token.center, token)
-        if token.hops_travelled < self.state[token.center].hops_travelled:
-            self.state[token.center] = token
+        if token.center != self.id:
+            token = token._replace(
+                hops_travelled=token.hops_travelled + 1)
+            self.state[token.center] = self.state.get(token.center, token)
+            if token.hops_travelled < self.state[token.center].hops_travelled:
+                self.state[token.center] = token
