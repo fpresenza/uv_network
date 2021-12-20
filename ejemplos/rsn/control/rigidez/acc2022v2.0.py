@@ -128,17 +128,16 @@ def run(steps, formation, logs):
         extents[k] = extents[k - 1]
 
         """parte de localizacion"""
-        # formation.get_gps(6)
-        # formation.get_gps(8)
+        formation.get_gps(6)
+        formation.get_gps(8)
 
         print('---', k, '---')
         for i in node_ids:
             formation.receive(i)
             # print(k, i, 4 in formation[i].routing.action)
-            state_tokens = formation[i].routing.state.values()
-            print(k, i, [tkn.center for tkn in state_tokens])
+            # state_tokens = formation[i].routing.state.values()
 
-            # formation[i].localization_step()
+            formation[i].localization_step()
             action_tokens = formation[i].routing.action.values()
             j = [token.center for token in action_tokens]
             gij = [token.hops_travelled for token in action_tokens]

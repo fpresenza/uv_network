@@ -47,8 +47,8 @@ class subframework_rigidity(object):
         Cada nodo envia a sus vecinos un token de accion y uno de posicion con
         informacion propia.
         El primero contiene los comandos para los nodos en el subframework
-        propio, y el segundo contiene el estado actual del nodo para aquellos
-        nodos que lo requieran.
+        propio, y el segundo contiene el estado actual del nodo en cuestion
+        para aquellos nodos que lo incluyan en su subframework.
 
         Los tokens de accion que llegan a cada nodo son reenviados solo si la
         cantidad de hops que viajaron son menores al extent del nodo emisor.
@@ -95,14 +95,22 @@ class subframework_rigidity(object):
             timestamp=timestamp,
             path=[tkn.path for tkn in self.action_tokens()],
             data=State(position, covariance))
-        action_tokens = [self.action.pop(self.id)]
-        state_tokens = [self.state.pop(self.id)]
-        action_tokens += [
-            tkn for tkn in self.action.values() if self.to_target(tkn)]
-        state_tokens += [
-            tkn for tkn in self.state.values() if self.in_path(tkn)]
-        self.action = {self.id: action_tokens[0]}
-        self.state = {self.id: state_tokens[0]}
+
+        self_action_token = self.action.pop(self.id)
+        action_tokens = dict([
+            (tkn.center, tkn) for tkn in self.action.values()
+            if self.to_target(tkn)])
+        action_tokens[self.id] = self_action_token
+
+        self_state_token = self.state.pop(self.id)
+        state_tokens = dict([
+            (tkn.center, tkn) for tkn in self.state.values()
+            if self.in_path(tkn)])
+        state_tokens[self.id] = self_state_token
+
+        self.action = {self.id: self_action_token}
+        self.state = {self.id: self_state_token}
+
         return action_tokens, state_tokens
 
     def update_action(self, token):

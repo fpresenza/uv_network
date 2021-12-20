@@ -18,8 +18,6 @@ InterAgentMsg = collections.namedtuple(
     'InterAgentMsg',
     'id, \
     timestamp, \
-    position, \
-    covariance, \
     action_tokens, \
     state_tokens')
 
@@ -74,8 +72,6 @@ class single_integrator(object):
         msg = InterAgentMsg(
             id=self.id,
             timestamp=self.current_time,
-            position=self.loc.position,
-            covariance=self.loc.covariance,
             action_tokens=action_tokens,
             state_tokens=state_tokens)
         return msg
@@ -83,10 +79,12 @@ class single_integrator(object):
     def receive_msg(self, msg, range_measurement):
         self.neighborhood.update(
             msg.id, msg.timestamp,
-            msg.position, msg.covariance,
+            msg.state_tokens[msg.id].data.position,
+            msg.state_tokens[msg.id].data.covariance,
             range_measurement)
-        [self.routing.update_action(token) for token in msg.action_tokens]
-        [self.routing.update_state(token) for token in msg.state_tokens]
+        routing = self.routing
+        [routing.update_action(tkn) for tkn in msg.action_tokens.values()]
+        [routing.update_state(tkn) for tkn in msg.state_tokens.values()]
 
     def control_step(self):
         self.control_action = np.zeros(self.dim)
