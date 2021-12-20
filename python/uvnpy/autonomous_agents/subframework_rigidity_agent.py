@@ -78,7 +78,6 @@ class single_integrator(object):
             covariance=self.loc.covariance,
             action_tokens=action_tokens,
             state_tokens=state_tokens)
-        self.routing.restart()
         return msg
 
     def receive_msg(self, msg, range_measurement):

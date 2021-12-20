@@ -39,16 +39,22 @@ State.__new__.__defaults__ = (
     None)
 
 
-def radial_broadcast(hops_travelled, hops_to_target):
-    return hops_travelled < hops_to_target
-
-
 class subframework_rigidity(object):
     def __init__(self, node_id, node_extent, t=0.):
-        """Clase para guardar info del grupo de inclusion de un nodo
+        """Clase para implementar el ruteo necesario para el control
+        de rigidez basado en subframeworks.
 
-        El grupo de inclusion del nodo "i" es el conjunto de nodos "j"
-        tales que el nodo "i" pertenece a los grupos Gj.
+        Cada nodo envia a sus vecinos un token de accion y uno de posicion con
+        informacion propia.
+        El primero contiene los comandos para los nodos en el subframework
+        propio, y el segundo contiene el estado actual del nodo para aquellos
+        nodos que lo requieran.
+
+        Los tokens de accion que llegan a cada nodo son reenviados solo si la
+        cantidad de hops que viajaron son menores al extent del nodo emisor.
+
+        Los tokens de posicion que llegan a cada nodo son reenviados solo si
+        el nodo esta en un camino que une dos nodos que desean comunicarse.
         """
         self.id = node_id
         self.action = {}
@@ -63,7 +69,6 @@ class subframework_rigidity(object):
         self.state[node_id] = Token(
             center=node_id,
             timestamp=t,
-            hops_to_target=1,
             hops_travelled=0,
             path=None,
             data=State())
@@ -71,54 +76,37 @@ class subframework_rigidity(object):
     def action_tokens(self):
         return tuple(self.action.values())
 
-    def action_members(self):
-        """Devuelve un tuple con los extents del grupo de accion"""
-        m = tuple(token.center for token in self.action.values())
-        return m
-
-    def action_rebroadcast(self, token):
-        return token.hops_travelled < token.hops_to_target
-
-    def action_geodesics(self):
-        """Devuelve un tuple con los extents del grupo de inclusion"""
-        g = tuple(token.hops_travelled for token in self.action.values())
-        return g
-
-    def state_rebroadcast(self, token):
-        center = self.id == token.center
-        in_path = np.any([self.id in p[1:-1] for p in token.path])
-        broadcast = center or in_path
-        return broadcast
-
     def state_tokens(self):
         return tuple(self.state.values())
 
-    def state_members(self):
-        """Devuelve un tuple con los extents del grupo de accion"""
-        m = tuple(token.center for token in self.state.values())
-        return m
+    def to_target(self, token):
+        return token.hops_travelled < token.hops_to_target
+
+    def in_path(self, token):
+        return np.any([self.id in p[1:-1] for p in token.path])
 
     def broadcast(self, timestamp, action, position, covariance):
-        """Envia a sus vecinos info de los nodos "j" en el grupo de inclusion
-        si el nodo "i" no es un nodo en la ultima capa de Gj"""
+        """Prepara las listas con los tokens que se deben enviar.
+        Luego elimina todos los tokens recibidos de otros nodos."""
         self.action[self.id] = self.action[self.id]._replace(
             timestamp=timestamp,
             data=action)
         self.state[self.id] = self.state[self.id]._replace(
             timestamp=timestamp,
-            hops_to_target=max(1, max(self.action_geodesics())),
             path=[tkn.path for tkn in self.action_tokens()],
             data=State(position, covariance))
-        action_tokens = [
-            tkn for tkn in self.action.values() if
-            self.action_rebroadcast(tkn)]
-        state_tokens = [
-            tkn for tkn in self.state.values() if self.state_rebroadcast(tkn)]
+        action_tokens = [self.action.pop(self.id)]
+        state_tokens = [self.state.pop(self.id)]
+        action_tokens += [
+            tkn for tkn in self.action.values() if self.to_target(tkn)]
+        state_tokens += [
+            tkn for tkn in self.state.values() if self.in_path(tkn)]
+        self.action = {self.id: action_tokens[0]}
+        self.state = {self.id: state_tokens[0]}
         return action_tokens, state_tokens
 
     def update_action(self, token):
-        """Actualiza la informacion de los nodos del grupo de inclusion al
-        recibir un token"""
+        """Actualiza la informacion de accion que es recibida"""
         token = token._replace(
             hops_travelled=token.hops_travelled + 1,
             path=token.path + [self.id])
@@ -127,14 +115,9 @@ class subframework_rigidity(object):
             self.action[token.center] = token
 
     def update_state(self, token):
-        """Actualiza la informacion de los nodos del grupo de inclusion al
-        recibir un token"""
+        """Actualiza la informacion de estado que es recibida"""
         token = token._replace(
             hops_travelled=token.hops_travelled + 1)
         self.state[token.center] = self.state.get(token.center, token)
         if token.hops_travelled < self.state[token.center].hops_travelled:
             self.state[token.center] = token
-
-    def restart(self):
-        self.action = {self.id: self.action[self.id]}
-        self.state = {self.id: self.state[self.id]}

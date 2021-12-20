@@ -115,6 +115,8 @@ def run(steps, formation, logs):
     extents = np.empty((n_steps, n))
     extents[0] = formation.extents()
 
+    print(formation.extents())
+
     for i in node_ids:
         formation.broadcast(i)
 
@@ -133,18 +135,20 @@ def run(steps, formation, logs):
         for i in node_ids:
             formation.receive(i)
             # print(k, i, 4 in formation[i].routing.action)
-            print(k, i, formation[i].routing.state_members())
+            state_tokens = formation[i].routing.state.values()
+            print(k, i, [tkn.center for tkn in state_tokens])
 
             # formation[i].localization_step()
-            j = formation[i].routing.action_members()
-            gij = formation[i].routing.action_geodesics()
+            action_tokens = formation[i].routing.action.values()
+            j = [token.center for token in action_tokens]
+            gij = [token.hops_travelled for token in action_tokens]
             est_geodesics[k, j, i] = gij
             # for vj in formation[i].routing.action_tokens():
             #     j = vj.center
             #     est_geodesics[k, j, i] = vj.hops_travelled
 
         # print(formation[7].routing.state_tokens())
-        # print([tkn.path for tkn in formation[7].routing.action_tokens()])
+        # print([tkn.path for tkn in formation[6].routing.state_tokens()])
         for i in node_ids:
             formation.broadcast(i)
         # print([tkn.path for tkn in formation[7].routing.state_tokens()])
@@ -156,8 +160,9 @@ def run(steps, formation, logs):
         t_b = time.perf_counter()
 
         formation.update_proximity()
-        # if 5 < k < 10:
-            # formation.proximity_matrix[0, 1] = formation.proximity_matrix[1, 0] = 0   # noqa
+        # if 10 < k < 15:
+        #     formation.proximity_matrix[0, 1] = formation.proximity_matrix[1, 0] = 0   # noqa
+        #     formation.proximity_matrix[1, 7] = formation.proximity_matrix[7, 1] = 0   # noqa
             # formation.proximity_matrix[4, 9] = formation.proximity_matrix[9, 4] = 1   # noqa
 
         # log data
@@ -239,16 +244,17 @@ pos = np.array([
     [-1.0463, -0.8862]])
 
 # pos = np.array([
-#     [-1.4936,  3.9658],
-#     [-8.9979, -3.558 ],
-#     [-6.3584, -7.3379],
-#     [-5.6473, -2.7799],
-#     [-1.8582,  0.6987],
-#     [-1.4545,  3.334 ],
-#     [-5.3199,  6.8061],
-#     [-8.507 ,  3.0684],
-#     [-1.4885,  1.0564],
-#     [-6.473 , -5.4342]])
+#     [-7.4851,  7.0387],
+#     [-2.793 ,  6.6516],
+#     [-3.0055,  1.5672],
+#     [ 3.4272,  4.1939],
+#     [ 7.0671, -1.1412],
+#     [ 4.6065,  5.3426],
+#     [-6.767 ,  8.9778],
+#     [ 4.0419, -1.5308],
+#     [ 5.7891, -3.8129],
+#     [ 6.4013, -4.1745]])
+
 
 cov = 1**2 * np.eye(2)
 
@@ -264,6 +270,7 @@ formation = Formation(
     comm_range=(dmin, dmax),
     range_cov=1.,
     gps_cov=1.)
+
 # ------------------------------------------------------------------
 # Simulación
 # ------------------------------------------------------------------
@@ -293,21 +300,21 @@ est_xf = logs.est_position[-1]
 # print(np.linalg.norm(xi - est_xf))
 
 
-# fig, ax = network.plot.figure()
-# network.plot.nodes(ax, logs.position[0].reshape(-1, 2), marker='o')
-# network.plot.edges(
-#     ax, logs.position[0].reshape(-1, 2), formation.proximity_matrix)
+fig, ax = network.plot.figure()
+network.plot.nodes(ax, logs.position[0].reshape(-1, 2), marker='o')
+network.plot.edges(
+    ax, logs.position[0].reshape(-1, 2), formation.proximity_matrix)
 
-# for est_pos in logs.est_position:
-#     network.plot.nodes(
-#         ax, est_pos.reshape(-1, 2), color='gray', marker='.', s=10)
+for est_pos in logs.est_position:
+    network.plot.nodes(
+        ax, est_pos.reshape(-1, 2), color='gray', marker='.', s=10)
 
-# network.plot.nodes(
-#     ax, logs.est_position[-1].reshape(-1, 2), color='red', marker='x')
-# network.plot.nodes(
-#     ax, logs.est_position[0].reshape(-1, 2), color='blue', marker='o', s=10)
+network.plot.nodes(
+    ax, logs.est_position[-1].reshape(-1, 2), color='red', marker='x')
+network.plot.nodes(
+    ax, logs.est_position[0].reshape(-1, 2), color='blue', marker='o', s=10)
 
-# plt.show()
+plt.show()
 
 # np.savetxt('/tmp/t.csv', time_interval, delimiter=',')
 # np.savetxt('/tmp/x.csv', logs.x, delimiter=',')
