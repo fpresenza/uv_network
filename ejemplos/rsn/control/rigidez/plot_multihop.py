@@ -18,9 +18,9 @@ plt.rcParams['font.family'] = 'serif'
 
 # extraigo datos
 t = np.loadtxt('/tmp/t.csv', delimiter=',')
-x = np.loadtxt('/tmp/x.csv', delimiter=',')
-hatx = np.loadtxt('/tmp/hatx.csv', delimiter=',')
-u = np.loadtxt('/tmp/u.csv', delimiter=',')
+x = np.loadtxt('/tmp/position.csv', delimiter=',')
+hatx = np.loadtxt('/tmp/est_position.csv', delimiter=',')
+u = np.loadtxt('/tmp/action.csv', delimiter=',')
 fre = np.loadtxt('/tmp/fre.csv', delimiter=',')
 re = np.loadtxt('/tmp/re.csv', delimiter=',')
 A = np.loadtxt('/tmp/adjacency.csv', delimiter=',')
@@ -56,25 +56,25 @@ fig, axes = plt.subplots(2, 2, figsize=(10, 4))
 axes[0, 0].set_xlabel(r'$t [seg]$')
 axes[0, 0].set_ylabel('x [m]')
 axes[0, 0].grid(1)
-axes[0, 0].plot(t, x[..., 0])
+axes[0, 0].plot(t, x[..., 0], ds='steps-post')
 plt.gca().set_prop_cycle(None)
 
 axes[0, 1].set_xlabel(r'$t [seg]$')
 axes[0, 1].set_ylabel('y [m]')
 axes[0, 1].grid(1)
-axes[0, 1].plot(t, x[..., 1])
+axes[0, 1].plot(t, x[..., 1], ds='steps-post')
 plt.gca().set_prop_cycle(None)
 
 axes[1, 0].set_xlabel(r'$t [seg]$')
 axes[1, 0].set_ylabel(r'$u_x [m/s]$')
 axes[1, 0].grid(1)
-axes[1, 0].plot(t, u[..., 0])
+axes[1, 0].plot(t, u[..., 0], ds='steps-post')
 plt.gca().set_prop_cycle(None)
 
 axes[1, 1].set_xlabel(r'$t [seg]$')
 axes[1, 1].set_ylabel(r'$u_y [m/s]$')
 axes[1, 1].grid(1)
-axes[1, 1].plot(t, u[..., 1])
+axes[1, 1].plot(t, u[..., 1], ds='steps-post')
 fig.savefig('/tmp/control.png', format='png', dpi=300)
 
 fig, axes = plt.subplots(1, 2, figsize=(3.4, 1.25))
@@ -222,7 +222,7 @@ anim.set_teams(
         'style': {'color': 'red', 'marker': '+', 'markersize': 5}})  # noqa
 anim.set_edgestyle(color='0.4', alpha=0.6, lw=0.8)
 # anim.ax.legend(ncol=5)
-# anim.run()
+anim.run()
 # anim.run('/tmp/multihop.mp4')
 
 plt.show()

@@ -83,7 +83,8 @@ class subframework_rigidity(object):
     def positions(self):
         p = {
             token.center: token.data.position
-            for token in self.state.values()}
+            for token in self.state.values()
+            if token.hops_travelled <= self.extent}
         return p
 
     def broadcast(self, timestamp, action, position, covariance):

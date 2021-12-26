@@ -36,21 +36,21 @@ class Formation(object):
         self.dmax = np.max(comm_range)
         self.range_cov = range_cov
         self.gps_cov = gps_cov
-        self.vehicles = np.empty(n, dtype=object)
-        self.position_array = np.empty(n, dtype=np.ndarray)
-        self.est_position_array = np.empty(n, dtype=np.ndarray)
+        self.vehicles = np.empty(self.n, dtype=object)
+        self.position_array = np.empty(self.n, dtype=np.ndarray)
+        self.est_position_array = np.empty(self.n, dtype=np.ndarray)
+        self.action = np.zeros((self.n, self.dim))
         A = disk_graph.adjacency(pos, self.dmin)
-        extents = rigidity.extents(A, pos)
+        self.extents = rigidity.extents(A, pos)
         for i in node_ids:
             est_pos = np.random.multivariate_normal(pos[i], cov)
-            self.vehicles[i] = agent_model(i, pos[i], est_pos, cov, extents[i])
+            self.vehicles[i] = agent_model(
+                i, pos[i], est_pos, cov,
+                self.dmin, self.extents[i])
             self.position_array[i] = self.vehicles[i].dm._x         # asigna el address # noqa
             self.est_position_array[i] = self.vehicles[i].loc._x    # asigna el address # noqa
         self.update_proximity()
         self.cloud = {v.id: [] for v in self.vehicles}
-
-    def __getitem__(self, i):
-        return self.vehicles[i]
 
     @property
     def position(self):
@@ -61,13 +61,25 @@ class Formation(object):
         return np.vstack(self.est_position_array)
 
     def rigidity_eigenvalue(self):
-        A = disk_graph.adjacency(self.position, self.dmin)
-        re = rigidity.eigenvalue(A, self.position)
+        re = rigidity.eigenvalue(self.proximity_matrix, self.position)
         return re
 
-    def extents(self):
+    def rigidity_extents(self):
         h = rigidity.extents(self.proximity_matrix, self.position)
         return h
+
+    def subframeworks(self):
+        sf = [
+            network.subsets.multihop_subframework(
+                self.proximity_matrix, self.position,
+                i, self.extents[i]) for i in range(self.n)]
+        return sf
+
+    def subframeworks_rigidity_eigenvalue(self):
+        re = [
+            rigidity.eigenvalue(A, x)
+            for A, x in formation.subframeworks()]
+        return re
 
     def update_time(self, t):
         self.timestamp = t
@@ -98,6 +110,12 @@ class Formation(object):
             self.vehicles[node_id].receive_msg(msg, range_measurement)
         self.cloud[node_id].clear()
 
+    def localization_step(self, i):
+        self.vehicles[i].localization_step()
+
+    def control_step(self, i):
+        self.vehicles[i].control_step()
+        self.action[i] = self.vehicles[i].control_action.copy()
 
 # ------------------------------------------------------------------
 # Función run
@@ -109,13 +127,7 @@ def run(steps, formation, logs):
     bar = progressbar.ProgressBar(maxval=arg.tf).start()
     perf_time = []
 
-    geodesics = np.empty((n_steps, n, n))
-    geodesics[0] = network.geodesics(formation.proximity_matrix)
-    est_geodesics = np.full((n_steps, n, n), n)
-    extents = np.empty((n_steps, n))
-    extents[0] = formation.extents()
-
-    print(formation.extents())
+    print(formation.extents)
 
     for i in node_ids:
         formation.broadcast(i)
@@ -124,83 +136,39 @@ def run(steps, formation, logs):
         t_a = time.perf_counter()
 
         formation.update_time(t)
-        geodesics[k] = network.geodesics(formation.proximity_matrix)
-        extents[k] = extents[k - 1]
-
         """parte de localizacion"""
-        # formation.get_gps(6)
-        # formation.get_gps(8)
+        formation.get_gps(6)
+        formation.get_gps(8)
 
-        print('---', k, '---')
         for i in node_ids:
             formation.receive(i)
-            # print(k, i, 4 in formation[i].routing.action)
 
-            # formation[i].localization_step()
-            action_tokens = formation[i].routing.action.values()
-            if i == 0:
-                # print([tkn.center for tkn in action_tokens])
-                print(formation[i].routing.commands())
-            j = [token.center for token in action_tokens]
-            gij = [token.hops_travelled for token in action_tokens]
-            est_geodesics[k, j, i] = gij
-            # for vj in formation[i].routing.action_tokens():
-            #     j = vj.center
-            #     est_geodesics[k, j, i] = vj.hops_travelled
-
-        # state_tokens = formation[7].routing.state.values()
-        # print([tkn.center for tkn in state_tokens])
-
+        # print(formation.vehicles[6].routing.positions())
+        # print(formation.vehicles[5].routing.action_tokens())
+        # print('.....')
         for i in node_ids:
-            formation[i].control_step()
+            formation.localization_step(i)
+            formation.control_step(i)
 
         for i in node_ids:
             formation.broadcast(i)
-        # print([tkn.path for tkn in formation[7].routing.state_tokens()])
-        # print(formation[0].routing.state[0].hops_to_target)
-
-        # for i in node_ids:
-        #     formation[i].control_step()
 
         t_b = time.perf_counter()
 
         formation.update_proximity()
-        # if 10 < k < 15:
-        #     formation.proximity_matrix[0, 1] = formation.proximity_matrix[1, 0] = 0   # noqa
-        #     formation.proximity_matrix[1, 7] = formation.proximity_matrix[7, 1] = 0   # noqa
-            # formation.proximity_matrix[4, 9] = formation.proximity_matrix[9, 4] = 1   # noqa
 
         # log data
         logs.position[k] = formation.position.ravel()
         logs.est_position[k] = formation.est_position.ravel()
-        # logs.action[k] = u.ravel()
-        # logs.fre[k] = rigidity.eigenvalue(A, x)
-        # logs.re[k] = re
-        # logs.adjacency[k] = A.ravel()
+        logs.action[k] = formation.action.ravel()
+        logs.fre[k] = formation.rigidity_eigenvalue()
+        logs.re[k] = formation.subframeworks_rigidity_eigenvalue()
+        logs.adjacency[k] = formation.proximity_matrix.ravel()
 
         perf_time.append((t_b - t_a)/n)
         # bar.update(np.round(t, 3))
 
     bar.finish()
-
-    # fig, ax = plt.subplots(10, 10)
-    # # ax = ax.ravel()
-    # for i in node_ids:
-    #     for j in node_ids:
-    #         ax[i, j].plot(extents[:, i], ds='steps-post', color='C2')
-    #         ax[i, j].plot(geodesics[:, i, j], ds='steps-post', color='C0')
-    #         ax[i, j].plot(
-    #             est_geodesics[:, i, j], ds='steps-post', ls='--', color='k')
-    #         ax[i, j].set_xticks(range(n_steps))
-    #         ax[i, j].set_xticklabels([])
-    #         ax[i, j].set_ylim(-0.25, 3.25)
-    #         ax[i, j].set_yticks([0, 1, 2, 3])
-    #         ax[i, j].set_yticklabels([])
-    #         if np.all(geodesics[:, i, j] > extents[:, i]):
-    #             ax[i, j].set_facecolor('0.8')
-    #         # if np.any(geodesics[:, i, j] > extents[:, i]):
-    #         #     ax[i, j].set_facecolor('0.8')
-    # plt.show()
 
     st = arg.tf
     rt = sum(perf_time)
@@ -259,7 +227,7 @@ pos = np.array([
 #     [ 6.4013, -4.1745]])
 
 
-cov = 1**2 * np.eye(2)
+cov = 0.5**2 * np.eye(2)
 
 node_ids = np.arange(n)
 
@@ -271,7 +239,7 @@ formation = Formation(
     subframework_rigidity_agent.single_integrator,
     pos, cov,
     comm_range=(dmin, dmax),
-    range_cov=1.,
+    range_cov=0.5,
     gps_cov=1.)
 
 # ------------------------------------------------------------------
@@ -290,39 +258,16 @@ logs.position[0] = formation.position.ravel()
 logs.est_position[0] = formation.est_position.ravel()
 logs.action[0] = np.zeros(n*dim)
 logs.fre[0] = formation.rigidity_eigenvalue()
-# logs.re[0] = []
-# logs.adjacency[0] = A.ravel()
+logs.re[0] = formation.subframeworks_rigidity_eigenvalue()
+logs.adjacency[0] = formation.proximity_matrix.ravel()
 
 logs = run(steps, formation, logs)
 
-xi = logs.position[0]
-est_xi = logs.est_position[0]
-est_xf = logs.est_position[-1]
-
-# print(np.linalg.norm(xi - est_xi))
-# print(np.linalg.norm(xi - est_xf))
-
-# fig, ax = network.plot.figure()
-# network.plot.nodes(ax, logs.position[0].reshape(-1, 2), marker='o')
-# network.plot.edges(
-#     ax, logs.position[0].reshape(-1, 2), formation.proximity_matrix)
-
-# for est_pos in logs.est_position:
-#     network.plot.nodes(
-#         ax, est_pos.reshape(-1, 2), color='gray', marker='.', s=10)
-
-# network.plot.nodes(
-#     ax, logs.est_position[-1].reshape(-1, 2), color='red', marker='x')
-# network.plot.nodes(
-#     ax, logs.est_position[0].reshape(-1, 2), color='blue', marker='o', s=10)
-
-# plt.show()
-
-# np.savetxt('/tmp/t.csv', time_interval, delimiter=',')
-# np.savetxt('/tmp/x.csv', logs.x, delimiter=',')
-# np.savetxt('/tmp/hatx.csv', logs.hatx, delimiter=',')
-# np.savetxt('/tmp/u.csv', logs.u, delimiter=',')
-# np.savetxt('/tmp/fre.csv', logs.fre, delimiter=',')
-# np.savetxt('/tmp/re.csv', logs.re, delimiter=',')
-# np.savetxt('/tmp/adjacency.csv', logs.adjacency, delimiter=',')
-# np.savetxt('/tmp/hops.csv', hops, delimiter=',')
+np.savetxt('/tmp/t.csv', time_interval, delimiter=',')
+np.savetxt('/tmp/position.csv', logs.position, delimiter=',')
+np.savetxt('/tmp/est_position.csv', logs.est_position, delimiter=',')
+np.savetxt('/tmp/action.csv', logs.action, delimiter=',')
+np.savetxt('/tmp/fre.csv', logs.fre, delimiter=',')
+np.savetxt('/tmp/re.csv', logs.re, delimiter=',')
+np.savetxt('/tmp/adjacency.csv', logs.adjacency, delimiter=',')
+np.savetxt('/tmp/hops.csv', formation.extents, delimiter=',')

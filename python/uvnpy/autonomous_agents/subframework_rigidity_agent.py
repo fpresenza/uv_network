@@ -9,7 +9,7 @@ import numpy as np
 import collections
 
 from uvnpy.model.linear_models import integrator
-# from uvnpy.rsn.control import decentralized_rigidity_maintenance
+from uvnpy.rsn.control import centralized_rigidity_maintenance
 from uvnpy.rsn.localization import distances_to_neighbors_kalman
 from uvnpy.autonomous_agents import routing_protocols
 
@@ -42,17 +42,23 @@ class Neighborhood(dict):
 
 
 class single_integrator(object):
-    def __init__(self, id, pos, est_pos, cov, extent=None, t=0):
+    def __init__(
+            self, id, pos, est_pos, cov,
+            comm_range, extent=None, t=0):
         self.id = id
         self.dim = len(pos)
+        self.dmin = np.min(comm_range)
+        self.dmax = np.max(comm_range)
         self.extent = extent
         self.current_time = t
         self.dm = integrator(pos)
+        self.controller = centralized_rigidity_maintenance(
+            self.dim, self.dmin, 20/self.dmin, 1/3)
         self.control_action = np.zeros(self.dim)
         self.action = {}
         # self.ctrl = decentralized_rigidity_maintenance()
         ctrl_cov = 0.05**2 * np.eye(self.dim)
-        range_cov = 1.
+        range_cov = 0.5
         self.gps_cov = gps_cov = 1. * np.eye(self.dim)
         self.loc = distances_to_neighbors_kalman(
             est_pos, cov, ctrl_cov, range_cov, gps_cov)
@@ -69,6 +75,7 @@ class single_integrator(object):
             self.current_time,
             self.action,
             self.loc.position,
+            # self.dm.x,
             self.loc.covariance)
         msg = InterAgentMsg(
             id=self.id,
@@ -88,14 +95,20 @@ class single_integrator(object):
         [routing.update_state(tkn) for tkn in msg.state_tokens.values()]
 
     def control_step(self):
-        self.control_action = np.zeros(self.dim)
         position = self.routing.positions()
-        p = np.vstack(list(position.values()))
-        u = p * 0
+        p = np.empty((len(position) + 1, self.dim))
+        p[0] = self.loc.position
+        # p[0] = self.dm.x
+        p[1:] = list(position.values())
+        u = self.controller.update(p)
+
+        cmd = self.routing.commands()
+        self.control_action = 0.3 * (u[0] + sum(cmd.values()))
+        self.dm.step(self.current_time, self.control_action)
+
         self.action = {
             i: ui
-            for i, ui in zip(position.keys(), u)}
-        self.dm.step(self.current_time, self.control_action)
+            for i, ui in zip(position.keys(), u[1:])}
 
     def localization_step(self):
         self.loc.dynamic_step(self.current_time, self.control_action)
