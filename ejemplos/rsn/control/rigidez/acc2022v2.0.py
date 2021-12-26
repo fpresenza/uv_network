@@ -135,12 +135,12 @@ def run(steps, formation, logs):
         for i in node_ids:
             formation.receive(i)
             # print(k, i, 4 in formation[i].routing.action)
-            # state_tokens = formation[i].routing.state.values()
-            # print([tkn.center for tkn in state_tokens])
 
             # formation[i].localization_step()
             action_tokens = formation[i].routing.action.values()
-            # print([tkn.center for tkn in action_tokens])
+            if i == 0:
+                # print([tkn.center for tkn in action_tokens])
+                print(formation[i].routing.commands())
             j = [token.center for token in action_tokens]
             gij = [token.hops_travelled for token in action_tokens]
             est_geodesics[k, j, i] = gij
@@ -148,7 +148,12 @@ def run(steps, formation, logs):
             #     j = vj.center
             #     est_geodesics[k, j, i] = vj.hops_travelled
 
-        # print(formation[7].routing.state_tokens())
+        # state_tokens = formation[7].routing.state.values()
+        # print([tkn.center for tkn in state_tokens])
+
+        for i in node_ids:
+            formation[i].control_step()
+
         for i in node_ids:
             formation.broadcast(i)
         # print([tkn.path for tkn in formation[7].routing.state_tokens()])

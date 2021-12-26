@@ -73,31 +73,46 @@ class subframework_rigidity(object):
     def in_path(self, token):
         return np.any([self.id in p[1:-1] for p in token.path])
 
+    def commands(self):
+        cmd = {
+            token.center: token.data[self.id]
+            for token in self.action.values()
+            if self.id in token.data}
+        return cmd
+
+    def positions(self):
+        p = {
+            token.center: token.data.position
+            for token in self.state.values()}
+        return p
+
     def broadcast(self, timestamp, action, position, covariance):
         """Prepara las listas con los tokens que se deben enviar.
         Luego elimina todos los tokens recibidos de otros nodos."""
-        action_tokens = dict([
-            (tkn.center, tkn) for tkn in self.action.values()
-            if self.to_target(tkn)])
-        self_action_token = Token(
+        action_tokens = {
+            token.center: token
+            for token in self.action.values()
+            if self.to_target(token)}
+
+        action_tokens[self.id] = Token(
             center=self.id,
             timestamp=timestamp,
             hops_to_target=self.extent,
             hops_travelled=0,
             path=[self.id],
             data=action)
-        action_tokens[self.id] = self_action_token
 
-        state_tokens = dict([
-            (tkn.center, tkn) for tkn in self.state.values()
-            if self.in_path(tkn)])
-        self_state_token = Token(
+        state_tokens = {
+            token.center: token
+            for token in self.state.values()
+            if self.in_path(token)}
+
+        state_tokens[self.id] = Token(
             center=self.id,
             timestamp=timestamp,
             hops_travelled=0,
-            path=[tkn.path for tkn in self.action_tokens()],
+            path=[token.path for token in self.action_tokens()],
             data=State(position, covariance))
-        state_tokens[self.id] = self_state_token
 
         self.action.clear()
         self.state.clear()

@@ -49,6 +49,7 @@ class single_integrator(object):
         self.current_time = t
         self.dm = integrator(pos)
         self.control_action = np.zeros(self.dim)
+        self.action = {}
         # self.ctrl = decentralized_rigidity_maintenance()
         ctrl_cov = 0.05**2 * np.eye(self.dim)
         range_cov = 1.
@@ -66,7 +67,7 @@ class single_integrator(object):
     def send_msg(self):
         action_tokens, state_tokens = self.routing.broadcast(
             self.current_time,
-            self.control_action,
+            self.action,
             self.loc.position,
             self.loc.covariance)
         msg = InterAgentMsg(
@@ -88,6 +89,12 @@ class single_integrator(object):
 
     def control_step(self):
         self.control_action = np.zeros(self.dim)
+        position = self.routing.positions()
+        p = np.vstack(list(position.values()))
+        u = p * 0
+        self.action = {
+            i: ui
+            for i, ui in zip(position.keys(), u)}
         self.dm.step(self.current_time, self.control_action)
 
     def localization_step(self):
