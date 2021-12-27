@@ -10,7 +10,7 @@ import collections
 
 
 __all__ = (
-    'subframework_rigidity', )
+    'subgraph_protocol', )
 
 Token = collections.namedtuple(
     'Token',
@@ -29,32 +29,24 @@ Token.__new__.__defaults__ = (
     None,
     None)
 
-State = collections.namedtuple(
-    'State',
-    'position, \
-    covariance')
 
-State.__new__.__defaults__ = (
-    None,
-    None)
-
-
-class subframework_rigidity(object):
+class subgraph_protocol(object):
     def __init__(self, node_id, node_extent, t=0.):
         """Clase para implementar el ruteo necesario para el control
-        de rigidez basado en subframeworks.
+        de formaciones basado en subgrafos.
 
-        Cada nodo envia a sus vecinos un token de accion y uno de posicion con
-        informacion propia.
-        El primero contiene los comandos para los nodos en el subframework
-        propio, y el segundo contiene el estado actual del nodo en cuestion
-        para aquellos nodos que lo incluyan en su subframework.
+        El protocolo se basa en dos tipos de tokens: accion y estado.
 
-        Los tokens de accion que llegan a cada nodo son reenviados solo si la
-        cantidad de hops que viajaron son menores al extent del nodo emisor.
+        Cada nodo recibe un token de estado por cada nodo en su subgrafo,
+        computa las acciones de control, las empaqueta en un token de accion
+        y las reenvia al mismo.
 
-        Los tokens de posicion que llegan a cada nodo son reenviados solo si
-        el nodo esta en un camino que une dos nodos que desean comunicarse.
+        Los tokens de accion se propagan hasta que la cantidad de hops
+        viajados es igual al extent del nodo emisor.
+
+        Cada nodo envia sus tokens de estado a los nodos de los cuales
+        recibio token de accion. Los tokens de estado son ruteados por los
+        caminos por los cuales llegaron aquellos tokens de accion.
         """
         self.id = node_id
         self.extent = node_extent
@@ -73,16 +65,16 @@ class subframework_rigidity(object):
     def in_path(self, token):
         return np.any([self.id in p[1:-1] for p in token.path])
 
-    def commands(self):
+    def extract_action(self):
         cmd = {
             token.center: token.data[self.id]
             for token in self.action.values()
             if self.id in token.data}
         return cmd
 
-    def positions(self):
+    def extract_state(self, key):
         p = {
-            token.center: token.data.position
+            token.center: token.data[key]
             for token in self.state.values()
             if token.hops_travelled <= self.extent}
         return p
@@ -94,7 +86,7 @@ class subframework_rigidity(object):
             if token.hops_travelled <= self.extent}
         return g
 
-    def broadcast(self, timestamp, action, position, covariance):
+    def broadcast(self, timestamp, action, state):
         """Prepara las listas con los tokens que se deben enviar.
         Luego elimina todos los tokens recibidos de otros nodos."""
         action_tokens = {
@@ -120,7 +112,7 @@ class subframework_rigidity(object):
             timestamp=timestamp,
             hops_travelled=0,
             path=[token.path for token in self.action_tokens()],
-            data=State(position, covariance))
+            data=state)
 
         self.action.clear()
         self.state.clear()

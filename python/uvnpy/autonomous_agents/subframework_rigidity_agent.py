@@ -65,9 +65,13 @@ class single_integrator(object):
         self.loc = distances_to_neighbors_kalman(
             est_pos, cov, ctrl_cov, range_cov, gps_cov)
         self.neighborhood = Neighborhood()
-        self.routing = routing_protocols.subframework_rigidity(
+        self.routing = routing_protocols.subgraph_protocol(
             self.id, self.extent, self.current_time)
         self.gps = {}
+        self.state = {
+            'position': self.loc.position,
+            'covariance': self.loc.covariance
+        }
 
     def update_time(self, t):
         self.current_time = t
@@ -76,8 +80,7 @@ class single_integrator(object):
         action_tokens, state_tokens = self.routing.broadcast(
             self.current_time,
             self.action,
-            self.loc.position,
-            self.loc.covariance)
+            self.state)
         msg = InterAgentMsg(
             id=self.id,
             timestamp=self.current_time,
@@ -88,8 +91,8 @@ class single_integrator(object):
     def receive_msg(self, msg, range_measurement):
         self.neighborhood.update(
             msg.id, msg.timestamp,
-            msg.state_tokens[msg.id].data.position,
-            msg.state_tokens[msg.id].data.covariance,
+            msg.state_tokens[msg.id].data['position'],
+            msg.state_tokens[msg.id].data['covariance'],
             range_measurement)
         routing = self.routing
         [routing.update_action(tkn) for tkn in msg.action_tokens.values()]
@@ -97,7 +100,7 @@ class single_integrator(object):
 
     def control_step(self, cmd_ext=0):
         # obtengo posiciones del subframework
-        position = self.routing.positions()
+        position = self.routing.extract_state('position')
         p = np.empty((len(position) + 1, self.dim))
         p[0] = self.loc.position
         p[1:] = list(position.values())
@@ -118,7 +121,7 @@ class single_integrator(object):
         u = 0.3 * u_r + 0.075 * u_l
 
         # genero la accion de control del centro
-        cmd = self.routing.commands()
+        cmd = self.routing.extract_action()
         u_center = u[0] + sum(cmd.values())
 
         # empaco las acciones de control del subframework
@@ -146,3 +149,5 @@ class single_integrator(object):
             z = self.gps[max(self.gps.keys())]
             self.loc.gps_step(z)
             self.gps.clear()
+        self.state['position'] = self.loc.position
+        self.state['covariance'] = self.loc.covariance
