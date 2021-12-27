@@ -87,6 +87,13 @@ class subframework_rigidity(object):
             if token.hops_travelled <= self.extent}
         return p
 
+    def geodesics(self):
+        g = {
+            token.center: token.hops_travelled
+            for token in self.state.values()
+            if token.hops_travelled <= self.extent}
+        return g
+
     def broadcast(self, timestamp, action, position, covariance):
         """Prepara las listas con los tokens que se deben enviar.
         Luego elimina todos los tokens recibidos de otros nodos."""

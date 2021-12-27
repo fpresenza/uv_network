@@ -9,7 +9,7 @@ import numpy as np
 
 from uvnpy.rsn import distances, rigidity
 from uvnpy.toolkit import functions
-from uvnpy.toolkit.calculus import derivative_eval
+from uvnpy.toolkit import calculus
 
 
 class centralized_rigidity_maintenance(object):
@@ -31,7 +31,7 @@ class centralized_rigidity_maintenance(object):
         self.non_adjacent = non_adjacent
 
     def gradient(self, x, eigenvalue, eigenvector):
-        dS_dx = derivative_eval(self.weighted_rigidity_matrix, x)
+        dS_dx = calculus.derivative_eval(self.weighted_rigidity_matrix, x)
         dlambda_dx = eigenvector.dot(dS_dx).dot(eigenvector)
         dlambda_dx = dlambda_dx.reshape(x.shape)
         u = -self.r * eigenvalue**(-self.r - 1) * dlambda_dx
@@ -48,4 +48,19 @@ class centralized_rigidity_maintenance(object):
         S = self.weighted_rigidity_matrix(x)
         e, V = np.linalg.eigh(S)
         grad = self.gradient(x, e[self.dof], V[:, self.dof])
+        return -grad
+
+
+class communication_load(object):
+    def __init__(self, dmax):
+        self.dmax = dmax
+
+    def load(self, x, coeff):
+        w = distances.matrix(x)
+        w[w > 0] = functions.logistic(w[w > 0], self.dmax, 5/self.dmax)
+        deg = w.sum(-1)
+        return (coeff * deg).sum(-1)
+
+    def update(self, x, coeff):
+        grad = calculus.gradient(self.load, x, coeff)
         return -grad

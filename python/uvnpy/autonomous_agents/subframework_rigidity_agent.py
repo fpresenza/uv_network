@@ -9,7 +9,9 @@ import numpy as np
 import collections
 
 from uvnpy.model.linear_models import integrator
-from uvnpy.rsn.control import centralized_rigidity_maintenance
+from uvnpy.rsn.control import (
+    centralized_rigidity_maintenance,
+    communication_load)
 from uvnpy.rsn.localization import distances_to_neighbors_kalman
 from uvnpy.autonomous_agents import routing_protocols
 
@@ -52,8 +54,9 @@ class single_integrator(object):
         self.extent = extent
         self.current_time = t
         self.dm = integrator(pos)
-        self.controller = centralized_rigidity_maintenance(
+        self.maintenance = centralized_rigidity_maintenance(
             self.dim, self.dmin, 20/self.dmin, 1/3, non_adjacent=True)
+        self.load = communication_load(self.dmax)
         self.control_action = np.zeros(self.dim)
         self.action = {}
         ctrl_cov = 0.05**2 * np.eye(self.dim)
@@ -74,7 +77,6 @@ class single_integrator(object):
             self.current_time,
             self.action,
             self.loc.position,
-            # self.dm.x,
             self.loc.covariance)
         msg = InterAgentMsg(
             id=self.id,
@@ -93,21 +95,40 @@ class single_integrator(object):
         [routing.update_action(tkn) for tkn in msg.action_tokens.values()]
         [routing.update_state(tkn) for tkn in msg.state_tokens.values()]
 
-    def control_step(self):
+    def control_step(self, cmd_ext=0):
+        # obtengo posiciones del subframework
         position = self.routing.positions()
         p = np.empty((len(position) + 1, self.dim))
         p[0] = self.loc.position
-        # p[0] = self.dm.x
         p[1:] = list(position.values())
-        u = self.controller.update(p)
 
+        # obtengo la accion de control de rigidez
+        u_r = self.maintenance.update(p)
+
+        # obtengo la accion de control de carga
+        geodesics = self.routing.geodesics()
+        g = np.empty(len(geodesics) + 1)
+        g[0] = 0
+        g[1:] = list(geodesics.values())
+
+        coeff = g < self.extent
+        u_l = self.load.update(p, coeff)
+
+        # sumo los objetivos del subframework
+        u = 0.3 * u_r + 0.075 * u_l
+
+        # genero la accion de control del centro
         cmd = self.routing.commands()
-        self.control_action = 0.3 * (u[0] + sum(cmd.values()))
-        self.dm.step(self.current_time, self.control_action)
+        u_center = u[0] + sum(cmd.values())
 
+        # empaco las acciones de control del subframework
         self.action = {
             i: ui
             for i, ui in zip(position.keys(), u[1:])}
+
+        # aplico acciones de control
+        self.control_action = cmd_ext + u_center
+        self.dm.step(self.current_time, self.control_action)
 
     def localization_step(self):
         self.loc.dynamic_step(self.current_time, self.control_action)
