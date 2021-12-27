@@ -50,7 +50,7 @@ class Formation(object):
                 self.dmin, self.extents[i])
             self.position_array[i] = self.vehicles[i].dm._x         # asigna el address # noqa
             self.est_position_array[i] = self.vehicles[i].loc._x    # asigna el address # noqa
-        self.cloud = {v.id: [] for v in self.vehicles}
+        self.cloud = {v.node_id: [] for v in self.vehicles}
 
     @property
     def position(self):
@@ -106,7 +106,7 @@ class Formation(object):
             range_measurement = np.random.normal(
                 distances.matrix_between(center.dm.x, neighbor.dm.x),
                 self.range_cov)
-            self.cloud[neighbor.id].append((msg, range_measurement))
+            self.cloud[neighbor.node_id].append((msg, range_measurement))
 
     def receive(self, node_id):
         cloud = self.cloud.copy()

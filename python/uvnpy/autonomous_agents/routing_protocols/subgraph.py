@@ -48,7 +48,7 @@ class subgraph_protocol(object):
         recibio token de accion. Los tokens de estado son ruteados por los
         caminos por los cuales llegaron aquellos tokens de accion.
         """
-        self.id = node_id
+        self.node_id = node_id
         self.extent = node_extent
         self.action = {}
         self.state = {}
@@ -63,13 +63,13 @@ class subgraph_protocol(object):
         return token.hops_travelled < token.hops_to_target
 
     def in_path(self, token):
-        return np.any([self.id in p[1:-1] for p in token.path])
+        return np.any([self.node_id in p[1:-1] for p in token.path])
 
     def extract_action(self):
         cmd = {
-            token.center: token.data[self.id]
+            token.center: token.data[self.node_id]
             for token in self.action.values()
-            if self.id in token.data}
+            if self.node_id in token.data}
         return cmd
 
     def extract_state(self, key):
@@ -94,12 +94,12 @@ class subgraph_protocol(object):
             for token in self.action.values()
             if self.to_target(token)}
 
-        action_tokens[self.id] = Token(
-            center=self.id,
+        action_tokens[self.node_id] = Token(
+            center=self.node_id,
             timestamp=timestamp,
             hops_to_target=self.extent,
             hops_travelled=0,
-            path=[self.id],
+            path=[self.node_id],
             data=action)
 
         state_tokens = {
@@ -107,8 +107,8 @@ class subgraph_protocol(object):
             for token in self.state.values()
             if self.in_path(token)}
 
-        state_tokens[self.id] = Token(
-            center=self.id,
+        state_tokens[self.node_id] = Token(
+            center=self.node_id,
             timestamp=timestamp,
             hops_travelled=0,
             path=[token.path for token in self.action_tokens()],
@@ -121,17 +121,17 @@ class subgraph_protocol(object):
 
     def update_action(self, token):
         """Actualiza la informacion de accion que es recibida"""
-        if token.center != self.id:
+        if token.center != self.node_id:
             token = token._replace(
                 hops_travelled=token.hops_travelled + 1,
-                path=token.path + [self.id])
+                path=token.path + [self.node_id])
             self.action[token.center] = self.action.get(token.center, token)
             if token.hops_travelled < self.action[token.center].hops_travelled:
                 self.action[token.center] = token
 
     def update_state(self, token):
         """Actualiza la informacion de estado que es recibida"""
-        if token.center != self.id:
+        if token.center != self.node_id:
             token = token._replace(
                 hops_travelled=token.hops_travelled + 1)
             self.state[token.center] = self.state.get(token.center, token)

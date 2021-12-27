@@ -18,7 +18,7 @@ from uvnpy.autonomous_agents import routing_protocols
 
 InterAgentMsg = collections.namedtuple(
     'InterAgentMsg',
-    'id, \
+    'node_id, \
     timestamp, \
     action_tokens, \
     state_tokens')
@@ -26,7 +26,7 @@ InterAgentMsg = collections.namedtuple(
 
 NeigborhoodData = collections.namedtuple(
     'NeigborhoodData',
-    'id, \
+    'node_id, \
     timestamp, \
     covariance, \
     position, \
@@ -34,9 +34,11 @@ NeigborhoodData = collections.namedtuple(
 
 
 class Neighborhood(dict):
-    def update(self, id, timestamp, position, covariance, range_measurement):
-        self[id] = NeigborhoodData(
-            id=id,
+    def update(
+            self, node_id, timestamp,
+            position, covariance, range_measurement):
+        self[node_id] = NeigborhoodData(
+            node_id=node_id,
             timestamp=timestamp,
             position=position,
             covariance=covariance,
@@ -45,9 +47,9 @@ class Neighborhood(dict):
 
 class single_integrator(object):
     def __init__(
-            self, id, pos, est_pos, cov,
+            self, node_id, pos, est_pos, cov,
             comm_range, extent=None, t=0):
-        self.id = id
+        self.node_id = node_id
         self.dim = len(pos)
         self.dmin = np.min(comm_range)
         self.dmax = np.max(comm_range)
@@ -66,7 +68,7 @@ class single_integrator(object):
             est_pos, cov, ctrl_cov, range_cov, gps_cov)
         self.neighborhood = Neighborhood()
         self.routing = routing_protocols.subgraph_protocol(
-            self.id, self.extent, self.current_time)
+            self.node_id, self.extent, self.current_time)
         self.gps = {}
         self.state = {
             'position': self.loc.position,
@@ -82,7 +84,7 @@ class single_integrator(object):
             self.action,
             self.state)
         msg = InterAgentMsg(
-            id=self.id,
+            node_id=self.node_id,
             timestamp=self.current_time,
             action_tokens=action_tokens,
             state_tokens=state_tokens)
@@ -90,9 +92,9 @@ class single_integrator(object):
 
     def receive_msg(self, msg, range_measurement):
         self.neighborhood.update(
-            msg.id, msg.timestamp,
-            msg.state_tokens[msg.id].data['position'],
-            msg.state_tokens[msg.id].data['covariance'],
+            msg.node_id, msg.timestamp,
+            msg.state_tokens[msg.node_id].data['position'],
+            msg.state_tokens[msg.node_id].data['covariance'],
             range_measurement)
         routing = self.routing
         [routing.update_action(tkn) for tkn in msg.action_tokens.values()]
