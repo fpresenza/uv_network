@@ -40,8 +40,9 @@ class Formation(object):
         self.position_array = np.empty(self.n, dtype=np.ndarray)
         self.est_position_array = np.empty(self.n, dtype=np.ndarray)
         self.action = np.zeros((self.n, self.dim))
-        A = disk_graph.adjacency(pos, self.dmin)
-        self.extents = rigidity.extents(A, pos)
+        self.proximity_matrix = disk_graph.adjacency(
+            pos, self.dmin).astype(bool)
+        self.extents = rigidity.extents(self.proximity_matrix, pos)
         for i in node_ids:
             est_pos = np.random.multivariate_normal(pos[i], cov)
             self.vehicles[i] = agent_model(
@@ -49,7 +50,6 @@ class Formation(object):
                 self.dmin, self.extents[i])
             self.position_array[i] = self.vehicles[i].dm._x         # asigna el address # noqa
             self.est_position_array[i] = self.vehicles[i].loc._x    # asigna el address # noqa
-        self.update_proximity()
         self.cloud = {v.id: [] for v in self.vehicles}
 
     @property
@@ -86,8 +86,12 @@ class Formation(object):
         [v.update_time(t) for v in self.vehicles]
 
     def update_proximity(self):
-        A = disk_graph.adjacency(self.position, self.dmin)
-        self.proximity_matrix = A.astype(bool)
+        # A = disk_graph.adjacency(self.position, self.dmin)
+        A = disk_graph.adjacency_histeresis(
+            self.proximity_matrix,
+            self.position,
+            self.dmin, self.dmax)
+        self.proximity_matrix = A
 
     def get_gps(self, node_id):
         center = self.vehicles[node_id]
@@ -236,7 +240,7 @@ cov = 0.5**2 * np.eye(2)
 node_ids = np.arange(n)
 
 dmin = 0.85 * lim
-dmax = lim
+dmax = 0.9 * lim
 
 formation = Formation(
     node_ids,
