@@ -53,10 +53,9 @@ class single_integrator(object):
         self.current_time = t
         self.dm = integrator(pos)
         self.controller = centralized_rigidity_maintenance(
-            self.dim, self.dmin, 20/self.dmin, 1/3)
+            self.dim, self.dmin, 20/self.dmin, 1/3, non_adjacent=True)
         self.control_action = np.zeros(self.dim)
         self.action = {}
-        # self.ctrl = decentralized_rigidity_maintenance()
         ctrl_cov = 0.05**2 * np.eye(self.dim)
         range_cov = 0.5
         self.gps_cov = gps_cov = 1. * np.eye(self.dim)

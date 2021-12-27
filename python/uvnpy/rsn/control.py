@@ -13,7 +13,7 @@ from uvnpy.toolkit.calculus import derivative_eval
 
 
 class centralized_rigidity_maintenance(object):
-    def __init__(self, dim, dmax, steepness, exponent):
+    def __init__(self, dim, dmax, steepness, exponent, non_adjacent=False):
         """Control gradiente descendiente.
 
         args:
@@ -21,12 +21,14 @@ class centralized_rigidity_maintenance(object):
             dmax: distancia maxima de conexion
             steepness: factor de decaimiento de intensidad de señal
             exponent: exponente (>0) al que se eleva el autovalor de rigidez
+            non_adjacent: bool para considerar los enlaces no existentes
         """
         self.dim = dim
         self.midpoint = dmax
         self.steepness = steepness
         self.r = exponent
         self.dof = int(dim * (dim + 1)/2)
+        self.non_adjacent = non_adjacent
 
     def gradient(self, x, eigenvalue, eigenvector):
         dS_dx = derivative_eval(self.weighted_rigidity_matrix, x)
@@ -37,6 +39,7 @@ class centralized_rigidity_maintenance(object):
 
     def weighted_rigidity_matrix(self, x):
         w = distances.matrix(x)
+        w[w > self.midpoint] *= int(self.non_adjacent)
         w[w > 0] = functions.logistic(w[w > 0], self.midpoint, self.steepness)
         S = rigidity.symmetric_matrix(w, x)
         return S

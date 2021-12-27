@@ -132,6 +132,13 @@ def run(steps, formation, logs):
     for i in node_ids:
         formation.broadcast(i)
 
+    # for _ in range(10):
+    #     for i in node_ids:
+    #         formation.broadcast(i)
+    #     for i in node_ids:
+    #         formation.receive(i)
+    #         formation.localization_step(i)
+
     for k, t in steps[1:]:
         t_a = time.perf_counter()
 
@@ -143,9 +150,6 @@ def run(steps, formation, logs):
         for i in node_ids:
             formation.receive(i)
 
-        # print(formation.vehicles[6].routing.positions())
-        # print(formation.vehicles[5].routing.action_tokens())
-        # print('.....')
         for i in node_ids:
             formation.localization_step(i)
             formation.control_step(i)
@@ -166,7 +170,7 @@ def run(steps, formation, logs):
         logs.adjacency[k] = formation.proximity_matrix.ravel()
 
         perf_time.append((t_b - t_a)/n)
-        # bar.update(np.round(t, 3))
+        bar.update(np.round(t, 3))
 
     bar.finish()
 
