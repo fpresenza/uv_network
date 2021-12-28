@@ -14,6 +14,8 @@ from uvnpy.rsn.control import (
     communication_load)
 from uvnpy.rsn.localization import distances_to_neighbors_kalman
 from uvnpy.autonomous_agents import routing_protocols
+from uvnpy.rsn import rigidity
+from uvnpy.network import disk_graph
 
 
 InterAgentMsg = collections.namedtuple(
@@ -78,11 +80,23 @@ class single_integrator(object):
     def update_time(self, t):
         self.current_time = t
 
+    def choose_extent(self):
+        for hops in range(1, self.extent):
+            position = self.routing.extract_state('position', hops)
+            p = np.empty((len(position) + 1, self.dim))
+            p[0] = self.loc.position
+            p[1:] = list(position.values())
+            A = disk_graph.adjacency(p, self.dmin)
+            if rigidity.eigenvalue(A, p) > 1e-2:
+                self.extent = hops
+                break
+
     def send_msg(self):
         action_tokens, state_tokens = self.routing.broadcast(
             self.current_time,
             self.action,
-            self.state)
+            self.state,
+            self.extent)
         msg = InterAgentMsg(
             node_id=self.node_id,
             timestamp=self.current_time,
@@ -102,7 +116,7 @@ class single_integrator(object):
 
     def control_step(self, cmd_ext=0):
         # obtengo posiciones del subframework
-        position = self.routing.extract_state('position')
+        position = self.routing.extract_state('position', self.extent)
         p = np.empty((len(position) + 1, self.dim))
         p[0] = self.loc.position
         p[1:] = list(position.values())
@@ -111,7 +125,7 @@ class single_integrator(object):
         u_r = self.maintenance.update(p)
 
         # obtengo la accion de control de carga
-        geodesics = self.routing.geodesics()
+        geodesics = self.routing.geodesics(self.extent)
         g = np.empty(len(geodesics) + 1)
         g[0] = 0
         g[1:] = list(geodesics.values())

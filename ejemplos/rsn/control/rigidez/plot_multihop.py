@@ -24,32 +24,44 @@ u = np.loadtxt('/tmp/action.csv', delimiter=',')
 fre = np.loadtxt('/tmp/fre.csv', delimiter=',')
 re = np.loadtxt('/tmp/re.csv', delimiter=',')
 A = np.loadtxt('/tmp/adjacency.csv', delimiter=',')
-hops = np.loadtxt('/tmp/hops.csv', delimiter=',')
+extents = np.loadtxt('/tmp/extents.csv', delimiter=',')
 n = int(len(x[0])/2)
 nodes = np.arange(n)
-hops = hops.astype(int)
+extents = extents.astype(int)
 
 # reshapes
 x = x.reshape(len(t), n, 2)
 hatx = hatx.reshape(len(t), n, 2)
-print(x[0], hatx[0])
+# print(x[0], hatx[0])
 u = u.reshape(len(t), n, 2)
 A = A.reshape(len(t), n, n)
 
 
 # slice
-kf = np.argmin(np.abs(t - 200))
-t = t[:kf]
-x = x[:kf]
-hatx = hatx[:kf]
-u = u[:kf]
-fre = fre[:kf]
-re = re[:kf]
-A = A[:kf]
+# kf = np.argmin(np.abs(t - 200))
+# t = t[:kf]
+# x = x[:kf]
+# hatx = hatx[:kf]
+# u = u[:kf]
+# fre = fre[:kf]
+# re = re[:kf]
+# A = A[:kf]
 
 # calculos
 edges = A.sum(-1).sum(-1)/2
-load = np.array([subsets.degree_load_std(a, hops) for a in A])
+load = np.array([subsets.degree_load_std(a, h) for a, h in zip(A, extents)])
+
+fig, ax = plt.subplots(figsize=(3, 1.5))
+fig.subplots_adjust(bottom=0.2)
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='xx-small')
+ax.grid(1, lw=0.4)
+ax.plot(t, extents, lw=0.8, ds='steps-post')
+ax.set_xlabel(r'$t$ (sec)', fontsize='x-small', labelpad=0.6)
+ax.set_ylabel(r'Extents', fontsize='x-small', labelpad=0.6)
 
 fig, axes = plt.subplots(2, 2, figsize=(10, 4))
 
@@ -104,7 +116,7 @@ axes[1].set_xlabel(r'$t$ (sec)', fontsize='x-small', labelpad=0.6)
 axes[1].set_ylabel(
     r'Std. Load', fontsize='x-small', labelpad=0.6)
 # axes[1].plot(t, edges, lw=0.8)
-axes[1].plot(t, load/2/edges[0], lw=0.8)
+axes[1].plot(t, load/2/edges, lw=0.8)
 # axes[1].hlines(2*n-3, t[0], t[-1], color='k', ls='--', lw=0.8)
 axes[1].set_ylim(bottom=1)
 fig.savefig('/tmp/simu_metrics.png', format='png', dpi=300)
@@ -112,10 +124,10 @@ fig.savefig('/tmp/simu_metrics.png', format='png', dpi=300)
 # instantes
 instants = np.array([0., 200])
 lim = np.abs(x).max()
-one_hop_rigid = hops == 1
-two_hop_rigid = hops == 2
-three_hop_rigid = hops == 3
-four_hop_rigid = hops == 4
+one_hop_rigid = extents[0] == 1
+two_hop_rigid = extents[0] == 2
+three_hop_rigid = extents[0] == 3
+four_hop_rigid = extents[0] == 4
 
 fig, axes = plt.subplots(1, 2, figsize=(3.4, 2))
 fig.subplots_adjust(wspace=0.215, left=0.11, right=0.975)
@@ -205,10 +217,10 @@ ax.set_ylabel(r'$y$', fontsize='x-small', labelpad=0.6)
 ax.set_xlim(-lim, lim)
 ax.set_ylim(-lim, lim)
 anim = network.plot.Animate(fig, ax, timestep/2, frames, maxlen=50)
-one_hop_rigid = hops == 1
-two_hop_rigid = hops == 2
-three_hop_rigid = hops == 3
-four_hop_rigid = hops == 4
+one_hop_rigid = extents[0] == 1
+two_hop_rigid = extents[0] == 2
+three_hop_rigid = extents[0] == 3
+four_hop_rigid = extents[0] == 4
 anim.set_teams(
     {'ids': nodes[one_hop_rigid], 'tail': True,
         'style': {'color': 'royalblue', 'marker': 'o', 'markersize': 5}},

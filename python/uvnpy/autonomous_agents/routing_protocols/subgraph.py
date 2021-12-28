@@ -31,7 +31,7 @@ Token.__new__.__defaults__ = (
 
 
 class subgraph_protocol(object):
-    def __init__(self, node_id, node_extent, t=0.):
+    def __init__(self, node_id, extent, t=0.):
         """Clase para implementar el ruteo necesario para el control
         de formaciones basado en subgrafos.
 
@@ -49,7 +49,6 @@ class subgraph_protocol(object):
         caminos por los cuales llegaron aquellos tokens de accion.
         """
         self.node_id = node_id
-        self.extent = node_extent
         self.action = {}
         self.state = {}
 
@@ -72,21 +71,21 @@ class subgraph_protocol(object):
             if self.node_id in token.data}
         return cmd
 
-    def extract_state(self, key):
+    def extract_state(self, key, hops):
         p = {
             token.center: token.data[key]
             for token in self.state.values()
-            if token.hops_travelled <= self.extent}
+            if token.hops_travelled <= hops}
         return p
 
-    def geodesics(self):
+    def geodesics(self, hops):
         g = {
             token.center: token.hops_travelled
             for token in self.state.values()
-            if token.hops_travelled <= self.extent}
+            if token.hops_travelled <= hops}
         return g
 
-    def broadcast(self, timestamp, action, state):
+    def broadcast(self, timestamp, action, state, extent):
         """Prepara las listas con los tokens que se deben enviar.
         Luego elimina todos los tokens recibidos de otros nodos."""
         action_tokens = {
@@ -97,7 +96,7 @@ class subgraph_protocol(object):
         action_tokens[self.node_id] = Token(
             center=self.node_id,
             timestamp=timestamp,
-            hops_to_target=self.extent,
+            hops_to_target=extent,
             hops_travelled=0,
             path=[self.node_id],
             data=action)

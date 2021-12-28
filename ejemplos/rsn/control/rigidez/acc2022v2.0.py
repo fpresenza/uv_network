@@ -21,7 +21,13 @@ from uvnpy.autonomous_agents import subframework_rigidity_agent
 # ------------------------------------------------------------------
 Logs = collections.namedtuple(
     'Logs',
-    'position, est_position, action, fre, re, adjacency')
+    'position, \
+    est_position,  \
+    action, \
+    fre, \
+    re, \
+    adjacency, \
+    extents')
 
 
 class Formation(object):
@@ -42,12 +48,12 @@ class Formation(object):
         self.action = np.zeros((self.n, self.dim))
         self.proximity_matrix = disk_graph.adjacency(
             pos, self.dmin).astype(bool)
-        self.extents = rigidity.extents(self.proximity_matrix, pos)
+        extents = rigidity.extents(self.proximity_matrix, pos)
         for i in node_ids:
             est_pos = np.random.multivariate_normal(pos[i], cov)
             self.vehicles[i] = agent_model(
                 i, pos[i], est_pos, cov,
-                self.dmin, self.extents[i])
+                self.dmin, extents[i])
             self.position_array[i] = self.vehicles[i].dm._x         # asigna el address # noqa
             self.est_position_array[i] = self.vehicles[i].loc._x    # asigna el address # noqa
         self.cloud = {v.node_id: [] for v in self.vehicles}
@@ -60,19 +66,21 @@ class Formation(object):
     def est_position(self):
         return np.vstack(self.est_position_array)
 
+    @property
+    def extents(self):
+        h = [v.extent for v in self.vehicles]
+        return h
+
     def rigidity_eigenvalue(self):
         re = rigidity.eigenvalue(self.proximity_matrix, self.position)
         return re
-
-    def rigidity_extents(self):
-        h = rigidity.extents(self.proximity_matrix, self.position)
-        return h
 
     def subframeworks(self):
         sf = [
             network.subsets.multihop_subframework(
                 self.proximity_matrix, self.position,
-                i, self.extents[i]) for i in range(self.n)]
+                i, self.vehicles[i].extent)
+            for i in range(self.n)]
         return sf
 
     def subframeworks_rigidity_eigenvalue(self):
@@ -86,7 +94,6 @@ class Formation(object):
         [v.update_time(t) for v in self.vehicles]
 
     def update_proximity(self):
-        # A = disk_graph.adjacency(self.position, self.dmin)
         A = disk_graph.adjacency_histeresis(
             self.proximity_matrix,
             self.position,
@@ -130,6 +137,7 @@ def run(steps, formation, logs):
     # iteración
     bar = progressbar.ProgressBar(maxval=arg.tf).start()
     perf_time = []
+    t_init = 5
 
     print(formation.extents)
 
@@ -156,7 +164,9 @@ def run(steps, formation, logs):
 
         for i in node_ids:
             formation.localization_step(i)
-            formation.control_step(i)
+            if t > t_init:
+                formation.control_step(i)
+                formation.vehicles[i].choose_extent()
 
         for i in node_ids:
             formation.broadcast(i)
@@ -172,6 +182,7 @@ def run(steps, formation, logs):
         logs.fre[k] = formation.rigidity_eigenvalue()
         logs.re[k] = formation.subframeworks_rigidity_eigenvalue()
         logs.adjacency[k] = formation.proximity_matrix.ravel()
+        logs.extents[k] = formation.extents
 
         perf_time.append((t_b - t_a)/n)
         bar.update(np.round(t, 3))
@@ -261,13 +272,15 @@ logs = Logs(
     action=np.empty((n_steps, n*dim)),
     fre=np.zeros(n_steps),
     re=np.zeros((n_steps, n)),
-    adjacency=np.empty((n_steps, n**2), dtype=int))
+    adjacency=np.empty((n_steps, n**2), dtype=int),
+    extents=np.zeros((n_steps, n)))
 logs.position[0] = formation.position.ravel()
 logs.est_position[0] = formation.est_position.ravel()
 logs.action[0] = np.zeros(n*dim)
 logs.fre[0] = formation.rigidity_eigenvalue()
 logs.re[0] = formation.subframeworks_rigidity_eigenvalue()
 logs.adjacency[0] = formation.proximity_matrix.ravel()
+logs.extents[0] = formation.extents
 
 logs = run(steps, formation, logs)
 
@@ -278,4 +291,4 @@ np.savetxt('/tmp/action.csv', logs.action, delimiter=',')
 np.savetxt('/tmp/fre.csv', logs.fre, delimiter=',')
 np.savetxt('/tmp/re.csv', logs.re, delimiter=',')
 np.savetxt('/tmp/adjacency.csv', logs.adjacency, delimiter=',')
-np.savetxt('/tmp/hops.csv', formation.extents, delimiter=',')
+np.savetxt('/tmp/extents.csv', logs.extents, delimiter=',')
