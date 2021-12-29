@@ -63,7 +63,7 @@ A = disk_graph.adjacency(x, dmax)
 G = nx.from_numpy_matrix(A)
 diam = nx.algorithms.distance_measures.diameter(G)
 print(diam)
-min_hops = rigidity.minimum_hops(A, x)
+min_hops = rigidity.extents(A, x)
 
 fig, ax = plt.subplots(figsize=(1.65, 1.65))
 ax.tick_params(

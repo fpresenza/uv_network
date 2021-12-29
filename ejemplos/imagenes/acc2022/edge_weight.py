@@ -6,7 +6,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from uvnpy.network.connectivity import logistic
+from uvnpy.toolkit.functions import logistic
 
 fig, ax = plt.subplots(figsize=(3.5, 1.25))
 fig.subplots_adjust(left=0.14, bottom=0.32)
@@ -14,7 +14,7 @@ ax.grid(1)
 ax.minorticks_on()
 
 d = np.linspace(0, 2, 200)
-w = logistic(d, beta=40, e=0.8)
+w = logistic(d, steepness=40, midpoint=0.8)
 
 ax.plot(d, w)
 ax.vlines(1, 0, 1, color='k', alpha=0.6, ls='--', lw=0.5)

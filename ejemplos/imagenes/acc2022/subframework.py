@@ -2,6 +2,10 @@
 # -*- coding: utf-8 -*-
 """ Created on dom abr 11 18:34:34 -03 2021
 @author: fran
+
+Este script genera dos archivos de imagen.
+Las mismas muestran dos frameworks distintos aunque similares
+y los nodos estan etiquetados segun el rigidity extent.
 """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -100,7 +104,7 @@ E = np.array([
 
 # hops necesarios para rigidez
 A = network.adjacency_from_edges(n, E)
-min_hops = rigidity.minimum_hops(A, x)
+min_hops = rigidity.extents(A, x)
 
 fig, ax = plt.subplots(figsize=(2.5, 1.125))
 ax.tick_params(
@@ -132,13 +136,13 @@ for i, xi in enumerate(x):
         horizontalalignment='center',
         verticalalignment='center', zorder=20)
 
-fig.savefig('/tmp/minimum_hops_1.pdf', format='pdf')
+fig.savefig('/tmp/extents_1.pdf', format='pdf')
 
 
 # agregando un enlace
 E = np.vstack([E, [10, 11]])
 A = network.adjacency_from_edges(n, E)
-min_hops = rigidity.minimum_hops(A, x)
+min_hops = rigidity.extents(A, x)
 
 fig, ax = plt.subplots(figsize=(2.5, 1.125))
 ax.tick_params(
@@ -170,4 +174,4 @@ for i, xi in enumerate(x):
         horizontalalignment='center',
         verticalalignment='center', zorder=20)
 
-fig.savefig('/tmp/minimum_hops_2.pdf', format='pdf')
+fig.savefig('/tmp/extents_2.pdf', format='pdf')

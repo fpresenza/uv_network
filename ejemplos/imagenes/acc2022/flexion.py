@@ -50,7 +50,7 @@ dmax = 1.5
 E = disk_graph.edges(x, dmax)
 E = filter_edges(E)
 A = network.adjacency_from_edges(len(x), E)
-L = rigidity.laplacian(A, x)
+L = rigidity.symmetric_matrix(A, x)
 e, V = np.linalg.eigh(L)
 # print(V)
 print(e[3])

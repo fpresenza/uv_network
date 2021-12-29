@@ -54,7 +54,7 @@ for k, ax in zip(K, axes.ravel()):
     L = network.laplacian_from_adjacency(A)
     a2[k - 1] = np.linalg.eigvalsh(L)[1]
 
-    S = rigidity.laplacian(A, x)
+    S = rigidity.symmetric_matrix(A, x)
     l4[k - 1] = np.linalg.eigvalsh(S)[3]
 
     G = nx.from_numpy_matrix(A)

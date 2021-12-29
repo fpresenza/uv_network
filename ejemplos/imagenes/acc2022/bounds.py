@@ -31,7 +31,7 @@ x[1::2, 1] = np.sqrt(3)/2
 dmax = 1.1
 # E = disk_graph.edges(x, dmax)
 A = disk_graph.adjacency(x, dmax)
-x *= 2
+# x *= 2
 cut = 20
 fig, ax = plt.subplots(figsize=(4, 1))
 ax.tick_params(

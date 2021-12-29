@@ -42,7 +42,7 @@ for i in range(R):
         x = np.random.uniform(-hL, hL, (n, 2))
         A = disk_graph.adjacency(x, dmax[i])
         try:
-            rigidity_extent[i, k] = rigidity.minimum_hops(A, x)
+            rigidity_extent[i, k] = rigidity.extents(A, x)
             max_rigidity_extent[i, k] = rigidity_extent[i, k].max()
             edges[i, k] = int(A.sum()/2)
             load[i, k] = subsets.degree_load_std(A, rigidity_extent[i, k])

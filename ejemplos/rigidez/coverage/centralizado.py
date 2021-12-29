@@ -13,9 +13,9 @@ import argparse
 import collections
 import itertools
 
-from uvnpy.rsn import distances
+from uvnpy.rsn import distances, rigidity
 import uvnpy.network as network
-from uvnpy.network import connectivity
+from uvnpy.toolkit import functions
 from uvnpy.network import disk_graph
 from uvnpy.model import linear_models
 from uvnpy.toolkit.calculus import circle2d  # noqa
@@ -75,9 +75,7 @@ def untracked_targets(T):
 
 def check_rigidity(p, dmax):
     A = disk_graph.adjacency(p, dmax)
-    L = distances.laplacian(A, p)
-    d = p.shape[-1]
-    if distances.rigidity(L, d):
+    if rigidity.algebraic_condition(A, p):
         print('Grafo inicialmente rigido')
     else:
         print('Grafo inicialmente flexible')
@@ -137,8 +135,8 @@ class CoverageControl(object):
 
     def rigidity(self, x):
         A = distances.matrix(x)
-        A[A > 0] = connectivity.logistic_strength(A[A > 0], self.beta, self.e)
-        L = distances.laplacian(A, x)
+        A[A > 0] = functions.logistic(A[A > 0], self.e, self.beta)
+        L = rigidity.symmetric_matrix(A, x)
         self.lambda4 = np.linalg.eigvalsh(L)[..., 3]
         return (self.lambda4**self.a).sum()
 
@@ -171,7 +169,7 @@ class CoverageControl(object):
 
 def run(T, R):
     # iteracion
-    bar = progressbar.ProgressBar(max_value=arg.tf).start()
+    bar = progressbar.ProgressBar(maxval=arg.tf).start()
     for k, t in steps[1:]:
         p = formacion.x
 
@@ -252,7 +250,7 @@ if __name__ == '__main__':
 
     np.random.seed(0)
     # x0 = np.random.uniform(-lim, lim, (n, dof))
-    x0 = circle2d(R=dmax/4., N=n)
+    x0 = circle2d(R=dmax/4., n=n)
     # x0 = np.array(
     #     [[15., 0],
     #     [10, 0],

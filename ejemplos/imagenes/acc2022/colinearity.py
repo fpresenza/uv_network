@@ -89,7 +89,7 @@ for i, p in enumerate(y):
         horizontalalignment='center',
         verticalalignment='center', zorder=20)
 
-c = circle2d(R=2.5, N=360)[243:298]
+c = circle2d(R=2.5, n=360)[243:298]
 for _ax in ax:
     _ax.plot(
         c[:, 0] + x[2, 0], c[:, 1] + 2.1, ls='--',
