@@ -116,7 +116,7 @@ axes[1].set_xlabel(r'$t$ (sec)', fontsize='x-small', labelpad=0.6)
 axes[1].set_ylabel(
     r'Std. Load', fontsize='x-small', labelpad=0.6)
 # axes[1].plot(t, edges, lw=0.8)
-axes[1].plot(t, load/2/edges, lw=0.8)
+axes[1].plot(t, load, lw=0.8)
 # axes[1].hlines(2*n-3, t[0], t[-1], color='k', ls='--', lw=0.8)
 axes[1].set_ylim(bottom=1)
 fig.savefig('/tmp/simu_metrics.png', format='png', dpi=300)

@@ -137,19 +137,12 @@ def run(steps, formation, logs):
     # iteración
     bar = progressbar.ProgressBar(maxval=arg.tf).start()
     perf_time = []
-    t_init = 5
+    t_init = 10
 
     print(formation.extents)
 
     for i in node_ids:
         formation.broadcast(i)
-
-    # for _ in range(10):
-    #     for i in node_ids:
-    #         formation.broadcast(i)
-    #     for i in node_ids:
-    #         formation.receive(i)
-    #         formation.localization_step(i)
 
     for k, t in steps[1:]:
         t_a = time.perf_counter()
@@ -167,6 +160,8 @@ def run(steps, formation, logs):
             if t > t_init:
                 formation.control_step(i)
                 formation.vehicles[i].choose_extent()
+            else:
+                formation.vehicles[i].steady()
 
         for i in node_ids:
             formation.broadcast(i)

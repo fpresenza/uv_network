@@ -70,7 +70,7 @@ class single_integrator(object):
             est_pos, cov, ctrl_cov, range_cov, gps_cov)
         self.neighborhood = Neighborhood()
         self.routing = routing_protocols.subgraph_protocol(
-            self.node_id, self.extent, self.current_time)
+            self.node_id, self.extent)
         self.gps = {}
         self.state = {
             'position': self.loc.position,
@@ -79,17 +79,6 @@ class single_integrator(object):
 
     def update_time(self, t):
         self.current_time = t
-
-    def choose_extent(self):
-        for hops in range(1, self.extent):
-            position = self.routing.extract_state('position', hops)
-            p = np.empty((len(position) + 1, self.dim))
-            p[0] = self.loc.position
-            p[1:] = list(position.values())
-            A = disk_graph.adjacency(p, self.dmin)
-            if rigidity.eigenvalue(A, p) > 1e-2:
-                self.extent = hops
-                break
 
     def send_msg(self):
         action_tokens, state_tokens = self.routing.broadcast(
@@ -113,6 +102,20 @@ class single_integrator(object):
         routing = self.routing
         [routing.update_action(tkn) for tkn in msg.action_tokens.values()]
         [routing.update_state(tkn) for tkn in msg.state_tokens.values()]
+
+    def choose_extent(self):
+        for hops in range(1, self.extent):
+            position = self.routing.extract_state('position', hops)
+            p = np.empty((len(position) + 1, self.dim))
+            p[0] = self.loc.position
+            p[1:] = list(position.values())
+            A = disk_graph.adjacency(p, self.dmin)
+            if rigidity.eigenvalue(A, p) > 1e-2:
+                self.extent = hops
+                break
+
+    def steady(self):
+        self.dm.step(self.current_time, 0)
 
     def control_step(self, cmd_ext=0):
         # obtengo posiciones del subframework

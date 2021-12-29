@@ -31,7 +31,7 @@ Token.__new__.__defaults__ = (
 
 
 class subgraph_protocol(object):
-    def __init__(self, node_id, extent, t=0.):
+    def __init__(self, node_id, extent):
         """Clase para implementar el ruteo necesario para el control
         de formaciones basado en subgrafos.
 
