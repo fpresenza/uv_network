@@ -120,24 +120,27 @@ class single_integrator(object):
     def control_step(self, cmd_ext=0):
         # obtengo posiciones del subframework
         position = self.routing.extract_state('position', self.extent)
-        p = np.empty((len(position) + 1, self.dim))
-        p[0] = self.loc.position
-        p[1:] = list(position.values())
+        if len(position) > 0:
+            p = np.empty((len(position) + 1, self.dim))
+            p[0] = self.loc.position
+            p[1:] = list(position.values())
 
-        # obtengo la accion de control de rigidez
-        u_r = self.maintenance.update(p)
+            # obtengo la accion de control de rigidez
+            u_r = self.maintenance.update(p)
 
-        # obtengo la accion de control de carga
-        geodesics = self.routing.geodesics(self.extent)
-        g = np.empty(len(geodesics) + 1)
-        g[0] = 0
-        g[1:] = list(geodesics.values())
+            # obtengo la accion de control de carga
+            geodesics = self.routing.geodesics(self.extent)
+            g = np.empty(len(geodesics) + 1)
+            g[0] = 0
+            g[1:] = list(geodesics.values())
 
-        coeff = g < self.extent
-        u_l = self.load.update(p, coeff)
+            coeff = g < self.extent
+            u_l = self.load.update(p, coeff)
 
-        # sumo los objetivos del subframework
-        u = 0.3 * u_r + 0.075 * u_l
+            # sumo los objetivos del subframework
+            u = 0.3 * u_r + 0.075 * u_l
+        else:
+            u = np.zeros(self.dim)
 
         # genero la accion de control del centro
         cmd = self.routing.extract_action()
@@ -149,7 +152,7 @@ class single_integrator(object):
             for i, ui in zip(position.keys(), u[1:])}
 
         # aplico acciones de control
-        self.control_action = cmd_ext + u_center
+        self.control_action = cmd_ext + 0*u_center
         self.dm.step(self.current_time, self.control_action)
 
     def localization_step(self):
