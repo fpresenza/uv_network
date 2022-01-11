@@ -53,7 +53,7 @@ class Formation(object):
             est_pos = np.random.multivariate_normal(pos[i], cov)
             self.vehicles[i] = agent_model(
                 i, pos[i], est_pos, cov,
-                self.dmin, extents[i])
+                comm_range, extents[i])
             self.position_array[i] = self.vehicles[i].dm._x         # asigna el address # noqa
             self.est_position_array[i] = self.vehicles[i].loc._x    # asigna el address # noqa
         self.cloud = {v.node_id: [] for v in self.vehicles}
