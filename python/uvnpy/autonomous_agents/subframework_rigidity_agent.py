@@ -73,7 +73,8 @@ class single_integrator(object):
             self.node_id, self.extent)
         self.gps = {}
         self.state = {
-            'position': self.loc.position,
+            # 'position': self.loc.position,
+            'position': self.dm.x,
             'covariance': self.loc.covariance
         }
 
@@ -106,12 +107,17 @@ class single_integrator(object):
     def choose_extent(self):
         for hops in range(1, self.extent):
             position = self.routing.extract_state('position', hops)
-            p = np.empty((len(position) + 1, self.dim))
-            p[0] = self.loc.position
-            p[1:] = list(position.values())
-            A = disk_graph.adjacency(p, self.dmin)
-            if rigidity.eigenvalue(A, p) > 1e-2:
-                self.extent = hops
+            if len(position) > 0:
+                p = np.empty((len(position) + 1, self.dim))
+                # p[0] = self.loc.position
+                p[0] = self.dm.x
+                p[1:] = list(position.values())
+                A = disk_graph.adjacency(p, self.dmin)
+                re = rigidity.eigenvalue(A, p)
+                if re > 1e-2:
+                    self.extent = hops
+                    break
+            else:
                 break
 
     def steady(self):
@@ -122,7 +128,8 @@ class single_integrator(object):
         position = self.routing.extract_state('position', self.extent)
         if len(position) > 0:
             p = np.empty((len(position) + 1, self.dim))
-            p[0] = self.loc.position
+            # p[0] = self.loc.position
+            p[0] = self.dm.x
             p[1:] = list(position.values())
 
             # obtengo la accion de control de rigidez
@@ -138,9 +145,10 @@ class single_integrator(object):
             u_l = self.load.update(p, coeff)
 
             # sumo los objetivos del subframework
-            u = 0.3 * u_r + 0.075 * u_l
+            # u = 0.3 * u_r + 0.075 * u_l
+            u = 1 * u_r + 0.0 * u_l
         else:
-            u = np.zeros(self.dim)
+            u = np.zeros((1, self.dim))
 
         # genero la accion de control del centro
         cmd = self.routing.extract_action()
@@ -152,7 +160,7 @@ class single_integrator(object):
             for i, ui in zip(position.keys(), u[1:])}
 
         # aplico acciones de control
-        self.control_action = cmd_ext + 0*u_center
+        self.control_action = cmd_ext + u_center
         self.dm.step(self.current_time, self.control_action)
 
     def localization_step(self):
@@ -171,5 +179,6 @@ class single_integrator(object):
             z = self.gps[max(self.gps.keys())]
             self.loc.gps_step(z)
             self.gps.clear()
-        self.state['position'] = self.loc.position
+        # self.state['position'] = self.loc.position
+        self.state['position'] = self.dm.x
         self.state['covariance'] = self.loc.covariance

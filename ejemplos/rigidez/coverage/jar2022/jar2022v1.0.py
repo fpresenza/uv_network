@@ -54,7 +54,7 @@ class Formation(object):
             est_pos = np.random.multivariate_normal(pos[i], cov)
             self.vehicles[i] = agent_model(
                 i, pos[i], est_pos, cov,
-                self.dmin, extents[i])
+                comm_range, extents[i])
             self.position_array[i] = self.vehicles[i].dm._x         # asigna el address # noqa
             self.est_position_array[i] = self.vehicles[i].loc._x    # asigna el address # noqa
         self.cloud = {v.node_id: [] for v in self.vehicles}
@@ -144,7 +144,23 @@ class Targets(object):
     def set(self, n, xlim, ylim):
         lower, upper = zip(xlim, ylim)
         self.data = np.empty((n, 3), dtype=object)
-        self.data[:, :2] = np.random.uniform(lower, upper, (n, 2))
+        # self.data[:, :2] = np.random.uniform(lower, upper, (n, 2))
+        self.data[:, :2] = np.array([
+            [-13.5092, 7.0691],
+            [-20.6936, -28.2528],
+            [-20.3522, 35.025],
+            [-17.7281, 29.313],
+            [23.2023, -23.0646],
+            [8.9046, 6.0003],
+            [24.2536, 18.8643],
+            [26.8384, 15.4253],
+            [33.2317, -13.0908],
+            [37.7172, 27.6052],
+            [31.8599, -14.7567],
+            [33.4829, -8.6079],
+            [16.9309, 11.1422],
+            [28.9241, 33.7727],
+            [6.779, -39.8017]])
         self.data[:, 2] = True
 
     def position(self):
@@ -211,13 +227,15 @@ def run(steps, formation, logs):
             if t > t_init:
                 if i in alloc:
                     r = p[i] - alloc[i]
-                    d2 = np.square(r).sum()
-                    u_track = -10 * 0.5 * r / (d2**(3/4))
+                    d = np.sqrt(np.square(r).sum())
+                    a = 0.5
+                    R = 0.75 * targets.range
+                    u_track = -3 * a * (d - R)**(a - 1) * r / d
                 else:
                     u_track = 0
                 # print(i, u_track)
                 formation.control_step(i, u_track)
-                # formation.vehicles[i].choose_extent()
+                formation.vehicles[i].choose_extent()
             else:
                 formation.vehicles[i].steady()
 
