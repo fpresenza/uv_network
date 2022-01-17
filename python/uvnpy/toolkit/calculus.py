@@ -21,9 +21,9 @@ def derivative_eval(f, x, *args, **kwargs):
     (2 * x.size, *x.shape) and return an np.ndarray of shape
     (2 * x.size, *y.shape) in order to perform the differences.
     """
-    h = kwargs.pop('h', 1e-3)
+    h = kwargs.pop('stepsize', 1e-6)
     size = x.size
-    dx = np.empty((2 * size,) + x.shape)
+    dx = np.empty((2 * size,) + x.shape, dtype=np.float64)
     p = np.diag(size * [h]).reshape(-1, *x.shape)
     dx[:size] = p
     dx[size:] = -p

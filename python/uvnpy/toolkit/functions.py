@@ -44,3 +44,17 @@ def logistic_derivative(d, midpoint=0, steepness=1):
     """Derivative  of the logistic function respect to distance."""
     D = - 0.5 * steepness / (1 + np.cosh(steepness * (d - midpoint)))
     return D
+
+
+@njit
+def logistic_saturation(x, limit=1., slope=1.):
+    """Funcion de saturacion logisitica"""
+    K = 2 * limit
+    steepness = 2 * slope / limit
+    return K * (0.5 - logistic(x, steepness=steepness))
+
+
+@njit
+def ramp_saturation(x, limit=1., slope=1.):
+    """Funcion de saturacion rampa"""
+    return np.clip(slope * x, -limit, limit)
