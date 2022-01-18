@@ -6,12 +6,17 @@
 @date jue nov 19 14:06:16 -03 2020
 """
 import numpy as np
+import collections
 
 
 class integrator(object):
-    def __init__(self, xi, ti=0.):
+    def __init__(self, xi, ti=0., order=1):
         """Modelo de vehiculo integrador."""
         self.init(xi, ti)
+        self.derivatives = collections.deque(maxlen=order)
+        self.coefficients = {
+            1: np.array([1]),             # euler
+            2: np.array([1/2, 1/2])}      # heun
 
     def init(self, xi, ti=0.):
         self.t = ti
@@ -24,13 +29,15 @@ class integrator(object):
     def step(self, t, u):
         dt = t - self.t
         self.t = t
-        self._x += dt * u
+        self.derivatives.append(u)
+        k = self.coefficients[len(self.derivatives)]
+        self._x += dt * k.dot(self.derivatives)
         return self._x.copy()
 
 
 class random_walk(integrator):
-    def __init__(self, xi, Q, ti=0.):
-        super(random_walk, self).__init__(xi, ti)
+    def __init__(self, xi, Q, ti=0., order=1):
+        super(random_walk, self).__init__(xi, ti, order)
         self.Q = Q
         self._dot_x = np.zeros(xi.shape)
 
