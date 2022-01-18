@@ -133,7 +133,7 @@ class Formation(object):
 
     def control_step(self, i, cmd_ext):
         self.vehicles[i].control_step(cmd_ext)
-        self.action[i] = self.vehicles[i].control_action.copy()
+        self.action[i] = self.vehicles[i].last_control_action
 
 
 class Targets(object):
@@ -146,21 +146,37 @@ class Targets(object):
         self.data = np.empty((n, 3), dtype=object)
         # self.data[:, :2] = np.random.uniform(lower, upper, (n, 2))
         self.data[:, :2] = np.array([
-            [-13.5092, 7.0691],
-            [-20.6936, -28.2528],
-            [-20.3522, 35.025],
-            [-17.7281, 29.313],
-            [23.2023, -23.0646],
-            [8.9046, 6.0003],
-            [24.2536, 18.8643],
-            [26.8384, 15.4253],
-            [33.2317, -13.0908],
-            [37.7172, 27.6052],
-            [31.8599, -14.7567],
-            [33.4829, -8.6079],
-            [16.9309, 11.1422],
-            [28.9241, 33.7727],
-            [6.779, -39.8017]])
+            [24.84, -3.8821],
+            [-35.0464, -23.2889],
+            [-5.6765, 6.6739],
+            [1.7441, -6.9632],
+            [-13.5915, -20.8073],
+            [-33.5566, 8.4019],
+            [2.5689, 6.999],
+            [34.7281, 4.8964],
+            [28.1627, 35.4352],
+            [24.4927, 37.6256],
+            [38.7665, -25.9539],
+            [-4.573, 8.6123],
+            [-31.323, 7.2874],
+            [-27.2087, 22.2981],
+            [-26.9443, 9.2272],
+            [31.5733, -9.4084],
+            [-15.8237, -5.8978],
+            [-30.5408, 10.6855],
+            [-24.998, 33.2679],
+            [-7.549, -1.3672],
+            [17.5176, -23.2711],
+            [2.432, 36.942],
+            [13.7371, -38.0221],
+            [32.9201, 9.4081],
+            [3.7534, 13.4704],
+            [-18.5513, 25.1056],
+            [5.0705, 16.6772],
+            [-21.334, -19.3797],
+            [-36.8785, 1.1317],
+            [9.3937, -10.0719]])
+
         self.data[:, 2] = True
 
     def position(self):
@@ -228,12 +244,12 @@ def run(steps, formation, logs):
                 if i in alloc:
                     r = p[i] - alloc[i]
                     d = np.sqrt(np.square(r).sum())
-                    a = 0.5
-                    R = 0.75 * targets.range
-                    u_track = -3 * a * (d - R)**(a - 1) * r / d
+                    # a = 0.5
+                    # R = 0.75 * targets.range
+                    # u_track = -3 * a * (d - R)**(a - 1) * r / d
+                    u_track = -2 * np.exp((targets.range - d)/30) * r / d
                 else:
                     u_track = 0
-                # print(i, u_track)
                 formation.control_step(i, u_track)
                 formation.vehicles[i].choose_extent()
             else:
@@ -277,7 +293,7 @@ def run(steps, formation, logs):
 parser = argparse.ArgumentParser(description='')
 parser.add_argument(
     '-s', '--step',
-    dest='h', default=100e-3, type=float, help='paso de simulación')
+    dest='h', default=25e-3, type=float, help='paso de simulación')
 parser.add_argument(
     '-e', '--tf',
     default=1.0, type=float, help='time_interval final')
@@ -335,7 +351,7 @@ formation = Formation(
     range_cov=0.5,
     gps_cov=1.)
 
-n_targets = 15
+n_targets = 30
 targets = Targets(n_targets, (-40, 40), (-40, 40))
 
 # ------------------------------------------------------------------
