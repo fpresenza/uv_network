@@ -52,12 +52,13 @@ class centralized_rigidity_maintenance(object):
 
 
 class communication_load(object):
-    def __init__(self, dmax):
+    def __init__(self, dmax, steepness):
         self.dmax = dmax
+        self.steepness = steepness
 
     def load(self, x, coeff):
         w = distances.matrix(x)
-        w[w > 0] = functions.logistic(w[w > 0], self.dmax, 5/self.dmax)
+        w[w > 0] = functions.logistic(w[w > 0], self.dmax, self.steepness)
         deg = w.sum(-1)
         return (coeff * deg).sum(-1)
 
