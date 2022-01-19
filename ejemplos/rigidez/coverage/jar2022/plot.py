@@ -3,6 +3,7 @@
 """ Created on mié 29 dic 2021 16:41:13 -03
 @author: fran
 """
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -32,6 +33,13 @@ class CoverageAnimate(network.plot.Animate):
         Tu = T[untracked]
         self._extra_artists[-2].set_data(Tt[:, 0], Tt[:, 1])
         self._extra_artists[-1].set_data(Tu[:, 0], Tu[:, 1])
+
+
+parser = argparse.ArgumentParser(description='')
+parser.add_argument(
+    '-x', '--vel',
+    default=1, type=int, help='velocidad de reproduccion')
+arg = parser.parse_args()
 
 
 # extraigo datos
@@ -239,7 +247,7 @@ ax.set_ylabel(r'$y$', fontsize='x-small', labelpad=0.6)
 ax.set_xlim(-lim, lim)
 ax.set_ylim(-lim, lim)
 # anim = network.plot.Animate(fig, ax, timestep/2, frames, maxlen=50)
-anim = CoverageAnimate(fig, ax, timestep/2, frames, maxlen=50)
+anim = CoverageAnimate(fig, ax, timestep, frames[::arg.vel], maxlen=10)
 
 one_hop_rigid = extents[0] == 1
 two_hop_rigid = extents[0] == 2
