@@ -247,7 +247,7 @@ def run(steps, formation, logs):
                     # a = 0.5
                     # R = 0.75 * targets.range
                     # u_track = -3 * a * (d - R)**(a - 1) * r / d
-                    u_track = -2 * np.exp((targets.range - d)/30) * r / d
+                    u_track = -2 * np.exp((targets.range - d)/10) * r / d
                 else:
                     u_track = 0
                 formation.control_step(i, u_track)
@@ -341,7 +341,7 @@ cov = 0.5**2 * np.eye(2)
 node_ids = np.arange(n)
 
 dmin = 0.85 * lim
-dmax = 0.9 * lim
+dmax = 0.90 * lim
 
 formation = Formation(
     node_ids,

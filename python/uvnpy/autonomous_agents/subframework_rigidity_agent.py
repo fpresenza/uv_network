@@ -7,7 +7,6 @@
 """
 import numpy as np
 import collections
-from scipy.signal import lfilter
 
 from uvnpy.model.linear_models import integrator
 from uvnpy.rsn.control import (
@@ -17,7 +16,6 @@ from uvnpy.rsn.localization import distances_to_neighbors_kalman
 from uvnpy.autonomous_agents import routing_protocols
 from uvnpy.rsn import rigidity
 from uvnpy.network import disk_graph
-from uvnpy.filtering import butter_lpf
 from uvnpy.toolkit.functions import logistic_saturation
 
 
@@ -64,10 +62,9 @@ class single_integrator(object):
         self.maintenance = centralized_rigidity_maintenance(
             dim=self.dim, dmax=self.dmin,
             steepness=20/self.dmin, exponent=0.5, non_adjacent=True)
-        self.load = communication_load(self.dmax)
-        self.control_action_raw = collections.deque(maxlen=1)
+        self.load = communication_load(self.dmax, 3/self.dmax)
+        self.control_action_raw = np.zeros((1, self.dim))
         self.last_control_action = np.zeros(self.dim)
-        self.lpf_coeffs = butter_lpf(4, 40)
         self.action = {}
         ctrl_cov = 0.05**2 * np.eye(self.dim)
         range_cov = 0.5
@@ -142,17 +139,17 @@ class single_integrator(object):
             u_r = self.maintenance.update(p)
 
             # obtengo la accion de control de carga
-            # geodesics = self.routing.geodesics(self.extent)
-            # g = np.empty(len(geodesics) + 1)
-            # g[0] = 0
-            # g[1:] = list(geodesics.values())
+            geodesics = self.routing.geodesics(self.extent)
+            g = np.empty(len(geodesics) + 1)
+            g[0] = 0
+            g[1:] = list(geodesics.values())
 
-            # coeff = g < self.extent
-            # u_l = self.load.update(p, coeff)
+            coeff = g < self.extent
+            u_l = self.load.update(p, coeff)
 
             # sumo los objetivos del subframework
             # u = 0.3 * u_r + 0.075 * u_l
-            u = u_r
+            u = u_r + 0.75 * u_l
         else:
             u = np.zeros((1, self.dim))
 
@@ -167,14 +164,9 @@ class single_integrator(object):
 
         # aplico acciones de control
         control_action = logistic_saturation(
-            1 * cmd_ext + 2 * u_center, limit=2.5)
-        self.control_action_raw.append(control_action)
-        self.last_control_action = lfilter(
-            self.lpf_coeffs[0],
-            self.lpf_coeffs[1],
-            self.control_action_raw)[-1]
-        # self.last_control_action = np.mean(self.control_action_raw, axis=0)
-        # self.last_control_action = self.control_action_raw[-1]
+            1.5 * cmd_ext + 2 * u_center, limit=2.5)
+        self.control_action_raw[-1] = control_action
+        self.last_control_action = self.control_action_raw[-1]
         self.dm.step(self.current_time, self.last_control_action)
 
     def localization_step(self):
