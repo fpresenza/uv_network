@@ -192,8 +192,11 @@ class Targets(object):
         d2 = np.square(r).sum(axis=-1)
         a = {}
         for i in range(len(p)):
-            j = d2[i].argmin()
-            a[i] = targets[j]
+            try:
+                j = d2[i].argmin()
+                a[i] = targets[j]
+            except ValueError:
+                a[i] = p[i]
         return a
 
     def update(self, p):
@@ -201,6 +204,9 @@ class Targets(object):
         d2 = np.square(r).sum(axis=-1)
         c2 = (d2 < self.range**2).any(axis=0)
         self.data[c2, 2] = False
+
+    def unfinished(self):
+        return self.data[:, 2].any()
 
 
 # ------------------------------------------------------------------
@@ -225,26 +231,20 @@ def run(steps, formation, logs):
         t_a = time.perf_counter()
 
         formation.update_time(t)
+
         """parte de localizacion"""
         formation.get_gps(6)
         formation.get_gps(8)
 
         p = formation.position
         alloc = targets.allocation(p)
-        # print(alloc)
 
         for i in node_ids:
             formation.localization_step(i)
-            if t > t_init:
-                if i in alloc:
-                    r = p[i] - alloc[i]
-                    d = np.sqrt(np.square(r).sum())
-                    # a = 0.5
-                    # R = 0.75 * targets.range
-                    # u_track = -3 * a * (d - R)**(a - 1) * r / d
-                    u_track = -2 * np.exp((targets.range - d)/10) * r / d
-                else:
-                    u_track = 0
+            if t > t_init and targets.unfinished():
+                r = p[i] - alloc[i]
+                d = np.sqrt(np.square(r).sum())
+                u_track = -2 * np.exp((targets.range - d)/10) * r / d
                 formation.control_step(i, u_track)
                 formation.vehicles[i].choose_extent()
             else:
@@ -252,6 +252,7 @@ def run(steps, formation, logs):
 
         targets.update(formation.position)
 
+        """intercambio de mensajes"""
         for i in node_ids:
             formation.broadcast(i)
         for i in node_ids:
