@@ -222,6 +222,8 @@ def run(steps, formation, logs):
 
     for i in node_ids:
         formation.broadcast(i)
+    for i in node_ids:
+        formation.receive(i)
 
     for k, t in steps[1:]:
         t_a = time.perf_counter()
@@ -230,9 +232,6 @@ def run(steps, formation, logs):
         """parte de localizacion"""
         formation.get_gps(6)
         formation.get_gps(8)
-
-        for i in node_ids:
-            formation.receive(i)
 
         p = formation.position
         alloc = targets.allocation(p)
@@ -259,6 +258,8 @@ def run(steps, formation, logs):
 
         for i in node_ids:
             formation.broadcast(i)
+        for i in node_ids:
+            formation.receive(i)
 
         t_b = time.perf_counter()
 
