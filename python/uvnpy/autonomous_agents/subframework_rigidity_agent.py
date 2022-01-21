@@ -11,7 +11,8 @@ import collections
 from uvnpy.model.linear_models import integrator
 from uvnpy.rsn.control import (
     centralized_rigidity_maintenance,
-    communication_load)
+    communication_load,
+    collision_avoidance)
 from uvnpy.rsn.localization import distances_to_neighbors_kalman
 from uvnpy.autonomous_agents import routing_protocols
 from uvnpy.rsn import rigidity
@@ -63,6 +64,7 @@ class single_integrator(object):
             dim=self.dim, dmax=self.dmin,
             steepness=20/self.dmin, exponent=0.5, non_adjacent=True)
         self.load = communication_load(self.dmax, 3/self.dmax)
+        self.collision = collision_avoidance(exponent=2)
         self.control_action_raw = np.zeros((1, self.dim))
         self.last_control_action = np.zeros(self.dim)
         self.action = {}
@@ -139,17 +141,17 @@ class single_integrator(object):
             u_r = self.maintenance.update(p)
 
             # obtengo la accion de control de carga
-            geodesics = self.routing.geodesics(self.extent)
-            g = np.empty(len(geodesics) + 1)
-            g[0] = 0
-            g[1:] = list(geodesics.values())
+            # geodesics = self.routing.geodesics(self.extent)
+            # g = np.empty(len(geodesics) + 1)
+            # g[0] = 0
+            # g[1:] = list(geodesics.values())
 
-            coeff = g < self.extent
-            u_l = self.load.update(p, coeff)
+            # coeff = g < self.extent
+            # u_l = self.load.update(p, coeff)
 
             # sumo los objetivos del subframework
-            # u = 0.3 * u_r + 0.075 * u_l
-            u = u_r + 0.75 * u_l
+            # u = 1.00 * u_r + 0.75 * u_l
+            u = u_r
         else:
             u = np.zeros((1, self.dim))
 
@@ -162,9 +164,16 @@ class single_integrator(object):
             i: ui
             for i, ui in zip(position.keys(), u[1:])}
 
+        # accion de evacion de colisiones
+        obstacles = list(self.routing.extract_state('position', 1).values())
+        if len(obstacles) > 0:
+            u_ca = self.collision.update(self.dm.x, obstacles)
+        else:
+            u_ca = 0
+
         # aplico acciones de control
         control_action = logistic_saturation(
-            1.5 * cmd_ext + 2 * u_center, limit=2.5)
+            1.5 * cmd_ext + 2 * u_center + 10 * u_ca, limit=2.5)
         self.control_action_raw[-1] = control_action
         self.last_control_action = self.control_action_raw[-1]
         self.dm.step(self.current_time, self.last_control_action)
