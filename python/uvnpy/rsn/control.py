@@ -65,3 +65,29 @@ class communication_load(object):
     def update(self, x, coeff):
         grad = calculus.gradient(self.load, x, coeff)
         return -grad
+
+
+class collision_avoidance(object):
+    def __init__(self, exponent=2, dmin=0):
+        """Gradiente descendiente.
+
+        args:
+            exponent: potencia positiva a la que se eleva la distancia
+            dmin: radio extra sobre el obstaculo
+        """
+        self.exponent = exponent
+        self.dmin = dmin
+
+    def update(self, x, o):
+        """Calcular gradiente.
+
+        args:
+            x: posicion del agent
+            o: posicion de los obstaculos
+        """
+        r = x - o
+        d = np.sqrt(np.square(r).sum(axis=-1))
+        d = d.reshape(-1, 1)
+        e = self.exponent
+        grad = - e * (d - self.dmin)**(-e - 1) * r / d
+        return - grad.sum(axis=0)
