@@ -191,13 +191,9 @@ class Targets(object):
         r = p[:, None] - targets
         d2 = np.square(r).sum(axis=-1)
         a = {}
-        for _ in p:
-            if np.any(d2 != np.inf):
-                i, j = np.unravel_index(d2.argmin(), d2.shape)
-                a[i] = targets[j]
-                d2[i, :] = d2[:, j] = np.inf
-            else:
-                return a
+        for i in range(len(p)):
+            j = d2[i].argmin()
+            a[i] = targets[j]
         return a
 
     def update(self, p):
