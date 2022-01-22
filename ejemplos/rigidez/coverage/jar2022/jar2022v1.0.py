@@ -209,6 +209,14 @@ class Targets(object):
         return self.data[:, 2].any()
 
 
+def tracking(position, target, R):
+    r = position - target
+    d = np.sqrt(np.square(r).sum())
+    x = max(d, 10.)
+    K = np.exp((R - x)/10)
+    return - K * r / d
+
+
 # ------------------------------------------------------------------
 # Función run
 # ------------------------------------------------------------------
@@ -242,9 +250,7 @@ def run(steps, formation, logs):
         for i in node_ids:
             formation.localization_step(i)
             if t > t_init and targets.unfinished():
-                r = p[i] - alloc[i]
-                d = np.sqrt(np.square(r).sum())
-                u_track = -2 * np.exp((targets.range - d)/10) * r / d
+                u_track = tracking(p[i], alloc[i], targets.range)
                 formation.control_step(i, u_track)
                 formation.vehicles[i].choose_extent()
             else:
