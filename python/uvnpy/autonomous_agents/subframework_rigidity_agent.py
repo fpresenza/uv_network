@@ -78,8 +78,7 @@ class single_integrator(object):
             self.node_id, self.extent)
         self.gps = {}
         self.state = {
-            # 'position': self.loc.position,
-            'position': self.dm.x,
+            'position': self.loc.position,
             'covariance': self.loc.covariance
         }
 
@@ -114,8 +113,7 @@ class single_integrator(object):
             position = self.routing.extract_state('position', hops)
             if len(position) > 0:
                 p = np.empty((len(position) + 1, self.dim))
-                # p[0] = self.loc.position
-                p[0] = self.dm.x
+                p[0] = self.loc.position
                 p[1:] = list(position.values())
                 A = disk_graph.adjacency(p, self.dmin)
                 re = rigidity.eigenvalue(A, p)
@@ -134,8 +132,7 @@ class single_integrator(object):
         n = len(position)
         if n > 0:
             p = np.empty((n + 1, self.dim))
-            # p[0] = self.loc.position
-            p[0] = self.dm.x
+            p[0] = self.loc.position
             p[1:] = list(position.values())
 
             # obtengo la accion de control de rigidez
@@ -156,7 +153,7 @@ class single_integrator(object):
         obstacles = self.routing.extract_state('position', 1)
         if len(obstacles) > 0:
             obstacles_pos = list(obstacles.values())
-            u_ca = self.collision.update(self.dm.x, obstacles_pos)
+            u_ca = self.collision.update(self.loc.position, obstacles_pos)
         else:
             u_ca = 0
 
@@ -183,6 +180,5 @@ class single_integrator(object):
             z = self.gps[max(self.gps.keys())]
             self.loc.gps_step(z)
             self.gps.clear()
-        # self.state['position'] = self.loc.position
-        self.state['position'] = self.dm.x
+        self.state['position'] = self.loc.position
         self.state['covariance'] = self.loc.covariance

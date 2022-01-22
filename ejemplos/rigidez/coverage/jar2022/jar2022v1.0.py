@@ -346,7 +346,7 @@ formation = Formation(
     subframework_rigidity_agent.single_integrator,
     pos, cov,
     comm_range=(dmin, dmax),
-    range_cov=0.5,
+    range_cov=1.,
     gps_cov=1.)
 
 n_targets = 30
