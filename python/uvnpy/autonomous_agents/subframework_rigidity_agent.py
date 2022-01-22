@@ -131,27 +131,15 @@ class single_integrator(object):
     def control_step(self, cmd_ext=0):
         # obtengo posiciones del subframework
         position = self.routing.extract_state('position', self.extent)
-        if len(position) > 0:
-            p = np.empty((len(position) + 1, self.dim))
+        n = len(position)
+        if n > 0:
+            p = np.empty((n + 1, self.dim))
             # p[0] = self.loc.position
             p[0] = self.dm.x
             p[1:] = list(position.values())
 
             # obtengo la accion de control de rigidez
-            u_r = self.maintenance.update(p)
-
-            # obtengo la accion de control de carga
-            # geodesics = self.routing.geodesics(self.extent)
-            # g = np.empty(len(geodesics) + 1)
-            # g[0] = 0
-            # g[1:] = list(geodesics.values())
-
-            # coeff = g < self.extent
-            # u_l = self.load.update(p, coeff)
-
-            # sumo los objetivos del subframework
-            # u = 1.00 * u_r + 0.75 * u_l
-            u = u_r
+            u = self.maintenance.update(p)
         else:
             u = np.zeros((1, self.dim))
 
@@ -165,9 +153,10 @@ class single_integrator(object):
             for i, ui in zip(position.keys(), u[1:])}
 
         # accion de evacion de colisiones
-        obstacles = list(self.routing.extract_state('position', 1).values())
+        obstacles = self.routing.extract_state('position', 1)
         if len(obstacles) > 0:
-            u_ca = self.collision.update(self.dm.x, obstacles)
+            obstacles_pos = list(obstacles.values())
+            u_ca = self.collision.update(self.dm.x, obstacles_pos)
         else:
             u_ca = 0
 
