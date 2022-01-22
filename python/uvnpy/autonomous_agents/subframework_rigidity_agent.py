@@ -124,6 +124,7 @@ class single_integrator(object):
                 break
 
     def steady(self):
+        self.last_control_action = 0
         self.dm.step(self.current_time, 0)
 
     def control_step(self, cmd_ext=0):
