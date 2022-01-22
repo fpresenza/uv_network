@@ -117,7 +117,7 @@ class single_integrator(object):
                 p[1:] = list(position.values())
                 A = disk_graph.adjacency(p, self.dmin)
                 re = rigidity.eigenvalue(A, p)
-                if re > 1e-2:
+                if re > 0.25:
                     self.extent = hops
                     break
             else:
