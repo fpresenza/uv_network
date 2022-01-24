@@ -120,6 +120,6 @@ axes[1].legend(
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
     ncol=3, columnspacing=1, loc='upper center')
 
-fig.savefig('/tmp/random_framework.pdf', format='png', dpi=300)
+fig.savefig('/tmp/random_framework.png', format='png', dpi=300)
 
 plt.show()
