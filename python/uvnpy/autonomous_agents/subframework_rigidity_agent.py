@@ -108,19 +108,24 @@ class single_integrator(object):
         [routing.update_action(tkn) for tkn in msg.action_tokens.values()]
         [routing.update_state(tkn) for tkn in msg.state_tokens.values()]
 
+    def rigidity_eigenvalue(self, hops):
+        position = self.routing.extract_state('position', hops)
+        p = np.empty((len(position) + 1, self.dim))
+        p[0] = self.loc.position
+        p[1:] = list(position.values())
+        A = disk_graph.adjacency(p, self.dmin)
+        re = rigidity.eigenvalue(A, p)
+        return re
+
     def choose_extent(self):
+        re = self.rigidity_eigenvalue(self.extent)
         for hops in range(1, self.extent):
-            position = self.routing.extract_state('position', hops)
-            if len(position) > 0:
-                p = np.empty((len(position) + 1, self.dim))
-                p[0] = self.loc.position
-                p[1:] = list(position.values())
-                A = disk_graph.adjacency(p, self.dmin)
-                re = rigidity.eigenvalue(A, p)
-                if re > 0.25:
+            try:
+                new_re = self.rigidity_eigenvalue(hops)
+                if new_re > re:
                     self.extent = hops
                     break
-            else:
+            except IndexError:
                 break
 
     def steady(self):
@@ -130,9 +135,9 @@ class single_integrator(object):
     def control_step(self, cmd_ext=0):
         # obtengo posiciones del subframework
         position = self.routing.extract_state('position', self.extent)
-        n = len(position)
-        if n > 0:
-            p = np.empty((n + 1, self.dim))
+        degree = len(position)
+        if degree > 0:
+            p = np.empty((degree + 1, self.dim))
             p[0] = self.loc.position
             p[1:] = list(position.values())
 
