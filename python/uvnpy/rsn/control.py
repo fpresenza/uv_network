@@ -67,15 +67,15 @@ class communication_load(object):
         return -grad
 
 
-class collision_avoidance(object):
-    def __init__(self, exponent=2, dmin=0):
+class power_collision_avoidance(object):
+    def __init__(self, power=2, dmin=0):
         """Gradiente descendiente.
 
         args:
-            exponent: potencia positiva a la que se eleva la distancia
+            power: potencia positiva a la que se eleva la distancia
             dmin: radio extra sobre el obstaculo
         """
-        self.exponent = exponent
+        self.power = power
         self.dmin = dmin
 
     def update(self, x, o):
@@ -88,6 +88,40 @@ class collision_avoidance(object):
         r = x - o
         d = np.sqrt(np.square(r).sum(axis=-1))
         d = d.reshape(-1, 1)
-        e = self.exponent
+        e = self.power
         grad = - e * (d - self.dmin)**(-e - 1) * r / d
+        return - grad.sum(axis=0)
+
+
+class powerlog_collision_avoidance(object):
+    def __init__(self, midpoint, steepness, power=2, dmin=0):
+        """Gradiente descendiente.
+
+        args:
+            power: potencia positiva a la que se eleva la distancia
+            steepness: the logistic growth rate or steepness of the curve,
+            midpoint: the x value of the sigmoid's midpoint.
+            dmin: radio extra sobre el obstaculo
+        """
+        self.midpoint = midpoint
+        self.steepness = steepness
+        self.power = power
+        self.dmin = dmin
+
+    def update(self, x, o, w=(1., 1.)):
+        """Calcular gradiente.
+
+        args:
+            x: posicion del agent
+            o: posicion de los obstaculos
+            w: pesos
+        """
+        r = x - o
+        d = np.sqrt(np.square(r).sum(axis=-1))
+        d = d.reshape(-1, 1)
+        e = self.power
+        power_grad = - e * (d - self.dmin)**(-e - 1)
+        log_grad = functions.logistic_derivative(
+            d, self.midpoint, self.steepness)
+        grad = (w[0] * power_grad + w[1] * log_grad) * r / d
         return - grad.sum(axis=0)

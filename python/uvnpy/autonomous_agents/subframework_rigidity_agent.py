@@ -12,7 +12,7 @@ from uvnpy.model.linear_models import integrator
 from uvnpy.rsn.control import (
     centralized_rigidity_maintenance,
     communication_load,
-    collision_avoidance)
+    power_collision_avoidance)
 from uvnpy.rsn.localization import distances_to_neighbors_kalman
 from uvnpy.autonomous_agents import routing_protocols
 from uvnpy.rsn import rigidity
@@ -64,7 +64,7 @@ class single_integrator(object):
             dim=self.dim, dmax=self.dmin,
             steepness=20/self.dmin, exponent=0.5, non_adjacent=True)
         self.load = communication_load(self.dmax, 3/self.dmax)
-        self.collision = collision_avoidance(exponent=2)
+        self.collision = power_collision_avoidance(power=2)
         self.control_action_raw = np.zeros((1, self.dim))
         self.last_control_action = np.zeros(self.dim)
         self.action = {}
