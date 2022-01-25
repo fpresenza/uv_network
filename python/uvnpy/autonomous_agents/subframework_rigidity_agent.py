@@ -118,15 +118,13 @@ class single_integrator(object):
         return re
 
     def choose_extent(self):
-        re = self.rigidity_eigenvalue(self.extent)
-        for hops in range(1, self.extent):
-            try:
-                new_re = self.rigidity_eigenvalue(hops)
-                if new_re > re:
-                    self.extent = hops
-                    break
-            except IndexError:
-                break
+        try:
+            re = self.rigidity_eigenvalue(self.extent)
+            new_re = self.rigidity_eigenvalue(self.extent - 1)
+            if new_re > re:
+                self.extent -= 1
+        except ValueError:
+            pass
 
     def steady(self):
         self.last_control_action = 0
