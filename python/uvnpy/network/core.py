@@ -112,3 +112,8 @@ def geodesics(A):
     lengths = np.empty(A.shape)
     lengths[idx, k] = v
     return lengths
+
+
+def diameter(A):
+    G = nx.from_numpy_matrix(A)
+    return nx.diameter(G)
