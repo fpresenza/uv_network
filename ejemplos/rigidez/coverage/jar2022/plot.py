@@ -144,7 +144,7 @@ plt.gca().set_prop_cycle(None)
 fig.savefig('/tmp/simu_metrics.png', format='png', dpi=300)
 
 # instantes
-instants = np.array([0., 10., 75., 250.])
+instants = np.array([0., 5.5, 7, 40., 125., 250])
 # lim = np.abs(x).max()
 lim = 50
 

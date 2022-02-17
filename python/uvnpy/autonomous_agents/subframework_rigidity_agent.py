@@ -163,7 +163,7 @@ class single_integrator(object):
 
         # aplico acciones de control
         control_action = logistic_saturation(
-            2.5 * cmd_ext + 2 * u_center + 10 * u_ca, limit=2.5)
+            5 * cmd_ext + 4 * u_center + 20 * u_ca, limit=2.5)
         self.control_action_raw[-1] = control_action
         self.last_control_action = self.control_action_raw[-1]
         self.dm.step(self.current_time, self.last_control_action)
