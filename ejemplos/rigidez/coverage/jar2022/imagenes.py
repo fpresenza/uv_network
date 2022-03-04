@@ -3,7 +3,6 @@
 """ Created on mié 29 dic 2021 16:41:13 -03
 @author: fran
 """
-import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -16,30 +15,6 @@ plt.rcParams['pdf.fonttype'] = 42
 plt.rcParams['ps.fonttype'] = 42
 plt.rcParams['mathtext.fontset'] = 'dejavuserif'
 plt.rcParams['font.family'] = 'serif'
-
-
-class CoverageAnimate(network.plot.Animate):
-    def __init__(self, *args, **kwargs):
-        super(CoverageAnimate, self).__init__(*args, **kwargs)
-
-    def _update_extra_artists(self, frame):
-        P = frame[1]
-        T = frame[3]
-        n = int(len(P)/2)
-        for i in range(n):
-            self._extra_artists[i].center = P[i]
-        untracked = T[:, 2].astype(bool)
-        Tt = T[~untracked]
-        Tu = T[untracked]
-        self._extra_artists[-2].set_data(Tt[:, 0], Tt[:, 1])
-        self._extra_artists[-1].set_data(Tu[:, 0], Tu[:, 1])
-
-
-parser = argparse.ArgumentParser(description='')
-parser.add_argument(
-    '-x', '--vel',
-    default=1, type=int, help='velocidad de reproduccion')
-arg = parser.parse_args()
 
 
 # extraigo datos
@@ -133,7 +108,7 @@ ax.set_ylabel(r'Autovalores Rigidez', fontsize='x-small', labelpad=0.6)
 ax.plot(t, re.min(axis=1), lw=0.8, label='min')
 ax.plot(t, re.mean(axis=1), lw=0.8, label='promedio')
 ax.plot(t, re.max(axis=1), lw=0.8, label='max')
-ax.plot(t, fre, ls='--', color='k', lw=0.8, label='framework')
+ax.plot(t, fre, ls='--', color='k', lw=0.8, label=r'$\it{framework}$')
 ax.set_ylim(bottom=0, top=2.5)
 ax.legend(
     fontsize='xx-small', handlelength=1, labelspacing=0.4,
@@ -202,10 +177,10 @@ for i, tk in enumerate(instants):
     tracked = np.logical_not(untracked)
     ax.scatter(
         targets[k, untracked, 0], targets[k, untracked, 1],
-        marker='s', s=4, color='0.5')
+        marker='s', s=4, color='0.6')
     ax.scatter(
         targets[k, tracked, 0], targets[k, tracked, 1],
-        marker='s', s=4, color='y')
+        marker='s', s=4, color='0.2')
 
     network.plot.nodes(
         ax, x[max(0, k-150):k+1:5, one_hop_rigid],
@@ -226,68 +201,5 @@ for i, tk in enumerate(instants):
             loc='upper center')
 
     fig.savefig('/tmp/instants_{}.png'.format(int(tk)), format='png', dpi=300)
-
-
-# animacion
-timestep = np.diff(t).mean()
-frames = np.empty((t.size, 4), dtype=np.ndarray)
-# E = network.edges_from_adjacency(A[0])
-steps = list(enumerate(t))
-for k, tk in steps:
-    E = network.edges_from_adjacency(A[k])
-    X = np.vstack([x[k], hatx[k]])
-    T = targets[k]
-    frames[k] = tk, X, E, T
-
-
-fig, ax = plt.subplots()
-ax.tick_params(
-    axis='both',       # changes apply to the x-axis
-    which='both',      # both major and minor ticks are affected
-    pad=1,
-    labelsize='xx-small')
-ax.set_aspect('equal')
-ax.grid(1, lw=0.4)
-ax.set_xlabel(r'$x$', fontsize='x-small', labelpad=0.6)
-ax.set_ylabel(r'$y$', fontsize='x-small', labelpad=0.6)
-ax.set_xlim(-lim, lim)
-ax.set_ylim(-lim, lim)
-# anim = network.plot.Animate(fig, ax, timestep/2, frames, maxlen=50)
-anim = CoverageAnimate(fig, ax, timestep, frames[::arg.vel], maxlen=10)
-
-one_hop_rigid = extents[0] == 1
-two_hop_rigid = extents[0] == 2
-three_hop_rigid = extents[0] == 3
-four_hop_rigid = extents[0] == 4
-anim.set_teams(
-    {'ids': nodes[one_hop_rigid], 'tail': True,
-        'style': {'color': 'royalblue', 'marker': 'o', 'markersize': 5}},
-    {'ids': nodes[two_hop_rigid], 'tail': True,
-        'style': {'color': 'chocolate', 'marker': 'D', 'markersize': 5}},
-    {'ids': nodes[three_hop_rigid], 'tail': True,
-        'style': {'color': 'mediumseagreen', 'marker': 's', 'markersize': 5}},
-    {'ids': nodes[four_hop_rigid], 'tail': True,
-        'style': {'color': 'purple', 'marker': '^', 'markersize': 5}},
-    {'ids': nodes + nodes[-1] + 1, 'tail': False,
-        'style': {'color': 'red', 'marker': '+', 'markersize': 5}})  # noqa
-anim.set_edgestyle(color='0.4', alpha=0.6, lw=0.8)
-
-
-# circles = [plt.Circle(pi, 3., alpha=0.4) for pi in x[0]]
-circles = []
-for p in x[0]:
-    circle = plt.Circle(p, 3., alpha=0.4)
-    circles.append(circle)
-    ax.add_artist(circle)
-tracked = ax.plot([], [], ls='', marker='s', markersize=3, color='y')
-untracked = ax.plot(
-    targets[0, :, 0], targets[0, :, 1],
-    ls='', marker='s', markersize=3, color='0.5')
-extras = circles + tracked + untracked
-anim.set_extra_artists(*extras)
-
-# anim.ax.legend(ncol=5)
-# anim.run()
-# anim.run('/tmp/multihop.mp4')
 
 plt.show()
