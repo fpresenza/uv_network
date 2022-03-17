@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
-import matplotlib.animation as ani
+import matplotlib.animation as animation
 import collections
 from transformations import unit_vector
 
@@ -87,7 +87,7 @@ class Animate(object):
         return self.ax.lines + self.ax.artists + self.ax.texts
 
     def run(self, file=None):
-        self.anim = ani.FuncAnimation(
+        self.anim = animation.FuncAnimation(
             self.fig,
             self.update,
             frames=self.frames,
@@ -173,7 +173,7 @@ class Animate2(object):
         return self.ax.lines + self.ax.artists + self.ax.texts
 
     def run(self, file=None):
-        self.anim = ani.FuncAnimation(
+        self.anim = animation.FuncAnimation(
             self.fig,
             self.update,
             frames=self.frames,
