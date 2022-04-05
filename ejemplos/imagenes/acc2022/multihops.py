@@ -28,7 +28,7 @@ n = int(density * L2)
 dmax = np.array([25, 20, 17.5])
 
 R = len(dmax)
-N = 10
+N = 250
 rigidity_extent = np.zeros((R, N), dtype=np.ndarray)
 edges = np.zeros((R, N), dtype=int)
 load = np.zeros((R, N))
@@ -137,7 +137,7 @@ axes[1].set_xlabel(
     'Worst-case \n rigidity extent, ' + r'$\eta$',
     fontsize='x-small', labelpad=0.6)
 axes[1].set_ylabel(
-    r'Std. Load', fontsize='x-small', labelpad=1)
+    r'Avg. Std. Load', fontsize='x-small', labelpad=1)
 # axes[2].legend(
 #     fontsize='xx-small', handlelength=2, labelspacing=0.5, borderpad=0.2)
 
