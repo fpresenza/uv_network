@@ -5,6 +5,7 @@
 """
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.collections import LineCollection
 import networkx as nx  # noqa
 from transformations import unit_vector
 
@@ -62,7 +63,7 @@ x[:, 1] = -_x[:, 0]
 A = disk_graph.adjacency(x, dmax)
 G = nx.from_numpy_matrix(A)
 diam = nx.algorithms.distance_measures.diameter(G)
-print(diam)
+# print(diam)
 min_hops = rigidity.extents(A, x)
 
 fig, ax = plt.subplots(figsize=(1.65, 1.65))
@@ -114,9 +115,9 @@ N2 = subsets.multihop_neighborhood(A, 2)
 N3 = subsets.multihop_neighborhood(A, 3)
 N4 = subsets.multihop_neighborhood(A, 4)
 
-network.plot.nodes(ax, x[0], color='mediumseagreen', s=60, zorder=10)
-network.plot.nodes(ax, x[N1[0]], color='mediumseagreen', s=60, zorder=10)
-network.plot.nodes(ax, x[N2[0]], color='mediumseagreen', s=60, zorder=10)
+network.plot.nodes(ax, x[0], color='mediumseagreen', s=80, zorder=10)
+network.plot.nodes(ax, x[N1[0]], color='mediumseagreen', s=40, zorder=10)
+network.plot.nodes(ax, x[N2[0]], color='mediumseagreen', s=20, zorder=10)
 network.plot.nodes(ax, x[N3[0]], color='0.6', s=20, zorder=10)
 network.plot.nodes(ax, x[N4[0]], color='0.6', s=20, zorder=10)
 network.plot.edges(ax, x, A, color='0.2', alpha=0.6, lw=0.7, zorder=1)
@@ -129,7 +130,7 @@ ax.annotate(
 
 tags = np.vstack(
     [0, np.argwhere(N1[0]), np.argwhere(N2[0])]).ravel()
-print(tags)
+# print(tags)
 # for i, xi in enumerate(x[N1[0]]):
 #     ax.annotate(
 #         r'$j_{}$'.format(i+1), xy=xi, color='k',
@@ -150,21 +151,32 @@ print(tags)
 
 # A2, x2 = subsets.multihop_subframework(A, x, i=0, hops=2)
 # E2 = network.edges_from_adjacency(A2)
+# R = np.array([
+#     [0, tags[3]],
+#     [tags[3], tags[6]],
+#     [0, tags[1]],
+#     [tags[1], tags[7]],
+#     [tags[1], tags[10]],
+#     [0, tags[4]],
+#     [0, tags[2]],
+#     [tags[4], tags[5]],
+#     [tags[2], tags[8]],
+#     [tags[2], tags[9]]])
 R = np.array([
-    [0, tags[3]],
-    [tags[3], tags[6]],
-    [0, tags[1]],
-    [tags[1], tags[7]],
-    [tags[1], tags[10]],
-    [0, tags[4]],
-    [0, tags[2]],
-    [tags[4], tags[5]],
-    [tags[2], tags[8]],
-    [tags[2], tags[9]]])
-R = np.vstack([R, np.flip(R, axis=1)])
-print(R)
+    [tags[3], 0],
+    [tags[6], tags[3]],
+    [tags[1], 0],
+    [tags[7], tags[1]],
+    [tags[10], tags[1]],
+    [tags[4], 0],
+    [tags[2], 0],
+    [tags[5], tags[4]],
+    [tags[8], tags[2]],
+    [tags[9], tags[2]]])
+# R = np.vstack([R, np.flip(R, axis=1)])
+
 r = x[R[:, 0]] - x[R[:, 1]]
-r = r - 0.6 * unit_vector(r, axis=1)
+r = r - 0.5 * unit_vector(r, axis=1)
 ax.quiver(
     x[R[:, 1], 0], x[R[:, 1], 1], r[:, 0], r[:, 1],
     color='mediumseagreen', angles='xy',
@@ -172,6 +184,55 @@ ax.quiver(
     headlength=6, headaxislength=5, linewidths=0.25,
     edgecolor='mediumseagreen')
 fig.savefig('/tmp/routing_3.png', format='png', dpi=300)
+
+
+# sub-framework i=0
+fig, ax = plt.subplots(figsize=(1.65, 1.65))
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    bottom=False,      # ticks along the bottom edge are off
+    top=False,         # ticks along the top edge are off
+    left=False,
+    right=False,
+    labelbottom=False,
+    labelleft=False)   # labels along the bottom edge are off
+# ax.grid(0, lw=0.4)
+# ax.set_aspect('equal')
+
+N1 = subsets.multihop_neighborhood(A, 1)[0]
+N2 = subsets.multihop_neighborhood(A, 2)[0]
+N3 = subsets.multihop_neighborhood(A, 3)[0]
+N4 = subsets.multihop_neighborhood(A, 4)[0]
+
+network.plot.nodes(ax, x[0], color='mediumseagreen', s=80, zorder=10)
+network.plot.nodes(ax, x[N1], color='mediumseagreen', s=40, zorder=10)
+network.plot.nodes(ax, x[N2], color='mediumseagreen', s=20, zorder=10)
+network.plot.nodes(ax, x[N3], color='0.6', s=20, zorder=10)
+network.plot.nodes(ax, x[N4], color='0.6', s=20, zorder=10)
+_A = disk_graph.adjacency(x[N2 + N3 + N4], dmax)
+network.plot.edges(
+    ax, x[N2 + N3 + N4], _A, color='0.2', alpha=0.6, lw=0.7, zorder=1)
+
+ax.annotate(
+    r'$i$',  xy=x[0], color='k',
+    fontsize='x-small', weight='normal',
+    horizontalalignment='center',
+    verticalalignment='center', zorder=20)
+
+nn = np.argwhere(N1)
+e = np.vstack([np.tile(0, len(nn)), nn.ravel()]).astype(int).T
+edges = LineCollection(x[e], color='mediumseagreen', lw=1)
+ax.add_collection(edges)
+
+N = subsets.neighborhood(A)
+for j in nn.ravel():
+    nnj = np.argwhere(N[j])
+    e = np.vstack([np.tile(j, len(nnj)), nnj.ravel()]).astype(int).T
+    edges = LineCollection(x[e], color='mediumseagreen', lw=1)
+    ax.add_collection(edges)
+
+fig.savefig('/tmp/routing_3b.png', format='png', dpi=300)
 
 # membership i=0
 fig, ax = plt.subplots(figsize=(1.65, 1.65))
@@ -186,6 +247,11 @@ ax.tick_params(
     labelleft=False)   # labels along the bottom edge are off
 # ax.grid(0, lw=0.4)
 # ax.set_aspect('equal')
+
+N1 = subsets.multihop_neighborhood(A, 1)
+N2 = subsets.multihop_neighborhood(A, 2)
+N3 = subsets.multihop_neighborhood(A, 3)
+N4 = subsets.multihop_neighborhood(A, 4)
 
 M = N1[0]
 M[0] = True
@@ -230,7 +296,7 @@ E = np.array([
     [0, 6],
     [0, 11],
     [2, 15]])
-E = np.vstack([E, np.flip(E, axis=1)])
+# E = np.vstack([E, np.flip(E, axis=1)])
 r = x[E[:, 0]] - x[E[:, 1]]
 r = r - 0.65 * unit_vector(r, axis=1)
 ax.quiver(
