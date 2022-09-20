@@ -8,12 +8,11 @@ import collections
 import numpy as np
 import matplotlib.pyplot as plt
 
-from gpsic.plotting.planar import agregar_ax
 
 # ------------------------------------------------------------------
 # Definición de variables, funciones y clases
 # ------------------------------------------------------------------
-Logs = collections.namedtuple('Logs', 'x')
+Logs = collections.namedtuple('Logs', 'data')
 
 
 # ------------------------------------------------------------------
@@ -21,10 +20,10 @@ Logs = collections.namedtuple('Logs', 'x')
 # ------------------------------------------------------------------
 
 
-def run(tiempo, logs, *args):
+def run(timesteps, logs, *args):
     # iteración
-    # for t in tiempo[1:]:
-    #     logs.x[t] = 0
+    # for t in timesteps[1:]:
+    #     logs.data[t] = 0
 
     # return logs
     return logs
@@ -37,47 +36,39 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
     parser.add_argument(
         '-s', '--step',
-        dest='h', default=50e-3, type=float, help='paso de simulación')
+        default=50e-3, type=float, help='simulation step')
     parser.add_argument(
-        '-t', '--ti',
-        metavar='T0', default=0.0, type=float, help='tiempo inicial')
+        '-i', '--ti',
+        default=0.0, type=float, help='initialization time')
     parser.add_argument(
-        '-e', '--tf',
-        default=1.0, type=float, help='tiempo final')
+        '-f', '--tf',
+        default=1.0, type=float, help='finalization time')
     parser.add_argument(
         '-r', '--arxiv',
-        default='/tmp/config.yaml', type=str, help='arhivo de configuración')
+        default='/tmp/config.yaml', type=str, help='config arxiv')
     parser.add_argument(
-        '-g', '--save',
-        default=False, action='store_true',
-        help='flag para guardar archivos')
+        '-a', '--save',
+        default=False, action='store_true', help='flag to store data')
 
     arg = parser.parse_args()
 
     # ------------------------------------------------------------------
     # Configuración
     # ------------------------------------------------------------------
-    tiempo = np.arange(arg.ti, arg.tf, arg.h)
-    logs = Logs(np.empty(len(tiempo)))
+    timesteps = np.arange(arg.ti, arg.tf, arg.step)
+    logs = Logs(data=np.empty(len(timesteps)))
 
     # ------------------------------------------------------------------
     # Simulación
     # ------------------------------------------------------------------
-    logs = run(tiempo, logs)
-    x = logs.x
+    logs = run(timesteps, logs)
+    data = logs.data
 
     # ------------------------------------------------------------------
     # Plotting
     # ------------------------------------------------------------------
-    fig = plt.figure(figsize=(13, 5))
-    fig.subplots_adjust(hspace=0.5, wspace=0.25)
-    gs = fig.add_gridspec(2, 2)
-
-    ax = agregar_ax(
-        gs[0, 0],
-        title='x vs. t', title_kw={'fontsize': 11},
-        xlabel='t [seg]', ylabel='', label_kw={'fontsize': 10})
-    ax.plot(tiempo, x, color='r', label='$x$')
+    fig, ax = plt.subplots()
+    ax.plot(timesteps, data)
 
     if arg.save:
         fig.savefig('/tmp/ensayo.pdf', format='pdf')
