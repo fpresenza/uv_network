@@ -110,17 +110,15 @@ axes[1].set_ylim(bottom=1)
 fig.savefig('/tmp/simu_metrics.png', format='png', dpi=300)
 
 # instantes
-instants = np.array([0., 200])
+instants = np.array([0., 10, 20, 50, 100, 200])
 lim = np.abs(x).max()
 one_hop_rigid = hops == 1
 two_hop_rigid = hops == 2
 three_hop_rigid = hops == 3
 four_hop_rigid = hops == 4
 
-fig, axes = plt.subplots(1, 2, figsize=(3.4, 2))
-fig.subplots_adjust(wspace=0.215, left=0.11, right=0.975)
-axes = axes.ravel()
-for i, ax in enumerate(axes):
+for i, tk in enumerate(instants):
+    fig, ax = plt.subplots(figsize=(2.2, 2))
     ax.tick_params(
         axis='both',       # changes apply to the x-axis
         which='both',      # both major and minor ticks are affected
@@ -128,57 +126,59 @@ for i, ax in enumerate(axes):
         labelsize='xx-small')
     ax.grid(1, lw=0.4)
     ax.set_aspect('equal')
-    ax.set_xlabel(r'$\mathrm{x}$', fontsize='x-small', labelpad=0.6)
-    if i % 2 == 0:
-        ax.set_ylabel(r'$\mathrm{y}$', fontsize='x-small', labelpad=0)
-    ax.set_xticks([-100, 0, 100])
-    ax.set_yticks([-100, 0, 100])
-    ax.set_xticklabels([-100, 0, 100])
-    ax.set_yticklabels([-100, 0, 100])
 
-for tk, ax in zip(instants, axes):
+    print(lim)
+    a = 10 * (lim // 10 + 1)
+    b = a // 2
+    ax.set_xlim(-a, a)
+    ax.set_ylim(-a, a)
+    ax.set_xticks([-a, -b, 0, b, a])
+    ax.set_yticks([-a, -b, 0, b, a])
+    ax.set_xticklabels([-a, -b, 0, b, a])
+    ax.set_yticklabels([-a, -b, 0, b, a])
+
     k = np.argmin(np.abs(t - tk))
-    ax.set_xlim(-lim, lim)
-    ax.set_ylim(-lim, lim)
     ax.text(
             0.05, 0.01, r't = {:.2f}s'.format(tk),
             verticalalignment='bottom', horizontalalignment='left',
             transform=ax.transAxes, color='k', fontsize=5)
+
     network.plot.nodes(
         ax, x[k, one_hop_rigid],
-        marker='o', color='royalblue', s=7, zorder=20, label=r'$1$')
+        marker='o', color='royalblue', s=7, zorder=20, label=r'$h=1$')
     network.plot.nodes(
         ax, x[k, two_hop_rigid],
-        marker='D', color='chocolate', s=7, zorder=20, label=r'$2$')
+        marker='D', color='chocolate', s=7, zorder=20, label=r'$h=2$')
     network.plot.nodes(
         ax, x[k, three_hop_rigid],
-        marker='s', color='mediumseagreen', s=7, zorder=20, label=r'$3$')
+        marker='s', color='mediumseagreen', s=7, zorder=20, label=r'$h=3$')
     network.plot.nodes(
         ax, x[k, four_hop_rigid],
-        marker='^', color='purple', s=7, zorder=10, label=r'$4$')
+        marker='^', color='purple', s=7, zorder=10, label=r'$h=4$')
     network.plot.edges(ax, x[k], A[k], color='k', lw=0.5)
 
-network.plot.nodes(
-    axes[1], x[::20, one_hop_rigid],
-    marker='.', color='royalblue', s=1, zorder=1, lw=0.5)
-network.plot.nodes(
-    axes[1], x[::20, two_hop_rigid],
-    marker='.', color='chocolate', s=1, zorder=1, lw=0.5)
-network.plot.nodes(
-    axes[1], x[::20, three_hop_rigid],
-    marker='.', color='mediumseagreen', s=1, zorder=1, lw=0.5)
-network.plot.nodes(
-    axes[1], x[::20, four_hop_rigid],
-    marker='.', color='purple', s=1, zorder=1, lw=0.5)
+    network.plot.nodes(
+        ax, x[max(0, k-600):k:20, one_hop_rigid],
+        marker='.', color='royalblue', s=1, zorder=1, lw=0.5)
+    network.plot.nodes(
+        ax, x[max(0, k-600):k:20, two_hop_rigid],
+        marker='.', color='chocolate', s=1, zorder=1, lw=0.5)
+    network.plot.nodes(
+        ax, x[max(0, k-600):k:20, three_hop_rigid],
+        marker='.', color='mediumseagreen', s=1, zorder=1, lw=0.5)
+    network.plot.nodes(
+        ax, x[max(0, k-600):k:20, four_hop_rigid],
+        marker='.', color='purple', s=1, zorder=1, lw=0.5)
 
-axes[0].legend(
-    fontsize='xx-small',
-    handletextpad=0.0,
-    borderpad=0.2,
-    ncol=4, columnspacing=0.2,
-    loc='upper center')
+    if i == 0:
+        ax.legend(
+            fontsize='xx-small',
+            handletextpad=0.0,
+            borderpad=0.2,
+            ncol=4, columnspacing=0.2,
+            loc='upper center')
 
-fig.savefig('/tmp/instants.png', format='png', dpi=300)
+    fig.savefig('/tmp/instants_{}.png'.format(int(tk)), format='png', dpi=300)
 
 
 # animacion
