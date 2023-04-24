@@ -82,17 +82,6 @@ def degree_load(A, coeff):
     return coeff.dot(deg).sum()
 
 
-def degree_load_flat(A, hops):
-    """La funcion de peso es 1 para todo nodo en Vi excepto para
-    aquellos en la frontera que tienen peso 0."""
-    hmax = np.max(hops)
-    n = len(hops)
-    R = reach(A, range(hmax))
-    Ah = R.cumsum(axis=0).astype(bool)
-    coeff = np.array([Ah[hops[i]-1, i] for i in range(n)])
-    return degree_load(A, coeff)
-
-
 def degree_load_std(A, hops):
     """Calcula una metrica de carga de la red en base al grado de los nodos.
 
@@ -105,6 +94,14 @@ def degree_load_std(A, hops):
     geo = network.geodesics(A)
     coeff = (hops.reshape(-1, 1) - geo).clip(min=0)
     return degree_load(A, coeff)
+
+
+def degree_load_flat(A, hops):
+    """La funcion de peso es 1 para todo nodo en Vi excepto para
+    aquellos en la frontera que tienen peso 0."""
+    geo = network.geodesics(A)
+    coeff = (hops.reshape(-1, 1) - geo).clip(min=0)
+    return degree_load(A, np.sign(coeff))
 
 
 # def neighborhood_load(A, hops):
