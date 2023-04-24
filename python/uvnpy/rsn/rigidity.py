@@ -9,7 +9,8 @@ import numpy as np
 import scipy.linalg
 from transformations import unit_vector
 
-from uvnpy.network import subsets
+from uvnpy.network.core import geodesics
+from uvnpy.network.subsets import multihop_subframework
 
 
 def classic_matrix(D, p):
@@ -197,7 +198,7 @@ def eigenvalue(A, x):
 def subframework_eigenvalue(A, x, i, h=1):
     d = x.shape[1]
     f = int(d * (d + 1)/2)
-    Ai, xi = subsets.multihop_subframework(A, x, i, h)
+    Ai, xi = multihop_subframework(A, x, i, h)
     Si = symmetric_matrix(Ai, xi)
     eig = np.linalg.eigvalsh(Si)
     return eig[f]
@@ -242,10 +243,67 @@ def extents(A, x, threshold=1e-3):
         h = 0
         while not minimum_found:
             h += 1
-            Ai, xi = subsets.multihop_subframework(A, x, i, h)
+            Ai, xi = multihop_subframework(A, x, i, h)
             Si = symmetric_matrix(Ai, xi)
             re = np.linalg.eigvalsh(Si)[f]
             if re > threshold:
                 minimum_found = True
         hops[i] = h
     return hops
+
+
+def subframework_based_rigidity(
+        A, x, extents, threshold=1e-3, return_binding=False):
+    """Determines whether the framework is rigid based on the subframeworks"""
+    n, d = x.shape
+    geo = geodesics(A)
+    centers = np.where(extents > 0)[0]
+
+    # check every vertex is covered
+    covered = np.zeros(n, dtype=int)
+    for i in centers:
+        Vi = geo[i] <= extents[i]
+        covered[Vi] += 1
+
+    if np.any(covered == 0):
+        """ print(f'{np.where(covered == 0)[0]} not covered') """
+        return False
+
+    # check separately if there is only one subframework
+    if len(centers) == 1:
+        """ print(f'one subframework: centralized scheme') """
+        return algebraic_condition(A, x)
+
+    # check if every subframework is rigid and
+    # if each one has at least d binding vertices
+    B = np.zeros((n, n))
+    for i in centers:
+        Vi = geo[i] <= extents[i]
+        Ai = A[Vi][:, Vi]
+        xi = x[Vi]
+        if not algebraic_condition(Ai, xi):
+            """ print(f'F_{i} not rigid' ) """
+            return False
+
+        Bi = np.argwhere(np.logical_and(covered > 1, Vi))
+        if len(Bi) < d:
+            """ print(f'|B_{i}| < d') """
+            return False
+        B[Bi.ravel(), Bi] = 1 - np.eye(len(Bi))
+
+    # check if the binding graph is rigid
+    binding = np.where(covered > 1)[0]
+    _B = B.copy()
+    B = B[binding][:, binding]
+    xb = x[binding]
+    if not algebraic_condition(B, xb):
+        """ print(f'G_B not rigid') """
+        if return_binding:
+            return False, _B
+        else:
+            return False
+
+    if return_binding:
+        return True, _B
+    else:
+        return True
