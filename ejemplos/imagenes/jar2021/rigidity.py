@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 import uvnpy.network as network
 from uvnpy.rsn import rigidity
-from gpsic.toolkit import linalg
+# from gpsic.toolkit import linalg
 
 
 p = np.array([
@@ -112,7 +112,9 @@ v4 = v[:, 3].reshape(-1, 2)
 q = p + v4
 q = q - q.mean(0) + p.mean(0)
 t = np.arctan2(q[0, 1] - q[2, 1], q[0, 0] - q[2, 0])
-Rz = linalg.Rz(t)[:2, :2]
+# Rz = linalg.Rz(t)[:2, :2]
+Rz = np.array([[np.cos(t), -np.sin(t)], [np.sin(t), np.cos(t)]])
+
 q = q.dot(Rz)
 network.plot.nodes(ax, q[0], color='b', alpha=0.3)
 network.plot.nodes(ax, q[1], color='r', alpha=0.3)
