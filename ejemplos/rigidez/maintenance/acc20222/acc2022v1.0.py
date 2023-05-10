@@ -71,7 +71,7 @@ def sat(u):
 
 def run(steps, logs, t_perf, A, dinamica):
     # iteración
-    bar = progressbar.ProgressBar(max_value=arg.tf).start()
+    bar = progressbar.ProgressBar(maxval=arg.tf).start()
     u = np.zeros(dinamica.x.shape)
     re = np.empty(n)
 
@@ -81,8 +81,8 @@ def run(steps, logs, t_perf, A, dinamica):
         u[:] = 0
         G = network.geodesics(A)
 
-        hatx = np.array([localization[i].x for i in nodes])
-        hatP = np.array([localization[i].P for i in nodes])
+        hatx = np.array([localization[i].position for i in nodes])
+        hatP = np.array([localization[i].covariance for i in nodes])
         err = np.linalg.norm(x - hatx, axis=1)
         if err.max() > 12:
             print('\n error: ', err.argmax(), err.max())
@@ -267,7 +267,7 @@ maintenance = [
 localization = [distances_to_neighbors_kalman(
     hatx[i], Pi, Q * dt, range_sd**2, tiempo[0]) for i in nodes]
 
-hops = rigidity.minimum_hops(A, x)
+hops = rigidity.extents(A, x)
 print(hops)
 
 logs = Logs(
