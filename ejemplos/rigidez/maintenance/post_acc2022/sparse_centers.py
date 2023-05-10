@@ -14,9 +14,9 @@ check_rigidity = rigidity.subframework_based_rigidity
 # metric = lambda A, h : subsets.degree_load_std(A, h) + 60*np.max(h)
 # metric = lambda A, h : np.sum(h * h)
 metrics = [
-    subsets.degree_load_std,
-    subsets.degree_load_flat,
-    lambda A, h: np.max(h)
+    (subsets.degree_load_std, r'$\mathcal{L}(h)$'),
+    (subsets.degree_load_flat, r'$\mathcal{L}_{flat}(h)$'),
+    (lambda A, h: np.max(h), r'$\mathcal{L}(h)$')
 ]
 
 
@@ -53,8 +53,34 @@ while not found_rigid:
 
 print(A, x)
 
-for metric in metrics:
+A = np.array([
+    [0., 1., 1., 0., 0., 0., 0., 0., 1., 1.],
+    [1., 0., 1., 0., 0., 0., 0., 0., 0., 0.],
+    [1., 1., 0., 1., 0., 1., 0., 0., 0., 0.],
+    [0., 0., 1., 0., 1., 1., 0., 0., 0., 0.],
+    [0., 0., 0., 1., 0., 1., 1., 0., 0., 0.],
+    [0., 0., 1., 1., 1., 0., 1., 1., 1., 0.],
+    [0., 0., 0., 0., 1., 1., 0., 1., 0., 0.],
+    [0., 0., 0., 0., 0., 1., 1., 0., 1., 0.],
+    [1., 0., 0., 0., 0., 1., 0., 1., 0., 1.],
+    [1., 0., 0., 0., 0., 0., 0., 0., 1., 0.]])
+
+x = np.array([
+    [ 2.921961,  0.962442],
+    [ 3.479602,  1.951268],
+    [ 2.496763,  2.044489],
+    [-0.05499 ,  1.955132],
+    [-1.120506,  0.903233],
+    [ 0.856702,  0.878715],
+    [-0.533504, -0.472975],
+    [ 0.975142, -0.536853],
+    [ 1.392686,  0.203473],
+    [ 2.188298,  0.004104]])
+
+
+for metric, name in metrics:
     extents = rigidity.extents(A, x)
+    print('----', name, '----')
     print(extents, metric(A, extents))
 
     for h in reversed(np.unique(extents)):
@@ -90,6 +116,7 @@ for metric in metrics:
         print('algo salio mal.')
 
     fig, ax = plt.subplots()
+    fig.suptitle(name)
     ax.grid(1)
     ax.set_aspect('equal')
     ax.set_xlim(x[:, 0].min() * 1.15, x[:, 0].max() * 1.15)

@@ -11,6 +11,8 @@ import uvnpy.network as network
 from uvnpy.network import disk_graph
 from uvnpy.rsn import rigidity
 
+np.set_printoptions(suppress=True, precision=4, linewidth=250)
+
 plt.rcParams['text.usetex'] = False
 plt.rcParams['pdf.fonttype'] = 42
 plt.rcParams['ps.fonttype'] = 42
@@ -21,9 +23,9 @@ plt.rcParams['font.family'] = 'serif'
 
 hL = 50
 L = 2 * hL
-L2 = L**2
+area = L**2
 density = 1/100  # inverso del area que le corresponde a cada agente
-n = int(density * L2)
+n = int(density * area)
 d_factor = 1.7
 dmax = d_factor / np.sqrt(density)
 print('dmax = {}'.format(dmax))
@@ -36,7 +38,7 @@ for i in range(348, 2000):  # 348
 
     lambda4 = rigidity.eigenvalue(A, x)
     if lambda4 > 1e-3:
-        G = nx.from_numpy_matrix(A)
+        G = nx.from_numpy_array(A)
         D = nx.diameter(G)
         extents = rigidity.extents(A, x)
         one_hop_rigid = extents == 1
@@ -91,27 +93,32 @@ ax[0].legend(
 
 hL = 50
 L = 2 * hL
-L2 = L**2
+area = L**2
 density = 1/100  # inverso del area que le corresponde a cada agente
-n = int(density * L2)
+n = int(density * area)
 dmax = np.array([25, 20, 17.5])
 
 R = len(dmax)
-N = 250
+N = 50
 rigidity_extent = np.zeros((R, N), dtype=np.ndarray)
 max_rigidity_extent = np.zeros((R, N))
 diam = np.zeros((R, N), dtype=int)
 
+threshold = 1e-5
+Omin = 0
+A0 = np.zeros((n, n))
 for i in range(R):
     k = 0
     while k < N:
         x = np.random.uniform(-hL, hL, (n, 2))
         A = disk_graph.adjacency(x, dmax[i])
         try:
-            rigidity_extent[i, k] = rigidity.extents(A, x)
+            rigidity_extent[i, k] = rigidity.extents(A, x, threshold)
             max_rigidity_extent[i, k] = rigidity_extent[i, k].max()
+            Amin, r = rigidity.minimum_radius(A, x, threshold, return_radius=True)
+            Omin += r / R / N
 
-            G = nx.from_numpy_matrix(A)
+            G = nx.from_numpy_array(A)
             diam[i, k] = nx.diameter(G)
             # geo = network.geodesics(A)
             print(i, k)
@@ -122,6 +129,8 @@ for i in range(R):
         except StopIteration as e:
             print(e)
             pass
+
+print('radio minimo de rigidez:', Omin)
 
 centralization_index = max_rigidity_extent / diam
 print(centralization_index)
