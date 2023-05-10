@@ -11,6 +11,7 @@ from transformations import unit_vector
 
 from uvnpy.network.core import geodesics
 from uvnpy.network.subsets import multihop_subframework
+from uvnpy.rsn.distances import matrix as distance_matrix
 
 
 def classic_matrix(D, p):
@@ -250,6 +251,48 @@ def extents(A, x, threshold=1e-3):
                 minimum_found = True
         hops[i] = h
     return hops
+
+
+def minimum_radius(A, x, threshold=1e-5, return_radius=False):
+    """Add or delete edges to a framework until it is radius-wise minimally
+    rigid."""
+    A = A.copy()
+    n, d = x.shape
+    f = d * (d + 1) // 2
+    dist = distance_matrix(x)
+    
+    if algebraic_condition(A, x, threshold):
+        B = A.copy()
+        dist = dist * B
+
+        rigid = True
+        while rigid:
+            A = B.copy()
+            i, j = np.unravel_index(np.argmax(dist), (n, n))
+            radius = dist[i, j]
+            dist[i, j] = dist[j, i] = 0
+            B[i, j] = B[j, i] = 0
+            rigid = algebraic_condition(B, x, threshold)
+    else:
+        B = np.eye(n) + A
+        B[B == 1] = np.inf
+        dist = dist + B
+
+        rigid = False
+        while not rigid:
+            i, j = np.unravel_index(np.argmin(dist), (n, n))
+            radius = dist[i, j]
+            dist[i, j] = dist[j, i] = np.inf
+            A[i, j] = A[j, i] = 1
+            e = A.sum() // 2
+            if e >= d*n - f:
+                rigid = algebraic_condition(A, x, threshold)
+    
+    if return_radius:
+        return A, radius
+    else:        
+        return A
+
 
 
 def subframework_based_rigidity(
