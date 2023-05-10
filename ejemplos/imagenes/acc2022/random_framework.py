@@ -35,7 +35,7 @@ for i in range(348, 2000):  # 348
 
     lambda4 = rigidity.eigenvalue(A, x)
     if lambda4 > 1e-3:
-        G = nx.from_numpy_matrix(A)
+        G = nx.from_numpy_array(A)
         D = nx.diameter(G)
         min_hops = rigidity.extents(A, x)
         one_hop_rigid = min_hops == 1

@@ -48,7 +48,7 @@ for i in range(R):
             load[i, k] = subsets.degree_load_std(A, rigidity_extent[i, k])
             load[i, k] /= 2*edges[i, k]
 
-            G = nx.from_numpy_matrix(A)
+            G = nx.from_numpy_array(A)
             diam[i, k] = nx.diameter(G)
             eccen = np.array(list(nx.eccentricity(G).values()))
             # central = np.argmin(ecc)

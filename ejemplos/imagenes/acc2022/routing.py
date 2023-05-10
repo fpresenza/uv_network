@@ -61,7 +61,7 @@ x[:, 1] = -_x[:, 0]
 
 # hops necesarios para rigidez
 A = disk_graph.adjacency(x, dmax)
-G = nx.from_numpy_matrix(A)
+G = nx.from_numpy_array(A)
 diam = nx.algorithms.distance_measures.diameter(G)
 # print(diam)
 min_hops = rigidity.extents(A, x)

@@ -57,7 +57,7 @@ for k, ax in zip(K, axes.ravel()):
     S = rigidity.symmetric_matrix(A, x)
     l4[k - 1] = np.linalg.eigvalsh(S)[3]
 
-    G = nx.from_numpy_matrix(A)
+    G = nx.from_numpy_array(A)
     D = nx.diameter(G)
     diam[k - 1] = int(D)
     deg = G.degree()
