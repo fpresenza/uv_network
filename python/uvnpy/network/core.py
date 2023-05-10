@@ -104,7 +104,7 @@ def degree(A):
 
 
 def geodesics(A):
-    G = nx.from_numpy_matrix(A)
+    G = nx.from_numpy_array(A)
     spl = list(nx.shortest_path_length(G))
     k = [list(_spl[1].keys()) for _spl in spl]
     v = [list(_spl[1].values()) for _spl in spl]
