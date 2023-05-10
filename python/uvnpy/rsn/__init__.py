@@ -4,4 +4,4 @@ from .core import *          # noqa
 from . import distances  # noqa
 from . import displacements  # noqa
 from . import rigidity  # noqa
-from . import control  # noqa
+# from . import control  # noqa

@@ -7,7 +7,7 @@
 """
 import numpy as np
 
-from gpsic.integradores import EulerExplicito
+# from gpsic.integradores import EulerExplicito
 
 
 class integrator(object):
@@ -47,26 +47,26 @@ class random_walk(integrator):
         return x
 
 
-class doble_integrador(EulerExplicito):
-    def __init__(self, xi=[0.], ti=0.):
-        """ Modelo de vehiculo doble integrador. """
-        super(doble_integrador, self).__init__(xi, ti)
-        self._dx = np.zeros_like(xi, dtype=float)
+# class doble_integrador(EulerExplicito):
+#     def __init__(self, xi=[0.], ti=0.):
+#         """ Modelo de vehiculo doble integrador. """
+#         super(doble_integrador, self).__init__(xi, ti)
+#         self._dx = np.zeros_like(xi, dtype=float)
 
-    @property
-    def x(self):
-        return self._x.copy()
+#     @property
+#     def x(self):
+#         return self._x.copy()
 
-    @property
-    def dx(self):
-        return self._dx.copy()
+#     @property
+#     def dx(self):
+#         return self._dx.copy()
 
-    def dinamica(self, x, t, u):
-        n = len(u)
-        self._dx[:n] = x[n:]
-        self._dx[n:] = np.asarray(u)
-        return self._dx
+#     def dinamica(self, x, t, u):
+#         n = len(u)
+#         self._dx[:n] = x[n:]
+#         self._dx[n:] = np.asarray(u)
+#         return self._dx
 
-    def step(self, t, u):
-        x = super(doble_integrador, self).step(t, ([u], ))
-        return x
+#     def step(self, t, u):
+#         x = super(doble_integrador, self).step(t, ([u], ))
+#         return x
