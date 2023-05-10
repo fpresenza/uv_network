@@ -65,7 +65,8 @@ def minimum_alpha(A, p, dist, Rmin, Rmax, threshold=1e-5):
 
 def load_function(degree, geodesics, hops):
     coeff = (hops.reshape(-1, 1) - geodesics).clip(min=0)
-    return coeff.dot(degree).sum() / coeff.sum()
+    # return coeff.dot(degree).sum() / coeff.sum()
+    return coeff.dot(degree).sum() / len(degree)
 
 
 # ------------------------------------------------------------------
@@ -108,6 +109,7 @@ def run(d, nmin, nmax, logs, threshold, rep):
             A[1] = disk_adjacency(p, dmax=Rmin + 0.05 * (Rmax - Rmin))
             h = extents(A[1], p, threshold)
             geo = geodesics(A[1])
+            deg = A[1].sum(axis=1)
             diam[1] += np.max(geo)
             hmax[1] += np.max(h)
             load[1] += load_function(deg, geo, h)
@@ -116,6 +118,7 @@ def run(d, nmin, nmax, logs, threshold, rep):
             A[2] = disk_adjacency(p, dmax=Rmin + 0.1 * (Rmax - Rmin))
             h = extents(A[2], p, threshold)
             geo = geodesics(A[2])
+            deg = A[2].sum(axis=1)
             diam[2] += np.max(geo)
             hmax[2] += np.max(h)
             load[2] += load_function(deg, geo, h)
