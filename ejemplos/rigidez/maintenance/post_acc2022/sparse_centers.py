@@ -16,7 +16,7 @@ check_rigidity = rigidity.subframework_based_rigidity
 metrics = [
     (subsets.degree_load_std, r'$\mathcal{L}(h)$'),
     (subsets.degree_load_flat, r'$\mathcal{L}_{flat}(h)$'),
-    (lambda A, h: np.max(h), r'$\mathcal{L}(h)$')
+    (lambda A, h: np.max(h), r'$\max_i \; h_i$')
 ]
 
 
