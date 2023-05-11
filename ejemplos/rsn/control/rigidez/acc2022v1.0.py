@@ -8,6 +8,7 @@ import collections
 import time
 import progressbar
 import numpy as np
+import matplotlib.pyplot as plt
 
 from uvnpy.model import linear_models
 import uvnpy.network as network
@@ -22,7 +23,7 @@ from uvnpy.toolkit.calculus import gradient
 # ------------------------------------------------------------------
 # Definición de variables globales, funciones y clases
 # ------------------------------------------------------------------
-Logs = collections.namedtuple('Logs', 'x hatx u fre re adjacency')
+Logs = collections.namedtuple('Logs', 'x hatx u fre re adjacency subf')
 
 
 def load(x, coeff, dmin, dmax):
@@ -92,6 +93,7 @@ def run(steps, logs, t_perf, A, dinamica):
         for i in nodes:
             hi = hops[i]
             Vi = G[i] <= hi
+            logs.subf[k, i] = sum(Vi)
             """ check si el nodo no esta solo """
             if not Vi.any():
                 print('Desconexión. Nodo: {}'.format(i))
@@ -277,6 +279,7 @@ logs = Logs(
     fre=np.zeros(tiempo.size),
     re=np.zeros((tiempo.size, n)),
     adjacency=np.empty((tiempo.size, n**2), dtype=int),
+    subf=np.empty((tiempo.size, n))
     )
 logs.x[0] = x.ravel()
 logs.hatx[0] = hatx.ravel()
@@ -290,6 +293,11 @@ logs.adjacency[0] = A.ravel()
 # Simulación
 # ------------------------------------------------------------------
 logs, t_perf = run(steps, logs, t_perf, A, dinamica)
+
+fig, ax = plt.subplots()
+ax.grid()
+ax.plot(tiempo[1:], logs.subf[1:])
+plt.show()
 
 np.savetxt('/tmp/t.csv', tiempo, delimiter=',')
 np.savetxt('/tmp/x.csv', logs.x, delimiter=',')
