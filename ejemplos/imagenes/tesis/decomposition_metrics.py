@@ -9,8 +9,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import progressbar
 
-from uvnpy.network.core import geodesics, diameter
-from uvnpy.rsn.rigidity import extents, minimum_radius, algebraic_condition, eigenvalue
+from uvnpy.network.core import geodesics
+from uvnpy.rsn.rigidity import extents, minimum_radius
 from uvnpy.rsn.distances import matrix as distance_matrix
 from uvnpy.rsn.distances import matrix_between as distance_between
 from uvnpy.network.disk_graph import adjacency as disk_adjacency
@@ -25,7 +25,8 @@ plt.rcParams['font.family'] = 'serif'
 # ------------------------------------------------------------------
 # Definición de variables, funciones y clases
 # ------------------------------------------------------------------
-Logs = collections.namedtuple('Logs', 'nodes diam hmax load edges rmin rmax alpha')
+Logs = collections.namedtuple(
+    'Logs', 'nodes diam hmax load edges rmin rmax alpha')
 
 
 def generate_position(n, xlim, ylim, radius):
@@ -80,7 +81,7 @@ def run(d, nmin, nmax, logs, threshold, rep):
 
         diam = [0, 0, 0]
         hmax = [0, 0, 0]
-        load = [0, 0 ,0]
+        load = [0, 0, 0]
         edges = [0, 0, 0]
         A = [None, None, None]
         rmin = 0
@@ -131,7 +132,7 @@ def run(d, nmin, nmax, logs, threshold, rep):
         logs.edges[k] = np.divide(edges, 2*rep)
         logs.rmin[k] = rmin / rep
         logs.rmax[k] = rmax / rep
-        logs.alpha[k] = alpha / rep  
+        logs.alpha[k] = alpha / rep
 
     bar.finish()
     return logs
@@ -176,7 +177,7 @@ if __name__ == '__main__':
     # Simulación
     # ------------------------------------------------------------------
     bar = progressbar.ProgressBar(maxval=size)
-    
+
     logs = run(d, nmin, nmax, logs, threshold, arg.rep)
     nodes = logs.nodes
     diam = logs.diam
@@ -344,9 +345,11 @@ if __name__ == '__main__':
     # ax.set_xticklabels(nodes[::nmax//5])
     # ax.plot(nodes, rmin / np.sqrt(2), label=r'$\rho_0 / \sqrt{2}$', lw=1)
     # ax.plot(nodes, rmax / np.sqrt(2), label=r'$\rho_1 / \sqrt{2}$', lw=1)
-    # # ax.plot(nodes, (rmin + rmax) / np.sqrt(2) / 2, label=r'$\rho_1 / \sqrt{2}$', lw=1)
+    # # ax.plot(
+    #    nodes, (rmin + rmax) / np.sqrt(2) / 2,
+    #    label=r'$\rho_1 / \sqrt{2}$', lw=1)
     # ax.set_yticks([0, 0.2, 0.4, 0.6, 0.8, 1.])
-    # ax.set_yticklabels([0, 0.2, 0.4, 0.6, 0.8, 1.])    
+    # ax.set_yticklabels([0, 0.2, 0.4, 0.6, 0.8, 1.])
     # ax.legend(
     #     fontsize='x-small', handlelength=1.5,
     #     labelspacing=0.5, borderpad=0.2)
@@ -371,5 +374,5 @@ if __name__ == '__main__':
     #     #     labelspacing=0.5, borderpad=0.2, loc='upper left')
     # if arg.save:
     #     fig.savefig('/tmp/minimum_alpha.png', format='png', dpi=360)
-    
+
     plt.show()

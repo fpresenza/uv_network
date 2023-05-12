@@ -4,11 +4,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from uvnpy.network.subsets import degree_load_std, degree_load_flat, multihop_subframework
+from uvnpy.network.subsets import degree_load_std, multihop_subframework
 from uvnpy.network import plot
-from uvnpy.rsn.rigidity import extents, minimum_radius, subframework_based_rigidity
+from uvnpy.rsn.rigidity import extents, subframework_based_rigidity
+# from uvnpy.rsn.rigidity minimum_radius
 from uvnpy.rsn.distances import matrix_between as distance_between
-from uvnpy.network.disk_graph import adjacency as disk_adjacency
+# from uvnpy.network.disk_graph import adjacency as disk_adjacency
 
 
 def generate_position(n, xlim, ylim, radius):
@@ -29,13 +30,8 @@ def generate_position(n, xlim, ylim, radius):
     return p
 
 
-# metric = degree_load_std
-# metric = degree_load_flat
-# metric = lambda A, h : degree_load_std(A, h) + 60*np.max(h)
-# metric = lambda A, h : np.sum(h * h)
 metrics = [
     (degree_load_std, r'$\mathcal{L}(h)$'),
-    # (degree_load_flat, r'$\mathcal{L}_{flat}(h)$'),
     (lambda A, h: np.max(h), r'$\max_i \; h_i$')
 ]
 
@@ -107,13 +103,13 @@ A = np.array([
     [1., 0., 0., 1., 1., 1., 0.]])
 
 p = np.array([
-    [0.5 , 0.  ],
-    [1.  , 0.  ],
+    [0.5, 0.],
+    [1., 0.],
     [0.75, 0.25],
-    [0.75, 0.5 ],
-    [0.  , 0.  ],
+    [0.75, 0.5],
+    [0., 0.],
     [0.25, 0.25],
-    [0.25, 0.5 ]])
+    [0.25, 0.5]])
 
 
 for k in range(1):
@@ -138,7 +134,9 @@ for k in range(1):
                 for i in max_extent:
                     sparsed = hops.copy()
                     sparsed[i] = 0
-                    if subframework_based_rigidity(A, p, sparsed, threshold) is True:
+                    is_rigid = subframework_based_rigidity(
+                        A, p, sparsed, threshold)
+                    if is_rigid:
                         new_load = metric(A, sparsed)
                         if new_load < min_load:
                             min_load = new_load

@@ -52,7 +52,6 @@ for _ in range(100):
         Rmax = distance_matrix(p).max()
         A, Rmin = minimum_radius(A0, p, threshold, return_radius=True)
 
-
         # PARTE 1
         fig, ax = plt.subplots(figsize=(2.25, 2.25))
         # fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.28)
@@ -92,7 +91,8 @@ for _ in range(100):
         if np.any(three_hop_rigid):
             network.plot.nodes(
                 ax, p[three_hop_rigid],
-                marker='s', color='mediumseagreen', s=11, zorder=10, label=r'$h_r=3$')
+                marker='s', color='mediumseagreen',
+                s=11, zorder=10, label=r'$h_r=3$')
         network.plot.edges(ax, p, A, color='0.0', lw=0.4)
         ax.legend(
             fontsize='x-small', handlelength=1, labelspacing=0.4,
@@ -136,11 +136,13 @@ for _ in range(100):
         if np.any(two_hop_rigid):
             network.plot.nodes(
                 ax, p[two_hop_rigid],
-                marker='D', color='chocolate', s=11, zorder=10, label=r'$h_r=2$')
+                marker='D', color='chocolate',
+                s=11, zorder=10, label=r'$h_r=2$')
         if np.any(three_hop_rigid):
             network.plot.nodes(
                 ax, p[three_hop_rigid],
-                marker='s', color='mediumseagreen', s=11, zorder=10, label=r'$h_r=3$')
+                marker='s', color='mediumseagreen',
+                s=11, zorder=10, label=r'$h_r=3$')
         network.plot.edges(ax, p, A0, color='0.0', lw=0.4)
         network.plot.edges(ax, p, A - A0, color='orange', lw=1)
         ax.legend(
@@ -185,11 +187,13 @@ for _ in range(100):
         if np.any(two_hop_rigid):
             network.plot.nodes(
                 ax, p[two_hop_rigid],
-                marker='D', color='chocolate', s=11, zorder=10, label=r'$h_r=2$')
+                marker='D', color='chocolate',
+                s=11, zorder=10, label=r'$h_r=2$')
         if np.any(three_hop_rigid):
             network.plot.nodes(
                 ax, p[three_hop_rigid],
-                marker='s', color='mediumseagreen', s=11, zorder=10, label=r'$h_r=3$')
+                marker='s', color='mediumseagreen',
+                s=11, zorder=10, label=r'$h_r=3$')
         network.plot.edges(ax, p, A0, color='0.0', lw=0.4)
         network.plot.edges(ax, p, A - A0, color='orange', lw=1)
         ax.legend(

@@ -260,7 +260,7 @@ def minimum_radius(A, x, threshold=1e-5, return_radius=False):
     n, d = x.shape
     f = d * (d + 1) // 2
     dist = distance_matrix(x)
-    
+
     if algebraic_condition(A, x, threshold):
         B = A.copy()
         dist = dist * B
@@ -287,12 +287,11 @@ def minimum_radius(A, x, threshold=1e-5, return_radius=False):
             e = A.sum() // 2
             if e >= d*n - f:
                 rigid = algebraic_condition(A, x, threshold)
-    
+
     if return_radius:
         return A, radius
-    else:        
+    else:
         return A
-
 
 
 def subframework_based_rigidity(

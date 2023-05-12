@@ -13,4 +13,4 @@ mag:
     rate: 20.            # Hz
     sf: 1.               # scale factor
     nsd: 0.5
-    #bias: 300.          # zero field output [microT]   
+    #bias: 300.          # zero field output [microT]

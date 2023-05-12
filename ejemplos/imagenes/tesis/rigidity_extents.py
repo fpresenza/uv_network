@@ -90,12 +90,12 @@ while i < 10:
     if np.any(three_hop_rigid):
         network.plot.nodes(
             ax, p[three_hop_rigid],
-            marker='s', color='mediumseagreen', s=11, zorder=10, label=r'$h_r=3$')
+            marker='s', color='mediumseagreen',
+            s=11, zorder=10, label=r'$h_r=3$')
     network.plot.edges(ax, p, A, color='0.0', lw=0.4)
     ax.legend(
         fontsize='x-small', handlelength=1, labelspacing=0.4,
         borderpad=0.2, handletextpad=0.2, framealpha=1.,
         ncol=3, columnspacing=0.2, loc='upper center')
-    fig.savefig('/tmp/rigidity_extents_{}.png'.format(i), format='png', dpi=360)
-
-       
+    fig.savefig(
+        '/tmp/rigidity_extents_{}.png'.format(i), format='png', dpi=360)
