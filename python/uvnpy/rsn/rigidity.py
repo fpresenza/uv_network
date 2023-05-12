@@ -310,12 +310,15 @@ def subframework_based_rigidity(
 
     if np.any(covered == 0):
         """ print(f'{np.where(covered == 0)[0]} not covered') """
-        return False
+        if return_binding:
+            return False, None
+        else:
+            return False
 
     # check separately if there is only one subframework
     if len(centers) == 1:
         """ print(f'one subframework: centralized scheme') """
-        return algebraic_condition(A, x)
+        return algebraic_condition(A, x, threshold)
 
     # check if every subframework is rigid and
     # if each one has at least d binding vertices
@@ -324,14 +327,20 @@ def subframework_based_rigidity(
         Vi = geo[i] <= extents[i]
         Ai = A[Vi][:, Vi]
         xi = x[Vi]
-        if not algebraic_condition(Ai, xi):
+        if not algebraic_condition(Ai, xi, threshold):
             """ print(f'F_{i} not rigid' ) """
-            return False
+            if return_binding:
+                return False, None
+            else:
+                return False
 
         Bi = np.argwhere(np.logical_and(covered > 1, Vi))
         if len(Bi) < d:
             """ print(f'|B_{i}| < d') """
-            return False
+            if return_binding:
+                return False, None
+            else:
+                return False
         B[Bi.ravel(), Bi] = 1 - np.eye(len(Bi))
 
     # check if the binding graph is rigid
@@ -339,7 +348,7 @@ def subframework_based_rigidity(
     _B = B.copy()
     B = B[binding][:, binding]
     xb = x[binding]
-    if not algebraic_condition(B, xb):
+    if not algebraic_condition(B, xb, threshold):
         """ print(f'G_B not rigid') """
         if return_binding:
             return False, _B
