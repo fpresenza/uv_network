@@ -180,26 +180,26 @@ def local_symmetric_matrix(p, q, w=np.array(1.)):
     return Si
 
 
-def algebraic_condition(A, x, threshold=1e-3):
-    d = x.shape[-1]
+def algebraic_condition(A, p, threshold=1e-4):
+    d = p.shape[-1]
     f = int(d * (d + 1)/2)
-    S = symmetric_matrix(A, x)
+    S = symmetric_matrix(A, p)
     eig = np.linalg.eigvalsh(S)
     return eig[f] > threshold
 
 
-def eigenvalue(A, x):
-    d = x.shape[1]
+def eigenvalue(A, p):
+    d = p.shape[1]
     f = int(d * (d + 1)/2)
-    S = symmetric_matrix(A, x)
+    S = symmetric_matrix(A, p)
     eig = np.linalg.eigvalsh(S)
     return eig[f]
 
 
-def subframework_eigenvalue(A, x, i, h=1):
-    d = x.shape[1]
+def subframework_eigenvalue(A, p, i, h=1):
+    d = p.shape[1]
     f = int(d * (d + 1)/2)
-    Ai, xi = multihop_subframework(A, x, i, h)
+    Ai, xi = multihop_subframework(A, p, i, h)
     Si = symmetric_matrix(Ai, xi)
     eig = np.linalg.eigvalsh(Si)
     return eig[f]
@@ -232,11 +232,11 @@ def nontrivial_motions(p):
     return N
 
 
-def extents(A, x, threshold=1e-3):
-    if not algebraic_condition(A, x, threshold):
+def extents(A, p, threshold=1e-4):
+    if not algebraic_condition(A, p, threshold):
         raise ValueError('Flexible Framework.')
     n = A.shape[0]
-    d = x.shape[1]
+    d = p.shape[1]
     f = int(d * (d + 1)/2)
     hops = np.empty(n, dtype=int)
     for i in range(n):
@@ -244,7 +244,7 @@ def extents(A, x, threshold=1e-3):
         h = 0
         while not minimum_found:
             h += 1
-            Ai, xi = multihop_subframework(A, x, i, h)
+            Ai, xi = multihop_subframework(A, p, i, h)
             Si = symmetric_matrix(Ai, xi)
             re = np.linalg.eigvalsh(Si)[f]
             if re > threshold:
@@ -253,15 +253,15 @@ def extents(A, x, threshold=1e-3):
     return hops
 
 
-def minimum_radius(A, x, threshold=1e-5, return_radius=False):
+def minimum_radius(A, p, threshold=1e-4, return_radius=False):
     """Add or delete edges to a framework until it is radius-wise minimally
     rigid."""
     A = A.copy()
-    n, d = x.shape
+    n, d = p.shape
     f = d * (d + 1) // 2
-    dist = distance_matrix(x)
+    dist = distance_matrix(p)
 
-    if algebraic_condition(A, x, threshold):
+    if algebraic_condition(A, p, threshold):
         B = A.copy()
         dist = dist * B
 
@@ -272,7 +272,7 @@ def minimum_radius(A, x, threshold=1e-5, return_radius=False):
             radius = dist[i, j]
             dist[i, j] = dist[j, i] = 0
             B[i, j] = B[j, i] = 0
-            rigid = algebraic_condition(B, x, threshold)
+            rigid = algebraic_condition(B, p, threshold)
     else:
         B = np.eye(n) + A
         B[B == 1] = np.inf
@@ -286,7 +286,7 @@ def minimum_radius(A, x, threshold=1e-5, return_radius=False):
             A[i, j] = A[j, i] = 1
             e = A.sum() // 2
             if e >= d*n - f:
-                rigid = algebraic_condition(A, x, threshold)
+                rigid = algebraic_condition(A, p, threshold)
 
     if return_radius:
         return A, radius
@@ -294,10 +294,10 @@ def minimum_radius(A, x, threshold=1e-5, return_radius=False):
         return A
 
 
-def subframework_based_rigidity(A, x, extents, threshold=1e-3):
+def subframework_based_rigidity(A, p, extents, threshold=1e-4):
     """Determines the sufficient condition for framework rigidity based on the
     rigidity of the subframeworks"""
-    n, d = x.shape
+    n, d = p.shape
     geo = geodesics(A)
     centers = np.where(extents > 0)[0]
 
@@ -309,7 +309,7 @@ def subframework_based_rigidity(A, x, extents, threshold=1e-3):
 
     # check separately if there is only one subframework
     if len(centers) == 1:
-        return algebraic_condition(A, x, threshold), None
+        return algebraic_condition(A, p, threshold), None
 
     # check if every subframework is rigid and
     # if each one has at least d binding vertices
@@ -317,7 +317,7 @@ def subframework_based_rigidity(A, x, extents, threshold=1e-3):
     for i in centers:
         Vi = geo[i] <= extents[i]
         Ai = A[Vi][:, Vi]
-        xi = x[Vi]
+        xi = p[Vi]
         if not algebraic_condition(Ai, xi, threshold):
             raise ValueError('Subframework {} is flexible.'.format(i))
 
@@ -330,13 +330,13 @@ def subframework_based_rigidity(A, x, extents, threshold=1e-3):
 
     # check if the binding graph is rigid
     B = is_in > 1
-    if not algebraic_condition(Ab[B][:, B], x[B], threshold):
+    if not algebraic_condition(Ab[B][:, B], p[B], threshold):
         raise ValueError('Binding framework is flexible.')
 
     return True, Ab
 
 
-def sparse_centers(A, x, extents, metric, threshold=1e-3):
+def sparse_centers(A, p, extents, metric, threshold=1e-4):
     """Dada un conjunto de extensiones, elimina subframeworks iterativamente
     hasta que no puede eliminar mas dado que se pierde rigidez
     """
@@ -351,7 +351,7 @@ def sparse_centers(A, x, extents, metric, threshold=1e-3):
                 sparsed = hops.copy()
                 sparsed[i] = 0
                 try:
-                    subframework_based_rigidity(A, x, sparsed, threshold)
+                    subframework_based_rigidity(A, p, sparsed, threshold)
                     new_load = metric(A, sparsed)
                     if new_load < min_load:
                         min_load = new_load
