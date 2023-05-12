@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 from uvnpy.network.subsets import degree_load_std, multihop_subframework
 from uvnpy.network import plot
 from uvnpy.rsn.rigidity import extents, subframework_based_rigidity
-# from uvnpy.rsn.rigidity minimum_radius
 from uvnpy.rsn.distances import matrix_between as distance_between
-# from uvnpy.network.disk_graph import adjacency as disk_adjacency
+from uvnpy.rsn.rigidity import minimum_radius
+from uvnpy.network.disk_graph import adjacency as disk_adjacency
 
 
 def generate_position(n, xlim, ylim, radius):
@@ -93,32 +93,32 @@ metrics = [
 #     [ 1.392686,  0.203473],
 #     [ 2.188298,  0.004104]])
 
-A = np.array([
-    [0., 1., 1., 1., 1., 1., 1.],
-    [1., 0., 1., 1., 0., 0., 0.],
-    [1., 1., 0., 1., 0., 0., 0.],
-    [1., 1., 1., 0., 0., 0., 1.],
-    [1., 0., 0., 0., 0., 1., 1.],
-    [1., 0., 0., 0., 1., 0., 1.],
-    [1., 0., 0., 1., 1., 1., 0.]])
+# A = np.array([
+#     [0., 1., 1., 1., 1., 1., 1.],
+#     [1., 0., 1., 1., 0., 0., 0.],
+#     [1., 1., 0., 1., 0., 0., 0.],
+#     [1., 1., 1., 0., 0., 0., 1.],
+#     [1., 0., 0., 0., 0., 1., 1.],
+#     [1., 0., 0., 0., 1., 0., 1.],
+#     [1., 0., 0., 1., 1., 1., 0.]])
 
-p = np.array([
-    [0.5, 0.],
-    [1., 0.],
-    [0.75, 0.25],
-    [0.75, 0.5],
-    [0., 0.],
-    [0.25, 0.25],
-    [0.25, 0.5]])
+# p = np.array([
+#     [0.5, 0.],
+#     [1., 0.],
+#     [0.75, 0.25],
+#     [0.75, 0.5],
+#     [0., 0.],
+#     [0.25, 0.25],
+#     [0.25, 0.5]])
 
 
-for k in range(1):
+for k in range(4):
     print(k)
     threshold = 1e-4
-    # n = np.random.randint(10, 20)
-    # p = generate_position(n, (0, 1), (0, 1), 0.02)
-    # A0 = disk_adjacency(p, dmax=2/np.sqrt(n))
-    # A = minimum_radius(A0, p, threshold)
+    n = np.random.randint(10, 11)
+    p = generate_position(n, (0, 1), (0, 1), 0.02)
+    A0 = disk_adjacency(p, dmax=2/np.sqrt(n))
+    A = minimum_radius(A0, p, threshold)
 
     for m, (metric, name) in enumerate(metrics):
         hops = extents(A, p, threshold)
@@ -134,13 +134,15 @@ for k in range(1):
                 for i in max_extent:
                     sparsed = hops.copy()
                     sparsed[i] = 0
-                    is_rigid = subframework_based_rigidity(
-                        A, p, sparsed, threshold)
-                    if is_rigid:
+                    try:
+                        subframework_based_rigidity(
+                            A, p, sparsed, threshold)
                         new_load = metric(A, sparsed)
                         if new_load < min_load:
                             min_load = new_load
                             remove = i
+                    except ValueError:
+                        pass
 
                 if min_load < np.inf:
                     hops[remove] = 0
@@ -151,14 +153,12 @@ for k in range(1):
         # print(hops, metric(A, hops))
         centers = np.where(hops > 0)[0]
 
-        if len(centers) == 1:
-            is_rigid = subframework_based_rigidity(A, p, hops, threshold)
-        else:
+        try:
             is_rigid, B = subframework_based_rigidity(
-                A, p, hops, threshold, return_binding=True)
-
-        if not is_rigid:
-            print('algo salio mal.')
+                A, p, hops, threshold)
+        except ValueError as e:
+            print(e)
+            print(A, p, hops)
 
         fig, ax = plt.subplots()
         fig.suptitle(name)
