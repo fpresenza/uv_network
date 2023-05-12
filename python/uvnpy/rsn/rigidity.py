@@ -334,3 +334,34 @@ def subframework_based_rigidity(A, x, extents, threshold=1e-3):
         raise ValueError('Binding framework is flexible.')
 
     return True, Ab
+
+
+def sparse_centers(A, x, extents, metric, threshold=1e-3):
+    """Dada un conjunto de extensiones, elimina subframeworks iterativamente
+    hasta que no puede eliminar mas dado que se pierde rigidez
+    """
+    hops = extents.copy()
+    for h in reversed(np.unique(hops)):
+        max_extent = np.where(hops == h)[0]
+        repeat = True
+        while repeat:
+            min_load = np.inf
+            remove = None
+            for i in max_extent:
+                sparsed = hops.copy()
+                sparsed[i] = 0
+                try:
+                    subframework_based_rigidity(A, x, sparsed, threshold)
+                    new_load = metric(A, sparsed)
+                    if new_load < min_load:
+                        min_load = new_load
+                        remove = i
+                except ValueError:
+                    pass
+
+            if min_load < np.inf:
+                hops[remove] = 0
+                max_extent = np.delete(max_extent, max_extent == remove)
+            else:
+                repeat = False
+    return hops

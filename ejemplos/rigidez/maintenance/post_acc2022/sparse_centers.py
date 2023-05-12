@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 
 from uvnpy.network.subsets import degree_load_std, multihop_subframework
 from uvnpy.network import plot
-from uvnpy.rsn.rigidity import extents, subframework_based_rigidity
+from uvnpy.rsn.rigidity import (
+    extents, subframework_based_rigidity, sparse_centers)
 from uvnpy.rsn.distances import matrix_between as distance_between
 from uvnpy.rsn.rigidity import minimum_radius
 from uvnpy.network.disk_graph import adjacency as disk_adjacency
@@ -125,30 +126,7 @@ for k in range(4):
         # print('----', name, '----')
         # print(hops, metric(A, hops))
 
-        for h in reversed(np.unique(hops)):
-            max_extent = np.where(hops == h)[0]
-            repeat = True
-            while repeat:
-                min_load = np.inf
-                remove = None
-                for i in max_extent:
-                    sparsed = hops.copy()
-                    sparsed[i] = 0
-                    try:
-                        subframework_based_rigidity(
-                            A, p, sparsed, threshold)
-                        new_load = metric(A, sparsed)
-                        if new_load < min_load:
-                            min_load = new_load
-                            remove = i
-                    except ValueError:
-                        pass
-
-                if min_load < np.inf:
-                    hops[remove] = 0
-                    max_extent = np.delete(max_extent, max_extent == remove)
-                else:
-                    repeat = False
+        hops = sparse_centers(A, p, hops, metric, threshold)
 
         # print(hops, metric(A, hops))
         centers = np.where(hops > 0)[0]
