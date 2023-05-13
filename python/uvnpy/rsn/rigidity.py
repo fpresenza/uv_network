@@ -340,28 +340,28 @@ def sparse_centers(A, p, extents, metric, threshold=1e-4):
     """Dada un conjunto de extensiones, elimina subframeworks iterativamente
     hasta que no puede eliminar mas dado que se pierde rigidez
     """
+    n = len(p)
     hops = extents.copy()
-    for h in reversed(np.unique(hops)):
-        max_extent = np.where(hops == h)[0]
-        repeat = True
-        while repeat:
-            min_load = np.inf
-            remove = None
-            for i in max_extent:
-                sparsed = hops.copy()
-                sparsed[i] = 0
-                try:
-                    subframework_based_rigidity(A, p, sparsed, threshold)
-                    new_load = metric(A, sparsed)
-                    if new_load < min_load:
-                        min_load = new_load
-                        remove = i
-                except ValueError:
-                    pass
+    centers = np.arange(n)
+    min_found = False
+    while not min_found:
+        min_value = np.inf
+        remove = None
+        for i in centers:
+            sparsed = hops.copy()
+            sparsed[i] = 0
+            try:
+                subframework_based_rigidity(A, p, sparsed, threshold)
+                new_value = metric(A, sparsed)
+                if new_value < min_value:
+                    min_value = new_value
+                    remove = i
+            except ValueError:
+                pass
 
-            if min_load < np.inf:
-                hops[remove] = 0
-                max_extent = np.delete(max_extent, max_extent == remove)
-            else:
-                repeat = False
+        if min_value < np.inf:
+            hops[remove] = 0
+            centers = np.delete(centers, centers == remove)
+        else:
+            min_found = True
     return hops
