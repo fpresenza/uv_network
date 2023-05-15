@@ -104,6 +104,20 @@ def degree_load_flat(A, hops):
     return degree_load(A, np.sign(coeff))
 
 
+def subgraph_union(A, hops):
+    """Devuelve la union de los subgrafos dados por sus extensiones"""
+    geo = network.geodesics(A)
+    centers = np.nonzero(hops)[0]
+    n = len(A)
+    U = np.zeros((n, n))
+    for i in centers:
+        inside = np.where(geo[i] <= hops[i])[0]    # inside subgraph
+        idx = np.ix_(inside, inside)
+        U[idx] = A[idx].copy()
+
+    return U
+
+
 # def neighborhood_load(A, hops):
 #     _h = hops - 1
 #     n = len(_h)
