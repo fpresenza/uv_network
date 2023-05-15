@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from uvnpy.network.subsets import degree_load_std, multihop_subframework
 from uvnpy.network import plot
 from uvnpy.rsn.rigidity import (
-    extents, subframework_based_rigidity, sparse_centers)
+    extents, rigidly_linked, sparse_centers)
 from uvnpy.rsn.distances import matrix_between as distance_between
 from uvnpy.rsn.rigidity import minimum_radius
 from uvnpy.network.disk_graph import adjacency as disk_adjacency
@@ -29,12 +29,6 @@ def generate_position(n, xlim, ylim, radius):
                 p = np.vstack([p, q])
 
     return p
-
-
-metrics = [
-    (degree_load_std, r'$\mathcal{L}(h)$'),
-    (lambda A, h: np.max(h), r'$\max_i \; h_i$')
-]
 
 
 # p = np.array([
@@ -81,6 +75,8 @@ metrics = [
 #     [0., 0., 0., 0., 0., 1., 1., 0., 1., 0.],
 #     [1., 0., 0., 0., 0., 1., 0., 1., 0., 1.],
 #     [1., 0., 0., 0., 0., 0., 0., 0., 1., 0.]])
+# A[2, 5] = A[5, 2] = 0
+# A[7, 9] = A[9, 7] = 1
 
 # p = np.array([
 #     [ 2.921961,  0.962442],
@@ -112,60 +108,85 @@ metrics = [
 #     [0.25, 0.25],
 #     [0.25, 0.5]])
 
+# A = np.array([
+#     [0., 1., 0., 0., 0., 1., 0., 1., 0., 1.],
+#     [1., 0., 0., 0., 0., 1., 0., 1., 0., 0.],
+#     [0., 0., 0., 1., 1., 0., 0., 0., 1., 0.],
+#     [0., 0., 1., 0., 0., 0., 1., 1., 1., 0.],
+#     [0., 0., 1., 0., 0., 0., 0., 0., 1., 1.],
+#     [1., 1., 0., 0., 0., 0., 0., 1., 0., 1.],
+#     [0., 0., 0., 1., 0., 0., 0., 1., 0., 0.],
+#     [1., 1., 0., 1., 0., 1., 1., 0., 0., 1.],
+#     [0., 0., 1., 1., 1., 0., 0., 0., 0., 1.],
+#     [1., 0., 0., 0., 1., 1., 0., 1., 1., 0.]])
 
-for k in range(4):
-    print(k)
+# p = np.array([
+#     [0.42512982, 0.10862431],
+#     [0.08390347, 0.13320194],
+#     [0.96102407, 0.71678363],
+#     [0.42391391, 0.73690224],
+#     [0.94214822, 0.40892907],
+#     [0.41717728, 0.07954662],
+#     [0.30690858, 0.66746692],
+#     [0.31661759, 0.20757877],
+#     [0.90928967, 0.63609389],
+#     [0.73370665, 0.12652372]])
+
+
+for k in range(10):
+    print('---{}---'.format(k))
     threshold = 1e-4
     n = np.random.randint(10, 11)
-    p = generate_position(n, (0, 1), (0, 1), 0.02)
+    p = generate_position(n, (0, 1), (0, 1), 0.04)
     A0 = disk_adjacency(p, dmax=2/np.sqrt(n))
     A = minimum_radius(A0, p, threshold)
 
-    for m, (metric, name) in enumerate(metrics):
-        hops = extents(A, p, threshold)
-        # print('----', name, '----')
-        # print(hops, metric(A, hops))
+    metric, name = degree_load_std, r'$\mathcal{L}(h)$'
 
-        hops = sparse_centers(A, p, hops, metric, threshold)
+    hops = extents(A, p, threshold)
+    print(hops, metric(A, hops))
 
-        # print(hops, metric(A, hops))
-        centers = np.where(hops > 0)[0]
+    hops = sparse_centers(A, p, hops, metric, threshold)
+    print(hops, metric(A, hops))
 
-        try:
-            is_rigid, B = subframework_based_rigidity(
-                A, p, hops, threshold)
-        except ValueError as e:
-            print(e)
-            print(A, p, hops)
+    centers = np.where(hops > 0)[0]
 
-        fig, ax = plt.subplots()
-        fig.suptitle(name)
-        ax.grid(1)
-        ax.set_aspect('equal')
-        ax.set_xlim(0, 1)
-        ax.set_ylim(0, 1)
+    try:
+        AL = rigidly_linked(A, p, hops, threshold)
+    except ValueError as e:
+        print(e)
+        print(A, p, hops)
 
-        plot.edges(ax, p, A, color='k', lw=0.4)
+    fig, ax = plt.subplots(1, 2, figsize=(8, 4))
+    fig.suptitle(name)
+    for a in ax:
+        a.grid(1)
+        a.set_aspect('equal')
+        a.set_xlim(0, 1)
+        a.set_ylim(0, 1)
 
-        for i in range(len(p)):
-            ax.text(
-                p[i, 0] + 0.01, p[i, 1] + 0.01, '{}'.format(i), size=5)
-        for i, c in enumerate(centers):
-            Ac, pc = multihop_subframework(A, p, c, hops[c])
-            plot.graph(ax, pc, Ac, color='C{}'.format(i))
-            ax.scatter(
-                p[c, 0], p[c, 1],
-                color='C{}'.format(i), s=120, label=r'$h={}$'.format(hops[c]))
-        ax.legend()
+    plot.graph(ax[0], p, A, color='k', lw=0.4)
+    plot.edges(ax[1], p, A, color='k', lw=0.4)
 
-        if len(centers) > 1:
-            binding = np.nonzero(np.sum(B, axis=1))[0]
-            plot.nodes(ax, p[binding], color='k', marker='s', s=60)
-            plot.edges(
-                ax, p[binding], B[binding][:, binding],
-                color='k', ls='--', lw=0.5)
+    for i in range(len(p)):
+        ax[1].text(
+            p[i, 0] + 0.01, p[i, 1] + 0.01, '{}'.format(i), size=5)
+    for i, c in enumerate(centers):
+        Ac, pc = multihop_subframework(A, p, c, hops[c])
+        plot.graph(ax[1], pc, Ac, color='C{}'.format(i))
+        ax[1].scatter(
+            p[c, 0], p[c, 1],
+            color='C{}'.format(i), s=120, label=r'$h={}$'.format(hops[c]))
+    ax[1].legend(fontsize=8)
 
-        fig.savefig(
-            '/tmp/sparse_centers{}{}.png'.format(k, m), format='png', dpi=360)
+    if not np.allclose(AL, A):
+        links = np.any(AL > 0, axis=1)
+        plot.nodes(ax[1], p[links], color='k', marker='s', s=60)
+        plot.edges(
+            ax[1], p[links], AL[links][:, links],
+            color='k', ls='--', lw=2, alpha=0.4)
+
+    fig.savefig(
+        '/tmp/sparse_centers{}.png'.format(k), format='png', dpi=360)
 
 # plt.show()

@@ -294,51 +294,67 @@ def minimum_radius(A, p, threshold=1e-4, return_radius=False):
         return A
 
 
-def subframework_based_rigidity(A, p, extents, threshold=1e-4):
-    """Determines the sufficient condition for framework rigidity based on the
-    rigidity of the subframeworks"""
+def rigidly_linked(A, p, extents, threshold=1e-4):
+    """Determines whether a set of subframeworks is rigidly linked.
+    If one of them is the whole framework, condition is satisfied.
+    If their union does not equal the whole framework, condition is not
+    satisfied.
+
+
+    Returns:
+        Adjacency matrix of the link graph
+
+    Raise:
+        ValueError: whenever condition is not satisfied
+    """
     n, d = p.shape
     geo = geodesics(A)
-    centers = np.where(extents > 0)[0]
 
-    # check every vertex is covered
-    covered = geo[centers] <= extents[centers].reshape(-1, 1)
-    is_in = np.sum(covered, axis=0)
-    if np.any(is_in == 0):
-        raise ValueError('Decomposition don\'t cover all vertices.')
+    # check if any subframework covers the whole framework
+    centers = extents > 0
+    proper = extents < geo.max(axis=0)
+    proper_centers = np.logical_and(proper, centers)
 
-    # check separately if there is only one subframework
-    if len(centers) == 1:
-        return algebraic_condition(A, p, threshold), None
+    # check if subframeworks cover all vertices
+    is_in = geo[centers] <= extents[centers].reshape(-1, 1)
+    covered = np.any(is_in, axis=0)
+    if not np.all(covered):
+        raise ValueError(
+            'Nodes {} not covered.'.format(np.where(~covered)[0]))
 
-    # check if every subframework is rigid and
-    # if each one has at least d binding vertices
-    Ab = np.zeros((n, n))
-    for i in centers:
-        Vi = geo[i] <= extents[i]
-        Ai = A[Vi][:, Vi]
-        xi = p[Vi]
-        if not algebraic_condition(Ai, xi, threshold):
-            raise ValueError('Subframework {} is flexible.'.format(i))
-
-        Bi = np.argwhere(np.logical_and(is_in > 1, Vi))
-        if len(Bi) < d:
+    # detect link nodes
+    L = np.array([], dtype=int)
+    AL = A.copy()
+    for i in np.where(proper_centers)[0]:
+        per = geo[i] == extents[i]            # periferic
+        out = geo[i] > extents[i]             # outside subframework
+        ext = np.any(A[per][:, out], axis=1)  # connected to external nodes
+        links = np.argwhere(per)[ext]         # link nodes
+        if len(links) < d:
             raise ValueError(
-                'Subframework {} hasn\'t got enough binding nodes.'.format(i))
+                'Subframework {} hasn\'t got enough link nodes.'.format(i))
+        AL[links.ravel(), links] = 1 - np.eye(len(links))
+        L = np.union1d(L, links)
 
-        Ab[Bi.ravel(), Bi] = 1 - np.eye(len(Bi))
+    # remove all non-linking edges
+    NL = np.setdiff1d(range(n), L)
+    AL[NL] = AL[:, NL] = 0
 
-    # check if the binding graph is rigid
-    B = is_in > 1
-    if not algebraic_condition(Ab[B][:, B], p[B], threshold):
-        raise ValueError('Binding framework is flexible.')
+    # check if the link graph is rigid
+    if np.any(proper_centers):
+        if not algebraic_condition(AL[L][:, L], p[L], threshold):
+            raise ValueError('Link framework is flexible.')
 
-    return True, Ab
+    return AL
 
 
 def sparse_centers(A, p, extents, metric, threshold=1e-4):
     """Dada un conjunto de extensiones, elimina subframeworks iterativamente
-    hasta que no puede eliminar mas dado que se pierde rigidez
+    hasta que no puede eliminar mas dado que se pierde rigidez o no se cubre
+    todo el framework.
+
+    Requires:
+        framework is rigid
     """
     n = len(p)
     hops = extents.copy()
@@ -351,7 +367,7 @@ def sparse_centers(A, p, extents, metric, threshold=1e-4):
             sparsed = hops.copy()
             sparsed[i] = 0
             try:
-                subframework_based_rigidity(A, p, sparsed, threshold)
+                rigidly_linked(A, p, sparsed, threshold)
                 new_value = metric(A, sparsed)
                 if new_value < min_value:
                     min_value = new_value
