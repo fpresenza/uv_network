@@ -5,13 +5,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from uvnpy.network.subsets import (
-    degree_load_std, multihop_subframework, subgraph_union)
+    degree_load_std,
+    multihop_subframework,
+    subgraph_union)
 from uvnpy.network import plot
 from uvnpy.rsn.rigidity import (
-    extents, rigidly_linked, sparse_centers)
+    extents,
+    minimum_radius,
+    rigidly_linked,
+    rigidly_linked_by_vertices,
+    sparse_centers,
+    sparse_centers_two_steps)
 from uvnpy.rsn.distances import matrix_between as distance_between
-from uvnpy.rsn.rigidity import minimum_radius
 from uvnpy.network.disk_graph import adjacency as disk_adjacency
+
+rigidly_linked
 
 
 def generate_position(n, xlim, ylim, radius):
@@ -44,7 +52,8 @@ def multiobjetive(A, h, alpha=5):
 
 metrics = (
     (degree_load_std, r'$\mathcal{L}(h)$'),
-    (multiobjetive, r'$\mathcal{L}(h) + \alpha 2 |\mathcal{E}_A| / n$')
+    (multiobjetive, r'$\mathcal{L}(h) + \alpha 2 |\mathcal{E}_A| / n$'),
+    (degree_load_std, r'$2$ step$')
 )
 
 # p = np.array([
@@ -70,15 +79,6 @@ metrics = (
 #     [0., 1., 0., 0., 1., 1., 1., 0., 0., 0.],
 #     [0., 1., 0., 1., 1., 1., 0., 0., 0., 0.],
 #     [0., 0., 1., 0., 1., 0., 1., 0., 0., 0.]])
-
-# n, d = 10, 2
-# found_rigid = False
-# while not found_rigid:
-#     p = np.random.uniform(-1, 1, (n, d))
-#     A = disk_adjacency(p, 0.8)
-#     found_rigid = rigidity.algebraic_condition(A, p)
-
-# print(A, p)
 
 # A = np.array([
 #     [0., 1., 1., 0., 0., 0., 0., 0., 1., 1.],
@@ -149,11 +149,12 @@ metrics = (
 #     [0.73370665, 0.12652372]])
 
 
+np.random.seed(3)
 for k in range(10):
     print('---{}---'.format(k))
     threshold = 1e-4
     n = np.random.randint(10, 11)
-    p = generate_position(n, (0, 1), (0, 1), 0.04)
+    p = generate_position(n, (0, 1), (0, 1), 0.15)
     A0 = disk_adjacency(p, dmax=2/np.sqrt(n))
     A = minimum_radius(A0, p, threshold)
 
@@ -163,41 +164,45 @@ for k in range(10):
         a.set_aspect('equal')
         a.set_xlim(0, 1)
         a.set_ylim(0, 1)
-
         plot.graph(a, p, A, color='k', lw=0.4)
 
     for m, (metric, name) in enumerate(metrics):
         print('--{}--'.format(name))
-        hops = extents(A, p, threshold)
-        print(hops, metric(A, hops))
+        h0 = extents(A, p, threshold)
+        print(h0, metric(A, h0))
 
-        hops = sparse_centers(A, p, hops, metric, threshold)
-        print(hops, metric(A, hops))
+        if m < 2:
+            hopt = sparse_centers(
+                A, p, h0, metric, threshold, vertices_only=True)
+        else:
+            hopt = sparse_centers_two_steps(
+                A, p, h0, metric, threshold, vertices_only=True)
+        print(hopt, metric(A, hopt))
 
-        centers = np.where(hops > 0)[0]
+        centers = np.where(hopt > 0)[0]
 
         try:
-            AL = rigidly_linked(A, p, hops, threshold)
+            Al = rigidly_linked_by_vertices(A, p, hopt, threshold)
         except ValueError as e:
             print(e)
-            print(A, p, hops)
+            print(A, p, hopt)
 
-        ax[m+1].set_title(name)
+        ax[m].set_title(name)
         for i in range(len(p)):
-            ax[m+1].text(
+            ax[m].text(
                 p[i, 0] + 0.01, p[i, 1] + 0.01, '{}'.format(i), size=5)
         for i, c in enumerate(centers):
-            Ac, pc = multihop_subframework(A, p, c, hops[c])
-            plot.graph(ax[m+1], pc, Ac, color='C{}'.format(i))
-            ax[m+1].scatter(
+            Ac, pc = multihop_subframework(A, p, c, hopt[c])
+            plot.graph(ax[m], pc, Ac, color='C{}'.format(i))
+            ax[m].scatter(
                 p[c, 0], p[c, 1],
-                color='C{}'.format(i), s=120, label=r'$h={}$'.format(hops[c]))
-        ax[m+1].legend(fontsize=6, markerscale=0.5)
+                color='C{}'.format(i), s=120, label=r'$h={}$'.format(hopt[c]))
+        ax[m].legend(fontsize=6, markerscale=0.5)
 
-        links = np.any(AL > 0, axis=1)
-        plot.nodes(ax[m+1], p[links], color='k', marker='s', s=60)
+        links = np.any(Al > 0, axis=1)
+        plot.nodes(ax[m], p[links], color='k', marker='s', s=60)
         plot.edges(
-            ax[m+1], p[links], AL[links][:, links],
+            ax[m], p[links], Al[links][:, links],
             color='k', ls='--', lw=2, alpha=0.4)
 
     fig.savefig(

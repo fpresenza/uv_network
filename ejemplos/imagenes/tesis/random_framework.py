@@ -69,6 +69,8 @@ for _ in range(100):
         ax.tick_params(
             axis='both',       # changes apply to the x-axis
             which='both',      # both major and minor ticks are affected
+            bottom=False,
+            left=False,
             pad=1,
             labelsize='x-small')
         ax.grid(1, lw=0.4)
@@ -84,15 +86,15 @@ for _ in range(100):
 
         network.plot.nodes(
             ax, p[one_hop_rigid],
-            marker='o', color='royalblue', s=11, zorder=10, label=r'$h_r=1$')
+            marker='o', color='royalblue', s=11, zorder=10, label=r'$h_0=1$')
         network.plot.nodes(
             ax, p[two_hop_rigid],
-            marker='D', color='chocolate', s=11, zorder=10, label=r'$h_r=2$')
+            marker='D', color='chocolate', s=11, zorder=10, label=r'$h_0=2$')
         if np.any(three_hop_rigid):
             network.plot.nodes(
                 ax, p[three_hop_rigid],
                 marker='s', color='mediumseagreen',
-                s=11, zorder=10, label=r'$h_r=3$')
+                s=11, zorder=10, label=r'$h_0=3$')
         network.plot.edges(ax, p, A, color='0.0', lw=0.4)
         ax.legend(
             fontsize='x-small', handlelength=1, labelspacing=0.4,
@@ -117,6 +119,8 @@ for _ in range(100):
         ax.tick_params(
             axis='both',       # changes apply to the x-axis
             which='both',      # both major and minor ticks are affected
+            bottom=False,
+            left=False,
             pad=1,
             labelsize='x-small')
         ax.grid(1, lw=0.4)
@@ -132,17 +136,17 @@ for _ in range(100):
 
         network.plot.nodes(
             ax, p[one_hop_rigid],
-            marker='o', color='royalblue', s=11, zorder=10, label=r'$h_r=1$')
+            marker='o', color='royalblue', s=11, zorder=10, label=r'$h_0=1$')
         if np.any(two_hop_rigid):
             network.plot.nodes(
                 ax, p[two_hop_rigid],
                 marker='D', color='chocolate',
-                s=11, zorder=10, label=r'$h_r=2$')
+                s=11, zorder=10, label=r'$h_0=2$')
         if np.any(three_hop_rigid):
             network.plot.nodes(
                 ax, p[three_hop_rigid],
                 marker='s', color='mediumseagreen',
-                s=11, zorder=10, label=r'$h_r=3$')
+                s=11, zorder=10, label=r'$h_0=3$')
         network.plot.edges(ax, p, A0, color='0.0', lw=0.4)
         network.plot.edges(ax, p, A - A0, color='orange', lw=1)
         ax.legend(
@@ -168,6 +172,8 @@ for _ in range(100):
         ax.tick_params(
             axis='both',       # changes apply to the x-axis
             which='both',      # both major and minor ticks are affected
+            bottom=False,
+            left=False,
             pad=1,
             labelsize='x-small')
         ax.grid(1, lw=0.4)
@@ -183,17 +189,17 @@ for _ in range(100):
 
         network.plot.nodes(
             ax, p[one_hop_rigid],
-            marker='o', color='royalblue', s=11, zorder=10, label=r'$h_r=1$')
+            marker='o', color='royalblue', s=11, zorder=10, label=r'$h_0=1$')
         if np.any(two_hop_rigid):
             network.plot.nodes(
                 ax, p[two_hop_rigid],
                 marker='D', color='chocolate',
-                s=11, zorder=10, label=r'$h_r=2$')
+                s=11, zorder=10, label=r'$h_0=2$')
         if np.any(three_hop_rigid):
             network.plot.nodes(
                 ax, p[three_hop_rigid],
                 marker='s', color='mediumseagreen',
-                s=11, zorder=10, label=r'$h_r=3$')
+                s=11, zorder=10, label=r'$h_0=3$')
         network.plot.edges(ax, p, A0, color='0.0', lw=0.4)
         network.plot.edges(ax, p, A - A0, color='orange', lw=1)
         ax.legend(

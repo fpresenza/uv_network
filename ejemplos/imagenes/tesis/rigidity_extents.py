@@ -3,6 +3,7 @@
 """ Created on
 @author: fran
 """
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -38,10 +39,17 @@ def generate_position(n, xlim, ylim, radius):
     return p
 
 
+parser = argparse.ArgumentParser(description='')
+parser.add_argument(
+    '-s', '--seed',
+    default=0, type=int, help='numpy random seed')
+arg = parser.parse_args()
+
 n = 20
 threshold = 1e-5
 
 i = 0
+np.random.seed(arg.seed)
 while i < 10:
     # p = np.random.uniform((0, 0), (1, 0.9), (n, 2))
     p = generate_position(n, (0, 1), (0, 0.9), 0.1)
@@ -66,6 +74,8 @@ while i < 10:
     ax.tick_params(
         axis='both',       # changes apply to the x-axis
         which='both',      # both major and minor ticks are affected
+        bottom=False,
+        left=False,
         pad=1,
         labelsize='x-small')
     ax.grid(1, lw=0.4)
@@ -82,16 +92,16 @@ while i < 10:
     if np.any(one_hop_rigid):
         network.plot.nodes(
             ax, p[one_hop_rigid],
-            marker='o', color='royalblue', s=11, zorder=10, label=r'$h_r=1$')
+            marker='o', color='royalblue', s=11, zorder=10, label=r'$h_0=1$')
     if np.any(two_hop_rigid):
         network.plot.nodes(
             ax, p[two_hop_rigid],
-            marker='D', color='chocolate', s=11, zorder=10, label=r'$h_r=2$')
+            marker='D', color='chocolate', s=11, zorder=10, label=r'$h_0=2$')
     if np.any(three_hop_rigid):
         network.plot.nodes(
             ax, p[three_hop_rigid],
             marker='s', color='mediumseagreen',
-            s=11, zorder=10, label=r'$h_r=3$')
+            s=11, zorder=10, label=r'$h_0=3$')
     network.plot.edges(ax, p, A, color='0.0', lw=0.4)
     ax.legend(
         fontsize='x-small', handlelength=1, labelspacing=0.4,
