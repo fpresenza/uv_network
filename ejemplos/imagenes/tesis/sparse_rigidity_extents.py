@@ -10,7 +10,11 @@ import matplotlib.pyplot as plt
 from uvnpy.rsn.rigidity import fast_extents, minimum_radius
 from uvnpy.rsn.distances import matrix_between as distance_between
 from uvnpy.network import disk_graph, plot
-from uvnpy.network.subsets import geodesics
+from uvnpy.network.subsets import geodesics, degree_load_std
+from uvnpy.rsn.rigidity import (
+    rigidly_linked,
+    sparse_centers_two_steps)
+
 
 np.set_printoptions(suppress=True, precision=4, linewidth=250)
 
@@ -65,13 +69,22 @@ while i < 10:
     if np.max(h) < 4 and np.max(h) != D:
         i += 1
         print('---{}---'.format(i))
-        print(p)
+        # print(p)
     else:
         continue
 
-    one_hop_rigid = h == 1
-    two_hop_rigid = h == 2
-    three_hop_rigid = h == 3
+    h_sparsed = sparse_centers_two_steps(
+        A, p, h, degree_load_std, threshold, vertices_only=False)
+    print(h)
+    print(h_sparsed)
+    AL = rigidly_linked(A, p, h_sparsed, threshold)
+    # AL = rigidly_linked_by_vertices(A, p, h_sparsed, threshold)
+    link_nodes = np.any(AL, axis=0)
+
+    trivial = h_sparsed == 0
+    one_hop_rigid = h_sparsed == 1
+    two_hop_rigid = h_sparsed == 2
+    three_hop_rigid = h_sparsed == 3
 
     ax.tick_params(
         axis='both',       # changes apply to the x-axis
@@ -91,23 +104,36 @@ while i < 10:
     ax.set_xticklabels([])
     ax.set_yticklabels([])
 
+    if np.any(link_nodes):
+        plot.nodes(
+            ax, p[link_nodes],
+            marker='s', color='k',
+            s=13, zorder=1, label=r'$\mathcal{L}$')
+
+    if np.any(trivial):
+        plot.nodes(
+            ax, p[trivial],
+            marker='o', color='0.7',
+            s=6, zorder=10, label=r'$\hat{h}=0$')
     if np.any(one_hop_rigid):
         plot.nodes(
             ax, p[one_hop_rigid],
-            marker='o', color='royalblue', s=11, zorder=10, label=r'$h_0=1$')
+            marker='o', color='royalblue',
+            s=11, zorder=10, label=r'$\hat{h}=1$')
     if np.any(two_hop_rigid):
         plot.nodes(
             ax, p[two_hop_rigid],
-            marker='D', color='chocolate', s=11, zorder=10, label=r'$h_0=2$')
+            marker='D', color='chocolate',
+            s=11, zorder=10, label=r'$\hat{h}=2$')
     if np.any(three_hop_rigid):
         plot.nodes(
             ax, p[three_hop_rigid],
             marker='s', color='mediumseagreen',
-            s=11, zorder=10, label=r'$h_0=3$')
+            s=11, zorder=10, label=r'$\hat{h}=3$')
     plot.edges(ax, p, A, color='0.0', lw=0.4)
     ax.legend(
         fontsize='xx-small', handlelength=1, labelspacing=0.4,
         borderpad=0.2, handletextpad=0.2, framealpha=1.,
-        ncol=3, columnspacing=0.2, loc='upper center')
+        ncol=4, columnspacing=0.2, loc='upper center')
     fig.savefig(
-        '/tmp/rigidity_extents_{}.png'.format(i), format='png', dpi=360)
+        '/tmp/sparse_rigidity_extents_{}.png'.format(i), format='png', dpi=360)
