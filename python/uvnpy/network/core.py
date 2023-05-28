@@ -114,6 +114,17 @@ def geodesics(A):
     return lengths
 
 
+def geodesics_from_source(A, sources):
+    G = nx.from_numpy_array(A)
+    spl = [nx.shortest_path_length(G, source=i) for i in sources]
+    k = [list(_spl.keys()) for _spl in spl]
+    v = [list(_spl.values()) for _spl in spl]
+    idx = np.arange(len(sources)).reshape(-1, 1)
+    lengths = np.empty((len(sources), len(A)))
+    lengths[idx, k] = v
+    return lengths
+
+
 def diameter(A):
     G = nx.from_numpy_array(A)
     return nx.diameter(G)
