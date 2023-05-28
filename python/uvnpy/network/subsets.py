@@ -7,15 +7,32 @@
 """
 import numpy as np
 import networkx as nx  # noqa
+from numba import njit
 
 import uvnpy.network as network
 
 
+@njit
 def reach(A, hops):
     """La potencia k-esima de la matriz de adyacencia indica la
     cantidad de caminos de k-hops que hay entre dos nodos {i, j}."""
     Ak = [np.linalg.matrix_power(A, h) for h in hops]
-    return np.array(Ak)
+    return Ak
+
+
+@njit
+def geodesics(A):
+    G = A.copy()
+    As = np.eye(len(A)) + A
+    h = 2
+    while not np.all(As):
+        Ah = np.linalg.matrix_power(A, h)
+        for i, g in enumerate(G):
+            idx = np.logical_and(Ah[i] > 0, As[i] == 0)
+            g[idx] = h
+        As += Ah
+        h += 1
+    return G
 
 
 def adjacency(A):
@@ -75,6 +92,23 @@ def multihop_subframework(A, x, i, hops=1):
     Ai = A[Ni][:, Ni]
     xi = x[Ni]
     return Ai, xi
+
+
+@njit
+def multihop_subsets(A, centers, hops):
+    """
+    Requires:
+        hops > 0
+    """
+    n = len(A)
+    max_hop = np.max(hops)
+    powers = np.arange(2, max_hop + 1)
+    Ak = reach(A, powers)
+    As = np.empty((max_hop, n, n), dtype=np.bool_)
+    As[0] = np.eye(n) + A
+    for k in powers:
+        As[k - 1] = As[k - 2] + Ak[k - 2]
+    return [As[h - 1, i] for i, h in zip(centers, hops)]
 
 
 def degree_load(A, coeff):
