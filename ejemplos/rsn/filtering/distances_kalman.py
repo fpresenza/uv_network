@@ -16,7 +16,7 @@ from uvnpy.rsn.localization import distances_to_neighbors_kalman
 np.random.seed(6)
 
 dt = 0.05
-tiempo = np.arange(0, 15, dt)
+tiempo = np.arange(0, 10, dt)
 steps = list(enumerate(tiempo))
 
 n = 7
@@ -34,13 +34,12 @@ p = 3
 hatx = np.empty((len(tiempo), n, 2))
 hatx[0] = x[0] + np.random.normal(0, p, (n, 2))
 
+q = 0.05
+R = 3.
+Q = q**2 * np.eye(2)
 Pi = p**2 * np.eye(2)
 hatP = np.empty((len(tiempo), n, 2, 2))
 hatP[0] = Pi
-
-q = 0.05
-Q = q**2 * np.eye(2)
-R = 3.
 estimator = [distances_to_neighbors_kalman(
     hatx[0, i], Pi, Q * dt, R, tiempo[0]) for i in nodes]
 

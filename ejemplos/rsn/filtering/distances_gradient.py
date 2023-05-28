@@ -28,12 +28,15 @@ u = np.zeros((n, 2))
 x[0] = np.random.uniform(-lim, lim, (n, 2))
 A = disk_graph.adjacency(x[0], dmax)
 E = network.edges_from_adjacency(A)
+print(len(E))
 
 # np.random.seed(10)
 p = 3
 hatx = np.empty((len(tiempo), n, 2))
 hatx[0] = x[0] + np.random.normal(0, p, (n, 2))
 
+q = 0.05
+R = 3.
 stepsize = 0.2
 W = 5*np.eye(2)
 estimator = [distances_to_neighbors_gradient(
@@ -42,7 +45,7 @@ estimator = [distances_to_neighbors_gradient(
 d = np.empty((len(tiempo), len(E)))
 d[0] = distances.from_edges(E, x[0])
 z = np.empty((len(tiempo), len(E)))
-z[0] = np.random.normal(d[0], 3.)
+z[0] = np.random.normal(d[0], R)
 
 for k, t in steps[1:]:
     for i in nodes:
@@ -55,10 +58,9 @@ for k, t in steps[1:]:
         hatx[k, i] = estimator[i].x
 
     u[:] = np.random.uniform(-3, 3, (n, 2))
-    x[k] = x[k-1] + np.random.normal(u, 0.05/np.sqrt(dt), (n, 2)) * dt
+    x[k] = x[k-1] + np.random.normal(u, q/np.sqrt(dt), (n, 2)) * dt
     d[k] = distances.from_edges(E, x[k])
-    z[k] = np.random.normal(d[k], 3.)
-
+    z[k] = np.random.normal(d[k], R)
 
 hatz = distances.from_edges(E, hatx)
 
