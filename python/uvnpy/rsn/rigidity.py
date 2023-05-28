@@ -7,10 +7,14 @@
 """
 import numpy as np
 import scipy.linalg
+import itertools
 from transformations import unit_vector
+from numba import njit
 
-from uvnpy.network.core import geodesics
-from uvnpy.network.subsets import multihop_subframework
+from uvnpy.network.subsets import (
+    geodesics,
+    multihop_subframework,
+    multihop_subsets)
 from uvnpy.rsn.distances import matrix as distance_matrix
 
 
@@ -112,6 +116,26 @@ def classic_symmetric_matrix(A, p):
     return S.reshape(s)
 
 
+@njit
+def _rigidity_laplacian(A, p):
+    n, d = p.shape
+    L = np.zeros((n, n, d, d))
+    edges = np.argwhere(np.triu(A) > 0)
+    for i, j in edges:
+        dij = p[i] - p[j]
+        nij = np.square(dij).sum()
+        L[i, j] = L[j, i] = dij.reshape(2, 1).dot(dij.reshape(1, 2)) / -nij
+        L[i, i] -= L[i, j]
+        L[j, j] -= L[i, j]
+
+    return L
+
+
+def fast_symmetric_matrix(A, p):
+    L = _rigidity_laplacian(A, p)
+    return L.swapaxes(1, 2).reshape(p.size, p.size)
+
+
 def symmetric_matrix(A, p):
     """Matriz normalizada de rigidez.
 
@@ -183,7 +207,7 @@ def local_symmetric_matrix(p, q, w=np.array(1.)):
 def algebraic_condition(A, p, threshold=1e-4):
     d = p.shape[-1]
     f = int(d * (d + 1)/2)
-    S = symmetric_matrix(A, p)
+    S = fast_symmetric_matrix(A, p)
     eig = np.linalg.eigvalsh(S)
     return eig[f] > threshold
 
@@ -191,17 +215,8 @@ def algebraic_condition(A, p, threshold=1e-4):
 def eigenvalue(A, p):
     d = p.shape[1]
     f = int(d * (d + 1)/2)
-    S = symmetric_matrix(A, p)
+    S = fast_symmetric_matrix(A, p)
     eig = np.linalg.eigvalsh(S)
-    return eig[f]
-
-
-def subframework_eigenvalue(A, p, i, h=1):
-    d = p.shape[1]
-    f = int(d * (d + 1)/2)
-    Ai, xi = multihop_subframework(A, p, i, h)
-    Si = symmetric_matrix(Ai, xi)
-    eig = np.linalg.eigvalsh(Si)
     return eig[f]
 
 
@@ -246,6 +261,27 @@ def extents(A, p, threshold=1e-4):
             h += 1
             Ai, xi = multihop_subframework(A, p, i, h)
             Si = symmetric_matrix(Ai, xi)
+            re = np.linalg.eigvalsh(Si)[f]
+            if re > threshold:
+                minimum_found = True
+        hops[i] = h
+    return hops
+
+
+def fast_extents(A, p, threshold=1e-4):
+    n, d = p.shape
+    f = d * (d + 1) // 2
+    geo = geodesics(A)
+    hops = np.empty(n, dtype=int)
+    for i in range(n):
+        minimum_found = False
+        h = 0
+        while not minimum_found:
+            h += 1
+            subset = geo[i] <= h
+            Ai = A[np.ix_(subset, subset)]
+            pi = p[subset]
+            Si = fast_symmetric_matrix(Ai, pi)
             re = np.linalg.eigvalsh(Si)[f]
             if re > threshold:
                 minimum_found = True
@@ -305,39 +341,35 @@ def rigidly_linked(A, p, extents, threshold=1e-4):
         ValueError: whenever condition is not satisfied
     """
     n, d = p.shape
-    geo = geodesics(A)
+    centers = np.nonzero(extents)[0]
+    subsets = multihop_subsets(A, centers, extents[centers])
+
+    # check if union of subgraphs cover all vertices
+    is_in_count = np.sum(subsets, axis=0)
+    if np.any(is_in_count == 0):
+        raise ValueError('Node(s) not covered.')
+
+    # check if a single subgraph cover all vertices
+    if len(centers) == 1:
+        return 1 - np.eye(n)
 
     # computes the union between subgraphs
-    centers = np.nonzero(extents)[0]
     Au = np.zeros((n, n))
-    is_in_count = np.zeros(n, dtype=int)
-    subsets = {}
-    for i in centers:
-        is_in = np.where(geo[i] <= extents[i])[0]    # inside subgraph
-        is_in_count[is_in] += 1
-        subsets[i] = is_in
-        idx = np.ix_(is_in, is_in)
+    for subset in subsets:
+        idx = np.ix_(subset, subset)
         Au[idx] = A[idx].copy()
-
-    # check if subgraphs cover all vertices
-    degree = np.sum(Au, axis=0)
-    uncovered = degree == 0
-    if np.any(uncovered):
-        raise ValueError(
-            'Node(s) {} not covered.'.format(np.where(uncovered)[0]))
 
     # link graph
     Al = A - Au
     # detect link nodes
-    shared_nodes = np.where(is_in_count > 1)[0]
-    link_edges = np.argwhere(np.triu(Al))
-    link_nodes = np.union1d(shared_nodes, link_edges)
-    for i in centers:
-        link_subset = np.intersect1d(link_nodes, subsets[i])
-        num_link = len(link_subset)
+    shared_nodes = is_in_count > 1
+    link_edges = np.any(Al, axis=0)
+    link_nodes = np.logical_or(shared_nodes, link_edges)
+    for subset in subsets:
+        link_subset = np.logical_and(link_nodes, subset)
+        num_link = sum(link_subset)
         if num_link < d:
-            raise ValueError(
-                'Subframework {} hasn\'t got enough link nodes.'.format(i))
+            raise ValueError('Subframework(s) hasn\'t got enough link nodes.')
         Al[np.ix_(link_subset, link_subset)] = 1 - np.eye(num_link)
 
     # check if the link graph is rigid
@@ -359,28 +391,27 @@ def rigidly_linked_by_vertices(A, p, extents, threshold=1e-4):
         ValueError: whenever condition is not satisfied
     """
     n, d = p.shape
-    geo = geodesics(A)
-
     centers = np.nonzero(extents)[0]
-    c = len(centers)
-    uncovered = geo[centers] > extents[centers].reshape(-1, 1)
-    uncovered_sum = np.sum(uncovered, axis=0)
-    isolated = uncovered_sum == c
-    if np.any(isolated):
-        raise ValueError(
-            'Node(s) {} not covered.'.format(np.where(isolated)[0]))
+    subsets = multihop_subsets(A, centers, extents[centers])
+
+    # check if union of subgraphs cover all vertices
+    is_in_count = np.sum(subsets, axis=0)
+    if np.any(is_in_count == 0):
+        raise ValueError('Node(s) not covered.')
+
+    # check if a single subgraph cover all vertices
+    if len(centers) == 1:
+        return 1 - np.eye(n)
 
     # link graph
-    # detect link nodes
-    link_nodes = uncovered_sum < c - 1
     Al = np.zeros((n, n))
-    for i in centers:
-        subset = geo[i] <= extents[i]
+    # detect link nodes
+    link_nodes = is_in_count > 1
+    for subset in subsets:
         link_subset = np.logical_and(link_nodes, subset)
         num_link = sum(link_subset)
         if num_link < d:
-            raise ValueError(
-                'Subframework {} hasn\'t got enough link nodes.'.format(i))
+            raise ValueError('Subframework(s) hasn\'t got enough link nodes.')
         Al[np.ix_(link_subset, link_subset)] = 1 - np.eye(num_link)
 
     # check if the link graph is rigid
@@ -400,8 +431,6 @@ def sparse_centers_full_search(
     Requires:
         framework is rigid
     """
-    import itertools
-
     if vertices_only:
         is_linked = rigidly_linked_by_vertices
     else:
@@ -415,13 +444,15 @@ def sparse_centers_full_search(
     min_value = np.inf
     for h in search_space:
         h = np.array(h)
+        if np.any(np.logical_and(h > 0, h < extents)):
+            continue
         try:
             is_linked(A, p, h, threshold)
             for i in np.nonzero(h)[0]:
                 Vi = geo[i] <= h[i]
                 Ai = A[Vi][:, Vi]
-                xi = p[Vi]
-                if not algebraic_condition(Ai, xi, threshold):
+                pi = p[Vi]
+                if not algebraic_condition(Ai, pi, threshold):
                     raise ValueError
             new_value = metric(A, h)
             if new_value < min_value:
@@ -442,8 +473,6 @@ def sparse_centers_binary_search(
     Requires:
         framework is rigid
     """
-    import itertools
-
     if vertices_only:
         is_linked = rigidly_linked_by_vertices
     else:
@@ -484,14 +513,10 @@ def sparse_centers(A, p, extents, metric, threshold=1e-4, vertices_only=False):
     hops = extents.copy()
     centers = np.arange(n)
     min_found = False
-    count = 0
     while not min_found:
         min_value = np.inf
         remove = None
-        print('----')
         for i in centers:
-            count += 1
-            print(count)
             sparsed = hops.copy()
             sparsed[i] = 0
             try:
