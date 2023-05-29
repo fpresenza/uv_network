@@ -12,7 +12,7 @@ from transformations import unit_vector
 from numba import njit
 
 from uvnpy.network.subsets import (
-    geodesics,
+    geodesics as fast_geodesics,
     multihop_subframework,
     multihop_subsets)
 from uvnpy.rsn.distances import matrix as distance_matrix
@@ -271,14 +271,14 @@ def extents(A, p, threshold=1e-4):
 def fast_extents(A, p, threshold=1e-4):
     n, d = p.shape
     f = d * (d + 1) // 2
-    geo = geodesics(A)
+    geodesics = fast_geodesics(A)
     hops = np.empty(n, dtype=int)
     for i in range(n):
         minimum_found = False
         h = 0
         while not minimum_found:
             h += 1
-            subset = geo[i] <= h
+            subset = geodesics[i] <= h
             Ai = A[np.ix_(subset, subset)]
             pi = p[subset]
             Si = fast_symmetric_matrix(Ai, pi)
@@ -437,7 +437,8 @@ def sparse_centers_full_search(
         is_linked = rigidly_linked
 
     n = len(p)
-    geo = geodesics(A)
+    geodesics = fast_geodesics(A)
+    degree = A.sum(axis=0)
     max_hops = extents.max()
     search_space = itertools.product(range(max_hops + 1), repeat=n)
 
@@ -449,12 +450,12 @@ def sparse_centers_full_search(
         try:
             is_linked(A, p, h, threshold)
             for i in np.nonzero(h)[0]:
-                Vi = geo[i] <= h[i]
+                Vi = geodesics[i] <= h[i]
                 Ai = A[Vi][:, Vi]
                 pi = p[Vi]
                 if not algebraic_condition(Ai, pi, threshold):
                     raise ValueError
-            new_value = metric(A, h)
+            new_value = metric(degree, h, geodesics)
             if new_value < min_value:
                 min_value = new_value
                 h_opt = h
@@ -479,6 +480,8 @@ def sparse_centers_binary_search(
         is_linked = rigidly_linked
 
     n = len(p)
+    geodesics = fast_geodesics(A)
+    degree = A.sum(axis=0)
     search_factors = itertools.product((0, 1), repeat=n)
 
     min_value = np.inf
@@ -486,7 +489,7 @@ def sparse_centers_binary_search(
         h = np.multiply(extents, f)
         try:
             is_linked(A, p, h, threshold)
-            new_value = metric(A, h)
+            new_value = metric(degree, h, geodesics)
             if new_value < min_value:
                 min_value = new_value
                 h_opt = h
@@ -510,6 +513,8 @@ def sparse_centers(A, p, extents, metric, threshold=1e-4, vertices_only=False):
         is_linked = rigidly_linked
 
     n = len(p)
+    geodesics = fast_geodesics(A)
+    degree = A.sum(axis=0)
     hops = extents.copy()
     centers = np.arange(n)
     min_found = False
@@ -521,7 +526,7 @@ def sparse_centers(A, p, extents, metric, threshold=1e-4, vertices_only=False):
             sparsed[i] = 0
             try:
                 is_linked(A, p, sparsed, threshold)
-                new_value = metric(A, sparsed)
+                new_value = metric(degree, sparsed, geodesics)
                 if new_value < min_value:
                     min_value = new_value
                     remove = i
@@ -550,6 +555,8 @@ def sparse_centers_two_steps(
     else:
         is_linked = rigidly_linked
 
+    geodesics = fast_geodesics(A)
+    degree = A.sum(axis=0)
     hops = extents.copy()
     for h in reversed(np.unique(hops)):
         max_extent = np.where(hops == h)[0]
@@ -562,7 +569,7 @@ def sparse_centers_two_steps(
                 sparsed[i] = 0
                 try:
                     is_linked(A, p, sparsed, threshold)
-                    new_value = metric(A, sparsed)
+                    new_value = metric(degree, sparsed, geodesics)
                     if new_value < min_value:
                         min_value = new_value
                         remove = i

@@ -6,10 +6,7 @@
 @date mié ago 11 10:16:00 -03 2021
 """
 import numpy as np
-import networkx as nx  # noqa
 from numba import njit
-
-import uvnpy.network as network
 
 
 @njit
@@ -111,6 +108,7 @@ def multihop_subsets(A, centers, hops):
     return [As[h - 1, i] for i, h in zip(centers, hops)]
 
 
+@njit
 def degree_load(A, coeff):
     deg = A.sum(1)
     return coeff.dot(deg).sum()
@@ -125,22 +123,29 @@ def degree_load_std(A, hops):
         A: array(n x n)
         hops = array(n, )
     """
-    geo = network.geodesics(A)
+    geo = geodesics(A)
     coeff = (hops.reshape(-1, 1) - geo).clip(min=0)
     return degree_load(A, coeff)
+
+
+@njit
+def fast_degree_load_std(degree, hops, geodesics):
+    coeff = np.reshape(hops, (-1, 1)) - geodesics
+    coeff = np.clip(coeff, a_min=0, a_max=np.inf)
+    return coeff.dot(degree).sum()
 
 
 def degree_load_flat(A, hops):
     """La funcion de peso es 1 para todo nodo en Vi excepto para
     aquellos en la frontera que tienen peso 0."""
-    geo = network.geodesics(A)
+    geo = geodesics(A)
     coeff = (hops.reshape(-1, 1) - geo).clip(min=0)
     return degree_load(A, np.sign(coeff))
 
 
 def subgraph_union(A, hops):
     """Devuelve la union de los subgrafos dados por sus extensiones"""
-    geo = network.geodesics(A)
+    geo = geodesics(A)
     centers = np.nonzero(hops)[0]
     n = len(A)
     U = np.zeros((n, n))
@@ -150,21 +155,3 @@ def subgraph_union(A, hops):
         U[idx] = A[idx].copy()
 
     return U
-
-
-# def neighborhood_load(A, hops):
-#     _h = hops - 1
-#     n = len(_h)
-#     N = [multihop_adjacency(A, _h[i])[i] for i in range(n)]
-#     deg = A.sum(1)
-#     return np.dot(N, deg).sum()/2
-
-
-# def weighted_node_neighborhood_load(A, i, hop):
-#     deg = A.sum(1)
-#     G = nx.from_numpy_matrix(A)
-#     lengths = nx.single_source_shortest_path_length(G, i, cutoff=hop)
-#     k, v = lengths.keys(), lengths.values()
-#     geo = np.tile(hop, len(deg))
-#     geo[list(k)] = list(v)
-#     return sum((hop - geo) * deg)

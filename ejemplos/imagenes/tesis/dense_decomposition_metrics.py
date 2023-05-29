@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import progressbar
 
-from uvnpy.network.core import geodesics
+from uvnpy.network.subsets import geodesics, fast_degree_load_std
 from uvnpy.rsn.rigidity import fast_extents, minimum_radius
 from uvnpy.rsn.distances import matrix as distance_matrix
 from uvnpy.rsn.distances import matrix_between as distance_between
@@ -62,16 +62,11 @@ def minimum_alpha(A, p, dist, Rmin, Rmax, threshold=1e-5):
             if np.all(h == 1):
                 return (R - Rmin) / (Rmax - Rmin)
 
-
-def load_function(degree, geodesics, hops):
-    coeff = (hops.reshape(-1, 1) - geodesics).clip(min=0)
-    # return coeff.dot(degree).sum() / coeff.sum()
-    return coeff.dot(degree).sum() / len(degree)
-
-
 # ------------------------------------------------------------------
 # Función run
 # ------------------------------------------------------------------
+
+
 def run(d, nmin, nmax, logs, threshold, rep):
     bar.start()
 
@@ -103,7 +98,7 @@ def run(d, nmin, nmax, logs, threshold, rep):
             deg = A[0].sum(axis=1)
             diam[0] += np.max(geo)
             hmax[0] += np.max(h)
-            load[0] += load_function(deg, geo, h)
+            load[0] += fast_degree_load_std(deg, geo, h)
             edges[0] += np.sum(A[0])
 
             A[1] = disk_adjacency(p, dmax=Rmin + 0.05 * (Rmax - Rmin))
@@ -112,7 +107,7 @@ def run(d, nmin, nmax, logs, threshold, rep):
             deg = A[1].sum(axis=1)
             diam[1] += np.max(geo)
             hmax[1] += np.max(h)
-            load[1] += load_function(deg, geo, h)
+            load[1] += fast_degree_load_std(deg, geo, h)
             edges[1] += np.sum(A[1])
 
             A[2] = disk_adjacency(p, dmax=Rmin + 0.1 * (Rmax - Rmin))
@@ -121,7 +116,7 @@ def run(d, nmin, nmax, logs, threshold, rep):
             deg = A[2].sum(axis=1)
             diam[2] += np.max(geo)
             hmax[2] += np.max(h)
-            load[2] += load_function(deg, geo, h)
+            load[2] += fast_degree_load_std(deg, geo, h)
             edges[2] += np.sum(A[2])
 
         logs.nodes[k] = n

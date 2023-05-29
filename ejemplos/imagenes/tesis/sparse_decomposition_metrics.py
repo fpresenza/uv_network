@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import progressbar
 
-from uvnpy.network.subsets import geodesics, degree_load_std
+from uvnpy.network.subsets import geodesics, fast_degree_load_std
 from uvnpy.rsn.rigidity import (
     fast_extents,
     minimum_radius,
@@ -44,10 +44,8 @@ Logs = collections.namedtuple(
     alpha')
 
 
-def load_function(degree, geodesics, hops):
-    coeff = (hops.reshape(-1, 1) - geodesics).clip(min=0)
-    # return coeff.dot(degree).sum() / coeff.sum()
-    return coeff.dot(degree).sum() / len(degree)
+def load_function(degree, hops, geodesics):
+    return fast_degree_load_std(degree, hops, geodesics) / len(degree)
 
 
 # ------------------------------------------------------------------
@@ -85,14 +83,15 @@ def run(d, nmin, nmax, cutoff, logs, threshold, rep):
 
             if n < nmin + cutoff:
                 sparse_h = sparse_centers_binary_search(
-                    A, p, h, degree_load_std, threshold, vertices_only=True)
+                    A, p, h, fast_degree_load_std, threshold,
+                    vertices_only=True)
                 sparse_hmax += np.max(sparse_h)
-                sparse_load += load_function(deg, geo, sparse_h)
+                sparse_load += load_function(deg, sparse_h, geo)
 
             sparse_h_approx = sparse_centers_two_steps(
-                A, p, h, degree_load_std, threshold, vertices_only=True)
+                A, p, h, fast_degree_load_std, threshold, vertices_only=True)
             sparse_hmax_approx += np.max(sparse_h_approx)
-            sparse_load_approx += load_function(deg, geo, sparse_h_approx)
+            sparse_load_approx += load_function(deg, sparse_h_approx, geo)
 
         logs.nodes[k] = n
         logs.diam[k] = np.divide(diam, rep)
