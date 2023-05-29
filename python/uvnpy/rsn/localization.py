@@ -69,18 +69,20 @@ class distances_to_neighbors_gradient(decentralized_localization):
         g = sum(r * m[:, None])
         return g
 
-    def step(self, t, u, z, dyn_args=(), obs_args=()):
+    def step(self, t, u, z, alpha=None, dyn_args=(), obs_args=()):
         """Paso del gradiente descendiente.
 
         t: instante de tiempo
         u: accion de control
         z: observaciones
         """
+        if alpha is None:
+            alpha = self.alpha
         dt = t - self.t
         self.t = t
         x_dyn = self.dynamic_model(dt, u, *dyn_args)
         g_obs = self.observation_model(z, *obs_args)
-        self._x += self.alpha * (g_obs - self.W.dot(self._x - x_dyn))
+        self._x += alpha * (g_obs - self.W.dot(self._x - x_dyn))
 
 
 class distances_to_neighbors_kalman(decentralized_localization):
