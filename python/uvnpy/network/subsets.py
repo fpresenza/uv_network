@@ -39,7 +39,7 @@ def adjacency(A):
 
 def multihop_adjacency(A, hops):
     """Los nodos que se pueden acceder a con k-hops o menos."""
-    Ak = reach(A, range(hops+1))
+    Ak = reach(A, np.arange(hops+1))
     return sum(Ak).astype(bool)
 
 
@@ -55,7 +55,7 @@ def neighbors_from_edges(E, i):
 
 
 def multihop_neighborhood(A, hops):
-    Ak = reach(A, range(hops+1))
+    Ak = reach(A, np.arange(hops+1))
     Nh = np.logical_not(sum(Ak[:-1]) + np.logical_not(Ak[-1]))
     return Nh
 
