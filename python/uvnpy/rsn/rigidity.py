@@ -18,6 +18,9 @@ from uvnpy.network.subsets import (
 from uvnpy.rsn.distances import matrix as distance_matrix
 
 
+_THRESHOLD_ = 1e-4
+
+
 def classic_matrix(D, p):
     """Matriz de rigidez clásica"""
     Dt = D.T
@@ -204,7 +207,7 @@ def local_symmetric_matrix(p, q, w=np.array(1.)):
     return Si
 
 
-def algebraic_condition(A, p, threshold=1e-4):
+def algebraic_condition(A, p, threshold=_THRESHOLD_):
     d = p.shape[-1]
     f = int(d * (d + 1)/2)
     S = fast_symmetric_matrix(A, p)
@@ -247,7 +250,7 @@ def nontrivial_motions(p):
     return N
 
 
-def extents(A, p, threshold=1e-4):
+def extents(A, p, threshold=_THRESHOLD_):
     if not algebraic_condition(A, p, threshold):
         raise ValueError('Flexible Framework.')
     n = A.shape[0]
@@ -268,7 +271,7 @@ def extents(A, p, threshold=1e-4):
     return hops
 
 
-def fast_extents(A, p, threshold=1e-4):
+def fast_extents(A, p, threshold=_THRESHOLD_):
     n, d = p.shape
     f = d * (d + 1) // 2
     geodesics = fast_geodesics(A)
@@ -289,7 +292,7 @@ def fast_extents(A, p, threshold=1e-4):
     return hops
 
 
-def minimum_radius(A, p, threshold=1e-4, return_radius=False):
+def minimum_radius(A, p, threshold=_THRESHOLD_, return_radius=False):
     """Add or delete edges to a framework until it is radius-wise minimally
     rigid."""
     A = A.copy()
@@ -330,7 +333,7 @@ def minimum_radius(A, p, threshold=1e-4, return_radius=False):
         return A
 
 
-def rigidly_linked(geodesics, p, extents, threshold=1e-4):
+def rigidly_linked(geodesics, p, extents, threshold=_THRESHOLD_):
     """Determines whether a set of subframeworks cover the whole framework and
     is rigidly linked
 
@@ -381,7 +384,7 @@ def rigidly_linked(geodesics, p, extents, threshold=1e-4):
     return Al
 
 
-def rigidly_linked_by_vertices(geodesics, p, extents, threshold=1e-4):
+def rigidly_linked_by_vertices(geodesics, p, extents, threshold=_THRESHOLD_):
     """Determines whether a set of subframeworks cover the whole framework and
     is rigidly linked
 
@@ -424,7 +427,7 @@ def rigidly_linked_by_vertices(geodesics, p, extents, threshold=1e-4):
 
 
 def sparse_centers_full_search(
-        A, p, extents, metric, threshold=1e-4, vertices_only=False):
+        A, p, extents, metric, threshold=_THRESHOLD_, vertices_only=False):
     """Dada un conjunto de extensiones, elimina subframeworks iterativamente
     hasta que no puede eliminar mas dado que se pierde rigidez o no se cubre
     todo el framework.
@@ -467,7 +470,7 @@ def sparse_centers_full_search(
 
 
 def sparse_centers_binary_search(
-        A, p, extents, metric, threshold=1e-4, vertices_only=False):
+        A, p, extents, metric, threshold=_THRESHOLD_, vertices_only=False):
     """Dada un conjunto de extensiones, elimina subframeworks iterativamente
     hasta que no puede eliminar mas dado que se pierde rigidez o no se cubre
     todo el framework.
@@ -500,7 +503,8 @@ def sparse_centers_binary_search(
     return h_opt
 
 
-def sparse_centers(A, p, extents, metric, threshold=1e-4, vertices_only=False):
+def sparse_centers(
+        A, p, extents, metric, threshold=_THRESHOLD_, vertices_only=False):
     """Dada un conjunto de extensiones, elimina subframeworks iterativamente
     hasta que no puede eliminar mas dado que se pierde rigidez o no se cubre
     todo el framework.
@@ -543,7 +547,7 @@ def sparse_centers(A, p, extents, metric, threshold=1e-4, vertices_only=False):
 
 
 def sparse_centers_two_steps(
-        A, p, extents, metric, threshold=1e-4, vertices_only=False):
+        A, p, extents, metric, threshold=_THRESHOLD_, vertices_only=False):
     """Dada un conjunto de extensiones, elimina subframeworks iterativamente
     hasta que no puede eliminar mas dado que se pierde rigidez o no se cubre
     todo el framework.
