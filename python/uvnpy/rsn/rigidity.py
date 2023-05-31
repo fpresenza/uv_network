@@ -11,10 +11,10 @@ import itertools
 from transformations import unit_vector
 from numba import njit
 
+from uvnpy.network.core import adjacency_from_geodesics
 from uvnpy.network.subsets import (
     geodesics as fast_geodesics,
-    multihop_subframework,
-    multihop_subsets)
+    multihop_subframework)
 from uvnpy.rsn.distances import matrix as distance_matrix
 
 
@@ -330,7 +330,7 @@ def minimum_radius(A, p, threshold=1e-4, return_radius=False):
         return A
 
 
-def rigidly_linked(A, p, extents, threshold=1e-4):
+def rigidly_linked(geodesics, p, extents, threshold=1e-4):
     """Determines whether a set of subframeworks cover the whole framework and
     is rigidly linked
 
@@ -341,8 +341,9 @@ def rigidly_linked(A, p, extents, threshold=1e-4):
         ValueError: whenever condition is not satisfied
     """
     n, d = p.shape
+    A = adjacency_from_geodesics(geodesics)
     centers = np.nonzero(extents)[0]
-    subsets = multihop_subsets(A, centers, extents[centers])
+    subsets = geodesics[centers] <= extents[centers].reshape(-1, 1)
 
     # check if union of subgraphs cover all vertices
     is_in_count = np.sum(subsets, axis=0)
@@ -380,7 +381,7 @@ def rigidly_linked(A, p, extents, threshold=1e-4):
     return Al
 
 
-def rigidly_linked_by_vertices(A, p, extents, threshold=1e-4):
+def rigidly_linked_by_vertices(geodesics, p, extents, threshold=1e-4):
     """Determines whether a set of subframeworks cover the whole framework and
     is rigidly linked
 
@@ -392,7 +393,7 @@ def rigidly_linked_by_vertices(A, p, extents, threshold=1e-4):
     """
     n, d = p.shape
     centers = np.nonzero(extents)[0]
-    subsets = multihop_subsets(A, centers, extents[centers])
+    subsets = geodesics[centers] <= extents[centers].reshape(-1, 1)
 
     # check if union of subgraphs cover all vertices
     is_in_count = np.sum(subsets, axis=0)
@@ -448,7 +449,7 @@ def sparse_centers_full_search(
         if np.any(np.logical_and(h > 0, h < extents)):
             continue
         try:
-            is_linked(A, p, h, threshold)
+            is_linked(geodesics, p, h, threshold)
             for i in np.nonzero(h)[0]:
                 Vi = geodesics[i] <= h[i]
                 Ai = A[Vi][:, Vi]
@@ -488,7 +489,7 @@ def sparse_centers_binary_search(
     for f in search_factors:
         h = np.multiply(extents, f)
         try:
-            is_linked(A, p, h, threshold)
+            is_linked(geodesics, p, h, threshold)
             new_value = metric(degree, h, geodesics)
             if new_value < min_value:
                 min_value = new_value
@@ -525,7 +526,7 @@ def sparse_centers(A, p, extents, metric, threshold=1e-4, vertices_only=False):
             sparsed = hops.copy()
             sparsed[i] = 0
             try:
-                is_linked(A, p, sparsed, threshold)
+                is_linked(geodesics, p, sparsed, threshold)
                 new_value = metric(degree, sparsed, geodesics)
                 if new_value < min_value:
                     min_value = new_value
@@ -568,7 +569,7 @@ def sparse_centers_two_steps(
                 sparsed = hops.copy()
                 sparsed[i] = 0
                 try:
-                    is_linked(A, p, sparsed, threshold)
+                    is_linked(geodesics, p, sparsed, threshold)
                     new_value = metric(degree, sparsed, geodesics)
                     if new_value < min_value:
                         min_value = new_value

@@ -8,6 +8,7 @@
 import numpy as np
 import itertools
 import networkx as nx
+from numba import njit
 
 
 def undirected_edges(E):
@@ -128,3 +129,10 @@ def geodesics_from_source(A, sources):
 def diameter(A):
     G = nx.from_numpy_array(A)
     return nx.diameter(G)
+
+
+@njit
+def adjacency_from_geodesics(geodesics):
+    A = geodesics.ravel().copy()
+    A[A > 1] = 0
+    return A.reshape(geodesics.shape)
