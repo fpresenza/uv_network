@@ -17,7 +17,6 @@ from uvnpy.rsn.rigidity import (
     sparse_centers_two_steps)
 from uvnpy.network.disk_graph import adjacency as disk_adjacency
 
-
 np.set_printoptions(suppress=True, precision=4, linewidth=250)
 plt.rcParams['text.usetex'] = False
 plt.rcParams['pdf.fonttype'] = 42
@@ -120,13 +119,13 @@ if __name__ == '__main__':
         default=50, type=int, help='number of nodes')
     parser.add_argument(
         '-f', '--full',
-        default=10, type=int, help='full search')
+        default=4, type=int, help='full search')
     parser.add_argument(
         '-r', '--rep',
-        default=10, type=int, help='number of repetitions')
+        default=1, type=int, help='number of repetitions')
     parser.add_argument(
         '-s', '--save',
-        default=False, action='store_true', help='flag to store data')
+        default=True, action='store_true', help='flag to store data')
 
     arg = parser.parse_args()
 
@@ -184,9 +183,9 @@ if __name__ == '__main__':
         axis='both',       # changes apply to the x-axis
         which='both',      # both major and minor ticks are affected
         pad=1,
-        labelsize='x-small')
+        labelsize='small')
     ax.grid(lw=0.4)
-    ax.set_xlabel('Número de vértices ($v$)', fontsize=8)
+    ax.set_xlabel('Número de vértices ($v$)', fontsize=10)
     ax.set_xticks(nodes[::nmax//5])
     ax.set_xticklabels(nodes[::nmax//5])
     ax.plot(nodes, diam, label=r'$D$', lw=1, color='C0')
@@ -197,7 +196,7 @@ if __name__ == '__main__':
     ax.set_yticks(diam_ticks)
     ax.set_yticklabels(diam_ticks)
     ax.legend(
-        fontsize='x-small', handlelength=1.5,
+        fontsize='small', handlelength=1.5,
         labelspacing=0.5, borderpad=0.2, loc='upper left')
     if arg.save:
         fig.savefig('/tmp/sparse_delay_vs_diam.png', format='png', dpi=360)
@@ -209,9 +208,9 @@ if __name__ == '__main__':
         axis='both',       # changes apply to the x-axis
         which='both',      # both major and minor ticks are affected
         pad=1,
-        labelsize='x-small')
+        labelsize='small')
     ax.grid(lw=0.4)
-    ax.set_xlabel('Número de vértices ($v$)', fontsize=8)
+    ax.set_xlabel('Número de vértices ($v$)', fontsize=10)
     ax.set_xticks(nodes[::cutoff//5])
     ax.set_xticklabels(nodes[::cutoff//5])
     ax.plot(
@@ -222,7 +221,7 @@ if __name__ == '__main__':
             nodes[:cutoff], 2*sparse_hmax[:cutoff],
             label=r'$\mathcal{D}(h^{\star})$', lw=1, color='C2')
     ax.legend(
-        fontsize='x-small', handlelength=1.5,
+        fontsize='small', handlelength=1.5,
         labelspacing=0.5, borderpad=0.2, loc='upper left')
     if arg.save:
         fig.savefig(
@@ -236,17 +235,17 @@ if __name__ == '__main__':
         axis='both',       # changes apply to the x-axis
         which='both',      # both major and minor ticks are affected
         pad=1,
-        labelsize='x-small')
+        labelsize='small')
     ax.grid(lw=0.4)
-    ax.set_xlabel('Número de vértices ($v$)', fontsize=8)
+    ax.set_xlabel('Número de vértices ($v$)', fontsize=10)
     ax.set_xticks(nodes[::nmax//5])
     ax.set_xticklabels(nodes[::nmax//5])
-    ax.plot(nodes, 2*edges / nodes, label=r'$\bar{\delta}$', lw=1, color='C0')
+    ax.plot(nodes, 2*edges / nodes, label=r'$\bar{n}$', lw=1, color='C0')
     ax.plot(
         nodes, sparse_load_approx,
         label=r'$\mathcal{L}(\hat{h})$', lw=1, color='C1')
     ax.legend(
-        fontsize='x-small', handlelength=1.5,
+        fontsize='small', handlelength=1.5,
         labelspacing=0.5, borderpad=0.2, loc='upper left')
     if arg.save:
         fig.savefig('/tmp/sparse_load_vs_edges.png', format='png', dpi=360)
@@ -258,9 +257,9 @@ if __name__ == '__main__':
         axis='both',       # changes apply to the x-axis
         which='both',      # both major and minor ticks are affected
         pad=1,
-        labelsize='x-small')
+        labelsize='small')
     ax.grid(lw=0.4)
-    ax.set_xlabel('Número de vértices ($v$)', fontsize=8)
+    ax.set_xlabel('Número de vértices ($v$)', fontsize=10)
     ax.set_xticks(nodes[::cutoff//5])
     ax.set_xticklabels(nodes[::cutoff//5])
     ax.plot(
@@ -271,7 +270,7 @@ if __name__ == '__main__':
             nodes[:cutoff], sparse_load[:cutoff],
             label=r'$\mathcal{L}(h^{\star})$', lw=1, color='C2')
     ax.legend(
-        fontsize='x-small', handlelength=1.5,
+        fontsize='small', handlelength=1.5,
         labelspacing=0.5, borderpad=0.2, loc='upper left')
     if arg.save:
         fig.savefig(
