@@ -127,7 +127,7 @@ def _rigidity_laplacian(A, p):
     for i, j in edges:
         dij = p[i] - p[j]
         nij = np.square(dij).sum()
-        L[i, j] = L[j, i] = dij.reshape(2, 1).dot(dij.reshape(1, 2)) / -nij
+        L[i, j] = L[j, i] = dij.reshape(d, 1).dot(dij.reshape(1, d)) / -nij
         L[i, i] -= L[i, j]
         L[j, j] -= L[i, j]
 
