@@ -48,8 +48,8 @@ class Formation(object):
         self.est_position_array = np.empty(self.n, dtype=np.ndarray)
         self.action = np.zeros((self.n, self.dim))
         self.proximity_matrix = disk_graph.adjacency(
-            pos, self.dmin).astype(bool)
-        extents = rigidity.extents(self.proximity_matrix, pos)
+            pos, self.dmin)
+        extents = rigidity.fast_extents(self.proximity_matrix, pos)
         for i in node_ids:
             est_pos = np.random.multivariate_normal(pos[i], cov)
             self.vehicles[i] = agent_model(
@@ -115,7 +115,7 @@ class Formation(object):
     def broadcast(self, node_id):
         center = self.vehicles[node_id]
         msg = center.send_msg()
-        neighbors = self.vehicles[self.proximity_matrix[node_id]]
+        neighbors = self.vehicles[self.proximity_matrix[node_id].astype(bool)]
         for neighbor in neighbors:
             range_measurement = np.random.normal(
                 distances.matrix_between(center.dm.x, neighbor.dm.x),
