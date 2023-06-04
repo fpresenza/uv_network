@@ -66,7 +66,7 @@ diam = nx.algorithms.distance_measures.diameter(G)
 # print(diam)
 min_hops = rigidity.extents(A, x)
 
-fig, ax = plt.subplots(figsize=(1.65, 1.65))
+fig, ax = plt.subplots(figsize=(2, 2))
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
@@ -97,7 +97,7 @@ for i, xi in enumerate(x):
 fig.savefig('/tmp/routing_1.png', format='png', dpi=300)
 
 # sub-framework i=0
-fig, ax = plt.subplots(figsize=(1.65, 1.65))
+fig, ax = plt.subplots(figsize=(2, 2))
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
@@ -187,7 +187,7 @@ fig.savefig('/tmp/routing_3.png', format='png', dpi=300)
 
 
 # sub-framework i=0
-fig, ax = plt.subplots(figsize=(1.65, 1.65))
+fig, ax = plt.subplots(figsize=(2, 2))
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
@@ -235,7 +235,7 @@ for j in nn.ravel():
 fig.savefig('/tmp/routing_3b.png', format='png', dpi=300)
 
 # membership i=0
-fig, ax = plt.subplots(figsize=(1.65, 1.65))
+fig, ax = plt.subplots(figsize=(2, 2))
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
