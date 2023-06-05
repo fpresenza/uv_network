@@ -41,7 +41,8 @@ A = A.reshape(len(t), n, n)
 targets = targets.reshape(len(t), -1, 3)
 
 # slice
-# kf = np.argmin(np.abs(t - 200))
+ki = np.argmin(np.abs(t - 0))
+kf = np.argmin(np.abs(t - 25))
 # t = t[:kf]
 # x = x[:kf]
 # hatx = hatx[:kf]
@@ -49,114 +50,197 @@ targets = targets.reshape(len(t), -1, 3)
 # fre = fre[:kf]
 # re = re[:kf]
 # A = A[:kf]
+# extents = extents[:kf]
 
 # calculos
 edges = A.sum(-1).sum(-1)/2
-# load = np.array([subsets.degree_load_std(a, h) for a, h in zip(A, extents)])
+load = np.array([subsets.degree_load_std(a, h) for a, h in zip(A, extents)])
+
+""" Extents """
 diam = np.array([network.diameter(adj) for adj in A])
 centralization_index = extents.max(axis=-1) / diam
 
-fig, ax = plt.subplots(figsize=(3, 1.5))
-fig.subplots_adjust(bottom=0.2)
+fig, ax = plt.subplots(figsize=(4.0, 1.75))
+fig.subplots_adjust(
+    bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
-    labelsize='xx-small')
+    labelsize='small')
 ax.grid(1, lw=0.4)
-ax.plot(t, extents, lw=0.8, ds='steps-post')
-ax.set_xlabel(r'$t$ (sec)', fontsize='x-small', labelpad=0.6)
-ax.set_ylabel(r'Extents', fontsize='x-small', labelpad=0.6)
 
+ax.plot(t, extents, lw=0.8, ds='steps-post')
+ax.set_xlabel(r'$t$ [$sec$]', fontsize='10')
+ax.set_ylabel(r'Extents', fontsize='10')
+fig.savefig('/tmp/extents.png', format='png', dpi=360)
+
+""" Control """
 fig, axes = plt.subplots(2, 2, figsize=(10, 4))
 
-axes[0, 0].set_xlabel(r'$t [seg]$')
-axes[0, 0].set_ylabel(r'$|x_i - \hat{x}_i| [m]$')
+axes[0, 0].set_xlabel('$t$ [$seg$]')
+axes[0, 0].set_ylabel('$x_i$ [$m$]')
 axes[0, 0].grid(1)
-axes[0, 0].plot(t, np.abs(x[..., 0] - hatx[..., 0]))
+axes[0, 0].plot(t, x[..., 0])
 plt.gca().set_prop_cycle(None)
 
-axes[0, 1].set_xlabel(r'$t [seg]$')
-axes[0, 1].set_ylabel(r'$|y_i - \hat{y}_i| [m]$')
+axes[0, 1].set_xlabel('$t$ [$seg$]')
+axes[0, 1].set_ylabel('$y_i$ [$m$]')
 axes[0, 1].grid(1)
-axes[0, 1].plot(t, np.abs(x[..., 1] - hatx[..., 1]))
+axes[0, 1].plot(t, x[..., 1])
 plt.gca().set_prop_cycle(None)
 
-axes[1, 0].set_xlabel(r'$t [seg]$')
-axes[1, 0].set_ylabel(r'$u_x [m/s]$')
+axes[1, 0].set_xlabel('$t$ [$seg$]')
+axes[1, 0].set_ylabel('$u_x$ [$m/s$]')
 axes[1, 0].grid(1)
 axes[1, 0].plot(t, u[..., 0], ds='steps-post')
 plt.gca().set_prop_cycle(None)
 
-axes[1, 1].set_xlabel(r'$t [seg]$')
-axes[1, 1].set_ylabel(r'$u_y [m/s]$')
+axes[1, 1].set_xlabel('$t$ [$seg$]')
+axes[1, 1].set_ylabel('$u_y$ [$m/s$]')
 axes[1, 1].grid(1)
 axes[1, 1].plot(t, u[..., 1], ds='steps-post')
-fig.savefig('/tmp/control.png', format='png', dpi=300)
+fig.savefig('/tmp/control.png', format='png', dpi=360)
 
-fig, ax = plt.subplots(figsize=(2, 1.25))
-fig.subplots_adjust(left=0.155, right=0.945)
+""" Position """
+""" x """
+fig, ax = plt.subplots(figsize=(2.75, 1.75))
+fig.subplots_adjust(
+    bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.2)
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
-    labelsize='xx-small')
+    labelsize='small')
 ax.grid(1, lw=0.4)
 
-ax.set_xlabel(r'$t$ (sec)', fontsize='x-small', labelpad=0.6)
-ax.set_ylabel(r'Autovalores Rigidez', fontsize='x-small', labelpad=0.6)
-ax.plot(t, re.min(axis=1), lw=0.8, label='min')
-ax.plot(t, re.mean(axis=1), lw=0.8, label='promedio')
-ax.plot(t, re.max(axis=1), lw=0.8, label='max')
-ax.plot(t, fre, ls='--', color='k', lw=0.8, label=r'$\it{framework}$')
-ax.set_ylim(bottom=0, top=2.5)
+ax.set_xlabel(r'$t$ [$sec$]', fontsize='10')
+ax.set_ylabel('posición-$x$ [$m$]', fontsize='10')
+ax.plot(t[ki:kf], x[ki:kf, :, 0], lw=0.9)
+fig.savefig('/tmp/pos_x.png', format='png', dpi=360)
+
+""" y """
+fig, ax = plt.subplots(figsize=(2.75, 1.75))
+fig.subplots_adjust(
+    bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.2)
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='small')
+ax.grid(1, lw=0.4)
+
+ax.set_xlabel(r'$t$ [$sec$]', fontsize='10')
+ax.set_ylabel('posición-$y$ [$m$]', fontsize='10')
+ax.plot(t[ki:kf], x[ki:kf, :, 1], lw=0.9)
+fig.savefig('/tmp/pos_y.png', format='png', dpi=360)
+
+""" Metrics """
+""" eigenvalues """
+fig, ax = plt.subplots(figsize=(4.0, 1.75))
+fig.subplots_adjust(
+    bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='small')
+ax.grid(1, lw=0.4)
+
+ax.set_xlabel(r'$t$ [$sec$]', fontsize='10')
+ax.set_ylabel('Autovalores \n de Rigidez', fontsize='10')
+ax.semilogy(t, re.min(axis=1), lw=0.9, label='min')
+ax.semilogy(t, re.mean(axis=1), lw=0.9, label='medio')
+ax.semilogy(t, re.max(axis=1), lw=0.9, label='max')
+ax.semilogy(t, fre, ls='--', color='k', lw=0.9, label=r'framework')
+ax.set_ylim(bottom=1e-2)
 ax.legend(
-    fontsize='xx-small', handlelength=1, labelspacing=0.4,
+    fontsize=8, handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
     ncol=2, columnspacing=1)
-plt.gca().set_prop_cycle(None)
+fig.savefig('/tmp/eigenvalues.png', format='png', dpi=360)
 
-fig.savefig('/tmp/simu_metrics.png', format='png', dpi=300)
+""" load """
+fig, ax = plt.subplots(figsize=(4.0, 1.75))
+fig.subplots_adjust(
+    bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='small')
+ax.grid(1, lw=0.4)
+ax.set_xlabel(r'$t$ [$sec$]', fontsize=10)
+ax.set_ylabel(r'Carga ($\mathcal{L} / \bar{n}$)', fontsize=10)
+# ax[1.plot(t, edges, lw=0.9)
+ax.plot(t, load/2/edges[0], lw=0.9)
+ax.hlines(1, t[0], t[-1], color='k', ls='--', lw=0.9)
+ax.set_ylim(bottom=0)
+fig.savefig('/tmp/load.png', format='png', dpi=360)
 
-# instantes
+""" pos error """
+e2 = np.square(x - hatx).sum(axis=-1)
+fig, ax = plt.subplots(figsize=(4.0, 1.75))
+fig.subplots_adjust(
+    bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='small')
+ax.grid(1, lw=0.4)
+ax.set_xlabel(r'$t$ [$sec$]', fontsize=10)
+ax.set_ylabel('Error Cuadrático \n [$m^2$]', fontsize=10)
+ax.semilogy(t, e2.min(axis=1), lw=0.9, label='mín')
+ax.semilogy(t, e2.mean(axis=1), lw=0.9, label='medio')
+ax.semilogy(t, e2.max(axis=1), lw=0.9, label='max')
+ax.set_ylim(bottom=1e-5)
+ax.legend(
+    fontsize=8, handlelength=1, labelspacing=0.4,
+    borderpad=0.2, handletextpad=0.2, framealpha=1.,
+    ncol=2, columnspacing=1)
+fig.savefig('/tmp/pos_error.png', format='png', dpi=360)
+
+""" INSTANTS """
 instants = np.array([0., 5.5, 7, 40., 125., 250])
 # lim = np.abs(x).max()
-lim = 50
+lim = 40
 
 for i, tk in enumerate(instants):
-    fig, ax = plt.subplots(figsize=(2, 2))
+    fig, ax = plt.subplots(figsize=(2.5, 2.5))
     ax.tick_params(
         axis='both',       # changes apply to the x-axis
         which='both',      # both major and minor ticks are affected
         pad=1,
-        labelsize='xx-small')
+        labelsize='x-small')
     ax.grid(1, lw=0.4)
     ax.set_aspect('equal')
     # ax.set_xlabel(r'$\mathrm{x}$', fontsize='x-small', labelpad=0.6)
     # ax.set_ylabel(r'$\mathrm{y}$', fontsize='x-small', labelpad=0)
 
+    a = int(lim)
+    b = int(0.5 * lim)
+    ax.set_xlim(-a, a)
+    ax.set_ylim(-a, a)
+    ax.set_xticks([-a, -b, 0, b, a])
+    ax.set_yticks([-a, -b, 0, b, a])
+    ax.set_xticklabels([-a, -b, 0, b, a])
+    ax.set_yticklabels([-a, -b, 0, b, a])
+
     k = np.argmin(np.abs(t - tk))
     ax.text(
             0.05, 0.01, r't = {:.2f}s'.format(tk),
             verticalalignment='bottom', horizontalalignment='left',
-            transform=ax.transAxes, color='k', fontsize=6.5)
-
-    if i == -1:
+            transform=ax.transAxes, color='r', fontsize=8)
+    '''
+    if i == 0:
         ax.set_xlim(-0.6*lim, 0.6*lim)
         ax.set_ylim(-0.6*lim, 0.6*lim)
         ax.set_xticks([-0.4 * lim, 0, -0.4 * lim])
         ax.set_yticks([-0.4 * lim, 0, -0.4 * lim])
         ax.set_xticklabels([-0.4 * lim, 0, -0.4 * lim])
         ax.set_yticklabels([-0.4 * lim, 0, -0.4 * lim])
-    else:
-        a = int(0.8 * lim)
-        b = int(0.4 * lim)
-        ax.set_xlim(-a, a)
-        ax.set_ylim(-a, a)
-        ax.set_xticks([-a, -b, 0, b, a])
-        ax.set_yticks([-a, -b, 0, b, a])
-        ax.set_xticklabels([-a, -b, 0, b, a])
-        ax.set_yticklabels([-a, -b, 0, b, a])
+    '''
 
     one_hop_rigid = extents[k] == 1
     two_hop_rigid = extents[k] == 2
@@ -164,13 +248,13 @@ for i, tk in enumerate(instants):
 
     network.plot.nodes(
         ax, x[k, one_hop_rigid],
-        marker='o', color='royalblue', s=8, zorder=20, label=r'$h=1$')
+        marker='o', color='royalblue', s=8, zorder=20, label=r'$h_0=1$')
     network.plot.nodes(
         ax, x[k, two_hop_rigid],
-        marker='D', color='chocolate', s=8, zorder=20, label=r'$h=2$')
+        marker='D', color='chocolate', s=8, zorder=20, label=r'$h_0=2$')
     network.plot.nodes(
         ax, x[k, three_hop_rigid],
-        marker='s', color='mediumseagreen', s=8, zorder=20, label=r'$h=3$')
+        marker='s', color='mediumseagreen', s=8, zorder=20, label=r'$h_0=3$')
     network.plot.edges(ax, x[k], A[k], color='k', lw=0.5)
 
     untracked = targets[k, :, 2].astype(bool)
@@ -194,12 +278,12 @@ for i, tk in enumerate(instants):
 
     if i == 0:
         ax.legend(
-            fontsize='xx-small',
+            fontsize='6',
             handletextpad=0.0,
             borderpad=0.2,
-            ncol=4, columnspacing=0.2,
+            ncol=4, columnspacing=0.15,
             loc='upper center')
 
-    fig.savefig('/tmp/instants_{}.png'.format(int(tk)), format='png', dpi=300)
+    fig.savefig('/tmp/instants_{}.png'.format(int(tk)), format='png', dpi=360)
 
-plt.show()
+# plt.show()
