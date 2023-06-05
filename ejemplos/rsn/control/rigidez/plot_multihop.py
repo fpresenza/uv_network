@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 
 from uvnpy import network
 from uvnpy.network import subsets
+# from uvnpy.rsn import rigidity
 
 
 plt.rcParams['text.usetex'] = False
@@ -24,18 +25,21 @@ u = np.loadtxt('/tmp/u.csv', delimiter=',')
 fre = np.loadtxt('/tmp/fre.csv', delimiter=',')
 re = np.loadtxt('/tmp/re.csv', delimiter=',')
 A = np.loadtxt('/tmp/adjacency.csv', delimiter=',')
+# A2 = np.loadtxt('/tmp/adjacency2.csv', delimiter=',')
 hops = np.loadtxt('/tmp/hops.csv', delimiter=',')
+
 n = int(len(x[0])/2)
 nodes = np.arange(n)
 hops = hops.astype(int)
 
 # reshapes
-x = x.reshape(len(t), n, 2)
-hatx = hatx.reshape(len(t), n, 2)
-print(x[0], hatx[0])
-u = u.reshape(len(t), n, 2)
-A = A.reshape(len(t), n, n)
-
+N = len(t)
+x = x.reshape(N, n, 2)
+hatx = hatx.reshape(N, n, 2)
+# print(x[0], hatx[0])
+u = u.reshape(N, n, 2)
+A = A.reshape(N, n, n)
+# A2 = A2.reshape(N, n, n)
 
 # slice
 kf = np.argmin(np.abs(t - 200))
@@ -46,11 +50,18 @@ u = u[:kf]
 fre = fre[:kf]
 re = re[:kf]
 A = A[:kf]
+N = len(t)
 
 # calculos
 edges = A.sum(-1).sum(-1)/2
-load = np.array([subsets.degree_load_std(a, hops) for a in A])
 
+load = np.array([subsets.degree_load_std(a, hops) for a in A])
+# load2 = np.empty(N, dtype=np.ndarray)
+# for k in range(N):
+#     h = rigidity.minimum_hops(A2[k], x[k])
+#     load2[k] = subsets.degree_load_std(A2[k], h)
+
+""" Control """
 fig, axes = plt.subplots(2, 2, figsize=(10, 4))
 
 axes[0, 0].set_xlabel(r'$t [seg]$')
@@ -75,154 +86,182 @@ axes[1, 1].set_xlabel(r'$t [seg]$')
 axes[1, 1].set_ylabel(r'$u_y [m/s]$')
 axes[1, 1].grid(1)
 axes[1, 1].plot(t, u[..., 1])
-fig.savefig('/tmp/control.png', format='png', dpi=300)
-
-fig, axes = plt.subplots(1, 2, figsize=(3.4, 1.25))
-fig.subplots_adjust(bottom=0.215, top=0.925, wspace=0.33, right=0.975)
-for ax in axes:
-    ax.tick_params(
-        axis='both',       # changes apply to the x-axis
-        which='both',      # both major and minor ticks are affected
-        pad=1,
-        labelsize='xx-small')
-    ax.grid(1, lw=0.4)
-
-axes[0].set_xlabel(r'$t$ (sec)', fontsize='x-small', labelpad=0.6)
-axes[0].set_ylabel(r'Rigidity eigenvalues', fontsize='x-small', labelpad=0.6)
-axes[0].semilogy(t, re.min(axis=1), lw=0.8, label='min')
-axes[0].semilogy(t, re.mean(axis=1), lw=0.8, label='mean')
-axes[0].semilogy(t, re.max(axis=1), lw=0.8, label='max')
-axes[0].semilogy(t, fre, ls='--', color='k', lw=0.8, label='whole')
-axes[0].set_ylim(bottom=1e-3)
-axes[0].legend(
-    fontsize='xx-small', handlelength=1, labelspacing=0.4,
-    borderpad=0.2, handletextpad=0.2, framealpha=1.,
-    ncol=2, columnspacing=1)
-plt.gca().set_prop_cycle(None)
-
-axes[1].set_xlabel(r'$t$ (sec)', fontsize='x-small', labelpad=0.6)
-axes[1].set_ylabel(
-    r'Std. Load', fontsize='x-small', labelpad=0.6)
-# axes[1].plot(t, edges, lw=0.8)
-axes[1].plot(t, load/2/edges[0], lw=0.8)
-# axes[1].hlines(2*n-3, t[0], t[-1], color='k', ls='--', lw=0.8)
-axes[1].set_ylim(bottom=1)
-fig.savefig('/tmp/simu_metrics.png', format='png', dpi=300)
-
-# instantes
-instants = np.array([0., 200])
-lim = np.abs(x).max()
-one_hop_rigid = hops == 1
-two_hop_rigid = hops == 2
-three_hop_rigid = hops == 3
-four_hop_rigid = hops == 4
-
-fig, axes = plt.subplots(1, 2, figsize=(3.4, 2))
-fig.subplots_adjust(wspace=0.215, left=0.11, right=0.975)
-axes = axes.ravel()
-for i, ax in enumerate(axes):
-    ax.tick_params(
-        axis='both',       # changes apply to the x-axis
-        which='both',      # both major and minor ticks are affected
-        pad=1,
-        labelsize='xx-small')
-    ax.grid(1, lw=0.4)
-    ax.set_aspect('equal')
-    ax.set_xlabel(r'$\mathrm{x}$', fontsize='x-small', labelpad=0.6)
-    if i % 2 == 0:
-        ax.set_ylabel(r'$\mathrm{y}$', fontsize='x-small', labelpad=0)
-    ax.set_xticks([-100, 0, 100])
-    ax.set_yticks([-100, 0, 100])
-    ax.set_xticklabels([-100, 0, 100])
-    ax.set_yticklabels([-100, 0, 100])
-
-for tk, ax in zip(instants, axes):
-    k = np.argmin(np.abs(t - tk))
-    ax.set_xlim(-lim, lim)
-    ax.set_ylim(-lim, lim)
-    ax.text(
-            0.05, 0.01, r't = {:.2f}s'.format(tk),
-            verticalalignment='bottom', horizontalalignment='left',
-            transform=ax.transAxes, color='k', fontsize=5)
-    network.plot.nodes(
-        ax, x[k, one_hop_rigid],
-        marker='o', color='royalblue', s=7, zorder=20, label=r'$1$')
-    network.plot.nodes(
-        ax, x[k, two_hop_rigid],
-        marker='D', color='chocolate', s=7, zorder=20, label=r'$2$')
-    network.plot.nodes(
-        ax, x[k, three_hop_rigid],
-        marker='s', color='mediumseagreen', s=7, zorder=20, label=r'$3$')
-    network.plot.nodes(
-        ax, x[k, four_hop_rigid],
-        marker='^', color='purple', s=7, zorder=10, label=r'$4$')
-    network.plot.edges(ax, x[k], A[k], color='k', lw=0.5)
-
-network.plot.nodes(
-    axes[1], x[::20, one_hop_rigid],
-    marker='.', color='royalblue', s=1, zorder=1, lw=0.5)
-network.plot.nodes(
-    axes[1], x[::20, two_hop_rigid],
-    marker='.', color='chocolate', s=1, zorder=1, lw=0.5)
-network.plot.nodes(
-    axes[1], x[::20, three_hop_rigid],
-    marker='.', color='mediumseagreen', s=1, zorder=1, lw=0.5)
-network.plot.nodes(
-    axes[1], x[::20, four_hop_rigid],
-    marker='.', color='purple', s=1, zorder=1, lw=0.5)
-
-axes[0].legend(
-    fontsize='xx-small',
-    handletextpad=0.0,
-    borderpad=0.2,
-    ncol=4, columnspacing=0.2,
-    loc='upper center')
-
-fig.savefig('/tmp/instants.png', format='png', dpi=300)
+fig.savefig('/tmp/control.png', format='png', dpi=360)
 
 
-# animacion
-timestep = np.diff(t).mean()
-frames = np.empty((t.size, 3), dtype=np.ndarray)
-E = network.edges_from_adjacency(A[0])
-steps = list(enumerate(t))
-for k, tk in steps:
-    E = network.edges_from_adjacency(A[k])
-    X = np.vstack([x[k], hatx[k]])
-    frames[k] = tk, X, E
-
-
-fig, ax = plt.subplots()
+""" Metrics """
+""" eigenvalues """
+fig, ax = plt.subplots(figsize=(4.0, 1.75))
+fig.subplots_adjust(
+    bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
-    labelsize='xx-small')
-ax.set_aspect('equal')
+    labelsize='small')
 ax.grid(1, lw=0.4)
-ax.set_xlabel(r'$x$', fontsize='x-small', labelpad=0.6)
-ax.set_ylabel(r'$y$', fontsize='x-small', labelpad=0.6)
-ax.set_xlim(-lim, lim)
-ax.set_ylim(-lim, lim)
-anim = network.plot.Animate(fig, ax, timestep/2, frames, maxlen=50)
+
+ax.set_xlabel(r'$t$ [$sec$]', fontsize=10)
+ax.set_ylabel(
+    'Autovalores \n de Rigidez',
+    fontsize=10)
+ax.semilogy(t, re.min(axis=1), lw=0.9, label='mín')
+ax.semilogy(t, re.mean(axis=1), lw=0.9, label='medio')
+ax.semilogy(t, re.max(axis=1), lw=0.9, label='max')
+ax.semilogy(t, fre, ls='--', color='k', lw=0.9, label='framework')
+ax.set_ylim(bottom=1e-3)
+ax.legend(
+    fontsize=8, handlelength=1, labelspacing=0.4,
+    borderpad=0.2, handletextpad=0.2, framealpha=1.,
+    ncol=2, columnspacing=1)
+fig.savefig('/tmp/eigenvalues.png', format='png', dpi=360)
+
+""" load """
+fig, ax = plt.subplots(figsize=(4.0, 1.75))
+fig.subplots_adjust(
+    bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='small')
+ax.grid(1, lw=0.4)
+ax.set_xlabel(r'$t$ [$sec$]', fontsize=10)
+ax.set_ylabel(r'Carga ($\mathcal{L} / \bar{n}$)', fontsize=10)
+ax.plot(t, load/2/edges[0], lw=0.9)
+# ax.plot(t, load/2/edges[0], lw=0.9, ls='--', label='$h$ fijo')
+# ax.plot(t, load2/2/edges[0], lw=0.9, label='$h$ variable')
+ax.hlines(1, t[0], t[-1], color='k', ls='--', lw=0.9)
+ax.set_ylim(bottom=0)
+# ax.legend(
+#     fontsize=8, handlelength=1, labelspacing=0.4,
+#     borderpad=0.2, handletextpad=0.2, framealpha=1.)
+fig.savefig('/tmp/load.png', format='png', dpi=360)
+
+""" pos error """
+e2 = np.square(x - hatx).sum(axis=-1)
+fig, ax = plt.subplots(figsize=(4.0, 1.75))
+fig.subplots_adjust(
+    bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='small')
+ax.grid(1, lw=0.4)
+ax.set_xlabel(r'$t$ [$sec$]', fontsize=10)
+ax.set_ylabel('Error Cuadrático \n [$m^2$]', fontsize=10)
+ax.semilogy(t, e2.min(axis=1), lw=0.9, label='mín')
+ax.semilogy(t, e2.mean(axis=1), lw=0.9, label='medio')
+ax.semilogy(t, e2.max(axis=1), lw=0.9, label='max')
+ax.set_ylim(bottom=1e-5)
+ax.legend(
+    fontsize=8, handlelength=1, labelspacing=0.4,
+    borderpad=0.2, handletextpad=0.2, framealpha=1.,
+    ncol=2, columnspacing=1)
+fig.savefig('/tmp/pos_error.png', format='png', dpi=360)
+
+
+""" INSTANTS """
 one_hop_rigid = hops == 1
 two_hop_rigid = hops == 2
 three_hop_rigid = hops == 3
 four_hop_rigid = hops == 4
-anim.set_teams(
-    {'ids': nodes[one_hop_rigid], 'tail': True,
-        'style': {'color': 'royalblue', 'marker': 'o', 'markersize': 5}},
-    {'ids': nodes[two_hop_rigid], 'tail': True,
-        'style': {'color': 'chocolate', 'marker': 'D', 'markersize': 5}},
-    {'ids': nodes[three_hop_rigid], 'tail': True,
-        'style': {'color': 'mediumseagreen', 'marker': 's', 'markersize': 5}},
-    {'ids': nodes[four_hop_rigid], 'tail': True,
-        'style': {'color': 'purple', 'marker': '^', 'markersize': 5}},
-    {'ids': nodes + nodes[-1] + 1, 'tail': False,
-        'style': {'color': 'red', 'marker': '+', 'markersize': 5}})  # noqa
-anim.set_edgestyle(color='0.4', alpha=0.6, lw=0.8)
-# anim.ax.legend(ncol=5)
-# anim.run()
-# anim.run('/tmp/multihop.mp4')
 
-plt.show()
+fig, ax = plt.subplots(figsize=(2.5, 2.5))
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='x-small')
+ax.grid(1, lw=0.4)
+ax.set_aspect('equal')
+# ax.set_xlabel(r'$\mathrm{x}$', fontsize=10, labelpad=0.6)
+# if i % 2 == 0:
+#     ax.set_ylabel(r'$\mathrm{y}$', fontsize=10, labelpad=0)
+ax.set_xticks([-100, 0, 100])
+ax.set_yticks([-100, 0, 100])
+ax.set_xticklabels([-100, 0, 100])
+ax.set_yticklabels([-100, 0, 100])
+ax.set_xlim(-100, 100)
+ax.set_ylim(-100, 115)
+
+network.plot.nodes(
+    ax, x[0, one_hop_rigid],
+    marker='o', color='royalblue', s=7, zorder=20, label=r'$h_0 = 1$')
+network.plot.nodes(
+    ax, x[0, two_hop_rigid],
+    marker='D', color='chocolate', s=7, zorder=20, label=r'$h_0 = 2$')
+network.plot.nodes(
+    ax, x[0, three_hop_rigid],
+    marker='s', color='mediumseagreen', s=7, zorder=20, label=r'$h_0 = 3$')
+network.plot.nodes(
+    ax, x[0, four_hop_rigid],
+    marker='^', color='purple', s=7, zorder=10, label=r'$h_0 = 4$')
+network.plot.edges(ax, x[0], A[0], color='k', lw=0.5)
+
+ax.legend(
+    fontsize='6',
+    handletextpad=0.0,
+    borderpad=0.2,
+    ncol=4, columnspacing=0.15,
+    loc='upper center')
+fig.savefig('/tmp/instants_init.png', format='png', dpi=360)
+
+
+instants = np.array([0., 10, 20, 50, 100, 200])
+lim = 160   # 1.1 * np.abs(x).max()
+
+for i, tk in enumerate(instants):
+    fig, ax = plt.subplots(figsize=(2.5, 2.5))
+    ax.tick_params(
+        axis='both',       # changes apply to the x-axis
+        which='both',      # both major and minor ticks are affected
+        pad=1,
+        labelsize='x-small')
+    ax.grid(1, lw=0.4)
+    ax.set_aspect('equal')
+    # ax.set_xlabel(r'$\mathrm{x}$', fontsize=10, labelpad=0.6)
+    # if i % 2 == 0:
+    #     ax.set_ylabel(r'$\mathrm{y}$', fontsize=10, labelpad=0)
+    ax.set_xticks([-100, 0, 100])
+    ax.set_yticks([-100, 0, 100])
+    ax.set_xticklabels([-100, 0, 100])
+    ax.set_yticklabels([-100, 0, 100])
+    ax.set_xlim(-lim, lim)
+    ax.set_ylim(-lim, lim)
+
+    k = np.argmin(np.abs(t - tk))
+    ax.text(
+            0.05, 0.01, r't = {:.2f}s'.format(tk),
+            verticalalignment='bottom', horizontalalignment='left',
+            transform=ax.transAxes, color='r', fontsize=8)
+    network.plot.nodes(
+        ax, x[k, one_hop_rigid],
+        marker='o', color='royalblue', s=7, zorder=20, label=r'$h_0 = 1$')
+    network.plot.nodes(
+        ax, x[k, two_hop_rigid],
+        marker='D', color='chocolate', s=7, zorder=20, label=r'$h_0 = 2$')
+    network.plot.nodes(
+        ax, x[k, three_hop_rigid],
+        marker='s', color='mediumseagreen', s=7, zorder=20, label=r'$h_0 = 3$')
+    network.plot.nodes(
+        ax, x[k, four_hop_rigid],
+        marker='^', color='purple', s=7, zorder=10, label=r'$h_0 = 4$')
+    network.plot.edges(ax, x[k], A[k], color='k', lw=0.5)
+
+    if i > 1:
+        network.plot.nodes(
+            ax, x[max(0, k-150):k+1:5, one_hop_rigid],
+            marker='.', color='royalblue', s=1, zorder=1, lw=0.5)
+        network.plot.nodes(
+            ax, x[max(0, k-150):k+1:5, two_hop_rigid],
+            marker='.', color='chocolate', s=1, zorder=1, lw=0.5)
+        network.plot.nodes(
+            ax, x[max(0, k-150):k+1:5, three_hop_rigid],
+            marker='.', color='mediumseagreen', s=1, zorder=1, lw=0.5)
+        network.plot.nodes(
+            ax, x[max(0, k-150):k+1:5, four_hop_rigid],
+            marker='.', color='purple', s=1, zorder=1, lw=0.5)
+
+    fig.savefig('/tmp/instants_{}.png'.format(int(tk)), format='png', dpi=360)

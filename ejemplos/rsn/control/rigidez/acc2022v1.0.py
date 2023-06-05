@@ -8,10 +8,9 @@ import collections
 import time
 import progressbar
 import numpy as np
-import matplotlib.pyplot as plt
+from numba import njit
 
 from uvnpy.model import linear_models
-import uvnpy.network as network
 from uvnpy.network import disk_graph
 from uvnpy.rsn import distances, rigidity
 from uvnpy.rsn.control import centralized_rigidity_maintenance
@@ -23,7 +22,7 @@ from uvnpy.toolkit.calculus import gradient
 # ------------------------------------------------------------------
 # Definición de variables globales, funciones y clases
 # ------------------------------------------------------------------
-Logs = collections.namedtuple('Logs', 'x hatx u fre re adjacency subf')
+Logs = collections.namedtuple('Logs', 'x hatx u fre re adjacency')
 
 
 def load(x, coeff, dmin, dmax):
@@ -65,6 +64,21 @@ def sat(u):
     """Funcion de saturacion"""
     return (0.5 - functions.logistic(u, steepness=0.5))*10
 
+
+@njit
+def geodesics(A):
+    G = A.copy()
+    As = np.eye(len(A)) + A
+    h = 2
+    while not np.all(As):
+        Ah = np.linalg.matrix_power(A, h)
+        for i, g in enumerate(G):
+            idx = np.logical_and(Ah[i] > 0, As[i] == 0)
+            g[idx] = h
+        As += Ah
+        h += 1
+    return G
+
 # ------------------------------------------------------------------
 # Función run
 # ------------------------------------------------------------------
@@ -80,7 +94,7 @@ def run(steps, logs, t_perf, A, dinamica):
         x = dinamica.x
 
         u[:] = 0
-        G = network.geodesics(A)
+        G = geodesics(A)
 
         hatx = np.array([localization[i].x for i in nodes])
         hatP = np.array([localization[i].P for i in nodes])
@@ -91,9 +105,16 @@ def run(steps, logs, t_perf, A, dinamica):
         t_a = time.perf_counter()
         """parte de control"""
         for i in nodes:
+            if hops[i] > 1:
+                hi = hops[i] - 1
+                Vi = G[i] <= hi
+                Ai = A[Vi][:, Vi]
+                xi = x[Vi]
+                if rigidity.eigenvalue(Ai, xi) > 0.05:
+                    hops[i] = hi
+
             hi = hops[i]
             Vi = G[i] <= hi
-            logs.subf[k, i] = sum(Vi)
             """ check si el nodo no esta solo """
             if not Vi.any():
                 print('Desconexión. Nodo: {}'.format(i))
@@ -107,7 +128,9 @@ def run(steps, logs, t_perf, A, dinamica):
             if re[i] < 1e-6:
                 print('\n Flexibility. Node: {}, re = {}'.format(i, re[i]))
             u[Vi] += collision_avoidance(hatxi)
-            u[Vi] += 3*reduce_load(hatxi, (G[i] < hi)[Vi], dmin, dmax)
+            coeff = G[i][Vi] < hi
+            # coeff = hi - G[i][Vi]
+            u[Vi] += 3*reduce_load(hatxi, coeff, dmin, dmax)
             u[Vi] += 3*maintenance[i].update(hatxi)
 
             A = update_adjacency(A, Vi, x, hatx, i, dmin, dmax)
@@ -278,9 +301,7 @@ logs = Logs(
     u=np.empty((tiempo.size, n*dim)),
     fre=np.zeros(tiempo.size),
     re=np.zeros((tiempo.size, n)),
-    adjacency=np.empty((tiempo.size, n**2), dtype=int),
-    subf=np.empty((tiempo.size, n))
-    )
+    adjacency=np.empty((tiempo.size, n**2), dtype=int))
 logs.x[0] = x.ravel()
 logs.hatx[0] = hatx.ravel()
 logs.u[0] = np.zeros(n*dim)
@@ -293,11 +314,6 @@ logs.adjacency[0] = A.ravel()
 # Simulación
 # ------------------------------------------------------------------
 logs, t_perf = run(steps, logs, t_perf, A, dinamica)
-
-fig, ax = plt.subplots()
-ax.grid()
-ax.plot(tiempo[1:], logs.subf[1:])
-plt.show()
 
 np.savetxt('/tmp/t.csv', tiempo, delimiter=',')
 np.savetxt('/tmp/x.csv', logs.x, delimiter=',')
