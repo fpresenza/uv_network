@@ -91,9 +91,9 @@ class subgraph_protocol(object):
         action_tokens[self.node_id] = Token(
             center=self.node_id,
             timestamp=timestamp,
-            hops_to_target=extent,
+            hops_to_target=extent.copy(),
             hops_travelled=0,
-            data=action)
+            data=action.copy())
 
         state_tokens = {
             token.center: token
@@ -103,7 +103,7 @@ class subgraph_protocol(object):
             center=self.node_id,
             timestamp=timestamp,
             hops_travelled=0,
-            data=state)
+            data=state.copy())
 
         self.action.clear()
         self.state.clear()
