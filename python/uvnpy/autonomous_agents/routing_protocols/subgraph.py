@@ -110,21 +110,34 @@ class subgraph_protocol(object):
 
         return action_tokens, state_tokens
 
-    def update_action(self, token):
-        """Actualiza la informacion de accion que es recibida"""
-        if token.center != self.node_id:
-            """Actualiza los hops atravesados"""
-            token = token._replace(hops_travelled=token.hops_travelled + 1)
-            """Toma el token existente o lo reemplaza por el nuevo"""
-            self.action[token.center] = self.action.get(token.center, token)
-            """Se queda con el de menor hops atravesados"""
-            if token.hops_travelled < self.action[token.center].hops_travelled:
-                self.action[token.center] = token
+    def update_action(self, tokens):
+        for token in tokens:
+            """Actualiza la informacion de accion que es recibida"""
+            if token.center != self.node_id:
+                """Actualiza los hops atravesados"""
+                token = token._replace(hops_travelled=token.hops_travelled + 1)
+                center = token.center
+                """Toma el token existente o lo reemplaza por el nuevo"""
+                try:
+                    """Se queda con el de menor hops atravesados"""
+                    curr_token = self.action[center]
+                    if token.hops_travelled < curr_token.hops_travelled:
+                        self.action[center] = token
+                except KeyError:
+                    self.action[center] = token
 
-    def update_state(self, token):
-        """Actualiza la informacion de estado que es recibida"""
-        if token.center != self.node_id:
-            token = token._replace(hops_travelled=token.hops_travelled + 1)
-            self.state[token.center] = self.state.get(token.center, token)
-            if token.hops_travelled < self.state[token.center].hops_travelled:
-                self.state[token.center] = token
+    def update_state(self, tokens):
+        for token in tokens:
+            """Actualiza la informacion de estado que es recibida"""
+            if token.center != self.node_id:
+                """Actualiza los hops atravesados"""
+                token = token._replace(hops_travelled=token.hops_travelled + 1)
+                center = token.center
+                """Toma el token existente o lo reemplaza por el nuevo"""
+                try:
+                    """Se queda con el de menor hops atravesados"""
+                    curr_token = self.state[center]
+                    if token.hops_travelled < curr_token.hops_travelled:
+                        self.state[center] = token
+                except KeyError:
+                    self.state[center] = token
