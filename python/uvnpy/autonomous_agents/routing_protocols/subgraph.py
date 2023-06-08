@@ -29,7 +29,7 @@ Token.__new__.__defaults__ = (
 
 
 class subgraph_protocol(object):
-    def __init__(self, node_id, extent):
+    def __init__(self, node_id, extent, queue=1):
         """Clase para implementar el ruteo necesario para el control
         de formaciones basado en subgrafos.
 
@@ -47,14 +47,16 @@ class subgraph_protocol(object):
         caminos por los cuales llegaron aquellos tokens de accion.
         """
         self.node_id = node_id
-        self.action = {}
-        self.state = {}
+        self.action = collections.deque(maxlen=queue)
+        self.action.append({})
+        self.state = collections.deque(maxlen=queue)
+        self.state.append({})
 
     def action_tokens(self):
-        return tuple(self.action.values())
+        return tuple(self.action[0].values())
 
     def state_tokens(self):
-        return tuple(self.state.values())
+        return tuple(self.state[0].values())
 
     def to_target(self, token):
         return token.hops_travelled < token.hops_to_target
@@ -62,21 +64,21 @@ class subgraph_protocol(object):
     def extract_action(self):
         cmd = {
             token.center: token.data[self.node_id]
-            for token in self.action.values()
+            for token in self.action[0].values()
             if self.node_id in token.data}
         return cmd
 
     def extract_state(self, key, hops):
         p = {
             token.center: token.data[key]
-            for token in self.state.values()
+            for token in self.state[0].values()
             if token.hops_travelled <= hops}
         return p
 
     def geodesics(self, hops):
         g = {
             token.center: token.hops_travelled
-            for token in self.state.values()
+            for token in self.state[0].values()
             if token.hops_travelled <= hops}
         return g
 
@@ -85,7 +87,7 @@ class subgraph_protocol(object):
         Luego elimina todos los tokens recibidos de otros nodos."""
         action_tokens = {
             token.center: token
-            for token in self.action.values()
+            for token in self.action[0].values()
             if self.to_target(token)}
 
         action_tokens[self.node_id] = Token(
@@ -97,7 +99,7 @@ class subgraph_protocol(object):
 
         state_tokens = {
             token.center: token
-            for token in self.state.values()}
+            for token in self.state[0].values()}
 
         state_tokens[self.node_id] = Token(
             center=self.node_id,
@@ -105,8 +107,8 @@ class subgraph_protocol(object):
             hops_travelled=0,
             data=state.copy())
 
-        self.action.clear()
-        self.state.clear()
+        self.action.append({})
+        self.state.append({})
 
         return action_tokens, state_tokens
 
@@ -120,11 +122,11 @@ class subgraph_protocol(object):
                 """Toma el token existente o lo reemplaza por el nuevo"""
                 try:
                     """Se queda con el de menor hops atravesados"""
-                    curr_token = self.action[center]
+                    curr_token = self.action[-1][center]
                     if token.hops_travelled < curr_token.hops_travelled:
-                        self.action[center] = token
+                        self.action[-1][center] = token
                 except KeyError:
-                    self.action[center] = token
+                    self.action[-1][center] = token
 
     def update_state(self, tokens):
         for token in tokens:
@@ -136,8 +138,8 @@ class subgraph_protocol(object):
                 """Toma el token existente o lo reemplaza por el nuevo"""
                 try:
                     """Se queda con el de menor hops atravesados"""
-                    curr_token = self.state[center]
+                    curr_token = self.state[-1][center]
                     if token.hops_travelled < curr_token.hops_travelled:
-                        self.state[center] = token
+                        self.state[-1][center] = token
                 except KeyError:
-                    self.state[center] = token
+                    self.state[-1][center] = token

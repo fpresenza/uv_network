@@ -52,7 +52,7 @@ class Neighborhood(dict):
 class single_integrator(object):
     def __init__(
             self, node_id, pos, est_pos, cov,
-            comm_range, extent=None, t=0):
+            comm_range, extent=None, queue=1, t=0):
         self.node_id = node_id
         self.dim = len(pos)
         self.dmin = np.min(comm_range)
@@ -75,7 +75,7 @@ class single_integrator(object):
             est_pos, cov, ctrl_cov, range_cov, gps_cov)
         self.neighborhood = Neighborhood()
         self.routing = routing_protocols.subgraph_protocol(
-            self.node_id, self.extent)
+            self.node_id, self.extent, queue)
         self.gps = {}
         self.state = {
             'position': self.loc.position,
