@@ -298,7 +298,10 @@ def run(steps, formation, logs):
 parser = argparse.ArgumentParser(description='')
 parser.add_argument(
     '-s', '--step',
-    dest='h', default=25e-3, type=float, help='paso de simulación')
+    default=25e-3, type=float, help='paso de simulación')
+parser.add_argument(
+    '-q', '--queue',
+    default=1, type=int, help='largo de la cola del cloud')
 parser.add_argument(
     '-e', '--tf',
     default=1.0, type=float, help='time_interval final')
@@ -308,7 +311,7 @@ arg = parser.parse_args()
 # ------------------------------------------------------------------
 # Configuración
 # ------------------------------------------------------------------
-time_interval = np.arange(0, arg.tf, arg.h)
+time_interval = np.arange(0, arg.tf, arg.step)
 steps = list(enumerate(time_interval))
 n_steps = len(steps)
 
@@ -353,8 +356,9 @@ formation = Formation(
     subframework_rigidity_agent.single_integrator,
     pos, cov,
     comm_range=(dmin, dmax),
-    range_cov=1.,
-    gps_cov=1.)
+    range_cov=0.5,
+    gps_cov=1.,
+    queue=arg.queue)
 
 n_targets = 30
 targets = Targets(n_targets, (-40, 40), (-40, 40))
