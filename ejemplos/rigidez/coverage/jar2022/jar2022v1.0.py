@@ -15,6 +15,9 @@ from uvnpy.network import disk_graph
 from uvnpy.rsn import distances, rigidity
 from uvnpy.autonomous_agents import subframework_rigidity_agent
 
+np.set_printoptions(
+    suppress=True,
+    precision=4)
 
 # ------------------------------------------------------------------
 # Definición de variables globales, funciones y clases
@@ -34,7 +37,7 @@ Logs = collections.namedtuple(
 class Formation(object):
     def __init__(
             self, node_ids, agent_model,
-            pos, cov, comm_range, range_cov, gps_cov):
+            pos, cov, comm_range, range_cov, gps_cov, queue=1):
         """Clase para simular una red de agentes de forma centralizada"""
         self.n = len(node_ids)
         self.dim = pos.shape[1]
@@ -48,8 +51,8 @@ class Formation(object):
         self.est_position_array = np.empty(self.n, dtype=np.ndarray)
         self.action = np.zeros((self.n, self.dim))
         self.proximity_matrix = disk_graph.adjacency(
-            pos, self.dmin).astype(bool)
-        extents = rigidity.extents(self.proximity_matrix, pos)
+            pos, self.dmin)
+        extents = rigidity.fast_extents(self.proximity_matrix, pos)
         for i in node_ids:
             est_pos = np.random.multivariate_normal(pos[i], cov)
             self.vehicles[i] = agent_model(
@@ -57,7 +60,8 @@ class Formation(object):
                 comm_range, extents[i])
             self.position_array[i] = self.vehicles[i].dm._x         # asigna el address # noqa
             self.est_position_array[i] = self.vehicles[i].loc._x    # asigna el address # noqa
-        self.cloud = {v.node_id: [] for v in self.vehicles}
+
+        self.cloud = collections.deque(maxlen=queue)
 
     @property
     def position(self):
@@ -115,18 +119,17 @@ class Formation(object):
     def broadcast(self, node_id):
         center = self.vehicles[node_id]
         msg = center.send_msg()
-        neighbors = self.vehicles[self.proximity_matrix[node_id]]
+        neighbors = self.vehicles[self.proximity_matrix[node_id].astype(bool)]
         for neighbor in neighbors:
             range_measurement = np.random.normal(
                 distances.matrix_between(center.dm.x, neighbor.dm.x),
                 self.range_cov)
-            self.cloud[neighbor.node_id].append((msg, range_measurement))
+            self.cloud[-1][neighbor.node_id].append((msg, range_measurement))
 
     def receive(self, node_id):
-        cloud = self.cloud.copy()
+        cloud = self.cloud[0].copy()
         for (msg, range_measurement) in cloud[node_id]:
             self.vehicles[node_id].receive_msg(msg, range_measurement)
-        self.cloud[node_id].clear()
 
     def localization_step(self, i):
         self.vehicles[i].localization_step()
@@ -230,15 +233,16 @@ def run(steps, formation, logs):
 
     print(formation.extents)
 
-    for i in node_ids:
-        formation.broadcast(i)
-    for i in node_ids:
-        formation.receive(i)
-
     for k, t in steps[1:]:
         t_a = time.perf_counter()
 
         formation.update_time(t)
+
+        formation.cloud.append({v.node_id: [] for v in formation.vehicles})
+        for i in node_ids:
+            formation.broadcast(i)
+        for i in node_ids:
+            formation.receive(i)
 
         """parte de localizacion"""
         formation.get_gps(6)
@@ -252,17 +256,11 @@ def run(steps, formation, logs):
             if t > t_init and targets.unfinished():
                 u_track = tracking(p[i], alloc[i], targets.range)
                 formation.control_step(i, u_track)
-                formation.vehicles[i].choose_extent()
+                # formation.vehicles[i].choose_extent()
             else:
                 formation.vehicles[i].steady()
 
         targets.update(formation.position)
-
-        """intercambio de mensajes"""
-        for i in node_ids:
-            formation.broadcast(i)
-        for i in node_ids:
-            formation.receive(i)
 
         t_b = time.perf_counter()
 
@@ -273,7 +271,10 @@ def run(steps, formation, logs):
         logs.est_position[k] = formation.est_position.ravel()
         logs.action[k] = formation.action.ravel()
         logs.fre[k] = formation.rigidity_eigenvalue()
-        logs.re[k] = formation.subframeworks_rigidity_eigenvalue()
+        sfre = formation.subframeworks_rigidity_eigenvalue()
+        # if np.any(np.less(sfre, 1e-4)):
+        # raise ValueError
+        logs.re[k] = sfre
         logs.adjacency[k] = formation.proximity_matrix.ravel()
         logs.extents[k] = formation.extents
         logs.targets[k] = targets.data.ravel()
@@ -297,7 +298,10 @@ def run(steps, formation, logs):
 parser = argparse.ArgumentParser(description='')
 parser.add_argument(
     '-s', '--step',
-    dest='h', default=25e-3, type=float, help='paso de simulación')
+    default=25e-3, type=float, help='paso de simulación')
+parser.add_argument(
+    '-q', '--queue',
+    default=1, type=int, help='largo de la cola del cloud')
 parser.add_argument(
     '-e', '--tf',
     default=1.0, type=float, help='time_interval final')
@@ -307,7 +311,7 @@ arg = parser.parse_args()
 # ------------------------------------------------------------------
 # Configuración
 # ------------------------------------------------------------------
-time_interval = np.arange(0, arg.tf, arg.h)
+time_interval = np.arange(0, arg.tf, arg.step)
 steps = list(enumerate(time_interval))
 n_steps = len(steps)
 
@@ -352,8 +356,9 @@ formation = Formation(
     subframework_rigidity_agent.single_integrator,
     pos, cov,
     comm_range=(dmin, dmax),
-    range_cov=1.,
-    gps_cov=1.)
+    range_cov=0.5,
+    gps_cov=1.,
+    queue=arg.queue)
 
 n_targets = 30
 targets = Targets(n_targets, (-40, 40), (-40, 40))

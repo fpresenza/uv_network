@@ -18,7 +18,6 @@ Token = collections.namedtuple(
     timestamp, \
     hops_to_target, \
     hops_travelled, \
-    path, \
     data')
 
 Token.__new__.__defaults__ = (
@@ -26,7 +25,6 @@ Token.__new__.__defaults__ = (
     None,
     None,
     np.inf,
-    None,
     None)
 
 
@@ -61,9 +59,6 @@ class subgraph_protocol(object):
     def to_target(self, token):
         return token.hops_travelled < token.hops_to_target
 
-    def in_path(self, token):
-        return np.any([self.node_id in p[1:-1] for p in token.path])
-
     def extract_action(self):
         cmd = {
             token.center: token.data[self.node_id]
@@ -96,43 +91,53 @@ class subgraph_protocol(object):
         action_tokens[self.node_id] = Token(
             center=self.node_id,
             timestamp=timestamp,
-            hops_to_target=extent,
+            hops_to_target=extent.copy(),
             hops_travelled=0,
-            path=[self.node_id],
-            data=action)
+            data=action.copy())
 
         state_tokens = {
             token.center: token
-            for token in self.state.values()
-            if self.in_path(token)}
+            for token in self.state.values()}
 
         state_tokens[self.node_id] = Token(
             center=self.node_id,
             timestamp=timestamp,
             hops_travelled=0,
-            path=[token.path for token in self.action_tokens()],
-            data=state)
+            data=state.copy())
 
         self.action.clear()
         self.state.clear()
 
         return action_tokens, state_tokens
 
-    def update_action(self, token):
-        """Actualiza la informacion de accion que es recibida"""
-        if token.center != self.node_id:
-            token = token._replace(
-                hops_travelled=token.hops_travelled + 1,
-                path=token.path + [self.node_id])
-            self.action[token.center] = self.action.get(token.center, token)
-            if token.hops_travelled < self.action[token.center].hops_travelled:
-                self.action[token.center] = token
+    def update_action(self, tokens):
+        for token in tokens:
+            """Actualiza la informacion de accion que es recibida"""
+            if token.center != self.node_id:
+                """Actualiza los hops atravesados"""
+                token = token._replace(hops_travelled=token.hops_travelled + 1)
+                center = token.center
+                """Toma el token existente o lo reemplaza por el nuevo"""
+                try:
+                    """Se queda con el de menor hops atravesados"""
+                    curr_token = self.action[center]
+                    if token.hops_travelled < curr_token.hops_travelled:
+                        self.action[center] = token
+                except KeyError:
+                    self.action[center] = token
 
-    def update_state(self, token):
-        """Actualiza la informacion de estado que es recibida"""
-        if token.center != self.node_id:
-            token = token._replace(
-                hops_travelled=token.hops_travelled + 1)
-            self.state[token.center] = self.state.get(token.center, token)
-            if token.hops_travelled < self.state[token.center].hops_travelled:
-                self.state[token.center] = token
+    def update_state(self, tokens):
+        for token in tokens:
+            """Actualiza la informacion de estado que es recibida"""
+            if token.center != self.node_id:
+                """Actualiza los hops atravesados"""
+                token = token._replace(hops_travelled=token.hops_travelled + 1)
+                center = token.center
+                """Toma el token existente o lo reemplaza por el nuevo"""
+                try:
+                    """Se queda con el de menor hops atravesados"""
+                    curr_token = self.state[center]
+                    if token.hops_travelled < curr_token.hops_travelled:
+                        self.state[center] = token
+                except KeyError:
+                    self.state[center] = token

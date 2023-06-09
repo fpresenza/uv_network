@@ -36,21 +36,30 @@ class CoverageAnimate(network.plot.Animate2):
 
 parser = argparse.ArgumentParser(description='')
 parser.add_argument(
+    '-e', '--end',
+    default=0, type=int, help='tiempo final')
+parser.add_argument(
+    '-s', '--skip',
+    default=1, type=int, help='saltear pasos')
+parser.add_argument(
     '-x', '--vel',
     default=1, type=int, help='velocidad de reproduccion')
 arg = parser.parse_args()
 
+if arg.end == 0:
+    t = np.loadtxt('/tmp/t.csv', delimiter=',')
+    arg.end = len(t)
 
 # extraigo datos
-t = np.loadtxt('/tmp/t.csv', delimiter=',')
-x = np.loadtxt('/tmp/position.csv', delimiter=',')
-hatx = np.loadtxt('/tmp/est_position.csv', delimiter=',')
-u = np.loadtxt('/tmp/action.csv', delimiter=',')
-fre = np.loadtxt('/tmp/fre.csv', delimiter=',')
-re = np.loadtxt('/tmp/re.csv', delimiter=',')
-A = np.loadtxt('/tmp/adjacency.csv', delimiter=',')
-extents = np.loadtxt('/tmp/extents.csv', delimiter=',')
-targets = np.loadtxt('/tmp/targets.csv', delimiter=',')
+t = np.loadtxt('/tmp/t.csv', delimiter=',')[:arg.end:arg.skip]
+x = np.loadtxt('/tmp/position.csv', delimiter=',')[:arg.end:arg.skip]
+hatx = np.loadtxt('/tmp/est_position.csv', delimiter=',')[:arg.end:arg.skip]
+u = np.loadtxt('/tmp/action.csv', delimiter=',')[:arg.end:arg.skip]
+fre = np.loadtxt('/tmp/fre.csv', delimiter=',')[:arg.end:arg.skip]
+re = np.loadtxt('/tmp/re.csv', delimiter=',')[:arg.end:arg.skip]
+A = np.loadtxt('/tmp/adjacency.csv', delimiter=',')[:arg.end:arg.skip]
+extents = np.loadtxt('/tmp/extents.csv', delimiter=',')[:arg.end:arg.skip]
+targets = np.loadtxt('/tmp/targets.csv', delimiter=',')[:arg.end:arg.skip]
 
 n = int(len(x[0])/2)
 nodes = np.arange(n)
@@ -142,5 +151,5 @@ anim.ax.legend(
     fontsize='small',
     handletextpad=1)
 # anim.run()
-anim.run('/tmp/rigidity.mp4')
-plt.show()
+anim.run('/tmp/animation_xy.mp4')
+# plt.show()

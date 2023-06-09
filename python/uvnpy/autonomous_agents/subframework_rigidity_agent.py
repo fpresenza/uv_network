@@ -104,9 +104,8 @@ class single_integrator(object):
             msg.state_tokens[msg.node_id].data['position'],
             msg.state_tokens[msg.node_id].data['covariance'],
             range_measurement)
-        routing = self.routing
-        [routing.update_action(tkn) for tkn in msg.action_tokens.values()]
-        [routing.update_state(tkn) for tkn in msg.state_tokens.values()]
+        self.routing.update_action(msg.action_tokens.values())
+        self.routing.update_state(msg.state_tokens.values())
 
     def rigidity_eigenvalue(self, hops):
         position = self.routing.extract_state('position', hops)
@@ -162,7 +161,7 @@ class single_integrator(object):
             u_ca = 0
 
         # aplico acciones de control
-        control_action = logistic_saturation(
+        control_action = 0.5 * logistic_saturation(
             5 * u_ext + 4 * u_r + 20 * u_ca, limit=2.5)
         self.control_action_raw[-1] = control_action
         self.last_control_action = self.control_action_raw[-1]
