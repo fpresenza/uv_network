@@ -153,11 +153,11 @@ ax.semilogy(t, re.min(axis=1), lw=0.9, label='min')
 ax.semilogy(t, re.mean(axis=1), lw=0.9, label='medio')
 ax.semilogy(t, re.max(axis=1), lw=0.9, label='max')
 ax.semilogy(t, fre, ls='--', color='k', lw=0.9, label=r'framework')
-ax.set_ylim(bottom=1e-2)
+ax.set_ylim(bottom=1e-4, top=3)
 ax.legend(
     fontsize=8, handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
-    ncol=2, columnspacing=1)
+    ncol=2, columnspacing=1, loc='lower right')
 fig.savefig('/tmp/eigenvalues.png', format='png', dpi=360)
 
 """ load """
@@ -202,7 +202,7 @@ ax.legend(
 fig.savefig('/tmp/pos_error.png', format='png', dpi=360)
 
 """ INSTANTS """
-instants = np.array([0., 5.5, 7, 40., 125., 250])
+instants = np.array([0, 40, 125, 250, 300, 400])
 # lim = np.abs(x).max()
 lim = 40
 
@@ -232,15 +232,6 @@ for i, tk in enumerate(instants):
             0.05, 0.01, r't = {:.2f}s'.format(tk),
             verticalalignment='bottom', horizontalalignment='left',
             transform=ax.transAxes, color='r', fontsize=8)
-    '''
-    if i == 0:
-        ax.set_xlim(-0.6*lim, 0.6*lim)
-        ax.set_ylim(-0.6*lim, 0.6*lim)
-        ax.set_xticks([-0.4 * lim, 0, -0.4 * lim])
-        ax.set_yticks([-0.4 * lim, 0, -0.4 * lim])
-        ax.set_xticklabels([-0.4 * lim, 0, -0.4 * lim])
-        ax.set_yticklabels([-0.4 * lim, 0, -0.4 * lim])
-    '''
 
     one_hop_rigid = extents[k] == 1
     two_hop_rigid = extents[k] == 2
@@ -276,14 +267,48 @@ for i, tk in enumerate(instants):
         ax, x[max(0, k-150):k+1:5, three_hop_rigid],
         marker='.', color='mediumseagreen', s=1, zorder=1, lw=0.5)
 
-    if i == 0:
-        ax.legend(
-            fontsize='6',
-            handletextpad=0.0,
-            borderpad=0.2,
-            ncol=4, columnspacing=0.15,
-            loc='upper center')
-
     fig.savefig('/tmp/instants_{}.png'.format(int(tk)), format='png', dpi=360)
+
+fig, ax = plt.subplots(figsize=(2, 2))
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='x-small')
+ax.grid(1, lw=0.4)
+ax.set_aspect('equal')
+
+a = int(12)
+b = int(6)
+ax.set_xlim(-a, a)
+ax.set_ylim(-a, a)
+ax.set_xticks([-a, -b, 0, b, a])
+ax.set_yticks([-a, -b, 0, b, a])
+ax.set_xticklabels([-a, -b, 0, b, a])
+ax.set_yticklabels([-a, -b, 0, b, a])
+
+one_hop_rigid = extents[k] == 1
+two_hop_rigid = extents[k] == 2
+three_hop_rigid = extents[k] == 3
+
+network.plot.nodes(
+    ax, x[0, one_hop_rigid],
+    marker='o', color='royalblue', s=8, zorder=20, label=r'$h_0=1$')
+network.plot.nodes(
+    ax, x[0, two_hop_rigid],
+    marker='D', color='chocolate', s=8, zorder=20, label=r'$h_0=2$')
+network.plot.nodes(
+    ax, x[0, three_hop_rigid],
+    marker='s', color='mediumseagreen', s=8, zorder=20, label=r'$h_0=3$')
+network.plot.edges(ax, x[0], A[0], color='k', lw=0.5)
+
+ax.legend(
+    fontsize='6',
+    handletextpad=0.0,
+    borderpad=0.2,
+    ncol=4, columnspacing=0.15,
+    loc='upper center')
+
+fig.savefig('/tmp/instants_init.png', format='png', dpi=360)
 
 # plt.show()
