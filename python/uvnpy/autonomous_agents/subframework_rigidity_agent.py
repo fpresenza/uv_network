@@ -161,7 +161,7 @@ class single_integrator(object):
             u_ca = 0
 
         # aplico acciones de control
-        control_action = logistic_saturation(
+        control_action = 0.5 * logistic_saturation(
             5 * u_ext + 4 * u_r + 20 * u_ca, limit=2.5)
         self.control_action_raw[-1] = control_action
         self.last_control_action = self.control_action_raw[-1]
