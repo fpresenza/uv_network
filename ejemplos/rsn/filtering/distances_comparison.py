@@ -55,7 +55,7 @@ ax.tick_params(
     pad=1,
     labelsize='small')
 ax.grid(lw=0.4)
-ax.set_xlabel('Paso de tiempo ($k$)', fontsize=10)
+ax.set_xlabel('Tiempo ($k$)', fontsize=10)
 ax.set_ylabel('Error cuádratico \n' + r'medio ($\xi / e$)', fontsize=10)
 
 # GD 1
@@ -87,7 +87,7 @@ for k in steps[1:]:
 
 hatz = distances.from_edges(E, hatx)
 
-ax.plot(
+ax.semilogy(
     steps, np.square(d - hatz).sum(axis=1) / 2 / len(E),
     label=r'GD $(\alpha = 0.15)$', lw=1)
 
@@ -150,7 +150,7 @@ fig2.savefig('/tmp/kfa_gd_1.png', format='png', dpi=360)
 
 # hatz = distances.from_edges(E, hatx)
 
-# ax.plot(
+# ax.semilogy(
 #     steps, np.square(d - hatz).sum(axis=1) / 2 / len(E),
 #     label=r'GD $(\alpha = 0.05)$', lw=1)
 
@@ -228,7 +228,7 @@ for k in steps[1:]:
 
 hatz = distances.from_edges(E, hatx)
 
-ax.plot(
+ax.semilogy(
     steps, np.square(d - hatz).sum(axis=1) / 2 / len(E),
     label=r'GD $(\alpha_{BB})$', lw=1)
 
@@ -297,7 +297,7 @@ for k in steps[1:]:
 
 hatz = distances.from_edges(E, hatx)
 
-ax.plot(
+ax.semilogy(
     steps, np.square(d - hatz).sum(axis=1) / 2 / len(E),
     label=r'FKA', lw=1)
 
@@ -336,6 +336,7 @@ fig2.savefig('/tmp/kfa_gd_kf.png', format='png', dpi=360)
 ax.legend(
     fontsize='small', handlelength=1.5,
     labelspacing=0.5, borderpad=0.2, loc='upper right')
+ax.set_ylim(bottom=1e-2)
 fig.savefig('/tmp/kfa_gd.png', format='png', dpi=360)
 
 # plt.show()
