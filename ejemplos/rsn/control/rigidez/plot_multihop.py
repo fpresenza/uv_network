@@ -5,6 +5,7 @@
 """
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
 
 from uvnpy import network
 from uvnpy.network import subsets
@@ -200,6 +201,11 @@ network.plot.nodes(
     marker='^', color='purple', s=7, zorder=10, label=r'$h_0 = 4$')
 network.plot.edges(ax, x[0], A[0], color='k', lw=0.5)
 
+circle = Circle(x[0, 15], 5, facecolor='None', linewidth=1, edgecolor='red')
+ax.add_artist(circle)
+circle = Circle(x[0, 41], 5, facecolor='None', linewidth=1, edgecolor='red')
+ax.add_artist(circle)
+
 ax.legend(
     fontsize='6',
     handletextpad=0.0,
@@ -207,7 +213,6 @@ ax.legend(
     ncol=4, columnspacing=0.15,
     loc='upper center')
 fig.savefig('/tmp/instants_init.png', format='png', dpi=360)
-
 
 instants = np.array([0., 10, 20, 50, 100, 200])
 lim = 160   # 1.1 * np.abs(x).max()
@@ -250,18 +255,18 @@ for i, tk in enumerate(instants):
         marker='^', color='purple', s=7, zorder=10, label=r'$h_0 = 4$')
     network.plot.edges(ax, x[k], A[k], color='k', lw=0.5)
 
-    if i > 1:
-        network.plot.nodes(
-            ax, x[max(0, k-150):k+1:5, one_hop_rigid],
-            marker='.', color='royalblue', s=1, zorder=1, lw=0.5)
-        network.plot.nodes(
-            ax, x[max(0, k-150):k+1:5, two_hop_rigid],
-            marker='.', color='chocolate', s=1, zorder=1, lw=0.5)
-        network.plot.nodes(
-            ax, x[max(0, k-150):k+1:5, three_hop_rigid],
-            marker='.', color='mediumseagreen', s=1, zorder=1, lw=0.5)
-        network.plot.nodes(
-            ax, x[max(0, k-150):k+1:5, four_hop_rigid],
-            marker='.', color='purple', s=1, zorder=1, lw=0.5)
+    tail = 150 * i
+    network.plot.nodes(
+        ax, x[max(0, k-tail):k+1:5, one_hop_rigid],
+        marker='.', color='royalblue', s=1, zorder=1, lw=0.5)
+    network.plot.nodes(
+        ax, x[max(0, k-tail):k+1:5, two_hop_rigid],
+        marker='.', color='chocolate', s=1, zorder=1, lw=0.5)
+    network.plot.nodes(
+        ax, x[max(0, k-tail):k+1:5, three_hop_rigid],
+        marker='.', color='mediumseagreen', s=1, zorder=1, lw=0.5)
+    network.plot.nodes(
+        ax, x[max(0, k-tail):k+1:5, four_hop_rigid],
+        marker='.', color='purple', s=1, zorder=1, lw=0.5)
 
     fig.savefig('/tmp/instants_{}.png'.format(int(tk)), format='png', dpi=360)
