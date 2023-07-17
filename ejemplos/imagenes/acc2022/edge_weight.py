@@ -27,9 +27,11 @@ ax.tick_params(
 
 d = np.linspace(0, 2, 200)
 print(d[::50])
+w = logistic(d, steepness=20, midpoint=1)
+ax.plot(d, w, label=r'$\beta = 20 / \rho$')
 w = logistic(d, steepness=40, midpoint=1)
+ax.plot(d, w, label=r'$\beta = 40 / \rho$')
 
-ax.plot(d, w)
 ax.vlines(1, 0, 1, color='k', alpha=0.6, ls='--', lw=0.5)
 ax.axvspan(0, 1, color='green', alpha=0.2)
 ax.axvspan(1, 2, color='red', alpha=0.2)
@@ -40,6 +42,9 @@ ax.set_xticklabels([0, 0.5, 1, 1.5, 2])
 ax.set_xticks([0, 0.5, 1, 1.5, 2])
 ax.set_yticklabels([0, 0.5, 1])
 ax.set_yticks([0, 0.5, 1])
-plt.show()
+ax.legend(
+    fontsize='small', handlelength=1.5,
+    labelspacing=0.5, borderpad=0.2)
+# plt.show()
 
 fig.savefig('/tmp/edge_weight.png', format='png', dpi=360)
