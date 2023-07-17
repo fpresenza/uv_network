@@ -98,7 +98,7 @@ def run(d, nmin, nmax, logs, threshold, rep):
             deg = A[0].sum(axis=1)
             diam[0] += np.max(geo)
             hmax[0] += np.max(h)
-            load[0] += fast_degree_load_std(deg, geo, h)
+            load[0] += fast_degree_load_std(deg, h, geo)
             edges[0] += np.sum(A[0])
 
             A[1] = disk_adjacency(p, dmax=Rmin + 0.05 * (Rmax - Rmin))
@@ -107,7 +107,7 @@ def run(d, nmin, nmax, logs, threshold, rep):
             deg = A[1].sum(axis=1)
             diam[1] += np.max(geo)
             hmax[1] += np.max(h)
-            load[1] += fast_degree_load_std(deg, geo, h)
+            load[1] += fast_degree_load_std(deg, h, geo)
             edges[1] += np.sum(A[1])
 
             A[2] = disk_adjacency(p, dmax=Rmin + 0.1 * (Rmax - Rmin))
@@ -116,14 +116,14 @@ def run(d, nmin, nmax, logs, threshold, rep):
             deg = A[2].sum(axis=1)
             diam[2] += np.max(geo)
             hmax[2] += np.max(h)
-            load[2] += fast_degree_load_std(deg, geo, h)
+            load[2] += fast_degree_load_std(deg, h, geo)
             edges[2] += np.sum(A[2])
 
         logs.nodes[k] = n
         logs.diam[k] = np.divide(diam, rep)
         logs.hmax[k] = np.divide(hmax, rep)
-        logs.load[k] = np.divide(load, rep)
-        logs.edges[k] = np.divide(edges, 2*rep)
+        logs.load[k] = np.divide(load, n * rep)
+        logs.edges[k] = np.divide(edges, 2 * rep)
         logs.rmin[k] = rmin / rep
         logs.rmax[k] = rmax / rep
         logs.alpha[k] = alpha / rep
