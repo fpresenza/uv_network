@@ -5,6 +5,7 @@
 """
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
 
 from uvnpy import network
 from uvnpy.network import subsets   # noqa
@@ -301,6 +302,11 @@ network.plot.nodes(
     ax, x[0, three_hop_rigid],
     marker='s', color='mediumseagreen', s=8, zorder=20, label=r'$h_0=3$')
 network.plot.edges(ax, x[0], A[0], color='k', lw=0.5)
+
+circle = Circle(x[0, 6], 1, facecolor='None', linewidth=1, edgecolor='red')
+ax.add_artist(circle)
+circle = Circle(x[0, 8], 1, facecolor='None', linewidth=1, edgecolor='red')
+ax.add_artist(circle)
 
 ax.legend(
     fontsize='6',
