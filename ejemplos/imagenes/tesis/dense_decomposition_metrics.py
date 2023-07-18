@@ -6,7 +6,6 @@
 import argparse
 import collections
 import numpy as np
-import matplotlib.pyplot as plt
 import progressbar
 
 from uvnpy.network.subsets import geodesics, fast_degree_load_std
@@ -14,13 +13,6 @@ from uvnpy.rsn.rigidity import fast_extents, minimum_radius
 from uvnpy.rsn.distances import matrix as distance_matrix
 from uvnpy.rsn.distances import matrix_between as distance_between
 from uvnpy.network.disk_graph import adjacency as disk_adjacency
-
-np.set_printoptions(suppress=True, precision=4, linewidth=250)
-plt.rcParams['text.usetex'] = False
-plt.rcParams['pdf.fonttype'] = 42
-plt.rcParams['ps.fonttype'] = 42
-plt.rcParams['mathtext.fontset'] = 'dejavuserif'
-plt.rcParams['font.family'] = 'serif'
 
 # ------------------------------------------------------------------
 # Definición de variables, funciones y clases
@@ -72,301 +64,105 @@ def run(d, nmin, nmax, logs, threshold, rep):
 
     for k, n in enumerate(range(nmin, nmax)):
         bar.update(k)
+        logs.nodes[k] = n
 
-        diam = [0, 0, 0]
-        hmax = [0, 0, 0]
-        load = [0, 0, 0]
-        edges = [0, 0, 0]
-        A = [None, None, None]
-        rmin = 0
-        rmax = 0
-        alpha = 0
-        for _ in range(rep):
+        for r in range(rep):
             # p = generate_position(n, (0, 1), (0, 1), 0.02)
             p = np.random.uniform(0, 1, (n, d))
             A0 = disk_adjacency(p, dmax=2/np.sqrt(n))
             dist = distance_matrix(p)
             Rmax = dist.max()
-            A[0], Rmin = minimum_radius(A0, p, threshold, return_radius=True)
-            Alpha = minimum_alpha(A[0], p, dist, Rmin, Rmax, threshold)
-            rmin += Rmin
-            rmax += Rmax
-            alpha += Alpha
+            A, Rmin = minimum_radius(A0, p, threshold, return_radius=True)
+            Alpha = minimum_alpha(A, p, dist, Rmin, Rmax, threshold)
 
-            h = fast_extents(A[0], p, threshold)
-            geo = geodesics(A[0])
-            deg = A[0].sum(axis=1)
-            diam[0] += np.max(geo)
-            hmax[0] += np.max(h)
-            load[0] += fast_degree_load_std(deg, h, geo)
-            edges[0] += np.sum(A[0])
+            logs.rmax[k, r] = Rmax
+            logs.rmin[k, r] = Rmin
+            logs.alpha[k, r] = Alpha
 
-            A[1] = disk_adjacency(p, dmax=Rmin + 0.05 * (Rmax - Rmin))
-            h = fast_extents(A[1], p, threshold)
-            geo = geodesics(A[1])
-            deg = A[1].sum(axis=1)
-            diam[1] += np.max(geo)
-            hmax[1] += np.max(h)
-            load[1] += fast_degree_load_std(deg, h, geo)
-            edges[1] += np.sum(A[1])
+            h = fast_extents(A, p, threshold)
+            geo = geodesics(A)
+            deg = A.sum(axis=1)
+            logs.diam[0, k, r] = np.max(geo)
+            logs.hmax[0, k, r] = np.max(h)
+            logs.load[0, k, r] = fast_degree_load_std(deg, h, geo) / n
+            logs.edges[0, k, r] = np.sum(A) / 2
 
-            A[2] = disk_adjacency(p, dmax=Rmin + 0.1 * (Rmax - Rmin))
-            h = fast_extents(A[2], p, threshold)
-            geo = geodesics(A[2])
-            deg = A[2].sum(axis=1)
-            diam[2] += np.max(geo)
-            hmax[2] += np.max(h)
-            load[2] += fast_degree_load_std(deg, h, geo)
-            edges[2] += np.sum(A[2])
+            A = disk_adjacency(p, dmax=Rmin + 0.05 * (Rmax - Rmin))
+            h = fast_extents(A, p, threshold)
+            geo = geodesics(A)
+            deg = A.sum(axis=1)
+            logs.diam[1, k, r] = np.max(geo)
+            logs.hmax[1, k, r] = np.max(h)
+            logs.load[1, k, r] = fast_degree_load_std(deg, h, geo) / n
+            logs.edges[1, k, r] = np.sum(A) / 2
 
-        logs.nodes[k] = n
-        logs.diam[k] = np.divide(diam, rep)
-        logs.hmax[k] = np.divide(hmax, rep)
-        logs.load[k] = np.divide(load, n * rep)
-        logs.edges[k] = np.divide(edges, 2 * rep)
-        logs.rmin[k] = rmin / rep
-        logs.rmax[k] = rmax / rep
-        logs.alpha[k] = alpha / rep
+            A = disk_adjacency(p, dmax=Rmin + 0.1 * (Rmax - Rmin))
+            h = fast_extents(A, p, threshold)
+            geo = geodesics(A)
+            deg = A.sum(axis=1)
+            logs.diam[2, k, r] = np.max(geo)
+            logs.hmax[2, k, r] = np.max(h)
+            logs.load[2, k, r] = fast_degree_load_std(deg, h, geo) / n
+            logs.edges[2, k, r] = np.sum(A) / 2
 
     bar.finish()
     return logs
 
 
-if __name__ == '__main__':
-    # ------------------------------------------------------------------
-    # Parseo de argumentos
-    # ------------------------------------------------------------------
-    parser = argparse.ArgumentParser(description='')
-    parser.add_argument(
-        '-n', '--nodes',
-        default=50, type=int, help='number of nodes')
-    parser.add_argument(
-        '-r', '--rep',
-        default=10, type=int, help='number of repetitions')
-    parser.add_argument(
-        '-s', '--save',
-        default=False, action='store_true', help='flag to store data')
+# ------------------------------------------------------------------
+# Parseo de argumentos
+# ------------------------------------------------------------------
+parser = argparse.ArgumentParser(description='')
+parser.add_argument(
+    '-n', '--nodes',
+    default=50, type=int, help='number of nodes')
+parser.add_argument(
+    '-r', '--rep',
+    default=10, type=int, help='number of repetitions')
 
-    arg = parser.parse_args()
+arg = parser.parse_args()
 
-    # ------------------------------------------------------------------
-    # Configuración
-    # ------------------------------------------------------------------
-    d = 2
-    nmin = d + 2
-    nmax = arg.nodes + 1
-    threshold = 1e-5
-    size = nmax - nmin
-    logs = Logs(
-        nodes=np.empty(size, dtype=int),
-        diam=np.empty((size, 3)),
-        hmax=np.empty((size, 3)),
-        load=np.empty((size, 3)),
-        edges=np.empty((size, 3)),
-        rmin=np.empty(size),
-        rmax=np.empty(size),
-        alpha=np.empty(size))
+# ------------------------------------------------------------------
+# Configuración
+# ------------------------------------------------------------------
+d = 2
+nmin = d + 2
+nmax = arg.nodes + 1
+threshold = 1e-5
+size = nmax - nmin
+rep = arg.rep
+logs = Logs(
+    nodes=np.empty(size, dtype=int),
+    rmin=np.empty((size, rep)),
+    rmax=np.empty((size, rep)),
+    alpha=np.empty((size, rep)),
+    diam=np.empty((3, size, rep)),
+    hmax=np.empty((3, size, rep)),
+    load=np.empty((3, size, rep)),
+    edges=np.empty((3, size, rep)))
 
-    # ------------------------------------------------------------------
-    # Simulación
-    # ------------------------------------------------------------------
-    bar = progressbar.ProgressBar(maxval=size)
+# ------------------------------------------------------------------
+# Simulación
+# ------------------------------------------------------------------
+bar = progressbar.ProgressBar(maxval=size)
 
-    logs = run(d, nmin, nmax, logs, threshold, arg.rep)
-    nodes = logs.nodes
-    diam = logs.diam
-    hmax = logs.hmax
-    load = logs.load
-    edges = logs.edges
-    rmin = logs.rmin
-    rmax = logs.rmax
-    alpha = logs.alpha
+logs = run(d, nmin, nmax, logs, threshold, rep)
+nodes = logs.nodes
+diam = logs.diam
+hmax = logs.hmax
+load = logs.load
+edges = logs.edges
+rmin = logs.rmin
+rmax = logs.rmax
+alpha = logs.alpha
 
-    # ------------------------------------------------------------------
-    # Plotting
-    # ------------------------------------------------------------------
-    # Diametro y Retardo
-    fig, ax = plt.subplots(figsize=(3, 2))
-    fig.subplots_adjust(bottom=0.2)
-    # ax.set_title(r'$\alpha = 0$')
-    ax.tick_params(
-        axis='both',       # changes apply to the x-axis
-        which='both',      # both major and minor ticks are affected
-        pad=1,
-        labelsize='small')
-    ax.grid(lw=0.4)
-    ax.set_xlabel('Número de vértices ($v$)', fontsize=10)
-    ax.set_xticks(nodes[::nmax//5])
-    ax.set_xticklabels(nodes[::nmax//5])
-    ax.plot(nodes, diam[:, 0], label=r'$D$', lw=1)
-    ax.plot(nodes, 2*hmax[:, 0], label=r'$\mathcal{D}(h_0)$', lw=1)
-    diam_ticks = range(2, int(diam[:, 0].max()) + 2, 2)
-    ax.set_yticks(diam_ticks)
-    ax.set_yticklabels(diam_ticks)
-    ax.legend(
-        fontsize='small', handlelength=1.5,
-        labelspacing=0.5, borderpad=0.2, loc='upper left')
-    if arg.save:
-        fig.savefig('/tmp/delay_vs_diam_1.png', format='png', dpi=360)
+np.savetxt('/tmp/nodes.csv', logs.nodes, delimiter=',')
+np.savetxt('/tmp/rmin.csv', logs.rmin, delimiter=',')
+np.savetxt('/tmp/rmax.csv', logs.rmax, delimiter=',')
+np.savetxt('/tmp/alpha.csv', logs.alpha, delimiter=',')
 
-    fig, ax = plt.subplots(figsize=(3, 2))
-    fig.subplots_adjust(bottom=0.2)
-    # ax.set_title(r'$\alpha = 0.1$')
-    ax.tick_params(
-        axis='both',       # changes apply to the x-axis
-        which='both',      # both major and minor ticks are affected
-        pad=1,
-        labelsize='small')
-    ax.grid(lw=0.4)
-    ax.set_xlabel('Número de vértices ($v$)', fontsize=10)
-    ax.set_xticks(nodes[::nmax//5])
-    ax.set_xticklabels(nodes[::nmax//5])
-    ax.plot(nodes, diam[:, 1], label=r'$D$', lw=1)
-    ax.plot(nodes, 2*hmax[:, 1], label=r'$\mathcal{D}(h_0)$', lw=1)
-    diam_ticks = range(2, int(diam[:, 1].max()) + 2, 2)
-    ax.set_yticks(diam_ticks)
-    ax.set_yticklabels(diam_ticks)
-    ax.legend(
-        fontsize='small', handlelength=1.5,
-        labelspacing=0.5, borderpad=0.2, loc='upper left')
-    if arg.save:
-        fig.savefig('/tmp/delay_vs_diam_2.png', format='png', dpi=360)
-
-    fig, ax = plt.subplots(figsize=(3, 2))
-    fig.subplots_adjust(bottom=0.2)
-    # ax.set_title(r'$\alpha = 0.2$')
-    ax.tick_params(
-        axis='both',       # changes apply to the x-axis
-        which='both',      # both major and minor ticks are affected
-        pad=1,
-        labelsize='small')
-    ax.grid(lw=0.4)
-    ax.set_xlabel('Número de vértices ($v$)', fontsize=10)
-    ax.set_xticks(nodes[::nmax//5])
-    ax.set_xticklabels(nodes[::nmax//5])
-    ax.plot(nodes, diam[:, 2], label=r'$D$', lw=1)
-    ax.plot(nodes, 2*hmax[:, 2], label=r'$\mathcal{D}(h_0)$', lw=1)
-    diam_ticks = range(2, int(diam[:, 1].max()) + 1, 1)
-    ax.set_yticks(diam_ticks)
-    ax.set_yticklabels(diam_ticks)
-    ax.legend(
-        fontsize='small', handlelength=1.5,
-        labelspacing=0.5, borderpad=0.2, loc='upper left')
-    if arg.save:
-        fig.savefig('/tmp/delay_vs_diam_3.png', format='png', dpi=360)
-
-    # Enlaces y Carga
-    fig, ax = plt.subplots(figsize=(3, 2))
-    fig.subplots_adjust(bottom=0.2)
-    # ax.set_title(r'$\alpha = 0$')
-    ax.tick_params(
-        axis='both',       # changes apply to the x-axis
-        which='both',      # both major and minor ticks are affected
-        pad=1,
-        labelsize='small')
-    ax.grid(lw=0.4)
-    ax.set_xlabel('Número de vértices ($v$)', fontsize=10)
-    ax.set_xticks(nodes[::nmax//5])
-    ax.set_xticklabels(nodes[::nmax//5])
-    ax.plot(nodes, 2*edges[:, 0] / nodes, label=r'$\bar{n}$', lw=1)
-    ax.plot(nodes, load[:, 0], label=r'$\mathcal{L}(h_0)$', lw=1)
-    # diam_ticks = range(2, int(diam[:, 0].max()) + 2, 2)
-    # ax.set_yticks(diam_ticks)
-    # ax.set_yticklabels(diam_ticks)
-    ax.legend(
-        fontsize='small', handlelength=1.5,
-        labelspacing=0.5, borderpad=0.2, loc='upper left')
-    if arg.save:
-        fig.savefig('/tmp/load_vs_edges_1.png', format='png', dpi=360)
-
-    fig, ax = plt.subplots(figsize=(3, 2))
-    fig.subplots_adjust(bottom=0.2)
-    # ax.set_title(r'$\alpha = 0$')
-    ax.tick_params(
-        axis='both',       # changes apply to the x-axis
-        which='both',      # both major and minor ticks are affected
-        pad=1,
-        labelsize='small')
-    ax.grid(lw=0.4)
-    ax.set_xlabel('Número de vértices ($v$)', fontsize=10)
-    ax.set_xticks(nodes[::nmax//5])
-    ax.set_xticklabels(nodes[::nmax//5])
-    ax.plot(nodes, 2*edges[:, 1] / nodes, label=r'$\bar{n}$', lw=1)
-    ax.plot(nodes, load[:, 1], label=r'$\mathcal{L}(h_0)$', lw=1)
-    # diam_ticks = range(2, int(diam[:, 0].max()) + 2, 2)
-    # ax.set_yticks(diam_ticks)
-    # ax.set_yticklabels(diam_ticks)
-    ax.legend(
-        fontsize='small', handlelength=1.5,
-        labelspacing=0.5, borderpad=0.2, loc='upper left')
-    if arg.save:
-        fig.savefig('/tmp/load_vs_edges_2.png', format='png', dpi=360)
-
-    fig, ax = plt.subplots(figsize=(3, 2))
-    fig.subplots_adjust(bottom=0.2)
-    # ax.set_title(r'$\alpha = 0$')
-    ax.tick_params(
-        axis='both',       # changes apply to the x-axis
-        which='both',      # both major and minor ticks are affected
-        pad=1,
-        labelsize='small')
-    ax.grid(lw=0.4)
-    ax.set_xlabel('Número de vértices ($v$)', fontsize=10)
-    ax.set_xticks(nodes[::nmax//5])
-    ax.set_xticklabels(nodes[::nmax//5])
-    ax.plot(nodes, 2*edges[:, 2] / nodes, label=r'$\bar{n}$', lw=1)
-    ax.plot(nodes, load[:, 2], label=r'$\mathcal{L}(h_0)$', lw=1)
-    # diam_ticks = range(2, int(diam[:, 0].max()) + 2, 2)
-    # ax.set_yticks(diam_ticks)
-    # ax.set_yticklabels(diam_ticks)
-    ax.legend(
-        fontsize='small', handlelength=1.5,
-        labelspacing=0.5, borderpad=0.2, loc='upper left')
-    if arg.save:
-        fig.savefig('/tmp/load_vs_edges_3.png', format='png', dpi=360)
-
-    fig, ax = plt.subplots(figsize=(3, 2))
-    fig.subplots_adjust(bottom=0.2, left=0.23)
-    ax.tick_params(
-        axis='both',       # changes apply to the x-axis
-        which='both',      # both major and minor ticks are affected
-        pad=1,
-        labelsize='small')
-    ax.grid(lw=0.4)
-    ax.set_xlabel(r'Número de vértices ($v$)', fontsize=10)
-    ax.set_ylabel('Rangos \n mín y máx', fontsize=10)
-    ax.set_xticks(nodes[::nmax//5])
-    ax.set_xticklabels(nodes[::nmax//5])
-    ax.plot(nodes, rmin / np.sqrt(2), label=r'$\rho_0 / \sqrt{2}$', lw=1)
-    ax.plot(nodes, rmax / np.sqrt(2), label=r'$\rho_1 / \sqrt{2}$', lw=1)
-    # ax.plot(
-    #    nodes, (rmin + rmax) / np.sqrt(2) / 2,
-    #    label=r'$\rho_1 / \sqrt{2}$', lw=1)
-    ax.set_yticks([0, 0.2, 0.4, 0.6, 0.8, 1.])
-    ax.set_yticklabels([0, 0.2, 0.4, 0.6, 0.8, 1.])
-    ax.legend(
-        fontsize='small', handlelength=1.5,
-        labelspacing=0.5, borderpad=0.2)
-    if arg.save:
-        fig.savefig('/tmp/min_max_radius.png', format='png', dpi=360)
-
-    fig, ax = plt.subplots(figsize=(3, 2))
-    fig.subplots_adjust(bottom=0.2, left=0.23)
-    ax.tick_params(
-        axis='both',       # changes apply to the x-axis
-        which='both',      # both major and minor ticks are affected
-        pad=1,
-        labelsize='small')
-    ax.grid(lw=0.4)
-    ax.set_xlabel(r'Número de vértices ($v$)', fontsize=10)
-    ax.set_ylabel(r'$\alpha^{\star} \in [0, 1]$', fontsize=10)
-    ax.set_xticks(nodes[::nmax//5])
-    ax.set_xticklabels(nodes[::nmax//5])
-    ax.plot(nodes, alpha, label=r'$\alpha$', lw=1)
-    # ax.legend(
-    #     fontsize='x-small', handlelength=1.5,
-    #     labelspacing=0.5, borderpad=0.2, loc='upper left')
-    if arg.save:
-        fig.savefig('/tmp/minimum_alpha.png', format='png', dpi=360)
-
-    # plt.show()
+for i in range(3):
+    np.savetxt('/tmp/diam_{}.csv'.format(i), logs.diam[i], delimiter=',')
+    np.savetxt('/tmp/hmax_{}.csv'.format(i), logs.hmax[i], delimiter=',')
+    np.savetxt('/tmp/load_{}.csv'.format(i), logs.load[i], delimiter=',')
+    np.savetxt('/tmp/edges_{}.csv'.format(i), logs.edges[i], delimiter=',')
