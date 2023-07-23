@@ -170,6 +170,7 @@ three_hop_rigid = hops == 3
 four_hop_rigid = hops == 4
 
 fig, ax = plt.subplots(figsize=(2.5, 2.5))
+fig.subplots_adjust(left=0.15)
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
@@ -177,9 +178,8 @@ ax.tick_params(
     labelsize='x-small')
 ax.grid(1, lw=0.4)
 ax.set_aspect('equal')
-# ax.set_xlabel(r'$\mathrm{x}$', fontsize=10, labelpad=0.6)
-# if i % 2 == 0:
-#     ax.set_ylabel(r'$\mathrm{y}$', fontsize=10, labelpad=0)
+ax.set_xlabel(r'$x$ [m]', fontsize=9, labelpad=0)
+ax.set_ylabel(r'$y$ [m]', fontsize=9, labelpad=0)
 ax.set_xticks([-100, 0, 100])
 ax.set_yticks([-100, 0, 100])
 ax.set_xticklabels([-100, 0, 100])
