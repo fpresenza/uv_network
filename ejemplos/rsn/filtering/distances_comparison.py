@@ -48,7 +48,7 @@ hatx[0] = x[0] + np.random.normal(0, p, (n, 2))
 
 
 fig, ax = plt.subplots(figsize=(3.5, 2.5))
-fig.subplots_adjust(bottom=0.2, left=0.2)
+fig.subplots_adjust(bottom=0.2, left=0.21, right=0.91)
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
@@ -56,7 +56,7 @@ ax.tick_params(
     labelsize='small')
 ax.grid(lw=0.4)
 ax.set_xlabel('Tiempo ($k$)', fontsize=10)
-ax.set_ylabel('Error cuádratico \n' + r'medio ($\xi / e$)', fontsize=10)
+ax.set_ylabel('Error cuádratico \n' + r'medio ($\xi / e$) [m]', fontsize=10)
 
 # GD 1
 ##################
