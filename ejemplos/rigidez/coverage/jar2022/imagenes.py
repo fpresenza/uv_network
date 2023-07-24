@@ -240,13 +240,13 @@ for i, tk in enumerate(instants):
 
     network.plot.nodes(
         ax, x[k, one_hop_rigid],
-        marker='o', color='royalblue', s=8, zorder=20, label=r'$h_0=1$')
+        marker='o', color='royalblue', s=8, zorder=20, label=r'$h_r=1$')
     network.plot.nodes(
         ax, x[k, two_hop_rigid],
-        marker='D', color='chocolate', s=8, zorder=20, label=r'$h_0=2$')
+        marker='D', color='chocolate', s=8, zorder=20, label=r'$h_r=2$')
     network.plot.nodes(
         ax, x[k, three_hop_rigid],
-        marker='s', color='mediumseagreen', s=8, zorder=20, label=r'$h_0=3$')
+        marker='s', color='mediumseagreen', s=8, zorder=20, label=r'$h_r=3$')
     network.plot.edges(ax, x[k], A[k], color='k', lw=0.5)
 
     untracked = targets[k, :, 2].astype(bool)
@@ -271,6 +271,7 @@ for i, tk in enumerate(instants):
     fig.savefig('/tmp/instants_{}.png'.format(int(tk)), format='png', dpi=360)
 
 fig, ax = plt.subplots(figsize=(2, 2))
+fig.subplots_adjust(left=0.2, bottom=0.15)
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
@@ -281,6 +282,8 @@ ax.set_aspect('equal')
 
 a = int(12)
 b = int(6)
+ax.set_xlabel(r'$x$ [m]', fontsize=9, labelpad=0)
+ax.set_ylabel(r'$y$ [m]', fontsize=9, labelpad=0)
 ax.set_xlim(-a, a)
 ax.set_ylim(-a, a)
 ax.set_xticks([-a, -b, 0, b, a])
@@ -294,13 +297,13 @@ three_hop_rigid = extents[k] == 3
 
 network.plot.nodes(
     ax, x[0, one_hop_rigid],
-    marker='o', color='royalblue', s=8, zorder=20, label=r'$h_0=1$')
+    marker='o', color='royalblue', s=8, zorder=20, label=r'$h_r=1$')
 network.plot.nodes(
     ax, x[0, two_hop_rigid],
-    marker='D', color='chocolate', s=8, zorder=20, label=r'$h_0=2$')
+    marker='D', color='chocolate', s=8, zorder=20, label=r'$h_r=2$')
 network.plot.nodes(
     ax, x[0, three_hop_rigid],
-    marker='s', color='mediumseagreen', s=8, zorder=20, label=r'$h_0=3$')
+    marker='s', color='mediumseagreen', s=8, zorder=20, label=r'$h_r=3$')
 network.plot.edges(ax, x[0], A[0], color='k', lw=0.5)
 
 circle = Circle(x[0, 6], 1, facecolor='None', linewidth=1, edgecolor='red')
@@ -316,5 +319,3 @@ ax.legend(
     loc='upper center')
 
 fig.savefig('/tmp/instants_init.png', format='png', dpi=360)
-
-# plt.show()

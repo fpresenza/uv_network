@@ -94,16 +94,16 @@ while i < 10:
     if np.any(one_hop_rigid):
         plot.nodes(
             ax, p[one_hop_rigid],
-            marker='o', color='royalblue', s=11, zorder=10, label=r'$h_0=1$')
+            marker='o', color='royalblue', s=11, zorder=10, label=r'$h_r=1$')
     if np.any(two_hop_rigid):
         plot.nodes(
             ax, p[two_hop_rigid],
-            marker='D', color='chocolate', s=11, zorder=10, label=r'$h_0=2$')
+            marker='D', color='chocolate', s=11, zorder=10, label=r'$h_r=2$')
     if np.any(three_hop_rigid):
         plot.nodes(
             ax, p[three_hop_rigid],
             marker='s', color='mediumseagreen',
-            s=11, zorder=10, label=r'$h_0=3$')
+            s=11, zorder=10, label=r'$h_r=3$')
     plot.edges(ax, p, A, color='0.0', lw=0.4)
     ax.legend(
         fontsize='xx-small', handlelength=1, labelspacing=0.4,
