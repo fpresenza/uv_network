@@ -189,16 +189,16 @@ ax.set_ylim(-100, 115)
 
 network.plot.nodes(
     ax, x[0, one_hop_rigid],
-    marker='o', color='royalblue', s=7, zorder=20, label=r'$h_0 = 1$')
+    marker='o', color='royalblue', s=7, zorder=20, label=r'$h_r = 1$')
 network.plot.nodes(
     ax, x[0, two_hop_rigid],
-    marker='D', color='chocolate', s=7, zorder=20, label=r'$h_0 = 2$')
+    marker='D', color='chocolate', s=7, zorder=20, label=r'$h_r = 2$')
 network.plot.nodes(
     ax, x[0, three_hop_rigid],
-    marker='s', color='mediumseagreen', s=7, zorder=20, label=r'$h_0 = 3$')
+    marker='s', color='mediumseagreen', s=7, zorder=20, label=r'$h_r = 3$')
 network.plot.nodes(
     ax, x[0, four_hop_rigid],
-    marker='^', color='purple', s=7, zorder=10, label=r'$h_0 = 4$')
+    marker='^', color='purple', s=7, zorder=10, label=r'$h_r = 4$')
 network.plot.edges(ax, x[0], A[0], color='k', lw=0.5)
 
 circle = Circle(x[0, 15], 5, facecolor='None', linewidth=1, edgecolor='red')
@@ -243,16 +243,16 @@ for i, tk in enumerate(instants):
             transform=ax.transAxes, color='r', fontsize=8)
     network.plot.nodes(
         ax, x[k, one_hop_rigid],
-        marker='o', color='royalblue', s=7, zorder=20, label=r'$h_0 = 1$')
+        marker='o', color='royalblue', s=7, zorder=20, label=r'$h_r = 1$')
     network.plot.nodes(
         ax, x[k, two_hop_rigid],
-        marker='D', color='chocolate', s=7, zorder=20, label=r'$h_0 = 2$')
+        marker='D', color='chocolate', s=7, zorder=20, label=r'$h_r = 2$')
     network.plot.nodes(
         ax, x[k, three_hop_rigid],
-        marker='s', color='mediumseagreen', s=7, zorder=20, label=r'$h_0 = 3$')
+        marker='s', color='mediumseagreen', s=7, zorder=20, label=r'$h_r = 3$')
     network.plot.nodes(
         ax, x[k, four_hop_rigid],
-        marker='^', color='purple', s=7, zorder=10, label=r'$h_0 = 4$')
+        marker='^', color='purple', s=7, zorder=10, label=r'$h_r = 4$')
     network.plot.edges(ax, x[k], A[k], color='k', lw=0.5)
 
     tail = 150 * i
