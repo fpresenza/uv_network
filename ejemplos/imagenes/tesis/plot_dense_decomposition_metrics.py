@@ -53,20 +53,20 @@ ax.set_xlabel('Número de vértices ($v$)', fontsize=10)
 ax.set_xticks(np.arange(20, nmax + 1, 20))
 ax.set_xticklabels(np.arange(20, nmax + 1, 20))
 ax.plot(
+    nodes, 2 * np.median(hmax[0], axis=1),
+    label=r'$\mathcal{D}(h_r)$', lw=1)
+ax.fill_between(
+    nodes,
+    2 * np.quantile(hmax[0], 0.25, axis=1),
+    2 * np.quantile(hmax[0], 0.75, axis=1),
+    alpha=0.3)
+ax.plot(
     nodes, np.median(diam[0], axis=1),
     label=r'$D$', lw=1)
 ax.fill_between(
     nodes,
     np.quantile(diam[0], 0.25, axis=1),
     np.quantile(diam[0], 0.75, axis=1),
-    alpha=0.3)
-ax.plot(
-    nodes, 2 * np.median(hmax[0], axis=1),
-    label=r'$\mathcal{D}(h_0)$', lw=1)
-ax.fill_between(
-    nodes,
-    2 * np.quantile(hmax[0], 0.25, axis=1),
-    2 * np.quantile(hmax[0], 0.75, axis=1),
     alpha=0.3)
 diam_ticks = np.arange(0, 14, 2)
 ax.set_yticks(diam_ticks)
@@ -90,20 +90,20 @@ ax.set_xlabel('Número de vértices ($v$)', fontsize=10)
 ax.set_xticks(np.arange(20, nmax + 1, 20))
 ax.set_xticklabels(np.arange(20, nmax + 1, 20))
 ax.plot(
+    nodes, 2 * np.median(hmax[1], axis=1),
+    label=r'$\mathcal{D}(h_r)$', lw=1)
+ax.fill_between(
+    nodes,
+    2 * np.quantile(hmax[1], 0.25, axis=1),
+    2 * np.quantile(hmax[1], 0.75, axis=1),
+    alpha=0.3)
+ax.plot(
     nodes, np.median(diam[1], axis=1),
     label=r'$D$', lw=1)
 ax.fill_between(
     nodes,
     np.quantile(diam[1], 0.25, axis=1),
     np.quantile(diam[1], 0.75, axis=1),
-    alpha=0.3)
-ax.plot(
-    nodes, 2 * np.median(hmax[1], axis=1),
-    label=r'$\mathcal{D}(h_0)$', lw=1)
-ax.fill_between(
-    nodes,
-    2 * np.quantile(hmax[1], 0.25, axis=1),
-    2 * np.quantile(hmax[1], 0.75, axis=1),
     alpha=0.3)
 diam_ticks = np.arange(0, 14, 2)
 ax.set_yticks(diam_ticks)
@@ -127,20 +127,20 @@ ax.set_xlabel('Número de vértices ($v$)', fontsize=10)
 ax.set_xticks(np.arange(20, nmax + 1, 20))
 ax.set_xticklabels(np.arange(20, nmax + 1, 20))
 ax.plot(
+    nodes, 2 * np.median(hmax[2], axis=1),
+    label=r'$\mathcal{D}(h_r)$', lw=1)
+ax.fill_between(
+    nodes,
+    2 * np.quantile(hmax[2], 0.25, axis=1),
+    2 * np.quantile(hmax[2], 0.75, axis=1),
+    alpha=0.3)
+ax.plot(
     nodes, np.median(diam[2], axis=1),
     label=r'$D$', lw=1)
 ax.fill_between(
     nodes,
     np.quantile(diam[2], 0.25, axis=1),
     np.quantile(diam[2], 0.75, axis=1),
-    alpha=0.3)
-ax.plot(
-    nodes, 2 * np.median(hmax[2], axis=1),
-    label=r'$\mathcal{D}(h_0)$', lw=1)
-ax.fill_between(
-    nodes,
-    2 * np.quantile(hmax[2], 0.25, axis=1),
-    2 * np.quantile(hmax[2], 0.75, axis=1),
     alpha=0.3)
 diam_ticks = np.arange(0, 14, 2)
 ax.set_yticks(diam_ticks)
@@ -166,7 +166,7 @@ ax.set_xticks(np.arange(20, nmax + 1, 20))
 ax.set_xticklabels(np.arange(20, nmax + 1, 20))
 ax.plot(
     nodes, np.median(load[0], axis=1),
-    label=r'$\mathcal{L}(h_0)$', lw=1)
+    label=r'$\mathcal{L}(h_r)$', lw=1)
 ax.fill_between(
     nodes,
     np.quantile(load[0], 0.25, axis=1),
@@ -203,7 +203,7 @@ ax.set_xticks(np.arange(20, nmax + 1, 20))
 ax.set_xticklabels(np.arange(20, nmax + 1, 20))
 ax.plot(
     nodes, np.median(load[1], axis=1),
-    label=r'$\mathcal{L}(h_0)$', lw=1)
+    label=r'$\mathcal{L}(h_r)$', lw=1)
 ax.fill_between(
     nodes,
     np.quantile(load[1], 0.25, axis=1),
@@ -240,7 +240,7 @@ ax.set_xticks(np.arange(20, nmax + 1, 20))
 ax.set_xticklabels(np.arange(20, nmax + 1, 20))
 ax.plot(
     nodes, np.median(load[2], axis=1),
-    label=r'$\mathcal{L}(h_0)$', lw=1)
+    label=r'$\mathcal{L}(h_r)$', lw=1)
 ax.fill_between(
     nodes,
     np.quantile(load[2], 0.25, axis=1),
