@@ -98,8 +98,7 @@ class Animate(object):
             self.anim.save(
                 file,
                 fps=1. / self.h,
-                dpi=200,
-                extra_args=['-vcodec', 'libx264'])
+                dpi=200)
 
 
 class Animate2(object):
