@@ -15,8 +15,8 @@ plt.rcParams['ps.fonttype'] = 42
 plt.rcParams['mathtext.fontset'] = 'dejavuserif'
 plt.rcParams['font.family'] = 'serif'
 
-fig, ax = plt.subplots(figsize=(4, 2.))
-fig.subplots_adjust(left=0.14, bottom=0.32)
+fig, ax = plt.subplots(figsize=(3, 2.))
+fig.subplots_adjust(left=0.16, bottom=0.32)
 ax.grid(1)
 ax.minorticks_on()
 ax.tick_params(
@@ -27,18 +27,18 @@ ax.tick_params(
 
 d = np.linspace(0, 2, 200)
 print(d[::50])
-w = logistic(d, steepness=40, midpoint=0.9)
-ax.plot(d, w, label=r'$\beta = 40 / \rho, \tilde{\rho} = 0.9 \rho$')
-w = logistic(d, steepness=20, midpoint=1.1)
-ax.plot(d, w, label=r'$\beta = 20 / \rho, \tilde{\rho} = 1.1 \rho$')
+w = logistic(d, steepness=30, midpoint=1)
+ax.plot(d, w, label=r'$\beta = 30$')
+w = logistic(d, steepness=10, midpoint=1)
+ax.plot(d, w, label=r'$\beta = 10$')
 
 ax.vlines(1, 0, 1, color='k', alpha=0.6, ls='--', lw=0.5)
 ax.axvspan(0, 1, color='green', alpha=0.15)
 ax.axvspan(1, 2, color='red', alpha=0.15)
 ax.set_xlim(0, 2)
-ax.set_xlabel(r'$\Vert p_i - p_j \Vert \; / \; \rho$', fontsize=10)
+ax.set_xlabel(r'$\Vert p_i - p_j \Vert$', fontsize=10)
 ax.set_ylabel(r'$w_{ij}$', fontsize=10)
-ax.set_xticklabels([0, 0.5, 1, 1.5, 2])
+ax.set_xticklabels(['0', r'0.5$\rho$', r'$\rho$', r'1.5$\rho$', r'2$\rho$'])
 ax.set_xticks([0, 0.5, 1, 1.5, 2])
 ax.set_yticklabels([0, 0.5, 1])
 ax.set_yticks([0, 0.5, 1])

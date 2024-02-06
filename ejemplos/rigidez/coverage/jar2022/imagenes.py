@@ -240,13 +240,13 @@ for i, tk in enumerate(instants):
 
     network.plot.nodes(
         ax, x[k, one_hop_rigid],
-        marker='o', color='royalblue', s=8, zorder=20, label=r'$h_r=1$')
+        marker='o', color='royalblue', s=8, zorder=20, label=r'$h_0=1$')
     network.plot.nodes(
         ax, x[k, two_hop_rigid],
-        marker='D', color='chocolate', s=8, zorder=20, label=r'$h_r=2$')
+        marker='D', color='chocolate', s=8, zorder=20, label=r'$h_0=2$')
     network.plot.nodes(
         ax, x[k, three_hop_rigid],
-        marker='s', color='mediumseagreen', s=8, zorder=20, label=r'$h_r=3$')
+        marker='s', color='mediumseagreen', s=8, zorder=20, label=r'$h_0=3$')
     network.plot.edges(ax, x[k], A[k], color='k', lw=0.5)
 
     untracked = targets[k, :, 2].astype(bool)
@@ -270,8 +270,8 @@ for i, tk in enumerate(instants):
 
     fig.savefig('/tmp/instants_{}.png'.format(int(tk)), format='png', dpi=360)
 
-fig, ax = plt.subplots(figsize=(2, 2))
-fig.subplots_adjust(left=0.2, bottom=0.15)
+fig, ax = plt.subplots(figsize=(2.5, 2.5))
+fig.subplots_adjust(left=0.15)
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
@@ -280,8 +280,8 @@ ax.tick_params(
 ax.grid(1, lw=0.4)
 ax.set_aspect('equal')
 
-a = int(12)
-b = int(6)
+a = int(40)
+b = int(20)
 ax.set_xlabel(r'$x$ [m]', fontsize=9, labelpad=0)
 ax.set_ylabel(r'$y$ [m]', fontsize=9, labelpad=0)
 ax.set_xlim(-a, a)
@@ -297,18 +297,25 @@ three_hop_rigid = extents[k] == 3
 
 network.plot.nodes(
     ax, x[0, one_hop_rigid],
-    marker='o', color='royalblue', s=8, zorder=20, label=r'$h_r=1$')
+    marker='o', color='royalblue', s=7, zorder=20, label=r'$h_0=1$')
 network.plot.nodes(
     ax, x[0, two_hop_rigid],
-    marker='D', color='chocolate', s=8, zorder=20, label=r'$h_r=2$')
+    marker='D', color='chocolate', s=7, zorder=20, label=r'$h_0=2$')
 network.plot.nodes(
     ax, x[0, three_hop_rigid],
-    marker='s', color='mediumseagreen', s=8, zorder=20, label=r'$h_r=3$')
+    marker='s', color='mediumseagreen', s=7, zorder=20, label=r'$h_0=3$')
 network.plot.edges(ax, x[0], A[0], color='k', lw=0.5)
 
-circle = Circle(x[0, 6], 1, facecolor='None', linewidth=1, edgecolor='red')
+show = np.full(targets.shape[1], True)
+show[[2, 6, 19]] = False
+print(targets.shape)
+ax.scatter(
+    targets[0, show, 0], targets[0, show, 1],
+    marker='s', s=4, color='0.6', alpha=0.5)
+
+circle = Circle(x[0, 6], 1.8, facecolor='None', linewidth=0.5, edgecolor='red')
 ax.add_artist(circle)
-circle = Circle(x[0, 8], 1, facecolor='None', linewidth=1, edgecolor='red')
+circle = Circle(x[0, 8], 1.8, facecolor='None', linewidth=0.5, edgecolor='red')
 ax.add_artist(circle)
 
 ax.legend(
@@ -319,3 +326,48 @@ ax.legend(
     loc='upper center')
 
 fig.savefig('/tmp/instants_init.png', format='png', dpi=360)
+
+# fig, ax = plt.subplots(figsize=(2.5, 2.5))
+# fig.subplots_adjust(left=0.15)
+# ax.tick_params(
+#     axis='both',       # changes apply to the x-axis
+#     which='both',      # both major and minor ticks are affected
+#     pad=1,
+#     labelsize='x-small')
+# ax.grid(1, lw=0.4)
+# ax.set_aspect('equal')
+# ax.set_xlabel(r'$x$ [m]', fontsize=9, labelpad=0)
+# ax.set_ylabel(r'$y$ [m]', fontsize=9, labelpad=0)
+# ax.set_xticks([-100, 0, 100])
+# ax.set_yticks([-100, 0, 100])
+# ax.set_xticklabels([-100, 0, 100])
+# ax.set_yticklabels([-100, 0, 100])
+# ax.set_xlim(-100, 100)
+# ax.set_ylim(-100, 115)
+
+# network.plot.nodes(
+#     ax, x[0, one_hop_rigid],
+#     marker='o', color='royalblue', s=7, zorder=20, label=r'$h_0 = 1$')
+# network.plot.nodes(
+#     ax, x[0, two_hop_rigid],
+#     marker='D', color='chocolate', s=7, zorder=20, label=r'$h_0 = 2$')
+# network.plot.nodes(
+#     ax, x[0, three_hop_rigid],
+#     marker='s', color='mediumseagreen', s=7, zorder=20, label=r'$h_0 = 3$')
+# network.plot.nodes(
+#     ax, x[0, four_hop_rigid],
+#     marker='^', color='purple', s=7, zorder=10, label=r'$h_0 = 4$')
+# network.plot.edges(ax, x[0], A[0], color='k', lw=0.5)
+
+# circle = Circle(x[0, 15], 5, facecolor='None', linewidth=1, edgecolor='red')
+# ax.add_artist(circle)
+# circle = Circle(x[0, 41], 5, facecolor='None', linewidth=1, edgecolor='red')
+# ax.add_artist(circle)
+
+# ax.legend(
+#     fontsize='6',
+#     handletextpad=0.0,
+#     borderpad=0.2,
+#     ncol=4, columnspacing=0.15,
+#     loc='upper center')
+# fig.savefig('/tmp/instants_init.png', format='png', dpi=360)

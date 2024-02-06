@@ -157,6 +157,8 @@ for i in range(seed + 1, 100):
     A = disk_graph.adjacency(p, dmax=Rmin + 0.1 * (Rmax - Rmin))
     h = extents(A, p, threshold)
 
+    one_hop_rigid = h == 1
+
     if h.max() == 1:
         pass
     else:

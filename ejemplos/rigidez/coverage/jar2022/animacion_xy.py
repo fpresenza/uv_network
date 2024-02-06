@@ -3,7 +3,6 @@
 """ Created on mié 29 dic 2021 16:41:13 -03
 @author: fran
 """
-import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -15,6 +14,19 @@ plt.rcParams['pdf.fonttype'] = 42
 plt.rcParams['ps.fonttype'] = 42
 plt.rcParams['mathtext.fontset'] = 'dejavuserif'
 plt.rcParams['font.family'] = 'serif'
+
+
+def time_index(t, ts):
+    return np.argmin(np.abs(t - ts))
+
+
+def slow_motion(data):
+    shape = list(data.shape)
+    shape[0] *= 2
+    sdata = np.empty(shape, dtype=np.ndarray)
+    sdata[::2] = data
+    sdata[1::2] = data
+    return sdata
 
 
 class CoverageAnimate(network.plot.Animate2):
@@ -34,32 +46,25 @@ class CoverageAnimate(network.plot.Animate2):
         self._extra_artists[-1].set_data(Yu[:, 0], Yu[:, 1])
 
 
-parser = argparse.ArgumentParser(description='')
-parser.add_argument(
-    '-e', '--end',
-    default=0, type=int, help='tiempo final')
-parser.add_argument(
-    '-s', '--skip',
-    default=1, type=int, help='saltear pasos')
-parser.add_argument(
-    '-x', '--vel',
-    default=1, type=int, help='velocidad de reproduccion')
-arg = parser.parse_args()
-
-if arg.end == 0:
-    t = np.loadtxt('/tmp/t.csv', delimiter=',')
-    arg.end = len(t)
-
 # extraigo datos
-t = np.loadtxt('/tmp/t.csv', delimiter=',')[:arg.end:arg.skip]
-x = np.loadtxt('/tmp/position.csv', delimiter=',')[:arg.end:arg.skip]
-hatx = np.loadtxt('/tmp/est_position.csv', delimiter=',')[:arg.end:arg.skip]
-u = np.loadtxt('/tmp/action.csv', delimiter=',')[:arg.end:arg.skip]
-fre = np.loadtxt('/tmp/fre.csv', delimiter=',')[:arg.end:arg.skip]
-re = np.loadtxt('/tmp/re.csv', delimiter=',')[:arg.end:arg.skip]
-A = np.loadtxt('/tmp/adjacency.csv', delimiter=',')[:arg.end:arg.skip]
-extents = np.loadtxt('/tmp/extents.csv', delimiter=',')[:arg.end:arg.skip]
-targets = np.loadtxt('/tmp/targets.csv', delimiter=',')[:arg.end:arg.skip]
+t = np.loadtxt('/tmp/t.csv', delimiter=',')[200:]
+t -= t[0]
+x = np.loadtxt('/tmp/position.csv', delimiter=',')[200:]
+hatx = np.loadtxt('/tmp/est_position.csv', delimiter=',')[200:]
+A = np.loadtxt('/tmp/adjacency.csv', delimiter=',')[200:]
+extents = np.loadtxt('/tmp/extents.csv', delimiter=',')[200:]
+targets = np.loadtxt('/tmp/targets.csv', delimiter=',')[200:]
+
+# slice
+print(t.max())
+tf = 205
+kf = time_index(t, tf)
+t = t[:kf]
+x = x[:kf]
+hatx = hatx[:kf]
+A = A[:kf]
+extents = extents[:kf]
+targets = targets[:kf]
 
 n = int(len(x[0])/2)
 nodes = np.arange(n)
@@ -70,7 +75,6 @@ n_steps = len(t)
 x = x.reshape(n_steps, n, 2)
 hatx = hatx.reshape(n_steps, n, 2)
 # print(x[0], hatx[0])
-u = u.reshape(n_steps, n, 2)
 A = A.reshape(n_steps, n, n)
 teams = np.empty((n_steps, 2*n), dtype=int)
 teams[:, :n] = extents
@@ -82,7 +86,6 @@ lim = 50
 timestep = np.diff(t).mean()
 frames = np.empty((n_steps, 5), dtype=np.ndarray)
 # E = network.edges_from_adjacency(A[0])
-transition = np.abs(t - 30.).argmin()
 steps = list(enumerate(t))
 for k, tk in steps:
     E = network.edges_from_adjacency(A[k])
@@ -90,7 +93,13 @@ for k, tk in steps:
     T = teams[k]
     Y = targets[k]
     frames[k] = tk, X, E, T, Y
-fast_frames = np.vstack([frames[:transition], frames[transition::arg.vel]])
+
+a, b, c = time_index(t, 15.), time_index(t, 30), time_index(t, 100)
+adjusted_frames = np.vstack([
+    frames[0:a:1],
+    frames[a:b:2],
+    frames[b:c:5],
+    frames[c::5]])
 
 
 fig, ax = plt.subplots()
@@ -101,12 +110,14 @@ ax.tick_params(
     labelsize='xx-small')
 ax.set_aspect('equal')
 ax.grid(1, lw=0.4)
-ax.set_xlabel(r'$x$', fontsize='x-small', labelpad=0.6)
-ax.set_ylabel(r'$y$', fontsize='x-small', labelpad=0.6)
+ax.set_xlabel(r'$x$ [m]', fontsize='small', labelpad=0.6)
+ax.set_ylabel(r'$y$ [m]', fontsize='small', labelpad=0.6)
 ax.set_xlim(-lim, lim)
 ax.set_ylim(-lim, lim)
+# ax.set_title(r'Retardo $\tau = 400$ [ms]')
+ax.set_title('Sin Retardo')
 
-anim = CoverageAnimate(fig, ax, timestep, fast_frames, maxlen=10)
+anim = CoverageAnimate(fig, ax, timestep, adjusted_frames, maxlen=10)
 
 anim.set_teams({
     '$1$-hop': {
@@ -151,5 +162,5 @@ anim.ax.legend(
     fontsize='small',
     handletextpad=1)
 # anim.run()
-anim.run('/tmp/animation_xy.mp4')
+anim.run('/tmp/xy.mp4')
 # plt.show()

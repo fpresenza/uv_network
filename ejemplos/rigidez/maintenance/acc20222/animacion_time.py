@@ -68,6 +68,10 @@ class TimeAnimate(object):
             extra_args=extra_args)
 
 
+def time_index(t, ts):
+    return np.argmin(np.abs(t - ts))
+
+
 def adjust_speed(data, epochs, multipliers):
     if len(epochs) != len(multipliers):
         raise ValueError('len(epochs) != len(multipliers)')
@@ -80,7 +84,7 @@ def adjust_speed(data, epochs, multipliers):
 t = np.loadtxt('/tmp/t.csv', delimiter=',')
 x = np.loadtxt('/tmp/x.csv', delimiter=',')
 hatx = np.loadtxt('/tmp/hatx.csv', delimiter=',')
-u = np.loadtxt('/tmp/u.csv', delimiter=',')
+# u = np.loadtxt('/tmp/u.csv', delimiter=',')
 fre = np.loadtxt('/tmp/fre.csv', delimiter=',')
 re = np.loadtxt('/tmp/re.csv', delimiter=',')
 A = np.loadtxt('/tmp/adjacency.csv', delimiter=',')
@@ -89,24 +93,27 @@ n = int(len(x[0])/2)
 nodes = np.arange(n)
 hops = hops.astype(int)
 
-# reshapes
-x = x.reshape(len(t), n, 2)
-hatx = hatx.reshape(len(t), n, 2)
-u = u.reshape(len(t), n, 2)
-A = A.reshape(len(t), n, n)
-
 # slice
-kf = np.argmin(np.abs(t - 200))
+tf = 200
+kf = time_index(t, tf)
 t = t[:kf]
 x = x[:kf]
 hatx = hatx[:kf]
-u = u[:kf]
+# u = u[:kf]
 fre = fre[:kf]
 re = re[:kf]
 A = A[:kf]
 
+# reshapes
+x = x.reshape(len(t), n, 2)
+hatx = hatx.reshape(len(t), n, 2)
+# u = u.reshape(len(t), n, 2)
+A = A.reshape(len(t), n, n)
+
+
 # tiempo muerto al principio
-dt = 200
+ti = 0
+dt = time_index(t, ti)
 t = np.hstack([t, t[-1] + t[1:dt+1]])
 x = np.vstack([np.tile(x[0], (dt, 1, 1)), x])
 hatx = np.vstack([np.tile(hatx[0], (dt, 1, 1)), hatx])
@@ -116,14 +123,14 @@ A = np.vstack([np.tile(A[0], (dt, 1, 1)), A])
 
 
 # ajustar velocidad
-a, b = (np.abs(t - 20.).argmin(), np.abs(t - 40.).argmin())
+a, b = (time_index(t, 30.), time_index(t, 100.))
 epochs = ((0, a), (a, b), (b, len(t)))
-multipliers = (1, 2, 5)
+multipliers = (1, 5, 10)
 adj_t = adjust_speed(t, epochs, multipliers)
 
 adj_eig = np.empty((len(adj_t), 3), dtype=float)
-adj_eig[:, 0] = adjust_speed(re.min(axis=1), epochs, multipliers)
-adj_eig[:, 1] = adjust_speed(re.max(axis=1), epochs, multipliers)
+adj_eig[:, 0] = adjust_speed(re.max(axis=1), epochs, multipliers)
+adj_eig[:, 1] = adjust_speed(re.min(axis=1), epochs, multipliers)
 adj_eig[:, 2] = adjust_speed(fre, epochs, multipliers)
 
 load = np.array([subsets.degree_load_std(adj, hops) for adj in A])
@@ -137,10 +144,10 @@ adj_load[:, 0] = adjust_speed(load, epochs, multipliers)
 fig, ax = plt.subplots(figsize=(6, 3))
 fig.subplots_adjust(bottom=0.2)
 ax.grid(1, lw=0.4)
-ax.set_xlim(0, 225)
+ax.set_xlim(0, 200)
 ax.set_ylim(1e-3, 2.5)
-ax.set_xlabel(r'$t [seg]$')
-ax.set_ylabel('Rigidity eigenvalues')
+ax.set_xlabel(r'$t$ [seg]')
+ax.set_ylabel('Autovalores')
 timestep = np.diff(t).mean()
 
 anim = TimeAnimate(
@@ -148,9 +155,9 @@ anim = TimeAnimate(
     timestep, adj_t, adj_eig,
     type='semilogy',
     styles={
-        0: {'label': r'min $\rho_i$'},
-        1: {'label': r'max $\rho_i$'},
-        2: {'color': 'k', 'ls': '--', 'label': 'framework'}})
+        0: {'label': r'$\max \; \lambda_i$'},
+        1: {'label': r'$\min \; \lambda_i$'},
+        2: {'color': 'k', 'ls': '--', 'label': r'$\mathbf{\lambda}$'}})
 ax.legend(
     fontsize='small',
     ncol=1,
@@ -162,16 +169,23 @@ anim.save('/tmp/eigenvalues.mp4')
 fig, ax = plt.subplots(figsize=(6, 3))
 fig.subplots_adjust(bottom=0.2)
 ax.grid(1, lw=0.4)
-ax.set_xlim(0, 225)
-ax.set_ylim(1, 5.3)
-ax.set_xlabel(r'$t [seg]$')
-ax.set_ylabel('Std. Communication Load')
+ax.set_xlim(0, 200)
+ax.set_ylim(0, 5.3)
+ax.hlines(1, 0, 225, ls='--', color='k')
+ax.set_xlabel(r'$t$ [seg]')
+ax.set_ylabel(r'Carga Total')
 timestep = np.diff(t).mean()
 
 anim = TimeAnimate(
     fig, ax,
     timestep, adj_t, adj_load,
-    type='plot')
+    type='plot',
+    styles={0: {'label': r'$\mathcal{L} / \bar{n}$'}})
+ax.legend(
+    fontsize='small',
+    ncol=1,
+    # columnspacing=0.2,
+    loc='upper right')
 anim.save('/tmp/load.mp4')
 
-plt.show()
+# plt.show()

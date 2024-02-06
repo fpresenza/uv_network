@@ -15,6 +15,11 @@ plt.rcParams['ps.fonttype'] = 42
 plt.rcParams['mathtext.fontset'] = 'dejavuserif'
 plt.rcParams['font.family'] = 'serif'
 
+
+def time_index(t, ts):
+    return np.argmin(np.abs(t - ts))
+
+
 # extraigo datos
 t = np.loadtxt('/tmp/t.csv', delimiter=',')
 x = np.loadtxt('/tmp/x.csv', delimiter=',')
@@ -25,23 +30,25 @@ n = int(len(x[0])/2)
 nodes = np.arange(n)
 hops = hops.astype(int)
 
-# reshapes
-x = x.reshape(len(t), n, 2)
-hatx = hatx.reshape(len(t), n, 2)
-# print(x[0], hatx[0])
-A = A.reshape(len(t), n, n)
-
-lim = np.abs(x).max()
-
 # slice
-kf = np.argmin(np.abs(t - 200))
+tf = 200
+kf = time_index(t, tf)
 t = t[:kf]
 x = x[:kf]
 hatx = hatx[:kf]
 A = A[:kf]
 
+# reshapes
+x = x.reshape(len(t), n, 2)
+hatx = hatx.reshape(len(t), n, 2)
+A = A.reshape(len(t), n, n)
+
+lim = np.abs(x).max()
+
+
 # tiempo muerto al principio
-dt = 200
+ti = 0
+dt = time_index(t, ti)
 t = np.hstack([t, t[-1] + t[1:dt+1]])
 x = np.vstack([np.tile(x[0], (dt, 1, 1)), x])
 hatx = np.vstack([np.tile(hatx[0], (dt, 1, 1)), hatx])
@@ -54,16 +61,15 @@ E = network.edges_from_adjacency(A[0])
 steps = list(enumerate(t))
 for k, tk in steps:
     E = network.edges_from_adjacency(A[k])
-    X = np.vstack([x[k], hatx[k]])
+    X = np.vstack([x[k], x[k, 15], x[k, 41]])
     frames[k] = tk, X, E
 
-
 # ajustar velocidad
-transition = (np.abs(t - 20.).argmin(), np.abs(t - 40.).argmin())
+transition = (time_index(t, 30.), time_index(t, 100.))
 adjusted_frames = np.vstack([
-    frames[:transition[0]],
-    frames[transition[0]:transition[1]:2],
-    frames[transition[1]::5]])
+    frames[:transition[0]:1],
+    frames[transition[0]:transition[1]:5],
+    frames[transition[1]::10]])
 
 fig, ax = plt.subplots()
 ax.tick_params(
@@ -73,8 +79,8 @@ ax.tick_params(
     labelsize='xx-small')
 ax.set_aspect('equal')
 ax.grid(1, lw=0.4)
-ax.set_xlabel(r'$x \; [m]$', fontsize='small', labelpad=0.6)
-ax.set_ylabel(r'$y \; [m]$', fontsize='small', labelpad=0.6)
+ax.set_xlabel(r'$x$ [m]', fontsize='small', labelpad=0.6)
+ax.set_ylabel(r'$y$ [m]', fontsize='small', labelpad=0.6)
 ax.set_xticks([-100, 0, 100])
 ax.set_yticks([-100, 0, 100])
 ax.set_xticklabels([-100, 0, 100])
@@ -108,10 +114,10 @@ anim.set_teams(
         'tail': True,
         'style': {'color': 'purple', 'marker': '^', 'markersize': 5}},
     {
-        'name': 'est. pos.',
-        'ids': nodes + nodes[-1] + 1,
+        'name': 'ref.',
+        'ids': nodes[[0, 1]] + nodes[-1] + 1,
         'tail': False,
-        'style': {'color': 'red', 'marker': '+', 'markersize': 5}})
+        'style': {'color': 'red', 'marker': 'o', 'markersize': 5}})
 anim.set_edgestyle(color='0.4', alpha=0.6, lw=0.8)
 anim.ax.legend(
     fontsize='small',
