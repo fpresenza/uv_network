@@ -207,7 +207,7 @@ def local_symmetric_matrix(p, q, w=np.array(1.)):
     return Si
 
 
-def algebraic_condition(A, p, threshold=_THRESHOLD_):
+def is_inf_rigid(A, p, threshold=_THRESHOLD_):
     d = p.shape[-1]
     f = int(d * (d + 1)/2)
     S = fast_symmetric_matrix(A, p)
@@ -251,7 +251,7 @@ def nontrivial_motions(p):
 
 
 def extents(A, p, threshold=_THRESHOLD_):
-    if not algebraic_condition(A, p, threshold):
+    if not is_inf_rigid(A, p, threshold):
         raise ValueError('Flexible Framework.')
     n = A.shape[0]
     d = p.shape[1]
@@ -300,7 +300,7 @@ def minimum_radius(A, p, threshold=_THRESHOLD_, return_radius=False):
     f = d * (d + 1) // 2
     dist = distance_matrix(p)
 
-    if algebraic_condition(A, p, threshold):
+    if is_inf_rigid(A, p, threshold):
         B = A.copy()
         dist = dist * B
 
@@ -311,7 +311,7 @@ def minimum_radius(A, p, threshold=_THRESHOLD_, return_radius=False):
             radius = dist[i, j]
             dist[i, j] = dist[j, i] = 0
             B[i, j] = B[j, i] = 0
-            rigid = algebraic_condition(B, p, threshold)
+            rigid = is_inf_rigid(B, p, threshold)
     else:
         B = np.eye(n) + A
         B[B == 1] = np.inf
@@ -325,7 +325,7 @@ def minimum_radius(A, p, threshold=_THRESHOLD_, return_radius=False):
             A[i, j] = A[j, i] = 1
             e = A.sum() // 2
             if e >= d*n - f:
-                rigid = algebraic_condition(A, p, threshold)
+                rigid = is_inf_rigid(A, p, threshold)
 
     if return_radius:
         return A, radius
@@ -377,7 +377,7 @@ def rigidly_linked(geodesics, p, extents, threshold=_THRESHOLD_):
         Al[np.ix_(link_subset, link_subset)] = 1 - np.eye(num_link)
 
     # check if the link graph is rigid
-    if not algebraic_condition(
+    if not is_inf_rigid(
             Al[np.ix_(link_nodes, link_nodes)], p[link_nodes], threshold):
         raise ValueError('Link framework is flexible.')
 
@@ -419,7 +419,7 @@ def rigidly_linked_by_vertices(geodesics, p, extents, threshold=_THRESHOLD_):
         Al[np.ix_(link_subset, link_subset)] = 1 - np.eye(num_link)
 
     # check if the link graph is rigid
-    if not algebraic_condition(
+    if not is_inf_rigid(
             Al[np.ix_(link_nodes, link_nodes)], p[link_nodes], threshold):
         raise ValueError('Link framework is flexible.')
 
@@ -457,7 +457,7 @@ def sparse_centers_full_search(
                 Vi = geodesics[i] <= h[i]
                 Ai = A[Vi][:, Vi]
                 pi = p[Vi]
-                if not algebraic_condition(Ai, pi, threshold):
+                if not is_inf_rigid(Ai, pi, threshold):
                     raise ValueError
             new_value = metric(degree, h, geodesics)
             if new_value < min_value:
