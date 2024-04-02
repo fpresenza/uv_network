@@ -143,6 +143,13 @@ def degree_load_flat(A, hops):
     return degree_load(A, np.sign(coeff))
 
 
+@njit
+def fast_degree_load_flat(degree, hops, geodesics):
+    coeff = np.reshape(hops, (-1, 1)) - geodesics
+    coeff = np.clip(coeff, a_min=0, a_max=1)
+    return coeff.dot(degree).sum()
+
+
 def subgraph_union(A, hops):
     """Devuelve la union de los subgrafos dados por sus extensiones"""
     geo = geodesics(A)
