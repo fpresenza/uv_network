@@ -29,22 +29,17 @@ Token.__new__.__defaults__ = (
 
 
 class subgraph_protocol(object):
-    def __init__(self, node_id, extent):
+    def __init__(self, node_id):
         """Clase para implementar el ruteo necesario para el control
         de formaciones basado en subgrafos.
 
         El protocolo se basa en dos tipos de tokens: accion y estado.
 
-        Cada nodo recibe un token de estado por cada nodo en su subgrafo,
-        computa las acciones de control, las empaqueta en un token de accions
-        y las reenvia al mismo.
-
         Los tokens de accion se propagan hasta que la cantidad de hops
-        viajados es igual al extent del nodo emisor.
+        viajados es igual al action_extent del nodo emisor.
+        Los tokens de estado se propagan hasta que la cantidad de hops
+        viajados es igual al state_extent del nodo emisor.
 
-        Cada nodo envia sus tokens de estado a los nodos de los cuales
-        recibio token de accion. Los tokens de estado son ruteados por los
-        caminos por los cuales llegaron aquellos tokens de accion.
         """
         self.node_id = node_id
         self.action = {}    # guarda los tokens de accion recibidos (fifo)
@@ -86,7 +81,7 @@ class subgraph_protocol(object):
             if token.hops_travelled <= hops}
         return g
 
-    def broadcast(self, timestamp, action, state, extent):
+    def broadcast(self, timestamp, action, state, action_extent, state_extent):
         """Prepara las listas con los tokens que se deben enviar.
         Luego elimina todos los tokens recibidos de otros nodos"""
         # Tokens de accion de otros nodos para retransmitir
@@ -99,19 +94,21 @@ class subgraph_protocol(object):
         action_tokens[self.node_id] = Token(
             center=self.node_id,
             timestamp=timestamp,
-            hops_to_target=extent.copy(),
+            hops_to_target=action_extent.copy(),
             hops_travelled=0,
             data=action.copy())
 
         # Tokens de estado de otros nodos para retransmitir
         state_tokens = {
             token.center: token
-            for token in self.state.values()}
+            for token in self.state.values()
+            if token.hops_travelled < token.hops_to_target}
 
         # Token de estado propio para transmitir
         state_tokens[self.node_id] = Token(
             center=self.node_id,
             timestamp=timestamp,
+            hops_to_target=state_extent.copy(),
             hops_travelled=0,
             data=state.copy())
 

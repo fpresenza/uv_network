@@ -50,14 +50,22 @@ class Neighborhood(dict):
 
 
 class single_integrator(object):
+    """Cada nodo recibe un token de estado por cada nodo en su subgrafo,
+    computa las acciones de control, las empaqueta en un token de accions
+    y las reenvia al mismo.
+
+    Cada nodo envia sus tokens de estado a los nodos de los cuales
+    recibio token de accion.
+    """
     def __init__(
             self, node_id, pos, est_pos, cov,
-            comm_range, extent=None, t=0):
+            comm_range, action_extent, state_extent, t=0):
         self.node_id = node_id
         self.dim = len(pos)
         self.dmin = np.min(comm_range)
         self.dmax = np.max(comm_range)
-        self.extent = extent
+        self.action_extent = action_extent
+        self.state_extent = state_extent
         self.current_time = t
         self.dm = integrator(pos)
         self.maintenance = centralized_rigidity_maintenance(
@@ -75,7 +83,7 @@ class single_integrator(object):
             est_pos, cov, ctrl_cov, range_cov, gps_cov)
         self.neighborhood = Neighborhood()
         self.routing = routing_protocols.subgraph_protocol(
-            self.node_id, self.extent)
+            self.node_id)
         self.gps = {}
         self.state = {
             'position': self.loc.position,
@@ -90,7 +98,8 @@ class single_integrator(object):
             self.current_time,
             self.action,
             self.state,
-            self.extent)
+            self.action_extent,
+            self.state_extent)
         msg = InterAgentMsg(
             node_id=self.node_id,
             timestamp=self.current_time,
@@ -116,12 +125,12 @@ class single_integrator(object):
         re = rigidity.eigenvalue(A, p)
         return re
 
-    def choose_extent(self):
+    def choose_action_extent(self):
         try:
-            re = self.rigidity_eigenvalue(self.extent)
-            new_re = self.rigidity_eigenvalue(self.extent - 1)
+            re = self.rigidity_eigenvalue(self.action_extent)
+            new_re = self.rigidity_eigenvalue(self.action_extent - 1)
             if new_re > re:
-                self.extent -= 1
+                self.action_extent -= 1
         except ValueError:
             pass
 
@@ -131,7 +140,7 @@ class single_integrator(object):
 
     def control_step(self, u_ext=0):
         # obtengo posiciones del subframework
-        position = self.routing.extract_state('position', self.extent)
+        position = self.routing.extract_state('position', self.action_extent)
         degree = len(position)
         if degree > 0:
             p = np.empty((degree + 1, self.dim))

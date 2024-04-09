@@ -10,8 +10,7 @@ import progressbar
 import numpy as np
 import matplotlib.pyplot as plt    # noqa
 
-import uvnpy.network as network
-from uvnpy.network import disk_graph
+from uvnpy.network import disk_graph, subsets
 from uvnpy.rsn import distances, rigidity
 from uvnpy.autonomous_agents import subframework_rigidity_agent
 
@@ -30,7 +29,7 @@ Logs = collections.namedtuple(
     fre, \
     re, \
     adjacency, \
-    extents, \
+    action_extents, \
     targets')
 
 
@@ -52,12 +51,19 @@ class Formation(object):
         self.action = np.zeros((self.n, self.dim))
         self.proximity_matrix = disk_graph.adjacency(
             pos, self.dmin)
-        extents = rigidity.fast_extents(self.proximity_matrix, pos)
+        action_extents_init = rigidity.fast_extents(self.proximity_matrix, pos)
+        distance_matrix = subsets.geodesics(self.proximity_matrix)
+        state_extents_init = [
+            np.max(
+                distance_matrix[i][distance_matrix[i] <= action_extents_init]
+            )
+            for i in range(self.n)
+        ]
         for i in node_ids:
             est_pos = np.random.multivariate_normal(pos[i], cov)
             self.vehicles[i] = agent_model(
                 i, pos[i], est_pos, cov,
-                comm_range, extents[i])
+                comm_range, action_extents_init[i], state_extents_init[i])
             self.position_array[i] = self.vehicles[i].dm._x         # asigna el address # noqa
             self.est_position_array[i] = self.vehicles[i].loc._x    # asigna el address # noqa
 
@@ -72,8 +78,8 @@ class Formation(object):
         return np.vstack(self.est_position_array)
 
     @property
-    def extents(self):
-        h = [v.extent for v in self.vehicles]
+    def action_extents(self):
+        h = [v.action_extent for v in self.vehicles]
         return h
 
     def rigidity_eigenvalue(self):
@@ -82,10 +88,12 @@ class Formation(object):
 
     def subframeworks(self):
         sf = [
-            network.subsets.multihop_subframework(
+            subsets.multihop_subframework(
                 self.proximity_matrix, self.position,
-                i, self.vehicles[i].extent)
-            for i in range(self.n)]
+                i, self.vehicles[i].action_extent
+            )
+            for i in range(self.n)
+        ]
         return sf
 
     def try_re(self, A, x):
@@ -231,8 +239,6 @@ def run(steps, formation, logs):
     perf_time = []
     t_init = 5
 
-    print(formation.extents)
-
     for k, t in steps[1:]:
         t_a = time.perf_counter()
 
@@ -276,7 +282,7 @@ def run(steps, formation, logs):
         # raise ValueError
         logs.re[k] = sfre
         logs.adjacency[k] = formation.proximity_matrix.ravel()
-        logs.extents[k] = formation.extents
+        logs.action_extents[k] = formation.action_extents
         logs.targets[k] = targets.data.ravel()
 
         perf_time.append((t_b - t_a)/n)
@@ -284,10 +290,10 @@ def run(steps, formation, logs):
 
     bar.finish()
 
-    st = arg.tf
-    rt = sum(perf_time)
-    prompt = 'RT={:.3f} secs, ST={:.3f} secs  ==>  RTF={:.3f}'
-    print(prompt.format(rt, st, st / rt))
+    rt = arg.tf
+    st = sum(perf_time)
+    prompt = 'ST={:.3f} secs, RT={:.3f} secs  ==>  RTF={:.3f}'
+    print(prompt.format(st, rt, rt / st))
 
     return logs
 
@@ -360,8 +366,11 @@ formation = Formation(
     gps_cov=1.,
     queue=arg.queue)
 
+print(formation.action_extents)
+
 n_targets = 30
 targets = Targets(n_targets, (-40, 40), (-40, 40))
+
 
 # ------------------------------------------------------------------
 # Simulación
@@ -375,7 +384,7 @@ logs = Logs(
     fre=np.zeros(n_steps),
     re=np.zeros((n_steps, n)),
     adjacency=np.empty((n_steps, n**2), dtype=int),
-    extents=np.zeros((n_steps, n)),
+    action_extents=np.zeros((n_steps, n)),
     targets=np.empty((n_steps, 3*n_targets)))
 logs.position[0] = formation.position.ravel()
 logs.est_position[0] = formation.est_position.ravel()
@@ -383,7 +392,7 @@ logs.action[0] = np.zeros(n*dim)
 logs.fre[0] = formation.rigidity_eigenvalue()
 logs.re[0] = formation.subframeworks_rigidity_eigenvalue()
 logs.adjacency[0] = formation.proximity_matrix.ravel()
-logs.extents[0] = formation.extents
+logs.action_extents[0] = formation.action_extents
 logs.targets[0] = targets.data.ravel()
 
 logs = run(steps, formation, logs)
@@ -395,5 +404,5 @@ np.savetxt('/tmp/action.csv', logs.action, delimiter=',')
 np.savetxt('/tmp/fre.csv', logs.fre, delimiter=',')
 np.savetxt('/tmp/re.csv', logs.re, delimiter=',')
 np.savetxt('/tmp/adjacency.csv', logs.adjacency, delimiter=',')
-np.savetxt('/tmp/extents.csv', logs.extents, delimiter=',')
+np.savetxt('/tmp/extents.csv', logs.action_extents, delimiter=',')
 np.savetxt('/tmp/targets.csv', logs.targets, delimiter=',')
