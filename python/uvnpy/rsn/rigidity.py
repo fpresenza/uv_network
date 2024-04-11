@@ -292,6 +292,51 @@ def fast_extents(A, p, threshold=THRESHOLD):
     return hops
 
 
+def superframework_extent(A, hops):
+    n = len(A)
+    geodesics = fast_geodesics(A)
+    return np.array(
+        [np.max(geodesics[i][geodesics[i] <= hops]) for i in range(n)],
+        dtype=int
+    )
+
+
+def bidirectional_extents(A, p, threshold=THRESHOLD):
+    """Compute both subframework and superframework extent
+
+    Returns
+    -------
+    sub_extent: int array
+        the extent of the subframeworks
+    super_extent: int array
+        the extent of the superframeworks
+    """
+    n, d = p.shape
+    f = d * (d + 1) // 2
+    geodesics = fast_geodesics(A)
+    sub_extent = np.empty(n, dtype=int)
+    for i in range(n):
+        minimum_found = False
+        h = 0
+        while not minimum_found:
+            h += 1
+            subset = geodesics[i] <= h
+            Ai = A[np.ix_(subset, subset)]
+            pi = p[subset]
+            Si = fast_symmetric_matrix(Ai, pi)
+            re = np.linalg.eigvalsh(Si)[f]
+            if re > threshold:
+                minimum_found = True
+        sub_extent[i] = h
+
+    super_extent = np.array(
+        [np.max(geodesics[i][geodesics[i] <= sub_extent]) for i in range(n)],
+        dtype=int
+    )
+
+    return sub_extent, super_extent
+
+
 def minimum_radius(A, p, threshold=THRESHOLD, return_radius=False):
     """Add or delete edges to a framework until it is radius-wise minimally
     rigid."""
