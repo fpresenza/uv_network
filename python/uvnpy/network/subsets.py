@@ -9,6 +9,9 @@ import numpy as np
 from numba import njit
 
 
+from uvnpy.network import core
+
+
 @njit
 def reach(A, hops):
     """La potencia k-esima de la matriz de adyacencia indica la
@@ -108,6 +111,10 @@ def multihop_subsets(A, centers, hops):
     return [As[h - 1, i] for i, h in zip(centers, hops)]
 
 
+def supergraph_extent(geodesics, extents):
+    return np.max(geodesics * (geodesics <= extents), axis=1).astype(int)
+
+
 @njit
 def degree_load(A, coeff):
     deg = A.sum(1)
@@ -162,3 +169,29 @@ def subgraph_union(A, hops):
         U[idx] = A[idx].copy()
 
     return U
+
+
+@njit
+def kl_graphs(geodesics, extents):
+    """
+    Computes the graph obtained by completing all the remaining
+    edges and the graph of edges not in any subgraph
+    """
+    n = len(extents)
+
+    # compute the subgraph-wise complete graph
+    K = core.adjacency_from_geodesics(geodesics)
+    # compute the link graph
+    L = K.copy()
+    for i in range(n):
+        for j in range(i+1, n):
+            in_subgraph = np.any(
+                    np.logical_and(
+                        geodesics[i] <= extents, geodesics[j] <= extents)
+                )
+            K[i, j] = K[i, j] or in_subgraph
+            K[j, i] = K[i, j]
+            L[i, j] = L[i, j] and not in_subgraph
+            L[j, i] = L[i, j]
+
+    return K, L
