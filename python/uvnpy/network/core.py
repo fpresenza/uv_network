@@ -133,6 +133,6 @@ def diameter(A):
 
 @njit
 def adjacency_from_geodesics(geodesics):
-    A = geodesics.ravel().copy()
+    A = geodesics.copy()
     A[A > 1] = 0
-    return A.reshape(geodesics.shape)
+    return A
