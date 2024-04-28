@@ -152,9 +152,9 @@ def degree_load_flat(A, hops):
 
 @njit
 def fast_degree_load_flat(degree, hops, geodesics):
-    coeff = np.reshape(hops, (-1, 1)) - geodesics
-    coeff = np.clip(coeff, a_min=0, a_max=1)
-    return coeff.dot(degree).sum()
+    N = np.sum(geodesics < hops.reshape(-1, 1), axis=0)
+    degree = np.sum(hops == 1, axis=1)
+    return np.sum(N * degree)
 
 
 def subgraph_union(A, hops):
