@@ -50,8 +50,8 @@ def sufficiently_dispersed_position(n, xlim, ylim, max_dist):
     return p
 
 
-def rigidity_matrix(D, p):
-    """Matriz de rigidez normalizada
+def classic_rigidity_matrix(D, p):
+    """Matriz de rigidez
 
     args:
         D: matriz de incidencia (n, m)
@@ -60,10 +60,83 @@ def rigidity_matrix(D, p):
     returns
         R: jacobiano (ne, n * d)
     """
+    n, d = p.shape[-2:]
     Dt = D.T
-    r = unit_vector(Dt.dot(p), axis=-1)
-    J = Dt[:, :, None] * r[:, None]
-    return J.reshape(-1, p.size)
+    r = np.matmul(Dt, p)
+    J = Dt[..., None] * r[..., None, :]
+    return J.reshape(-1, n*d)
+
+
+def classic_rigidity_matrix_multiple_axes(D, p):
+    """Matriz de rigidez
+
+    args:
+        D: matriz de incidencia (n, m)
+        p: array de posiciones (n, d)
+
+    returns
+        R: jacobiano (ne, n * d)
+    """
+    n, d = p.shape[-2:]
+    m = D.shape[-1]
+    Dt = D.T
+    r = np.matmul(Dt, p)
+    J = Dt[..., None] * r[..., None, :]
+    return J.reshape(-1, m, n*d)
+
+
+def rigidity_matrix(D, p):
+    """Matriz de rigidez
+
+    args:
+        D: matriz de incidencia (n, m)
+        p: array de posiciones (n, d)
+
+    returns
+        R: jacobiano (ne, n * d)
+    """
+    n, d = p.shape[-2:]
+    Dt = D.T
+    r = unit_vector(np.matmul(Dt, p), axis=-1)
+    J = Dt[..., None] * r[..., None, :]
+    return J.reshape(-1, n*d)
+
+
+def rigidity_matrix_multiple_axes(D, p):
+    """Matriz de rigidez
+
+    args:
+        D: matriz de incidencia (n, m)
+        p: array de posiciones (n, d)
+
+    returns
+        R: jacobiano (ne, n * d)
+    """
+    n, d = p.shape[-2:]
+    m = D.shape[-1]
+    Dt = D.T
+    r = unit_vector(np.matmul(Dt, p), axis=-1)
+    J = Dt[..., None] * r[..., None, :]
+    return J.reshape(-1, m, n*d)
+
+
+@njit
+def _classic_rigidity_laplacian(A, p):
+    n, d = p.shape
+    L = np.zeros((n, n, d, d))
+    edges = np.argwhere(np.triu(A) > 0)
+    for i, j in edges:
+        dji = p[j] - p[i]
+        L[i, j] = L[j, i] = dji.reshape(d, 1).dot(dji.reshape(1, d))
+        L[i, i] -= L[i, j]
+        L[j, j] -= L[i, j]
+
+    return L
+
+
+def classic_rigidity_laplacian(A, p):
+    L = _classic_rigidity_laplacian(A, p)
+    return L.swapaxes(1, 2).reshape(p.size, p.size)
 
 
 @njit
@@ -84,6 +157,33 @@ def _rigidity_laplacian(A, p):
 def rigidity_laplacian(A, p):
     L = _rigidity_laplacian(A, p)
     return L.swapaxes(1, 2).reshape(p.size, p.size)
+
+
+def classic_rigidity_laplacian_multiple_axes(A, p):
+    """Matriz de rigidez.
+
+        S =  R^T W R
+
+    A[i, j] >= 0 respresenta el peso asociado a cada enlace.
+
+    args:
+        A: matriz de adyacencia (..., n, n)
+        p: array de posiciones (..., n, d)
+
+    returns
+        S: laplaciano de rigidez (..., n * d, n * d)
+    """
+    n, d = p.shape[-2:]
+    ii = np.eye(n, dtype=bool)
+    r = p[..., None, :] - p[..., None, :, :]
+    r[..., ii, :] = 0
+    S = - r[..., None] * r[..., None, :]    # outer product
+    S *= A[..., None, None]                 # aplicar pesos
+    S[..., ii, :, :] -= S.sum(p.ndim - 1)
+    S = S.swapaxes(-3, -2)
+    s = list(S.shape)
+    s[-4:] = n * d, n * d
+    return S.reshape(s)
 
 
 def rigidity_laplacian_multiple_axes(A, p):
