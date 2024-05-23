@@ -34,6 +34,14 @@ def edges_from_adjacency(A, directed=False):
     return E
 
 
+def incidence_from_edges(n, E):
+    D = np.zeros((n, len(E)))
+    e = range(len(E))
+    D[E[:, 1], e] = -1
+    D[E[:, 0], e] = 1
+    return D
+
+
 def adjacency_from_edges(n, E, w=1, directed=False):
     A = np.zeros((n, n))
     A[E[:, 0], E[:, 1]] = w
