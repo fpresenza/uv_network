@@ -24,6 +24,12 @@ def distance_matrix(x):
     return dist
 
 
+def distance_matrix_from_edges(E, p):
+    r = p[..., E[:, 0], :] - p[..., E[:, 1], :]
+    dist = np.sqrt(np.square(r).sum(axis=-1))
+    return dist
+
+
 def distance_matrix_from_adjacency(A, p):
     r = p[..., None, :] - p[..., None, :, :]
     dist = np.sqrt(np.square(r).sum(axis=-1)) * A
