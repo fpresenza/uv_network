@@ -3,7 +3,6 @@
 """
 @author Francisco Presenza
 @institute LAR - FIUBA, Universidad de Buenos Aires, Argentina
-@date mar 14 dic 2021 15:12:35 -03
 """
 import numpy as np
 import collections
@@ -11,142 +10,88 @@ import collections
 
 Token = collections.namedtuple(
     'Token',
-    'center, \
-    timestamp, \
+    'transmitter, \
+    counter, \
     hops_to_target, \
     hops_travelled, \
-    data')
+    data'
+)
 
 Token.__new__.__defaults__ = (
     None,
     None,
     None,
     np.inf,
-    None)
+    None
+)
 
 
 class TokenPassing(object):
     """
-    Clase para implementar el ruteo necesario para el control
-    de formaciones basado en subgrafos.
+    Clase para implementar el ruteo necesario para el intercambio
+    de informacion entre agentes de una red.
 
-    El protocolo se basa en dos tipos de tokens: accion y estado.
-
-    Los tokens de accion se propagan hasta que la cantidad de hops
-    viajados es igual al action_extent del nodo emisor.
-    Los tokens de estado se propagan hasta que la cantidad de hops
-    viajados es igual al state_extent del nodo emisor.
+    El protocolo se basa en el pase de tokens. Estos se propagan
+    hasta que la cantidad de hops viajados es igual a la indicada.
     """
     def __init__(self, node_id):
         self.node_id = node_id
-        self.action = {}    # guarda los tokens de accion recibidos (fifo)
-        self.state = {}    # guarda los tokens de estado recibidos (fifo)
+        self.counter = 0
+        self.token_record = {}    # guarda los tokens recibidos (fifo)
 
-    def action_tokens(self):
-        # Extrae los tokens de accion de la queue
-        return tuple(self.action.values())
-
-    def state_tokens(self):
-        # Extrae los tokens de estado de la queue
-        return tuple(self.state.values())
-
-    def extract_action(self):
-        """ Extrae los datos encontrados en los token de accion que tienen
-        info para este nodo en el campo data"""
-        cmd = {
-            token.center: token.data[self.node_id]
-            for token in self.action.values()
-            if self.node_id in token.data
-        }
-        return cmd
-
-    def extract_state(self, key, hops):
-        """ Extrae los datos asociados a key encontrados en los token de
-        estado que hayan atravesado una cantidad de enlaces menor o igual
-        a hops"""
-        p = {
-            token.center: token.data[key]
-            for token in self.state.values()
+    def extract_data(self, hops=np.inf):
+        """ Extrae los datos en los token registrados"""
+        return {
+            token.transmitter: token.data
+            for token in self.token_record.values()
             if token.hops_travelled <= hops
         }
-        return p
 
-    def geodesics(self, hops):
-        """Calcula las distancias geodesicas de otros nodos en funcion de los
+    def geodesics(self, hops=np.inf):
+        """Calcula las distancias geodesicas de los nodos en funcion de los
         hops atravesados por sus mensajes"""
-        g = {
-            token.center: token.hops_travelled
-            for token in self.state.values()
+        return {
+            token.transmitter: token.hops_travelled
+            for token in self.token_record.values()
             if token.hops_travelled <= hops
         }
-        return g
 
-    def broadcast(self, timestamp, action, state, action_extent, state_extent):
-        """Prepara las listas con los tokens que se deben enviar.
+    def tokens_to_transmit(self, data, extent):
+        """Prepara una lista con los tokens que se deben enviar.
         Luego elimina todos los tokens recibidos de otros nodos"""
-        # Tokens de accion de otros nodos para retransmitir
-        action_tokens = {
-            token.center: token
-            for token in self.action.values()
-            if token.hops_travelled < token.hops_to_target}
+        # Tokens de otros nodos para retransmitir
+        to_transmit = {
+            token.transmitter: token
+            for token in self.token_record.values()
+            if token.hops_travelled < token.hops_to_target
+        }
 
-        # Token de accion propio para transmitir
-        action_tokens[self.node_id] = Token(
-            center=self.node_id,
-            timestamp=timestamp,
-            hops_to_target=action_extent.copy(),
+        # Token propio para transmitir
+        to_transmit[self.node_id] = Token(
+            transmitter=self.node_id,
+            counter=self.counter,
+            hops_to_target=extent,
             hops_travelled=0,
-            data=action.copy())
+            data=data.copy()
+        )
 
-        # Tokens de estado de otros nodos para retransmitir
-        state_tokens = {
-            token.center: token
-            for token in self.state.values()
-            if token.hops_travelled < token.hops_to_target}
+        self.counter += 1
+        self.token_record.clear()
 
-        # Token de estado propio para transmitir
-        state_tokens[self.node_id] = Token(
-            center=self.node_id,
-            timestamp=timestamp,
-            hops_to_target=state_extent.copy(),
-            hops_travelled=0,
-            data=state.copy())
+        return to_transmit.values()
 
-        self.action.clear()
-        self.state.clear()
-
-        return action_tokens, state_tokens
-
-    def update_action(self, tokens):
-        """Actualiza la informacion de accion que es recibida en
-        forma de tokens"""
+    def update_record(self, tokens):
+        """Actualiza la informacion que es recibida en forma de tokens"""
         for token in tokens:
-            if token.center != self.node_id:
-                """Actualiza los hops atravesados"""
+            if token.transmitter != self.node_id:
+                # Actualiza los hops atravesados
                 token = token._replace(hops_travelled=token.hops_travelled + 1)
-                center = token.center
-                """Toma el token existente o lo reemplaza por el nuevo"""
+                transmitter = token.transmitter
+                # Si ya cuenta con un el token del transmisor, solo lo
+                # actualiza si el nuevo tiene menor recorrido
                 try:
-                    """Se queda con el de menor hops atravesados"""
-                    curr_token = self.action[center]
+                    curr_token = self.token_record[transmitter]
                     if token.hops_travelled < curr_token.hops_travelled:
-                        self.action[center] = token
+                        self.token_record[transmitter] = token
                 except KeyError:
-                    self.action[center] = token
-
-    def update_state(self, tokens):
-        """Actualiza la informacion de estado que es recibida en
-        forma de tokens"""
-        for token in tokens:
-            if token.center != self.node_id:
-                """Actualiza los hops atravesados"""
-                token = token._replace(hops_travelled=token.hops_travelled + 1)
-                center = token.center
-                """Toma el token existente o lo reemplaza por el nuevo"""
-                try:
-                    """Se queda con el de menor hops atravesados"""
-                    curr_token = self.state[center]
-                    if token.hops_travelled < curr_token.hops_travelled:
-                        self.state[center] = token
-                except KeyError:
-                    self.state[center] = token
+                    self.token_record[transmitter] = token

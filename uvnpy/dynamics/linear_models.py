@@ -9,6 +9,14 @@ import numpy as np
 import collections
 
 
+class DiscreteIntegrator(object):
+    def __init__(self, x):
+        self.x = x.copy()
+
+    def step(self, diff):
+        self.x += diff
+
+
 class Integrator(object):
     def __init__(self, xi, ti=0., order=1):
         """Modelo de vehiculo integrador."""
