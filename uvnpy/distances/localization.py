@@ -13,6 +13,7 @@ np.set_printoptions(precision=10)
 class DecentralizedLocalization(object):
     def __init__(self, xi, ti=0.):
         self.init(xi, ti)
+        self.dim = len(xi)
 
     @property
     def position(self):
@@ -53,7 +54,7 @@ class GradientBasedFilter(DecentralizedLocalization):
         x = self._x + u * dt
         return x
 
-    def distances_model(self, z, xj, wj):
+    def distances_model(self, z, xj):
         """
         Distance with neighbors.
 
@@ -61,11 +62,25 @@ class GradientBasedFilter(DecentralizedLocalization):
         -----
             z  : measurements
             xj : neighbors states
-            wj : weigth associated to each neighbor
         """
         r = self._x - xj
         d = np.sqrt(np.square(r).sum(axis=1))
-        m = wj * (z - d)/d
+        m = (z - d)/d
+        g = sum(r * m[:, None])
+        return g
+
+    def square_distances_model(self, z, xj):
+        """
+        Square distance with neighbors.
+
+        args:
+        -----
+            z  : measurements
+            xj : neighbors states
+        """
+        r = self._x - xj
+        d2 = np.square(r).sum(axis=1)
+        m = (z - d2)
         g = sum(r * m[:, None])
         return g
 
@@ -83,7 +98,7 @@ class GradientBasedFilter(DecentralizedLocalization):
         x = self.dynamic_model(dt, u, *args)
         self._x -= self.W.dot(self._x - x)
 
-    def distances_step(self, z, xj, wj, *args):
+    def distances_step(self, z, xj, *args):
         """
         Measurement model step.
 
@@ -91,11 +106,33 @@ class GradientBasedFilter(DecentralizedLocalization):
         -----
             z  : measurements
             xj : neighbors states
-            wj : weigth associated to each neighbor
 
         """
-        g_obs = self.distances_model(z, xj, wj, *args)
+        g_obs = self.distances_model(z, xj, *args)
         self._x += self.alpha * g_obs
+
+    def square_distances_step(self, z, xj, *args):
+        """
+        Measurement model step.
+
+        args:
+        -----
+            z  : measurements
+            xj : neighbors states
+
+        """
+        g_obs = self.square_distances_model(z, xj, *args)
+        self._x += self.alpha * g_obs
+
+    def gps_step(self, z):
+        """
+        Position measurements model step.
+
+        args:
+        -----
+            z : measurements
+        """
+        self._x += self.alpha * (z - self._x)
 
 
 class KalmanBasedFilter(DecentralizedLocalization):
@@ -114,7 +151,8 @@ class KalmanBasedFilter(DecentralizedLocalization):
         self._P = Pi.copy()
         self.ctrl_cov = Qu
         self.range_cov = Rd
-        self.gps_cov = Rp
+        self.square_range_cov = Rd**2
+        self.gps_cov = Rp * np.eye(self.dim)
 
     @property
     def covariance(self):
@@ -153,6 +191,25 @@ class KalmanBasedFilter(DecentralizedLocalization):
         R = np.diag((Rj + self.range_cov).ravel())
         return dz, H, R
 
+    def square_distances_model(self, z, xj, Pj):
+        """
+        Square distance with neighbors.
+
+        args:
+        -----
+            z  : measurements
+            xj : neighbors states
+            Pj : covariance associated to each neighbor
+        """
+        r = self._x - xj
+        d2 = np.square(r).sum(axis=-1, keepdims=True)
+        d2 = d2.ravel()
+        dz = z.ravel() - d2
+        H = 2 * r
+        Rj = np.matmul(H[:, None], np.matmul(Pj, H[:, :,  None]))
+        R = np.diag((Rj + self.square_range_cov).ravel())
+        return dz, H, R
+
     def dynamic_step(self, t, u, *args):
         """
         Dynamic model step.
@@ -181,6 +238,24 @@ class KalmanBasedFilter(DecentralizedLocalization):
 
         """
         dz, H, R = self.distances_model(z, xj, Pj, *args)
+        Pz = H.dot(self._P).dot(H.T) + R
+        K = self._P.dot(H.T).dot(np.linalg.inv(Pz))
+
+        self._x += K.dot(dz)
+        self._P -= K.dot(H).dot(self._P)
+
+    def square_distances_step(self, z, xj, Pj, *args):
+        """
+        Distance measurements model step.
+
+        args:
+        -----
+            z  : measurements
+            xj : neighbors states
+            Pj : weigth associated to each neighbor
+
+        """
+        dz, H, R = self.square_distances_model(z, xj, Pj, *args)
         Pz = H.dot(self._P).dot(H.T) + R
         K = self._P.dot(H.T).dot(np.linalg.inv(Pz))
 
