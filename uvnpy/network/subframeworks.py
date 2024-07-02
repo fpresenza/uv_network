@@ -151,23 +151,23 @@ def sparse_subframeworks_greedy_search(geodesics, extents, metric):
     """
     n = len(extents)
     hops = extents.copy()
-    remain = np.arange(n)
+    remain = list(range(n))
     terminate = False
 
     min_value = np.inf
     while not terminate:
-        remove = None
+        remove_sub = None
         for i in remain:
             sparsed = hops.copy()
             sparsed[i] = 0
             new_value = metric(geodesics, sparsed)
             if new_value < min_value:
                 min_value = new_value
-                remove = i
+                remove_sub = i
 
-        if remove is not None:
-            hops[remove] = 0
-            remain = np.delete(remain, remain == remove)
+        if remove_sub is not None:
+            hops[remove_sub] = 0
+            remain.remove(remove_sub)
         else:
             terminate = True
     return hops
