@@ -14,8 +14,8 @@ from uvnpy.network.core import geodesics
 from uvnpy.network.load import one_token_for_all, one_token_for_each
 from uvnpy.distances.core import (
     minimum_rigidity_extents,
-    minimum_rigidity_radius,
-    sufficiently_dispersed_position
+    sufficiently_dispersed_position,
+    is_inf_rigid
 )
 from uvnpy.network.subframeworks import (
     superframework_extents,
@@ -33,17 +33,17 @@ plt.rcParams['mathtext.fontset'] = 'dejavuserif'
 plt.rcParams['font.family'] = 'serif'
 
 
-def metrics(geodesics, extents):
+def comm_load(geodesics, extents):
     action_load = one_token_for_each(geodesics, extents)
     super_extents = superframework_extents(geodesics, extents)
     state_load = one_token_for_all(geodesics, super_extents)
-    n_isolated_edges = len(isolated_edges(geodesics, extents))
-    return action_load + state_load, n_isolated_edges
+    return action_load + state_load
 
 
-def network_load(geodesics, extents):
-    load, edges = metrics(geodesics, extents)
-    return load + (1 + 0.5) * edges
+def decomposition_cost(geodesics, extents):
+    load = comm_load(geodesics, extents)
+    n_iso_edges = len(isolated_edges(geodesics, extents))
+    return load + (1 + 0.5) * n_iso_edges
 
 
 parser = argparse.ArgumentParser(description='')
@@ -53,14 +53,18 @@ n = 20
 threshold = 1e-5
 
 p = sufficiently_dispersed_position(n, (0, 1), (0, 0.9), 0.1)
-A0 = adjacency_from_positions(p, dmax=2/np.sqrt(n))
-A, Rmin = minimum_rigidity_radius(A0, p, threshold, return_radius=True)
+
+rigid = False
+while not rigid:
+    A = adjacency_from_positions(p, dmax=2/np.sqrt(n))
+    if is_inf_rigid(A, p):
+        rigid = True
 
 h = minimum_rigidity_extents(A, p, threshold)
 G = geodesics(A)
 D = np.max(G)
 
-h_sparsed = sparse_subframeworks_greedy_search(G, h, network_load)
+h_sparsed = sparse_subframeworks_greedy_search(G, h, decomposition_cost)
 
 L = np.zeros(A.shape)
 for i, j in isolated_edges(G, h_sparsed):
