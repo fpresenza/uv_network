@@ -63,8 +63,8 @@ def run(d, nmin, nmax, logs, rep, dense):
             A0 = adjacency_from_positions(p, dmax=2/np.sqrt(n))
             A, Rmin = minimum_rigidity_radius(A0, p, return_radius=True)
 
-            h = minimum_rigidity_extents(A, p)
             G = geodesics(A)
+            h = minimum_rigidity_extents(G, p)
             degree = A.sum(axis=1)
             logs.diam[k, r] = np.max(G)
             logs.hmax[k, r] = np.max(h)

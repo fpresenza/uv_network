@@ -60,10 +60,8 @@ while not rigid:
     if is_inf_rigid(A, p):
         rigid = True
 
-h = minimum_rigidity_extents(A, p, threshold)
 G = geodesics(A)
-D = np.max(G)
-
+h = minimum_rigidity_extents(G, p, threshold)
 h_sparsed = sparse_subframeworks_greedy_search(G, h, decomposition_cost)
 
 L = np.zeros(A.shape)
@@ -99,7 +97,7 @@ plot.edges(
 hops = np.unique(h)
 for k in hops:
     c = h == k
-    print(h[c])
+    # print(h[c])
     v_artist = ax.scatter(
         p[c, 0], p[c, 1],
         marker='o', s=(k+1) * 10,
