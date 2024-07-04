@@ -5,19 +5,21 @@
 """
 import argparse
 import numpy as np
+from scipy.spatial import ConvexHull
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 
 from uvnpy.network import plot
 from uvnpy.network.disk_graph import adjacency_from_positions
-from uvnpy.network.core import geodesics
+from uvnpy.network.core import geodesics as _geodesics
 from uvnpy.network.load import one_token_for_all, one_token_for_each
 from uvnpy.distances.core import (
+    minimum_rigidity_radius,
     minimum_rigidity_extents,
     sufficiently_dispersed_position,
-    is_inf_rigid
 )
 from uvnpy.network.subframeworks import (
+    subframeworks,
+    subframework_adjacencies,
     superframework_extents,
     isolated_edges,
     sparse_subframeworks_greedy_search
@@ -31,6 +33,7 @@ plt.rcParams['pdf.fonttype'] = 42
 plt.rcParams['ps.fonttype'] = 42
 plt.rcParams['mathtext.fontset'] = 'dejavuserif'
 plt.rcParams['font.family'] = 'serif'
+markers = ['o', '^', 'v', 's', 'd', '<', '>']
 
 
 def comm_load(geodesics, extents):
@@ -40,33 +43,67 @@ def comm_load(geodesics, extents):
     return action_load + state_load
 
 
+def num_repeated_edges(geodesics, extents):
+    adjacency = subframework_adjacencies(geodesics, extents)
+    return np.sum([np.sum(adj) for adj in adjacency]) / 2
+
+
 def decomposition_cost(geodesics, extents):
-    load = comm_load(geodesics, extents)
-    n_iso_edges = len(isolated_edges(geodesics, extents))
-    return load + (1 + 0.5) * n_iso_edges
+    num_rep_edges = num_repeated_edges(geodesics, extents)
+    num_iso_edges = len(isolated_edges(geodesics, extents))
+    return num_rep_edges + 5 * num_iso_edges
+
+
+def decomposition_cost2(geodesics, extents):
+    num_rep_edges = num_repeated_edges(geodesics, extents)
+    num_iso_edges = len(isolated_edges(geodesics, extents))
+    S = subframeworks(geodesics, extents)
+    n = np.sum(S, axis=1)
+    freedom = np.sum(n*(n - 2*2 - 1)/2)
+    return 2*num_rep_edges + 10 * num_iso_edges - freedom
+
+
+def isolated_edges_adjacency(geodesics, extents):
+    A = np.zeros(geodesics.shape)
+    for i, j in isolated_edges(geodesics, extents):
+        A[i, j] = A[j, i] = 1
+    return A
+
+
+def subframework_diameter(geodesics, extents):
+    S = geodesics <= extents.reshape(-1, 1)
+    adjacency = (geodesics == 1).astype(float)
+    return np.array([np.max(_geodesics(adjacency[:, s][s])) for s in S])
 
 
 parser = argparse.ArgumentParser(description='')
+parser.add_argument(
+    '-s', '--seed',
+    default=-1, type=int, help='seed'
+)
 arg = parser.parse_args()
 
-n = 20
+n = 30
 threshold = 1e-5
+if arg.seed >= 0:
+    np.random.seed(arg.seed)
 
 p = sufficiently_dispersed_position(n, (0, 1), (0, 0.9), 0.1)
 
-rigid = False
-while not rigid:
-    A = adjacency_from_positions(p, dmax=2/np.sqrt(n))
-    if is_inf_rigid(A, p):
-        rigid = True
+A = adjacency_from_positions(p, dmax=2/np.sqrt(n))
+A, Rmin = minimum_rigidity_radius(A, p, threshold, return_radius=True)
 
-G = geodesics(A)
+G = _geodesics(A)
 h = minimum_rigidity_extents(G, p, threshold)
-h_sparsed = sparse_subframeworks_greedy_search(G, h, decomposition_cost)
+print(h)
 
-L = np.zeros(A.shape)
-for i, j in isolated_edges(G, h_sparsed):
-    L[i, j] = L[j, i] = 1
+h2 = h.copy()
+h2[h2 > 3] = 0
+h_sparsed = sparse_subframeworks_greedy_search(G, h2, decomposition_cost)
+h_sparsed2 = sparse_subframeworks_greedy_search(G, h2, decomposition_cost2)
+
+print(h_sparsed)
+print(h_sparsed2)
 
 fig, ax = plt.subplots(figsize=(2.25, 2.25))
 # fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.28)
@@ -91,7 +128,7 @@ ax.set_yticklabels([])
 
 plot.edges(
     ax, p, A,
-    lw=0.5, color=cm.coolwarm(20), zorder=0
+    lw=0.3, color='k', alpha=0.6, zorder=0
 )
 
 hops = np.unique(h)
@@ -101,17 +138,18 @@ for k in hops:
     v_artist = ax.scatter(
         p[c, 0], p[c, 1],
         marker='o', s=(k+1) * 10,
-        c=h[c], cmap=cm.coolwarm, vmin=-3, vmax=3,
+        # c=h[c], cmap=cm.coolwarm, vmin=-3, vmax=3,
+        color='C{}'.format(k) if (k > 0) else '0.5',
         label=r'${}$'.format(k)
     )
 
 ax.legend(
     fontsize='x-small', handlelength=1, labelspacing=1.5,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
-    ncol=4, columnspacing=0.4, loc='upper center'
+    ncol=5, columnspacing=0.4, loc='upper center'
 )
 fig.savefig(
-    '/tmp/sparse_rigidity_extents_a.png', format='png', dpi=360)
+    '/tmp/dense_rigidity_extents.png', format='png', dpi=360)
 
 
 fig, ax = plt.subplots(figsize=(2.25, 2.25))
@@ -134,28 +172,119 @@ ax.set_ylim(-0.05, 1.05)
 ax.set_xticklabels([])
 ax.set_yticklabels([])
 
-hops = np.unique(h_sparsed)
-for k in hops:
-    c = h_sparsed == k
-    v_artist = ax.scatter(
-        p[c, 0], p[c, 1],
-        marker='o', s=(k+1) * 10,
-        c=h_sparsed[c], cmap=cm.coolwarm, vmin=-3, vmax=3,
+leaders = h_sparsed > 0
+followers = ~ leaders
+
+ax.scatter(
+    p[followers, 0], p[followers, 1],
+    marker='o', s=10,
+    color='0.7', zorder=10,
+)
+
+for j, i in enumerate(np.where(leaders)[0]):
+    k = h_sparsed[i]
+    q = p[G[i] <= k]
+    cvx = ConvexHull(q)
+    ax.fill(
+        q[cvx.vertices, 0], q[cvx.vertices, 1],
+        color='C{}'.format(j), alpha=0.15
+    )
+    ax.scatter(
+        p[i, 0], p[i, 1],
+        marker=markers[k], s=(k + 1) * 10,
+        color='C{}'.format(j), zorder=10,
+        # label=r'${}$'.format(k)
+    )
+
+for k in np.unique(h_sparsed):
+    ax.scatter(
+        -1, -1,
+        marker=markers[k], s=(k + 1) * 10,
+        color='k',
         label=r'${}$'.format(k)
     )
 
+Aiso = isolated_edges_adjacency(G, h_sparsed)
 plot.edges(
-    ax, p, A - L,
-    lw=0.5,
-    color=cm.coolwarm(20), zorder=0)
+    ax, p, A - Aiso,
+    lw=0.3, color='k', alpha=0.6, zorder=0)
 
 plot.edges(
-    ax, p, L,
-    lw=0.5, color=cm.coolwarm(20), ls='--', zorder=0)
+    ax, p, Aiso,
+    lw=0.3, color='k', alpha=0.6, ls='--', zorder=0)
 
 ax.legend(
     fontsize='x-small', handlelength=1, labelspacing=0.7,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
-    ncol=4, columnspacing=0.8, loc='upper center')
+    ncol=5, columnspacing=0.8, loc='upper center')
 fig.savefig(
-    '/tmp/sparse_rigidity_extents_b.png', format='png', dpi=360)
+    '/tmp/sparse_rigidity_extents.png', format='png', dpi=360)
+
+
+fig, ax = plt.subplots(figsize=(2.25, 2.25))
+# fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.28)
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    bottom=False,
+    left=False,
+    pad=1,
+    labelsize='x-small')
+# ax.grid(1, lw=0.4)
+ax.set_aspect('equal')
+ax.set_xlim(-0.05, 1.05)
+ax.set_ylim(-0.05, 1.05)
+# ax.set_xlabel(r'$\mathrm{x}$', fontsize='x-small', labelpad=0.6)
+# ax.set_ylabel(r'$\mathrm{y}$', fontsize='x-small', labelpad=0)
+# ax.set_xticks(np.linspace(0, 1, 4, endpoint=True))
+# ax.set_yticks(np.linspace(0, 1, 4, endpoint=True))
+ax.set_xticklabels([])
+ax.set_yticklabels([])
+
+leaders = h_sparsed2 > 0
+followers = ~ leaders
+
+ax.scatter(
+    p[followers, 0], p[followers, 1],
+    marker='o', s=10,
+    color='0.7', zorder=10,
+)
+
+for j, i in enumerate(np.where(leaders)[0]):
+    k = h_sparsed2[i]
+    q = p[G[i] <= k]
+    cvx = ConvexHull(q)
+    ax.fill(
+        q[cvx.vertices, 0], q[cvx.vertices, 1],
+        color='C{}'.format(j), alpha=0.15
+    )
+    ax.scatter(
+        p[i, 0], p[i, 1],
+        marker=markers[k], s=(k + 1) * 10,
+        color='C{}'.format(j), zorder=10,
+        # label=r'${}$'.format(k)
+    )
+
+for k in np.unique(h_sparsed2):
+    ax.scatter(
+        -1, -1,
+        marker=markers[k], s=(k + 1) * 10,
+        color='k',
+        label=r'${}$'.format(k)
+    )
+
+Aiso = isolated_edges_adjacency(G, h_sparsed2)
+plot.edges(
+    ax, p, A - Aiso,
+    lw=0.3, color='k', alpha=0.6, zorder=0)
+
+plot.edges(
+    ax, p, Aiso,
+    lw=0.3, color='k', alpha=0.6, ls='--', zorder=0)
+
+ax.legend(
+    fontsize='x-small', handlelength=1, labelspacing=0.7,
+    borderpad=0.2, handletextpad=0.2, framealpha=1.,
+    ncol=5, columnspacing=0.8, loc='upper center')
+fig.savefig(
+    '/tmp/sparse_rigidity_extents2.png', format='png', dpi=360)

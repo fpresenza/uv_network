@@ -10,12 +10,16 @@ from numba import njit
 import itertools
 
 
-from . import core
-
-
 @njit
 def subframeworks(geodesics, extents):
     return geodesics <= extents.reshape(-1, 1)
+
+
+def subframework_adjacencies(geodesics, extents):
+    S = geodesics <= extents.reshape(-1, 1)
+    adjacency = geodesics.copy()
+    adjacency[adjacency > 1] = 0
+    return [adjacency[:, s][s] for s in S]
 
 
 def superframework_extents(geodesics, extents):
@@ -77,7 +81,9 @@ def isolated_nodes(geodesics, extents):
 
 
 def sparse_subframeworks_full_search(
-        A, p, extents, subframework_condition, max_extent, metric, **kwargs
+        geodesics, extents, metric,
+        max_extent=None,
+        subframework_condition=None
         ):
     """
     Given an initial decomposition given by extents, compares each of the
@@ -89,25 +95,31 @@ def sparse_subframeworks_full_search(
     ---------
         framework is rigid
     """
-    n = len(p)
-    geodesics = core.geodesics(A)
-    search_space = itertools.product(
-        *([0] + list(range(extents[i], max_extent + 1)) for i in range(n))
+    if max_extent is None:
+        max_extent = np.max(geodesics).astype(int)
+    n = len(extents)
+    adjacency = geodesics.copy()
+    adjacency[adjacency > 1] = 0
+    search_space = list(
+        itertools.product(
+            *([0] + list(range(extents[i], max_extent + 1)) for i in range(n))
+        )
     )
 
     min_value = np.inf
-    for h in list(search_space)[1:]:
+    for h in search_space:
         h = np.array(h)
         V = geodesics <= np.reshape(h, (-1, 1))
+        # ensures that no zero extent subframework is analyzed
         C = V[h > 0]
         for i, c in enumerate(C):
             k = np.delete(C, i, axis=0)
             if np.all(~c + k, axis=1).any():
+                # checks if c is contained in another subframework
                 continue
-            Ai = A[c][:, c]
-            pi = p[c]
-            if not subframework_condition(Ai, pi, **kwargs):
-                break
+            if subframework_condition is not None:
+                if not subframework_condition(c, adjacency[c][:, c]):
+                    break
         new_value = metric(geodesics, h)
         if new_value < min_value:
             min_value = new_value
@@ -130,7 +142,7 @@ def sparse_subframeworks_binary_search(geodesics, extents, metric):
     search_factors = itertools.product((0, 1), repeat=n)
 
     min_value = np.inf
-    for f in list(search_factors)[1:]:
+    for f in list(search_factors):
         h = np.multiply(extents, f)
         new_value = metric(geodesics, h)
         if new_value < min_value:
@@ -151,7 +163,7 @@ def sparse_subframeworks_greedy_search(geodesics, extents, metric):
     """
     n = len(extents)
     hops = extents.copy()
-    remain = list(range(n))
+    remain = [i for i in range(n) if extents[i] > 0]
     terminate = False
 
     min_value = np.inf
