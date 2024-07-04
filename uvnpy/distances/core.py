@@ -56,7 +56,7 @@ def sufficiently_dispersed_position(n, xlim, ylim, max_dist):
     return p
 
 
-def classic_rigidity_matrix(D, p):
+def classic_rigidity_matrix_from_incidence(D, p):
     """Matriz de rigidez
 
     args:
@@ -71,6 +71,22 @@ def classic_rigidity_matrix(D, p):
     r = np.matmul(Dt, p)
     J = Dt[..., None] * r[..., None, :]
     return J.reshape(-1, n*d)
+
+
+@njit
+def classic_rigidity_matrix(A, p):
+    n, d = p.shape
+    num_edges = int(A.sum() / 2)
+    R = np.zeros((num_edges, n*d))
+    e = 0
+    for i in range(n):
+        for j in range(i+1, n):
+            if A[i, j] == 1:
+                dij = p[i] - p[j]
+                R[e, d*i:d*(i+1)] = dij
+                R[e, d*j:d*(j+1)] = -dij
+                e += 1
+    return R
 
 
 def classic_rigidity_matrix_multiple_axes(D, p):
@@ -220,11 +236,10 @@ def rigidity_laplacian_multiple_axes(A, p):
 
 
 def is_inf_rigid(A, p, threshold=THRESHOLD):
-    d = p.shape[-1]
+    n, d = p.shape
     f = int(d * (d + 1)/2)
-    S = rigidity_laplacian(A, p)
-    eig = np.linalg.eigvalsh(S)
-    return eig[f] > threshold
+    R = classic_rigidity_matrix(A, p)
+    return np.linalg.matrix_rank(R, tol=threshold) == n*d - f
 
 
 def rigidity_eigenvalue(A, p):
@@ -255,7 +270,7 @@ def minimum_rigidity_extents(geodesics, p, threshold=THRESHOLD):
             Ai = A[np.ix_(subset, subset)]
             pi = p[subset]
             Li = rigidity_laplacian(Ai, pi)
-            rank = np.linalg.matrix_rank(Li, tol=THRESHOLD)
+            rank = np.linalg.matrix_rank(Li, tol=threshold)
             if rank == d*len(pi) - f:
                 minimum_found = True
         extents[i] = h
