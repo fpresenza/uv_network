@@ -10,7 +10,8 @@ from transformations import unit_vector
 from numba import njit
 
 
-THRESHOLD = 1e-5
+THRESHOLD_EIG = 1e-6
+THRESHOLD_SV = 1e-3
 
 
 def distance_matrix(x):
@@ -235,7 +236,7 @@ def rigidity_laplacian_multiple_axes(A, p):
     return S.reshape(s)
 
 
-def is_inf_rigid(A, p, threshold=THRESHOLD):
+def is_inf_rigid(A, p, threshold=THRESHOLD_SV):
     n, d = p.shape
     f = int(d * (d + 1)/2)
     R = classic_rigidity_matrix(A, p)
@@ -250,14 +251,13 @@ def rigidity_eigenvalue(A, p):
     return eig[f]
 
 
-def minimum_rigidity_extents(geodesics, p, threshold=THRESHOLD):
+def minimum_rigidity_extents(geodesics, p, threshold=THRESHOLD_SV):
     """
     Requires:
     ---------
         framework is rigid
     """
     n, d = p.shape
-    f = d * (d + 1) // 2
     A = geodesics.copy()
     A[A > 1] = 0
     extents = np.empty(n, dtype=int)
@@ -269,15 +269,12 @@ def minimum_rigidity_extents(geodesics, p, threshold=THRESHOLD):
             subset = geodesics[i] <= h
             Ai = A[np.ix_(subset, subset)]
             pi = p[subset]
-            Li = rigidity_laplacian(Ai, pi)
-            rank = np.linalg.matrix_rank(Li, tol=threshold)
-            if rank == d*len(pi) - f:
-                minimum_found = True
+            minimum_found = is_inf_rigid(Ai, pi, threshold)
         extents[i] = h
     return extents
 
 
-def minimum_rigidity_radius(A, p, threshold=THRESHOLD, return_radius=False):
+def minimum_rigidity_radius(A, p, threshold=THRESHOLD_SV, return_radius=False):
     """Add or delete edges to a framework until it is radius-wise minimally
     rigid."""
     A = A.copy()
