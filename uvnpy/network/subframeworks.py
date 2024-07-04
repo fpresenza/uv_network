@@ -183,3 +183,49 @@ def sparse_subframeworks_greedy_search(geodesics, extents, metric):
         else:
             terminate = True
     return hops
+
+
+def sparse_subframeworks_extended_greedy_search(geodesics, extents, metric):
+    """
+    Given an initial decomposition given by extents, at each iteration
+    removes the subframework with the greatest contribution to the metric.
+
+    Requires:
+    ---------
+        framework is rigid
+        extents is list of ordered lists in increasing order
+    """
+    n = len(geodesics)
+    h_subopt = np.zeros(n, dtype=int)
+    nodes = np.arange(n)
+    terminate = False
+
+    min_value = metric(geodesics, h_subopt)
+    while not terminate:
+        update_sub = None
+        for i in nodes:
+            if h_subopt[i] < extents[i][-1]:
+                curr_index = extents[i].index(h_subopt[i])
+                perturbed_extents = h_subopt.copy()
+                perturbed_extents[i] = extents[i][curr_index + 1]
+                new_value = metric(geodesics, perturbed_extents)
+                if new_value < min_value:
+                    min_value = new_value
+                    update_sub = i
+                    new_index = curr_index + 1
+            if h_subopt[i] > extents[i][0]:
+                curr_index = extents[i].index(h_subopt[i])
+                perturbed_extents = h_subopt.copy()
+                perturbed_extents[i] = extents[i][curr_index - 1]
+                new_value = metric(geodesics, perturbed_extents)
+                if new_value < min_value:
+                    min_value = new_value
+                    update_sub = i
+                    new_index = curr_index - 1
+
+        if update_sub is None:
+            terminate = True
+        else:
+            h_subopt[update_sub] = extents[update_sub][new_index]
+
+    return h_subopt
