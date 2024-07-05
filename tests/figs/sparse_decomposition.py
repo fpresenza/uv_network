@@ -11,18 +11,16 @@ import matplotlib.pyplot as plt
 from uvnpy.network import plot
 from uvnpy.network.disk_graph import adjacency_from_positions
 from uvnpy.network.core import geodesics as _geodesics
-from uvnpy.network.load import one_token_for_all, one_token_for_each
 from uvnpy.distances.core import (
     minimum_rigidity_radius,
-    minimum_rigidity_extents,
+    rigidity_extents,
     sufficiently_dispersed_position,
 )
 from uvnpy.network.subframeworks import (
     subframeworks,
     subframework_adjacencies,
-    superframework_extents,
     isolated_edges,
-    sparse_subframeworks_greedy_search
+    sparse_subframeworks_extended_greedy_search
 )
 
 
@@ -36,16 +34,15 @@ plt.rcParams['font.family'] = 'serif'
 markers = ['o', '^', 'v', 's', 'd', '<', '>']
 
 
-def comm_load(geodesics, extents):
-    action_load = one_token_for_each(geodesics, extents)
-    super_extents = superframework_extents(geodesics, extents)
-    state_load = one_token_for_all(geodesics, super_extents)
-    return action_load + state_load
-
-
 def num_repeated_edges(geodesics, extents):
     adjacency = subframework_adjacencies(geodesics, extents)
     return np.sum([np.sum(adj) for adj in adjacency]) / 2
+
+
+def edge_freedom(geodesics, extents):
+    S = subframeworks(geodesics, extents)
+    n = np.sum(S, axis=1)
+    return np.sum([(k-2)*(k-3)/2 for k in n if k > 1])
 
 
 def decomposition_cost(geodesics, extents):
@@ -57,10 +54,8 @@ def decomposition_cost(geodesics, extents):
 def decomposition_cost2(geodesics, extents):
     num_rep_edges = num_repeated_edges(geodesics, extents)
     num_iso_edges = len(isolated_edges(geodesics, extents))
-    S = subframeworks(geodesics, extents)
-    n = np.sum(S, axis=1)
-    freedom = np.sum(n*(n - 2*2 - 1)/2)
-    return 2*num_rep_edges + 10 * num_iso_edges - freedom
+    freedom = edge_freedom(geodesics, extents)
+    return num_rep_edges + 5 * num_iso_edges - 0.5 * freedom
 
 
 def isolated_edges_adjacency(geodesics, extents):
@@ -84,23 +79,25 @@ parser.add_argument(
 arg = parser.parse_args()
 
 n = 30
-threshold = 1e-5
 if arg.seed >= 0:
     np.random.seed(arg.seed)
 
-p = sufficiently_dispersed_position(n, (0, 1), (0, 0.9), 0.1)
+p = sufficiently_dispersed_position(n, (0, 1), (0, 1), 0.1)
 
 A = adjacency_from_positions(p, dmax=2/np.sqrt(n))
-A, Rmin = minimum_rigidity_radius(A, p, threshold, return_radius=True)
+A, Rmin = minimum_rigidity_radius(A, p, return_radius=True)
 
 G = _geodesics(A)
-h = minimum_rigidity_extents(G, p, threshold)
-print(h)
+max_hops = 2
+h_extended = rigidity_extents(G, p, max_hops)
+print(h_extended)
 
-h2 = h.copy()
-h2[h2 > 3] = 0
-h_sparsed = sparse_subframeworks_greedy_search(G, h2, decomposition_cost)
-h_sparsed2 = sparse_subframeworks_greedy_search(G, h2, decomposition_cost2)
+h_sparsed = sparse_subframeworks_extended_greedy_search(
+    G, h_extended, decomposition_cost
+)
+h_sparsed2 = sparse_subframeworks_extended_greedy_search(
+    G, h_extended, decomposition_cost2
+)
 
 print(h_sparsed)
 print(h_sparsed2)
@@ -131,25 +128,23 @@ plot.edges(
     lw=0.3, color='k', alpha=0.6, zorder=0
 )
 
-hops = np.unique(h)
-for k in hops:
-    c = h == k
-    # print(h[c])
-    v_artist = ax.scatter(
-        p[c, 0], p[c, 1],
-        marker='o', s=(k+1) * 10,
-        # c=h[c], cmap=cm.coolwarm, vmin=-3, vmax=3,
-        color='C{}'.format(k) if (k > 0) else '0.5',
-        label=r'${}$'.format(k)
-    )
+for i in range(n):
+    for k in reversed(h_extended[i]):
+        ax.scatter(
+            p[i, 0], p[i, 1],
+            marker='o', s=5*(k+1)**2,
+            color='C{}'.format(k) if (k > 0) else 'k',
+            # label=r'${}$'.format(k)
+        )
 
-ax.legend(
-    fontsize='x-small', handlelength=1, labelspacing=1.5,
-    borderpad=0.2, handletextpad=0.2, framealpha=1.,
-    ncol=5, columnspacing=0.4, loc='upper center'
-)
+# ax.legend(
+#     fontsize='x-small', handlelength=1, labelspacing=1.5,
+#     borderpad=0.2, handletextpad=0.2, framealpha=1.,
+#     ncol=5, columnspacing=0.4, loc='upper center'
+# )
 fig.savefig(
-    '/tmp/dense_rigidity_extents.png', format='png', dpi=360)
+    '/tmp/min_rigidity_extents.png', format='png', dpi=360
+)
 
 
 fig, ax = plt.subplots(figsize=(2.25, 2.25))
@@ -160,7 +155,8 @@ ax.tick_params(
     bottom=False,
     left=False,
     pad=1,
-    labelsize='x-small')
+    labelsize='x-small'
+)
 # ax.grid(1, lw=0.4)
 ax.set_aspect('equal')
 ax.set_xlim(-0.05, 1.05)
@@ -207,18 +203,22 @@ for k in np.unique(h_sparsed):
 Aiso = isolated_edges_adjacency(G, h_sparsed)
 plot.edges(
     ax, p, A - Aiso,
-    lw=0.3, color='k', alpha=0.6, zorder=0)
+    lw=0.3, color='k', alpha=0.6, zorder=0
+)
 
 plot.edges(
     ax, p, Aiso,
-    lw=0.3, color='k', alpha=0.6, ls='--', zorder=0)
+    lw=1.75, color='k', alpha=0.25, zorder=0
+)
 
 ax.legend(
     fontsize='x-small', handlelength=1, labelspacing=0.7,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
-    ncol=5, columnspacing=0.8, loc='upper center')
+    ncol=5, columnspacing=0.8, loc='upper center'
+)
 fig.savefig(
-    '/tmp/sparse_rigidity_extents.png', format='png', dpi=360)
+    '/tmp/sparse_rigidity_extents.png', format='png', dpi=360
+)
 
 
 fig, ax = plt.subplots(figsize=(2.25, 2.25))
@@ -276,15 +276,19 @@ for k in np.unique(h_sparsed2):
 Aiso = isolated_edges_adjacency(G, h_sparsed2)
 plot.edges(
     ax, p, A - Aiso,
-    lw=0.3, color='k', alpha=0.6, zorder=0)
+    lw=0.3, color='k', alpha=0.6, zorder=0
+)
 
 plot.edges(
     ax, p, Aiso,
-    lw=0.3, color='k', alpha=0.6, ls='--', zorder=0)
+    lw=1.75, color='k', alpha=0.25, zorder=0
+)
 
 ax.legend(
     fontsize='x-small', handlelength=1, labelspacing=0.7,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
-    ncol=5, columnspacing=0.8, loc='upper center')
+    ncol=5, columnspacing=0.8, loc='upper center'
+)
 fig.savefig(
-    '/tmp/sparse_rigidity_extents2.png', format='png', dpi=360)
+    '/tmp/sparse_rigidity_extents2.png', format='png', dpi=360
+)
