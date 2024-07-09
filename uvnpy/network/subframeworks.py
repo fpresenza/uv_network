@@ -11,7 +11,7 @@ import itertools
 
 
 @njit
-def subframeworks(geodesics, extents):
+def subframework_vertices(geodesics, extents):
     return geodesics <= extents.reshape(-1, 1)
 
 
@@ -48,9 +48,9 @@ def complete_subframeworks(geodesics, extents):
 
 
 @njit
-def isolated_edges(geodesics, extents):
+def links(geodesics, extents):
     """
-    Computes the set of isolated edges (those not in any subframework).
+    Computes the set of links (edges not in any subframework).
     """
     n = len(extents)
     edges = []
@@ -185,7 +185,9 @@ def sparse_subframeworks_greedy_search(geodesics, extents, metric):
     return hops
 
 
-def sparse_subframeworks_extended_greedy_search(geodesics, extents, metric):
+def sparse_subframeworks_extended_greedy_search(
+        geodesics, extents, metric, *args
+        ):
     """
     Given an initial decomposition given by extents, at each iteration
     removes the subframework with the greatest contribution to the metric.
@@ -200,7 +202,7 @@ def sparse_subframeworks_extended_greedy_search(geodesics, extents, metric):
     nodes = np.arange(n)
     terminate = False
 
-    min_value = metric(geodesics, h_subopt)
+    min_value = metric(geodesics, h_subopt, *args)
     while not terminate:
         update_sub = None
         for i in nodes:
@@ -208,7 +210,7 @@ def sparse_subframeworks_extended_greedy_search(geodesics, extents, metric):
                 curr_index = extents[i].index(h_subopt[i])
                 perturbed_extents = h_subopt.copy()
                 perturbed_extents[i] = extents[i][curr_index + 1]
-                new_value = metric(geodesics, perturbed_extents)
+                new_value = metric(geodesics, perturbed_extents, *args)
                 if new_value < min_value:
                     min_value = new_value
                     update_sub = i
@@ -217,7 +219,7 @@ def sparse_subframeworks_extended_greedy_search(geodesics, extents, metric):
                 curr_index = extents[i].index(h_subopt[i])
                 perturbed_extents = h_subopt.copy()
                 perturbed_extents[i] = extents[i][curr_index - 1]
-                new_value = metric(geodesics, perturbed_extents)
+                new_value = metric(geodesics, perturbed_extents, *args)
                 if new_value < min_value:
                     min_value = new_value
                     update_sub = i

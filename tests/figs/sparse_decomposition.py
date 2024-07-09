@@ -10,16 +10,16 @@ import matplotlib.pyplot as plt
 
 from uvnpy.network import plot
 from uvnpy.network.disk_graph import adjacency_from_positions
-from uvnpy.network.core import geodesics as _geodesics
+from uvnpy.network.core import geodesics
 from uvnpy.distances.core import (
     minimum_rigidity_radius,
     rigidity_extents,
     sufficiently_dispersed_position,
 )
 from uvnpy.network.subframeworks import (
-    subframeworks,
+    subframework_vertices,
     subframework_adjacencies,
-    isolated_edges,
+    links,
     sparse_subframeworks_extended_greedy_search
 )
 
@@ -40,35 +40,41 @@ def num_repeated_edges(geodesics, extents):
 
 
 def edge_freedom(geodesics, extents):
-    S = subframeworks(geodesics, extents)
+    S = subframework_vertices(geodesics, extents)
     n = np.sum(S, axis=1)
     return np.sum([(k-2)*(k-3)/2 for k in n if k > 1])
 
 
 def decomposition_cost(geodesics, extents):
     num_rep_edges = num_repeated_edges(geodesics, extents)
-    num_iso_edges = len(isolated_edges(geodesics, extents))
-    return num_rep_edges + 5 * num_iso_edges
+    num_links = len(links(geodesics, extents))
+    return num_rep_edges + 5 * num_links
 
 
 def decomposition_cost2(geodesics, extents):
     num_rep_edges = num_repeated_edges(geodesics, extents)
-    num_iso_edges = len(isolated_edges(geodesics, extents))
+    num_links = len(links(geodesics, extents))
     freedom = edge_freedom(geodesics, extents)
-    return num_rep_edges + 5 * num_iso_edges - 0.5 * freedom
+    return num_rep_edges + 5 * num_links - 0.5 * freedom
 
 
-def isolated_edges_adjacency(geodesics, extents):
+def decomposition_cost3(geodesics, extents, weight):
+    _adj = subframework_adjacencies(geodesics, extents)
+    _links = links(geodesics, extents)
+    ball_sum = sum([weight(len(a)) * np.sum(a) / 2.0 for a in _adj])
+    link_sum = weight(2) * len(_links)
+    return ball_sum + link_sum
+
+
+def links_adjacency(geodesics, extents):
     A = np.zeros(geodesics.shape)
-    for i, j in isolated_edges(geodesics, extents):
+    for i, j in links(geodesics, extents):
         A[i, j] = A[j, i] = 1
     return A
 
 
-def subframework_diameter(geodesics, extents):
-    S = geodesics <= extents.reshape(-1, 1)
-    adjacency = (geodesics == 1).astype(float)
-    return np.array([np.max(_geodesics(adjacency[:, s][s])) for s in S])
+def weight(s):
+    return (s)**(-1.5)
 
 
 parser = argparse.ArgumentParser(description='')
@@ -78,16 +84,17 @@ parser.add_argument(
 )
 arg = parser.parse_args()
 
-n = 30
+n = 50
 if arg.seed >= 0:
     np.random.seed(arg.seed)
 
 p = sufficiently_dispersed_position(n, (0, 1), (0, 1), 0.1)
+print(p)
 
 A = adjacency_from_positions(p, dmax=2/np.sqrt(n))
 A, Rmin = minimum_rigidity_radius(A, p, return_radius=True)
 
-G = _geodesics(A)
+G = geodesics(A)
 max_hops = 2
 h_extended = rigidity_extents(G, p, max_hops)
 print(h_extended)
@@ -96,11 +103,11 @@ h_sparsed = sparse_subframeworks_extended_greedy_search(
     G, h_extended, decomposition_cost
 )
 h_sparsed2 = sparse_subframeworks_extended_greedy_search(
-    G, h_extended, decomposition_cost2
+    G, h_extended, decomposition_cost3, weight
 )
 
-print(h_sparsed)
-print(h_sparsed2)
+print(h_sparsed, decomposition_cost(G, h_sparsed))
+print(h_sparsed2, decomposition_cost3(G, h_sparsed2, weight))
 
 fig, ax = plt.subplots(figsize=(2.25, 2.25))
 # fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.28)
@@ -200,7 +207,7 @@ for k in np.unique(h_sparsed):
         label=r'${}$'.format(k)
     )
 
-Aiso = isolated_edges_adjacency(G, h_sparsed)
+Aiso = links_adjacency(G, h_sparsed)
 plot.edges(
     ax, p, A - Aiso,
     lw=0.3, color='k', alpha=0.6, zorder=0
@@ -273,7 +280,7 @@ for k in np.unique(h_sparsed2):
         label=r'${}$'.format(k)
     )
 
-Aiso = isolated_edges_adjacency(G, h_sparsed2)
+Aiso = links_adjacency(G, h_sparsed2)
 plot.edges(
     ax, p, A - Aiso,
     lw=0.3, color='k', alpha=0.6, zorder=0
