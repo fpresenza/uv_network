@@ -198,7 +198,11 @@ def sparse_subframeworks_greedy_search(geodesics, extents, metric):
 
 
 def sparse_subframeworks_extended_greedy_search(
-        geodesics, extents, metric, *args
+        geodesics,
+        extents,
+        metric,
+        initial_guess,
+        *args
         ):
     """
     Given the set of valid extents of each node, starts with all subframeworks
@@ -211,7 +215,7 @@ def sparse_subframeworks_extended_greedy_search(
         extents is list of ordered lists in increasing order
     """
     n = len(geodesics)
-    h_subopt = np.zeros(n, dtype=int)
+    h_subopt = np.copy(initial_guess)
     nodes = np.arange(n)
     terminate = False
 

@@ -67,7 +67,11 @@ def decomposition_cost(geodesics, extents):
     return num_rep_edges + 5 * num_links
 
 
-def decomposition_cost2(geodesics, extents, weight):
+def weight(s):
+    return (s)**(-1.5)
+
+
+def decomposition_cost2(geodesics, extents):
     _adj = subframework_adjacencies(geodesics, extents)
     _links = links(geodesics, extents)
     ball_sum = sum([weight(len(a)) * np.sum(a) / 2.0 for a in _adj])
@@ -80,10 +84,6 @@ def links_adjacency(geodesics, extents):
     for i, j in links(geodesics, extents):
         A[i, j] = A[j, i] = 1
     return A
-
-
-def weight(s):
-    return (s)**(-1.5)
 
 
 parser = argparse.ArgumentParser(description='')
@@ -107,11 +107,17 @@ max_diam = 4
 h_valid = valid_extents(G, valid_ball, A, p, max_diam)
 print(h_valid)
 
-h_sparsed = sparse_subframeworks_extended_greedy_search(
-    G, h_valid, decomposition_cost
+h_sparsed, _ = sparse_subframeworks_extended_greedy_search(
+    geodesics=G,
+    extents=h_valid,
+    metric=decomposition_cost,
+    initial_guess=np.zeros(n, dtype=int)
 )
-h_sparsed2 = sparse_subframeworks_extended_greedy_search(
-    G, h_valid, decomposition_cost2, weight
+h_sparsed2, _ = sparse_subframeworks_extended_greedy_search(
+    geodesics=G,
+    extents=h_valid,
+    metric=decomposition_cost2,
+    initial_guess=np.zeros(n, dtype=int)
 )
 
 # print(h_sparsed, decomposition_cost(G, h_sparsed))
