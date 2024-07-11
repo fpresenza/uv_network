@@ -251,26 +251,6 @@ def rigidity_eigenvalue(A, p):
     return eig[f]
 
 
-def rigidity_extents(geodesics, p, max_hops, threshold=THRESHOLD_SV):
-    """
-    Requires:
-    ---------
-        framework is rigid
-    """
-    n, d = p.shape
-    A = geodesics.copy()
-    A[A > 1] = 0
-    extents = [[0] for i in range(n)]
-    for i in range(n):
-        for h in range(1, max_hops + 1):
-            subset = geodesics[i] <= h
-            Ai = A[np.ix_(subset, subset)]
-            pi = p[subset]
-            if is_inf_rigid(Ai, pi, threshold):
-                extents[i].append(h)
-    return extents
-
-
 def minimum_rigidity_extents(geodesics, p, threshold=THRESHOLD_SV):
     """
     Requires:

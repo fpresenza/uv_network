@@ -10,6 +10,18 @@ from numba import njit
 import itertools
 
 
+def valid_extents(geodesics, condition, *args):
+    extents = []
+    for g in geodesics:
+        extents.append([])
+        ecc = int(g.max())
+        for h in range(ecc + 1):
+            subset = g <= h
+            if condition(subset, *args):
+                extents[-1].append(h)
+    return extents
+
+
 @njit
 def subframework_vertices(geodesics, extents):
     return geodesics <= extents.reshape(-1, 1)
@@ -189,8 +201,9 @@ def sparse_subframeworks_extended_greedy_search(
         geodesics, extents, metric, *args
         ):
     """
-    Given an initial decomposition given by extents, at each iteration
-    removes the subframework with the greatest contribution to the metric.
+    Given the set of valid extents of each node, starts with all subframeworks
+    with zero radiues and selects, at each iteration, the extent change the
+    reduces the metric the most.
 
     Requires:
     ---------
