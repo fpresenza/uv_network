@@ -107,10 +107,10 @@ max_diam = 4
 h_valid = valid_extents(G, valid_ball, A, p, max_diam)
 print(h_valid)
 
-h_sparsed, H = sparse_subframeworks_extended_greedy_search(
+h_sparsed = sparse_subframeworks_extended_greedy_search(
     G, h_valid, decomposition_cost
 )
-h_sparsed2, H2 = sparse_subframeworks_extended_greedy_search(
+h_sparsed2 = sparse_subframeworks_extended_greedy_search(
     G, h_valid, decomposition_cost2, weight
 )
 
