@@ -12,12 +12,12 @@ from uvnpy.network import plot
 from uvnpy.network.disk_graph import adjacency_from_positions
 from uvnpy.network.core import geodesics
 from uvnpy.distances.core import (
+    is_inf_rigid,
     minimum_rigidity_radius,
-    rigidity_extents,
     sufficiently_dispersed_position,
 )
 from uvnpy.network.subframeworks import (
-    subframework_vertices,
+    valid_extents,
     subframework_adjacencies,
     links,
     sparse_subframeworks_extended_greedy_search
@@ -34,15 +34,31 @@ plt.rcParams['font.family'] = 'serif'
 markers = ['o', '^', 'v', 's', 'd', '<', '>']
 
 
+def valid_ball(subset, adjacency, position, max_diam):
+    """A ball is considered valid if:
+        it has zero radius
+            or
+        (it does not exceeds the maximum allowed diameter
+            and
+        it is infinitesimally rigid)
+    """
+    if sum(subset) == 1:
+        return True
+
+    A = adjacency[:, subset][subset]
+    if geodesics(A).max() > max_diam:
+        return False
+
+    p = position[subset]
+    if not is_inf_rigid(A, p):
+        return False
+
+    return True
+
+
 def num_repeated_edges(geodesics, extents):
     adjacency = subframework_adjacencies(geodesics, extents)
     return np.sum([np.sum(adj) for adj in adjacency]) / 2
-
-
-def edge_freedom(geodesics, extents):
-    S = subframework_vertices(geodesics, extents)
-    n = np.sum(S, axis=1)
-    return np.sum([(k-2)*(k-3)/2 for k in n if k > 1])
 
 
 def decomposition_cost(geodesics, extents):
@@ -51,14 +67,7 @@ def decomposition_cost(geodesics, extents):
     return num_rep_edges + 5 * num_links
 
 
-def decomposition_cost2(geodesics, extents):
-    num_rep_edges = num_repeated_edges(geodesics, extents)
-    num_links = len(links(geodesics, extents))
-    freedom = edge_freedom(geodesics, extents)
-    return num_rep_edges + 5 * num_links - 0.5 * freedom
-
-
-def decomposition_cost3(geodesics, extents, weight):
+def decomposition_cost2(geodesics, extents, weight):
     _adj = subframework_adjacencies(geodesics, extents)
     _links = links(geodesics, extents)
     ball_sum = sum([weight(len(a)) * np.sum(a) / 2.0 for a in _adj])
@@ -89,25 +98,24 @@ if arg.seed >= 0:
     np.random.seed(arg.seed)
 
 p = sufficiently_dispersed_position(n, (0, 1), (0, 1), 0.1)
-print(p)
 
 A = adjacency_from_positions(p, dmax=2/np.sqrt(n))
 A, Rmin = minimum_rigidity_radius(A, p, return_radius=True)
 
 G = geodesics(A)
-max_hops = 2
-h_extended = rigidity_extents(G, p, max_hops)
-print(h_extended)
+max_diam = 4
+h_valid = valid_extents(G, valid_ball, A, p, max_diam)
+print(h_valid)
 
-h_sparsed = sparse_subframeworks_extended_greedy_search(
-    G, h_extended, decomposition_cost
+h_sparsed, H = sparse_subframeworks_extended_greedy_search(
+    G, h_valid, decomposition_cost
 )
-h_sparsed2 = sparse_subframeworks_extended_greedy_search(
-    G, h_extended, decomposition_cost3, weight
+h_sparsed2, H2 = sparse_subframeworks_extended_greedy_search(
+    G, h_valid, decomposition_cost2, weight
 )
 
-print(h_sparsed, decomposition_cost(G, h_sparsed))
-print(h_sparsed2, decomposition_cost3(G, h_sparsed2, weight))
+# print(h_sparsed, decomposition_cost(G, h_sparsed))
+# print(h_sparsed2, decomposition_cost2(G, h_sparsed2, weight))
 
 fig, ax = plt.subplots(figsize=(2.25, 2.25))
 # fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.28)
@@ -136,7 +144,7 @@ plot.edges(
 )
 
 for i in range(n):
-    for k in reversed(h_extended[i]):
+    for k in reversed(h_valid[i]):
         ax.scatter(
             p[i, 0], p[i, 1],
             marker='o', s=5*(k+1)**2,
