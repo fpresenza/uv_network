@@ -60,9 +60,9 @@ def complete_subframeworks(geodesics, extents):
 
 
 @njit
-def links(geodesics, extents):
+def isolated_links(geodesics, extents):
     """
-    Computes the set of links (edges not in any subframework).
+    Computes the set of isolated links (edges not in any subframework).
     """
     n = len(extents)
     edges = []
@@ -93,12 +93,13 @@ def isolated_nodes(geodesics, extents):
 
 
 def sparse_subframeworks_full_search(
-        geodesics, extents, metric,
-        max_extent=None,
-        subframework_condition=None
+        geodesics,
+        valid_extents,
+        metric,
+        **kwargs
         ):
     """
-    Given an initial decomposition given by extents, compares each of the
+    Given an initial decomposition given by valid_extents, compares each of the
     possible subframework decompositions that asserts the
     subframework_condition and doesn't exceed max_extent; and selects the one
     that minimizes the metric.
@@ -107,32 +108,11 @@ def sparse_subframeworks_full_search(
     ---------
         framework is rigid
     """
-    if max_extent is None:
-        max_extent = np.max(geodesics).astype(int)
-    n = len(extents)
-    adjacency = geodesics.copy()
-    adjacency[adjacency > 1] = 0
-    search_space = list(
-        itertools.product(
-            *([0] + list(range(extents[i], max_extent + 1)) for i in range(n))
-        )
-    )
-
+    search_space = itertools.product(*valid_extents)
     min_value = np.inf
     for h in search_space:
         h = np.array(h)
-        V = geodesics <= np.reshape(h, (-1, 1))
-        # ensures that no zero extent subframework is analyzed
-        C = V[h > 0]
-        for i, c in enumerate(C):
-            k = np.delete(C, i, axis=0)
-            if np.all(~c + k, axis=1).any():
-                # checks if c is contained in another subframework
-                continue
-            if subframework_condition is not None:
-                if not subframework_condition(c, adjacency[c][:, c]):
-                    break
-        new_value = metric(geodesics, h)
+        new_value = metric(geodesics, h, **kwargs)
         if new_value < min_value:
             min_value = new_value
             h_opt = h
@@ -140,69 +120,49 @@ def sparse_subframeworks_full_search(
     return h_opt
 
 
-def sparse_subframeworks_binary_search(geodesics, extents, metric):
-    """
-    Given an initial decomposition given by extents, compares each of the
-    2^n possible subframework removals and selects the one that minimizes
-    the metric.
+# def sparse_subframeworks_greedy_unidirectional_search(
+#         geodesics,
+#         valid_extents,
+#         metric
+#         ):
+#     """
+#     Given an initial decomposition given by valid_extents, at each iteration
+#     removes the subframework with the greatest contribution to the metric.
 
-    Requires:
-    ---------
-        framework is rigid
-    """
-    n = len(extents)
-    search_factors = itertools.product((0, 1), repeat=n)
+#     Requires:
+#     ---------
+#         framework is rigid
+#     """
+#     n = len(valid_extents)
+#     hops = extents.copy()
+#     remain = [i for i in range(n) if extents[i] > 0]
+#     terminate = False
 
-    min_value = np.inf
-    for f in list(search_factors):
-        h = np.multiply(extents, f)
-        new_value = metric(geodesics, h)
-        if new_value < min_value:
-            min_value = new_value
-            h_opt = h
+#     min_value = np.inf
+#     while not terminate:
+#         remove_sub = None
+#         for i in remain:
+#             sparsed = hops.copy()
+#             sparsed[i] = 0
+#             new_value = metric(geodesics, sparsed)
+#             if new_value < min_value:
+#                 min_value = new_value
+#                 remove_sub = i
 
-    return h_opt
-
-
-def sparse_subframeworks_greedy_search(geodesics, extents, metric):
-    """
-    Given an initial decomposition given by extents, at each iteration
-    removes the subframework with the greatest contribution to the metric.
-
-    Requires:
-    ---------
-        framework is rigid
-    """
-    n = len(extents)
-    hops = extents.copy()
-    remain = [i for i in range(n) if extents[i] > 0]
-    terminate = False
-
-    min_value = np.inf
-    while not terminate:
-        remove_sub = None
-        for i in remain:
-            sparsed = hops.copy()
-            sparsed[i] = 0
-            new_value = metric(geodesics, sparsed)
-            if new_value < min_value:
-                min_value = new_value
-                remove_sub = i
-
-        if remove_sub is not None:
-            hops[remove_sub] = 0
-            remain.remove(remove_sub)
-        else:
-            terminate = True
-    return hops
+#         if remove_sub is not None:
+#             hops[remove_sub] = 0
+#             remain.remove(remove_sub)
+#         else:
+#             terminate = True
+#     return hops
 
 
-def sparse_subframeworks_extended_greedy_search(
+def sparse_subframeworks_greedy_search(
         geodesics,
-        extents,
+        valid_extents,
         metric,
         initial_guess,
-        *args
+        **kwargs
         ):
     """
     Given the set of valid extents of each node, starts with all subframeworks
@@ -212,39 +172,39 @@ def sparse_subframeworks_extended_greedy_search(
     Requires:
     ---------
         framework is rigid
-        extents is list of ordered lists in increasing order
+        valid_extents is list of ordered lists in increasing order
     """
     n = len(geodesics)
-    h_subopt = np.copy(initial_guess)
+    h_min = np.copy(initial_guess)
     nodes = np.arange(n)
     terminate = False
 
-    min_value = metric(geodesics, h_subopt, *args)
+    min_value = metric(geodesics, h_min, **kwargs)
     while not terminate:
-        update_sub = None
+        i_min = None
         for i in nodes:
-            if h_subopt[i] < extents[i][-1]:
-                curr_index = extents[i].index(h_subopt[i])
-                perturbed_extents = h_subopt.copy()
-                perturbed_extents[i] = extents[i][curr_index + 1]
-                new_value = metric(geodesics, perturbed_extents, *args)
+            if h_min[i] < valid_extents[i][-1]:
+                curr_index = valid_extents[i].index(h_min[i])
+                h_perturbed = h_min.copy()
+                h_perturbed[i] = valid_extents[i][curr_index + 1]
+                new_value = metric(geodesics, h_perturbed, **kwargs)
                 if new_value < min_value:
                     min_value = new_value
-                    update_sub = i
-                    new_index = curr_index + 1
-            if h_subopt[i] > extents[i][0]:
-                curr_index = extents[i].index(h_subopt[i])
-                perturbed_extents = h_subopt.copy()
-                perturbed_extents[i] = extents[i][curr_index - 1]
-                new_value = metric(geodesics, perturbed_extents, *args)
+                    i_min = i
+                    index_min = curr_index + 1
+            if h_min[i] > valid_extents[i][0]:
+                curr_index = valid_extents[i].index(h_min[i])
+                h_perturbed = h_min.copy()
+                h_perturbed[i] = valid_extents[i][curr_index - 1]
+                new_value = metric(geodesics, h_perturbed, **kwargs)
                 if new_value < min_value:
                     min_value = new_value
-                    update_sub = i
-                    new_index = curr_index - 1
+                    i_min = i
+                    index_min = curr_index - 1
 
-        if update_sub is None:
+        if i_min is None:
             terminate = True
         else:
-            h_subopt[update_sub] = extents[update_sub][new_index]
+            h_min[i_min] = valid_extents[i_min][index_min]
 
-    return h_subopt
+    return h_min

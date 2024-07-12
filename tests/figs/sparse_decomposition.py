@@ -19,8 +19,8 @@ from uvnpy.distances.core import (
 from uvnpy.network.subframeworks import (
     valid_extents,
     subframework_adjacencies,
-    links,
-    sparse_subframeworks_extended_greedy_search
+    isolated_links,
+    sparse_subframeworks_greedy_search
 )
 
 
@@ -56,32 +56,25 @@ def valid_ball(subset, adjacency, position, max_diam):
     return True
 
 
-def num_repeated_edges(geodesics, extents):
-    adjacency = subframework_adjacencies(geodesics, extents)
-    return np.sum([np.sum(adj) for adj in adjacency]) / 2
-
-
-def decomposition_cost(geodesics, extents):
-    num_rep_edges = num_repeated_edges(geodesics, extents)
-    num_links = len(links(geodesics, extents))
-    return num_rep_edges + 5 * num_links
-
-
 def weight(s):
-    return (s)**(-1.5)
+    return 5.0 if s == 2 else 1.0
 
 
-def decomposition_cost2(geodesics, extents):
-    _adj = subframework_adjacencies(geodesics, extents)
-    _links = links(geodesics, extents)
-    ball_sum = sum([weight(len(a)) * np.sum(a) / 2.0 for a in _adj])
-    link_sum = weight(2) * len(_links)
+def weight2(s):
+    return (s)**(-1.0)
+
+
+def decomposition_cost(geodesics, extents, weight):
+    adj = subframework_adjacencies(geodesics, extents)
+    num_links = len(isolated_links(geodesics, extents))
+    ball_sum = sum([weight(len(a)) * np.sum(a) / 2.0 for a in adj])
+    link_sum = weight(2) * num_links
     return ball_sum + link_sum
 
 
 def links_adjacency(geodesics, extents):
     A = np.zeros(geodesics.shape)
-    for i, j in links(geodesics, extents):
+    for i, j in isolated_links(geodesics, extents):
         A[i, j] = A[j, i] = 1
     return A
 
@@ -107,21 +100,23 @@ max_diam = 4
 h_valid = valid_extents(G, valid_ball, A, p, max_diam)
 print(h_valid)
 
-h_sparsed, _ = sparse_subframeworks_extended_greedy_search(
+h_sparsed = sparse_subframeworks_greedy_search(
     geodesics=G,
-    extents=h_valid,
+    valid_extents=h_valid,
     metric=decomposition_cost,
-    initial_guess=np.zeros(n, dtype=int)
+    initial_guess=np.zeros(n, dtype=int),
+    weight=weight
 )
-h_sparsed2, _ = sparse_subframeworks_extended_greedy_search(
+h_sparsed2 = sparse_subframeworks_greedy_search(
     geodesics=G,
-    extents=h_valid,
-    metric=decomposition_cost2,
-    initial_guess=np.zeros(n, dtype=int)
+    valid_extents=h_valid,
+    metric=decomposition_cost,
+    initial_guess=np.zeros(n, dtype=int),
+    weight=weight2
 )
 
-# print(h_sparsed, decomposition_cost(G, h_sparsed))
-# print(h_sparsed2, decomposition_cost2(G, h_sparsed2, weight))
+print(h_sparsed, decomposition_cost(G, h_sparsed, weight))
+print(h_sparsed2, decomposition_cost(G, h_sparsed2, weight2))
 
 fig, ax = plt.subplots(figsize=(2.25, 2.25))
 # fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.28)
