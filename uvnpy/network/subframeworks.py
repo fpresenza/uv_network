@@ -120,43 +120,6 @@ def sparse_subframeworks_full_search(
     return h_opt
 
 
-# def sparse_subframeworks_greedy_unidirectional_search(
-#         geodesics,
-#         valid_extents,
-#         metric
-#         ):
-#     """
-#     Given an initial decomposition given by valid_extents, at each iteration
-#     removes the subframework with the greatest contribution to the metric.
-
-#     Requires:
-#     ---------
-#         framework is rigid
-#     """
-#     n = len(valid_extents)
-#     hops = extents.copy()
-#     remain = [i for i in range(n) if extents[i] > 0]
-#     terminate = False
-
-#     min_value = np.inf
-#     while not terminate:
-#         remove_sub = None
-#         for i in remain:
-#             sparsed = hops.copy()
-#             sparsed[i] = 0
-#             new_value = metric(geodesics, sparsed)
-#             if new_value < min_value:
-#                 min_value = new_value
-#                 remove_sub = i
-
-#         if remove_sub is not None:
-#             hops[remove_sub] = 0
-#             remain.remove(remove_sub)
-#         else:
-#             terminate = True
-#     return hops
-
-
 def sparse_subframeworks_greedy_search(
         geodesics,
         valid_extents,
@@ -166,8 +129,8 @@ def sparse_subframeworks_greedy_search(
         ):
     """
     Given the set of valid extents of each node, starts with all subframeworks
-    with zero radiues and selects, at each iteration, the extent change the
-    reduces the metric the most.
+    of an initial guess and then selects, at each iteration, the individual
+    extent change that reduces the metric the most.
 
     Requires:
     ---------
@@ -176,13 +139,12 @@ def sparse_subframeworks_greedy_search(
     """
     n = len(geodesics)
     h_min = np.copy(initial_guess)
-    nodes = np.arange(n)
     terminate = False
 
     min_value = metric(geodesics, h_min, **kwargs)
     while not terminate:
         i_min = None
-        for i in nodes:
+        for i in range(n):
             if h_min[i] < valid_extents[i][-1]:
                 curr_index = valid_extents[i].index(h_min[i])
                 h_perturbed = h_min.copy()
@@ -192,6 +154,90 @@ def sparse_subframeworks_greedy_search(
                     min_value = new_value
                     i_min = i
                     index_min = curr_index + 1
+            if h_min[i] > valid_extents[i][0]:
+                curr_index = valid_extents[i].index(h_min[i])
+                h_perturbed = h_min.copy()
+                h_perturbed[i] = valid_extents[i][curr_index - 1]
+                new_value = metric(geodesics, h_perturbed, **kwargs)
+                if new_value < min_value:
+                    min_value = new_value
+                    i_min = i
+                    index_min = curr_index - 1
+
+        if i_min is None:
+            terminate = True
+        else:
+            h_min[i_min] = valid_extents[i_min][index_min]
+
+    return h_min
+
+
+def sparse_subframeworks_greedy_search_by_expansion(
+        geodesics,
+        valid_extents,
+        metric,
+        **kwargs
+        ):
+    """
+    Given the set of valid extents of each node, starts with all subframeworks
+    at zero and then expands, at each iteration, the individual extent
+    that reduces the metric the most.
+
+    Requires:
+    ---------
+        framework is rigid
+        valid_extents is list of ordered lists in increasing order
+    """
+    n = len(geodesics)
+    h_min = np.array([h[0] for h in valid_extents])
+    terminate = False
+
+    min_value = metric(geodesics, h_min, **kwargs)
+    while not terminate:
+        i_min = None
+        for i in range(n):
+            if h_min[i] < valid_extents[i][-1]:
+                curr_index = valid_extents[i].index(h_min[i])
+                h_perturbed = h_min.copy()
+                h_perturbed[i] = valid_extents[i][curr_index + 1]
+                new_value = metric(geodesics, h_perturbed, **kwargs)
+                if new_value < min_value:
+                    min_value = new_value
+                    i_min = i
+                    index_min = curr_index + 1
+
+        if i_min is None:
+            terminate = True
+        else:
+            h_min[i_min] = valid_extents[i_min][index_min]
+
+    return h_min
+
+
+def sparse_subframeworks_greedy_search_by_reduction(
+        geodesics,
+        valid_extents,
+        metric,
+        **kwargs
+        ):
+    """
+    Given the set of valid extents of each node, starts with all subframeworks
+    at maximum valid extent and then expands, at each iteration, the individual
+    extent that reduces the metric the most.
+
+    Requires:
+    ---------
+        framework is rigid
+        valid_extents is list of ordered lists in increasing order
+    """
+    n = len(geodesics)
+    h_min = np.array([h[-1] for h in valid_extents])
+    terminate = False
+
+    min_value = metric(geodesics, h_min, **kwargs)
+    while not terminate:
+        i_min = None
+        for i in range(n):
             if h_min[i] > valid_extents[i][0]:
                 curr_index = valid_extents[i].index(h_min[i])
                 h_perturbed = h_min.copy()
