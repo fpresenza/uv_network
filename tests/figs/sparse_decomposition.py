@@ -84,11 +84,11 @@ parser.add_argument(
 )
 arg = parser.parse_args()
 
-n = 30
+n = 50
 if arg.seed >= 0:
     np.random.seed(arg.seed)
 
-p = sufficiently_dispersed_position(n, (0, 1), (0, 1), 0.1)
+p = sufficiently_dispersed_position(n, (0, 1), (0, 0.9), 0.1)
 
 A = adjacency_from_positions(p, dmax=2/np.sqrt(n))
 A, Rmin = minimum_rigidity_radius(A, p, return_radius=True)
@@ -98,20 +98,20 @@ max_diam = 4
 h_valid = valid_extents(G, valid_ball, A, p, max_diam)
 print(h_valid)
 
-h_sparsed, count = sparse_subframeworks_greedy_search(
+h_sparsed = sparse_subframeworks_greedy_search(
     geodesics=G,
     valid_extents=h_valid,
     metric=decomposition_cost,
     initial_guess=np.zeros(n, dtype=int),
     weight=weight
 )
-h_sparsed2, count2 = sparse_subframeworks_greedy_search_by_expansion(
+h_sparsed2 = sparse_subframeworks_greedy_search_by_expansion(
     geodesics=G,
     valid_extents=h_valid,
     metric=decomposition_cost,
     weight=weight
 )
-h_sparsed3, count3 = sparse_subframeworks_greedy_search_by_reduction(
+h_sparsed3 = sparse_subframeworks_greedy_search_by_reduction(
     geodesics=G,
     valid_extents=h_valid,
     metric=decomposition_cost,
@@ -119,9 +119,9 @@ h_sparsed3, count3 = sparse_subframeworks_greedy_search_by_reduction(
 )
 
 
-print(h_sparsed, decomposition_cost(G, h_sparsed, weight), count)
-print(h_sparsed2, decomposition_cost(G, h_sparsed2, weight), count2)
-print(h_sparsed3, decomposition_cost(G, h_sparsed3, weight), count3)
+print(h_sparsed, decomposition_cost(G, h_sparsed, weight))
+print(h_sparsed2, decomposition_cost(G, h_sparsed2, weight))
+print(h_sparsed3, decomposition_cost(G, h_sparsed3, weight))
 
 fig, ax = plt.subplots(figsize=(2.25, 2.25))
 # fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.28)
