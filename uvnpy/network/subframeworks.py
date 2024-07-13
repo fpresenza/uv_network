@@ -121,7 +121,6 @@ def sparse_subframeworks_full_search(
 
 
 def sparse_subframeworks_greedy_search(
-        geodesics,
         valid_extents,
         metric,
         initial_guess,
@@ -137,11 +136,11 @@ def sparse_subframeworks_greedy_search(
         framework is rigid
         valid_extents is list of ordered lists in increasing order
     """
-    n = len(geodesics)
+    n = len(valid_extents)
     h_min = np.copy(initial_guess)
     terminate = False
 
-    min_value = metric(geodesics, h_min, **kwargs)
+    min_value = metric(h_min, **kwargs)
     while not terminate:
         i_min = None
         for i in range(n):
@@ -149,7 +148,7 @@ def sparse_subframeworks_greedy_search(
                 curr_index = valid_extents[i].index(h_min[i])
                 h_perturbed = h_min.copy()
                 h_perturbed[i] = valid_extents[i][curr_index + 1]
-                new_value = metric(geodesics, h_perturbed, **kwargs)
+                new_value = metric(h_perturbed, **kwargs)
                 if new_value < min_value:
                     min_value = new_value
                     i_min = i
@@ -158,7 +157,7 @@ def sparse_subframeworks_greedy_search(
                 curr_index = valid_extents[i].index(h_min[i])
                 h_perturbed = h_min.copy()
                 h_perturbed[i] = valid_extents[i][curr_index - 1]
-                new_value = metric(geodesics, h_perturbed, **kwargs)
+                new_value = metric(h_perturbed, **kwargs)
                 if new_value < min_value:
                     min_value = new_value
                     i_min = i
@@ -173,7 +172,6 @@ def sparse_subframeworks_greedy_search(
 
 
 def sparse_subframeworks_greedy_search_by_expansion(
-        geodesics,
         valid_extents,
         metric,
         **kwargs
@@ -186,13 +184,14 @@ def sparse_subframeworks_greedy_search_by_expansion(
     Requires:
     ---------
         framework is rigid
-        valid_extents is list of ordered lists in increasing order
+        valid_extents is a python list or tuple of ordered lists in increasing
+            order
     """
-    n = len(geodesics)
+    n = len(valid_extents)
     h_min = np.array([h[0] for h in valid_extents])
     terminate = False
 
-    min_value = metric(geodesics, h_min, **kwargs)
+    min_value = metric(h_min, **kwargs)
     while not terminate:
         i_min = None
         for i in range(n):
@@ -200,7 +199,7 @@ def sparse_subframeworks_greedy_search_by_expansion(
                 curr_index = valid_extents[i].index(h_min[i])
                 h_perturbed = h_min.copy()
                 h_perturbed[i] = valid_extents[i][curr_index + 1]
-                new_value = metric(geodesics, h_perturbed, **kwargs)
+                new_value = metric(h_perturbed, **kwargs)
                 if new_value < min_value:
                     min_value = new_value
                     i_min = i
@@ -215,7 +214,6 @@ def sparse_subframeworks_greedy_search_by_expansion(
 
 
 def sparse_subframeworks_greedy_search_by_reduction(
-        geodesics,
         valid_extents,
         metric,
         **kwargs
@@ -230,11 +228,11 @@ def sparse_subframeworks_greedy_search_by_reduction(
         framework is rigid
         valid_extents is list of ordered lists in increasing order
     """
-    n = len(geodesics)
+    n = len(valid_extents)
     h_min = np.array([h[-1] for h in valid_extents])
     terminate = False
 
-    min_value = metric(geodesics, h_min, **kwargs)
+    min_value = metric(h_min, **kwargs)
     while not terminate:
         i_min = None
         for i in range(n):
@@ -242,7 +240,7 @@ def sparse_subframeworks_greedy_search_by_reduction(
                 curr_index = valid_extents[i].index(h_min[i])
                 h_perturbed = h_min.copy()
                 h_perturbed[i] = valid_extents[i][curr_index - 1]
-                new_value = metric(geodesics, h_perturbed, **kwargs)
+                new_value = metric(h_perturbed, **kwargs)
                 if new_value < min_value:
                     min_value = new_value
                     i_min = i

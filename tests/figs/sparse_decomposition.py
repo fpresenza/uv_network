@@ -62,7 +62,7 @@ def weight(s):
     return 5.0 if s == 2 else 1.0
 
 
-def decomposition_cost(geodesics, extents, weight):
+def decomposition_cost(extents, geodesics, weight):
     adj = subframework_adjacencies(geodesics, extents)
     num_links = len(isolated_links(geodesics, extents))
     ball_sum = sum([weight(len(a)) * np.sum(a) / 2.0 for a in adj])
@@ -99,29 +99,29 @@ h_valid = valid_extents(G, valid_ball, A, p, max_diam)
 print(h_valid)
 
 h_sparsed = sparse_subframeworks_greedy_search(
-    geodesics=G,
     valid_extents=h_valid,
     metric=decomposition_cost,
     initial_guess=np.zeros(n, dtype=int),
+    geodesics=G,
     weight=weight
 )
 h_sparsed2 = sparse_subframeworks_greedy_search_by_expansion(
-    geodesics=G,
     valid_extents=h_valid,
     metric=decomposition_cost,
+    geodesics=G,
     weight=weight
 )
 h_sparsed3 = sparse_subframeworks_greedy_search_by_reduction(
-    geodesics=G,
     valid_extents=h_valid,
     metric=decomposition_cost,
+    geodesics=G,
     weight=weight
 )
 
 
-print(h_sparsed, decomposition_cost(G, h_sparsed, weight))
-print(h_sparsed2, decomposition_cost(G, h_sparsed2, weight))
-print(h_sparsed3, decomposition_cost(G, h_sparsed3, weight))
+print(h_sparsed, decomposition_cost(h_sparsed, G, weight))
+print(h_sparsed2, decomposition_cost(h_sparsed2, G, weight))
+print(h_sparsed3, decomposition_cost(h_sparsed3, G, weight))
 
 fig, ax = plt.subplots(figsize=(2.25, 2.25))
 # fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.28)
