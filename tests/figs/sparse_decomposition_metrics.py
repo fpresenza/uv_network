@@ -10,77 +10,92 @@ import progressbar
 
 from uvnpy.network.core import geodesics
 from uvnpy.network.disk_graph import adjacency_from_positions
-from uvnpy.network.load import one_token_for_all, one_token_for_each
-from uvnpy.network.subframeworks import (
-    superframework_extents,
-    isolated_edges,
-    sparse_subframeworks_greedy_search
-)
 from uvnpy.distances.core import (
+    is_inf_rigid,
     minimum_rigidity_extents,
-    minimum_rigidity_radius
+    minimum_rigidity_radius,
 )
-
+from uvnpy.network.subframeworks import (
+    valid_extents,
+    subframework_adjacencies,
+    isolated_links,
+    sparse_subframeworks_greedy_search_by_expansion,
+)
 # ------------------------------------------------------------------
 # Definición de variables, funciones y clases
 # ------------------------------------------------------------------
 Logs = collections.namedtuple(
     'Logs',
     'nodes \
-    diam \
-    hmax \
-    sparse_hmax_subopt \
-    sparse_load_subopt \
-    edges \
-    isolated_edges')
+    cost_dense \
+    cost_sparse'
+)
 
 
-def metrics(geodesics, extents):
-    action_load = one_token_for_each(geodesics, extents)
-    super_extents = superframework_extents(geodesics, extents)
-    state_load = one_token_for_all(geodesics, super_extents)
-    n_isolated_edges = len(isolated_edges(geodesics, extents))
-    return action_load + state_load, n_isolated_edges
+def valid_ball(subset, adjacency, position, max_diam):
+    """A ball is considered valid if:
+        it has zero radius
+            or
+        (it does not exceeds the maximum allowed diameter
+            and
+        it is infinitesimally rigid)
+    """
+    if sum(subset) == 1:
+        return True
+
+    A = adjacency[:, subset][subset]
+    if geodesics(A).max() > max_diam:
+        return False
+
+    p = position[subset]
+    if not is_inf_rigid(A, p):
+        return False
+
+    return True
 
 
-def network_load(geodesics, extents):
-    load, edges = metrics(geodesics, extents)
-    return load + (1 + 0.5) * edges
+def weight(s):
+    return 5.0 if s == 2 else 1.0
+
+
+def decomposition_cost(extents, geodesics, weight):
+    adj = subframework_adjacencies(geodesics, extents)
+    num_links = len(isolated_links(geodesics, extents))
+    ball_sum = sum([weight(len(a)) * np.sum(a) / 2.0 for a in adj])
+    link_sum = weight(2) * num_links
+    return ball_sum + link_sum
 
 
 # ------------------------------------------------------------------
 # Función run
 # ------------------------------------------------------------------
-def run(d, nmin, nmax, logs, rep, dense):
+def run(d, nmin, nmax, logs, rep):
     bar.start()
 
     for k, n in enumerate(range(nmin, nmax)):
         bar.update(k)
         logs.nodes[k] = n
+        # print(n)
 
         for r in range(rep):
-            p = np.random.uniform(0, 1, (n, d))
-            A0 = adjacency_from_positions(p, dmax=2/np.sqrt(n))
-            A, Rmin = minimum_rigidity_radius(A0, p, return_radius=True)
+            # print(r)
+            # p = sufficiently_dispersed_position(n, (0, 1), (0, 0.9), 0.1)
+            p = np.random.uniform((0, 0), (1, 0.9), (n, 2))
+            A = adjacency_from_positions(p, dmax=2/np.sqrt(n))
+            A, Rmin = minimum_rigidity_radius(A, p, return_radius=True)
 
             G = geodesics(A)
-            h = minimum_rigidity_extents(G, p)
-            degree = A.sum(axis=1)
-            logs.diam[k, r] = np.max(G)
-            logs.hmax[k, r] = np.max(h)
-            logs.edges[k, r] = np.sum(degree) / 2
+            h_valid = valid_extents(G, valid_ball, A, p, max_diam)
+            h_dense = minimum_rigidity_extents(G, p)
+            h_sparse = sparse_subframeworks_greedy_search_by_expansion(
+                valid_extents=h_valid,
+                metric=decomposition_cost,
+                geodesics=G,
+                weight=weight
+            )
 
-            if dense:
-                sparse_h_subopt = h
-            else:
-                sparse_h_subopt = sparse_subframeworks_greedy_search(
-                    G, h, network_load
-                )
-
-            logs.sparse_hmax_subopt[k, r] = np.max(sparse_h_subopt)
-            load, n_isolated_edges = metrics(G, sparse_h_subopt)
-            logs.sparse_load_subopt[k, r] = load
-            logs.isolated_edges[k, r] = n_isolated_edges / 2
+            logs.cost_dense[k, r] = decomposition_cost(h_dense, G, weight)
+            logs.cost_sparse[k, r] = decomposition_cost(h_sparse, G, weight)
 
     bar.finish()
     return logs
@@ -99,9 +114,6 @@ parser.add_argument(
 parser.add_argument(
     '-s', '--save',
     default=True, action='store_true', help='flag to store data')
-parser.add_argument(
-    '-d', '--dense',
-    default=False, action='store_true', help='select dense or sparse mode')
 
 arg = parser.parse_args()
 
@@ -112,16 +124,13 @@ d = 2
 nmin = d + 2
 nmax = arg.nodes + 1
 size = nmax - nmin
+max_diam = 4
 rep = arg.rep
-dense = arg.dense
+
 logs = Logs(
     nodes=np.empty(size, dtype=int),
-    diam=np.empty((size, rep)),
-    hmax=np.empty((size, rep)),
-    sparse_hmax_subopt=np.empty((size, rep)),
-    sparse_load_subopt=np.empty((size, rep)),
-    edges=np.empty((size, rep)),
-    isolated_edges=np.empty((size, rep))
+    cost_dense=np.empty((size, rep), dtype=float),
+    cost_sparse=np.empty((size, rep), dtype=float),
 )
 
 # ------------------------------------------------------------------
@@ -129,14 +138,12 @@ logs = Logs(
 # ------------------------------------------------------------------
 bar = progressbar.ProgressBar(maxval=size)
 
-logs = run(d, nmin, nmax, logs, rep, dense)
+logs = run(d, nmin, nmax, logs, rep)
 
 np.savetxt('/tmp/nodes.csv', logs.nodes, delimiter=',')
-np.savetxt('/tmp/diam.csv', logs.diam, delimiter=',')
-np.savetxt('/tmp/hmax.csv', logs.hmax, delimiter=',')
 np.savetxt(
-    '/tmp/sparse_hmax_subopt.csv', logs.sparse_hmax_subopt, delimiter=',')
+    '/tmp/cost_dense.csv', logs.cost_dense, delimiter=','
+)
 np.savetxt(
-    '/tmp/sparse_load_subopt.csv', logs.sparse_load_subopt, delimiter=',')
-np.savetxt('/tmp/edges.csv', logs.edges, delimiter=',')
-np.savetxt('/tmp/isolated_edges.csv', logs.isolated_edges, delimiter=',')
+    '/tmp/cost_sparse.csv', logs.cost_sparse, delimiter=','
+)

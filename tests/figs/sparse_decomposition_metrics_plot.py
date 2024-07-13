@@ -27,16 +27,11 @@ def reshape(data):
 # ------------------------------------------------------------------
 
 nodes = np.loadtxt('/tmp/nodes.csv', delimiter=',')
-diam = reshape(np.loadtxt('/tmp/diam.csv', delimiter=','))
-sparse_hmax = reshape(
-    np.loadtxt('/tmp/sparse_hmax_subopt.csv', delimiter=',')
+cost_dense = reshape(
+    np.loadtxt('/tmp/cost_dense.csv', delimiter=',')
 )
-sparse_load = reshape(
-    np.loadtxt('/tmp/sparse_load_subopt.csv', delimiter=',')
-)
-edges = reshape(np.loadtxt('/tmp/edges.csv', delimiter=','))
-isolated_edges = reshape(
-    np.loadtxt('/tmp/isolated_edges.csv', delimiter=',')
+cost_sparse = reshape(
+    np.loadtxt('/tmp/cost_sparse.csv', delimiter=',')
 )
 
 d = 2
@@ -46,7 +41,7 @@ nmax = int(nodes.max())
 # ------------------------------------------------------------------
 # Plotting
 # ------------------------------------------------------------------
-# Delay and Diameter
+# Cost Dense
 # ------------------------------------------------------------------
 fig, ax = plt.subplots(figsize=(3, 2))
 fig.subplots_adjust(bottom=0.2)
@@ -57,34 +52,38 @@ ax.tick_params(
     labelsize='small'
 )
 ax.grid(lw=0.4)
-ax.set_xlabel(r'Number of nodes ($|\mathcal{V}|)$', fontsize=10)
+ax.set_xlabel(r'Number of nodes ($|V|)$', fontsize=10)
 ax.set_xticks(np.arange(20, nmax + 1, 20))
 ax.set_xticklabels(np.arange(20, nmax + 1, 20))
 # plot delay
 ax.plot(
-    nodes, 2 * np.median(sparse_hmax, axis=-1),
-    label=r'$\mathscr{D}$', lw=1
+    nodes, 2 * np.median(cost_dense, axis=-1),
+    label=r'$\mathscr{C}(r_{\mathrm{dense}})$', lw=1
 )
 ax.fill_between(
     nodes,
-    2 * np.quantile(sparse_hmax, 0.25, axis=-1),
-    2 * np.quantile(sparse_hmax, 0.75, axis=-1),
+    2 * np.quantile(cost_dense, 0.25, axis=-1),
+    2 * np.quantile(cost_dense, 0.75, axis=-1),
     alpha=0.3
 )
-# plot diameter
+# ax.set_ylim(0, 10)
+ax.set_ylim(bottom=0)
+ax.legend(
+    fontsize='small', handlelength=1.5,
+    labelspacing=0.5, borderpad=0.2, loc='upper left'
+)
+
+# plot delay
 ax.plot(
-    nodes, np.median(diam, axis=-1),
-    label=r'$D$', lw=1
+    nodes, 2 * np.median(cost_sparse, axis=-1),
+    label=r'$\mathscr{C}(r_{\mathrm{sparse}})$', lw=1
 )
 ax.fill_between(
     nodes,
-    np.quantile(diam, 0.25, axis=-1),
-    np.quantile(diam, 0.75, axis=-1),
+    2 * np.quantile(cost_sparse, 0.25, axis=-1),
+    2 * np.quantile(cost_sparse, 0.75, axis=-1),
     alpha=0.3
 )
-diam_ticks = np.arange(0, 18, 4)
-ax.set_yticks(diam_ticks)
-ax.set_yticklabels(diam_ticks)
 # ax.set_ylim(0, 10)
 ax.set_ylim(bottom=0)
 ax.legend(
@@ -92,61 +91,4 @@ ax.legend(
     labelspacing=0.5, borderpad=0.2, loc='upper left'
 )
 # save figure
-fig.savefig('/tmp/sparse_delay_vs_diam.png', format='png', dpi=360)
-
-# ------------------------------------------------------------------
-# Load and Average Degree
-# ------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(3, 2))
-fig.subplots_adjust(bottom=0.2)
-ax.tick_params(
-    axis='both',       # changes apply to the x-axis
-    which='both',      # both major and minor ticks are affected
-    pad=1,
-    labelsize='small'
-)
-ax.grid(lw=0.4)
-ax.set_xlabel(r'Number of nodes ($|\mathcal{V}|)$', fontsize=10)
-ax.set_xticks(np.arange(20, nmax + 1, 20))
-ax.set_xticklabels(np.arange(20, nmax + 1, 20))
-# plot load
-ax.plot(
-    nodes, np.median(sparse_load, axis=-1) / nodes,
-    label=r'$\mathscr{L} / |\mathcal{V}|$', lw=1
-)
-ax.fill_between(
-    nodes,
-    np.quantile(sparse_load, 0.25, axis=-1) / nodes,
-    np.quantile(sparse_load, 0.75, axis=-1) / nodes,
-    alpha=0.3
-)
-# plot average degree
-ax.plot(
-    nodes,
-    2 * np.median(edges, axis=-1) / nodes,
-    label=r'$2 |\mathcal{E}| / |\mathcal{V}|$', lw=1
-)
-ax.fill_between(
-    nodes,
-    2 * np.quantile(edges, 0.25, axis=-1) / nodes,
-    2 * np.quantile(edges, 0.75, axis=-1) / nodes,
-    alpha=0.3
-)
-# plot number of isolated edges
-ax.plot(
-    nodes,
-    2 * np.median(isolated_edges, axis=-1) / nodes,
-    label=r'$2 |\mathcal{E}_{I}| / |\mathcal{V}|$', lw=1
-)
-ax.fill_between(
-    nodes,
-    2 * np.quantile(isolated_edges, 0.25, axis=-1) / nodes,
-    2 * np.quantile(isolated_edges, 0.75, axis=-1) / nodes,
-    alpha=0.3
-)
-ax.legend(
-    fontsize='small', handlelength=1.5, ncol=4, columnspacing=0.8,
-    labelspacing=0.5, borderpad=0.2, loc='upper left'
-)
-# save figure
-fig.savefig('/tmp/sparse_load_vs_edges.png', format='png', dpi=360)
+fig.savefig('/tmp/cost_dense_vs_sparse.png', format='png', dpi=360)
