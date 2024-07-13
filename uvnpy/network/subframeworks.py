@@ -93,7 +93,6 @@ def isolated_nodes(geodesics, extents):
 
 
 def sparse_subframeworks_full_search(
-        geodesics,
         valid_extents,
         metric,
         **kwargs
@@ -112,7 +111,7 @@ def sparse_subframeworks_full_search(
     min_value = np.inf
     for h in search_space:
         h = np.array(h)
-        new_value = metric(geodesics, h, **kwargs)
+        new_value = metric(h, **kwargs)
         if new_value < min_value:
             min_value = new_value
             h_opt = h
