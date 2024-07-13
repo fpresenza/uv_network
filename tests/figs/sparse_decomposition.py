@@ -20,9 +20,9 @@ from uvnpy.network.subframeworks import (
     valid_extents,
     subframework_adjacencies,
     isolated_links,
+    # sparse_subframeworks_full_search,
     sparse_subframeworks_greedy_search,
     sparse_subframeworks_greedy_search_by_expansion,
-    sparse_subframeworks_greedy_search_by_reduction
 )
 
 
@@ -94,10 +94,17 @@ A = adjacency_from_positions(p, dmax=2/np.sqrt(n))
 A, Rmin = minimum_rigidity_radius(A, p, return_radius=True)
 
 G = geodesics(A)
+print("Graph diameter: {}".format(G.max()))
 max_diam = 4
 h_valid = valid_extents(G, valid_ball, A, p, max_diam)
 print(h_valid)
 
+# h_sparsed0 = sparse_subframeworks_full_search(
+#     valid_extents=h_valid,
+#     metric=decomposition_cost,
+#     geodesics=G,
+#     weight=weight
+# )
 h_sparsed = sparse_subframeworks_greedy_search(
     valid_extents=h_valid,
     metric=decomposition_cost,
@@ -111,17 +118,28 @@ h_sparsed2 = sparse_subframeworks_greedy_search_by_expansion(
     geodesics=G,
     weight=weight
 )
-h_sparsed3 = sparse_subframeworks_greedy_search_by_reduction(
-    valid_extents=h_valid,
-    metric=decomposition_cost,
-    geodesics=G,
-    weight=weight
-)
+
+h_sparsed_dece = np.empty(n, dtype=int)
+for i in range(n):
+    S = G[i] <= max_diam
+    Ai = A[:, S][S]
+    pi = p[S]
+    Gi = geodesics(Ai)
+    h_valid_i = valid_extents(Gi, valid_ball, Ai, pi, max_diam)
+    h_sparsed_i = sparse_subframeworks_greedy_search_by_expansion(
+        valid_extents=h_valid_i,
+        metric=decomposition_cost,
+        geodesics=Gi,
+        weight=weight
+    )
+    idx = sum(S[:i])
+    h_sparsed_dece[i] = h_sparsed_i[idx]
 
 
+# print(h_sparsed0, decomposition_cost(h_sparsed0, G, weight))
 print(h_sparsed, decomposition_cost(h_sparsed, G, weight))
 print(h_sparsed2, decomposition_cost(h_sparsed2, G, weight))
-print(h_sparsed3, decomposition_cost(h_sparsed3, G, weight))
+print(h_sparsed_dece, decomposition_cost(h_sparsed_dece, G, weight))
 
 fig, ax = plt.subplots(figsize=(2.25, 2.25))
 # fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.28)
@@ -166,6 +184,79 @@ for i in range(n):
 fig.savefig(
     '/tmp/min_rigidity_extents.png', format='png', dpi=360
 )
+
+
+# fig, ax = plt.subplots(figsize=(2.25, 2.25))
+# # fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.28)
+# ax.tick_params(
+#     axis='both',       # changes apply to the x-axis
+#     which='both',      # both major and minor ticks are affected
+#     bottom=False,
+#     left=False,
+#     pad=1,
+#     labelsize='x-small')
+# # ax.grid(1, lw=0.4)
+# ax.set_aspect('equal')
+# ax.set_xlim(-0.05, 1.05)
+# ax.set_ylim(-0.05, 1.05)
+# # ax.set_xlabel(r'$\mathrm{x}$', fontsize='x-small', labelpad=0.6)
+# # ax.set_ylabel(r'$\mathrm{y}$', fontsize='x-small', labelpad=0)
+# # ax.set_xticks(np.linspace(0, 1, 4, endpoint=True))
+# # ax.set_yticks(np.linspace(0, 1, 4, endpoint=True))
+# ax.set_xticklabels([])
+# ax.set_yticklabels([])
+
+# leaders = h_sparsed0 > 0
+# followers = ~ leaders
+
+# ax.scatter(
+#     p[followers, 0], p[followers, 1],
+#     marker='o', s=10,
+#     color='0.7', zorder=10,
+# )
+
+# for j, i in enumerate(np.where(leaders)[0]):
+#     k = h_sparsed0[i]
+#     q = p[G[i] <= k]
+#     cvx = ConvexHull(q)
+#     ax.fill(
+#         q[cvx.vertices, 0], q[cvx.vertices, 1],
+#         color='C{}'.format(j), alpha=0.15
+#     )
+#     ax.scatter(
+#         p[i, 0], p[i, 1],
+#         marker=markers[k], s=(k + 1) * 10,
+#         color='C{}'.format(j), zorder=10,
+#         # label=r'${}$'.format(k)
+#     )
+
+# for k in np.unique(h_sparsed0):
+#     ax.scatter(
+#         -1, -1,
+#         marker=markers[k], s=(k + 1) * 10,
+#         color='k',
+#         label=r'${}$'.format(k)
+#     )
+
+# Aiso = links_adjacency(G, h_sparsed0)
+# plot.edges(
+#     ax, p, A - Aiso,
+#     lw=0.3, color='k', alpha=0.6, zorder=0
+# )
+
+# plot.edges(
+#     ax, p, Aiso,
+#     lw=1.75, color='k', alpha=0.25, zorder=0
+# )
+
+# ax.legend(
+#     fontsize='x-small', handlelength=1, labelspacing=0.7,
+#     borderpad=0.2, handletextpad=0.2, framealpha=1.,
+#     ncol=5, columnspacing=0.8, loc='upper center'
+# )
+# fig.savefig(
+#     '/tmp/sparse_rigidity_extents0.png', format='png', dpi=360
+# )
 
 
 fig, ax = plt.subplots(figsize=(2.25, 2.25))
@@ -314,6 +405,7 @@ fig.savefig(
     '/tmp/sparse_rigidity_extents2.png', format='png', dpi=360
 )
 
+
 fig, ax = plt.subplots(figsize=(2.25, 2.25))
 # fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.28)
 ax.tick_params(
@@ -322,7 +414,8 @@ ax.tick_params(
     bottom=False,
     left=False,
     pad=1,
-    labelsize='x-small')
+    labelsize='x-small'
+)
 # ax.grid(1, lw=0.4)
 ax.set_aspect('equal')
 ax.set_xlim(-0.05, 1.05)
@@ -334,7 +427,7 @@ ax.set_ylim(-0.05, 1.05)
 ax.set_xticklabels([])
 ax.set_yticklabels([])
 
-leaders = h_sparsed3 > 0
+leaders = h_sparsed_dece > 0
 followers = ~ leaders
 
 ax.scatter(
@@ -344,7 +437,7 @@ ax.scatter(
 )
 
 for j, i in enumerate(np.where(leaders)[0]):
-    k = h_sparsed3[i]
+    k = h_sparsed_dece[i]
     q = p[G[i] <= k]
     cvx = ConvexHull(q)
     ax.fill(
@@ -358,7 +451,7 @@ for j, i in enumerate(np.where(leaders)[0]):
         # label=r'${}$'.format(k)
     )
 
-for k in np.unique(h_sparsed3):
+for k in np.unique(h_sparsed_dece):
     ax.scatter(
         -1, -1,
         marker=markers[k], s=(k + 1) * 10,
@@ -366,7 +459,7 @@ for k in np.unique(h_sparsed3):
         label=r'${}$'.format(k)
     )
 
-Aiso = links_adjacency(G, h_sparsed3)
+Aiso = links_adjacency(G, h_sparsed_dece)
 plot.edges(
     ax, p, A - Aiso,
     lw=0.3, color='k', alpha=0.6, zorder=0
@@ -383,5 +476,5 @@ ax.legend(
     ncol=5, columnspacing=0.8, loc='upper center'
 )
 fig.savefig(
-    '/tmp/sparse_rigidity_extents3.png', format='png', dpi=360
+    '/tmp/sparse_rigidity_extents_dece.png', format='png', dpi=360
 )
