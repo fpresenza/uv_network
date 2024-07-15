@@ -6,29 +6,28 @@
 import argparse
 import collections
 import numpy as np
+from numba import njit
 import progressbar
 
 from uvnpy.network.core import geodesics
 from uvnpy.network.disk_graph import adjacency_from_positions
 from uvnpy.distances.core import (
     is_inf_rigid,
-    minimum_rigidity_extents,
     minimum_rigidity_radius,
 )
 from uvnpy.network.subframeworks import (
     valid_extents,
-    subframework_adjacencies,
-    isolated_links,
     sparse_subframeworks_greedy_search_by_expansion,
 )
+
 # ------------------------------------------------------------------
 # Definición de variables, funciones y clases
 # ------------------------------------------------------------------
 Logs = collections.namedtuple(
     'Logs',
     'nodes \
-    cost_dense \
-    cost_sparse'
+    cost_sparse \
+    cost_sparse_dece'
 )
 
 
@@ -54,16 +53,22 @@ def valid_ball(subset, adjacency, position, max_diam):
     return True
 
 
-def weight(s):
-    return 5.0 if s == 2 else 1.0
+@njit
+def decomposition_cost(extents, geodesics):
+    """
+    Computes the set of isolated links (edges not in any subframework).
+    """
+    n = len(extents)
+    s = 0
 
-
-def decomposition_cost(extents, geodesics, weight):
-    adj = subframework_adjacencies(geodesics, extents)
-    num_links = len(isolated_links(geodesics, extents))
-    ball_sum = sum([weight(len(a)) * np.sum(a) / 2.0 for a in adj])
-    link_sum = weight(2) * num_links
-    return ball_sum + link_sum
+    for i in range(n):
+        for j in range(i + 1, n):
+            if geodesics[i, j] == 1:
+                in_ball = (geodesics[i] <= extents) * (geodesics[j] <= extents)
+                # 1.0 if s > 2 else 5.0
+                c = sum(in_ball)
+                s += float(c) if c != 0 else 5.0
+    return s
 
 
 # ------------------------------------------------------------------
@@ -75,27 +80,36 @@ def run(d, nmin, nmax, logs, rep):
     for k, n in enumerate(range(nmin, nmax)):
         bar.update(k)
         logs.nodes[k] = n
-        # print(n)
 
         for r in range(rep):
-            # print(r)
-            # p = sufficiently_dispersed_position(n, (0, 1), (0, 0.9), 0.1)
             p = np.random.uniform((0, 0), (1, 0.9), (n, 2))
             A = adjacency_from_positions(p, dmax=2/np.sqrt(n))
             A, Rmin = minimum_rigidity_radius(A, p, return_radius=True)
 
             G = geodesics(A)
             h_valid = valid_extents(G, valid_ball, A, p, max_diam)
-            h_dense = minimum_rigidity_extents(G, p)
             h_sparse = sparse_subframeworks_greedy_search_by_expansion(
                 valid_extents=h_valid,
                 metric=decomposition_cost,
                 geodesics=G,
-                weight=weight
             )
+            h_sparse_dece = np.empty(n, dtype=int)
+            for i in range(n):
+                S = G[i] <= max_diam
+                Ai = A[:, S][S]
+                pi = p[S]
+                Gi = geodesics(Ai)
+                h_valid_i = valid_extents(Gi, valid_ball, Ai, pi, max_diam)
+                h_sparse_i = sparse_subframeworks_greedy_search_by_expansion(
+                    valid_extents=h_valid_i,
+                    metric=decomposition_cost,
+                    geodesics=Gi,
+                )
+                idx = sum(S[:i])
+                h_sparse_dece[i] = h_sparse_i[idx]
 
-            logs.cost_dense[k, r] = decomposition_cost(h_dense, G, weight)
-            logs.cost_sparse[k, r] = decomposition_cost(h_sparse, G, weight)
+            logs.cost_sparse[k, r] = decomposition_cost(h_sparse, G)
+            logs.cost_sparse_dece[k, r] = decomposition_cost(h_sparse_dece, G)
 
     bar.finish()
     return logs
@@ -129,8 +143,8 @@ rep = arg.rep
 
 logs = Logs(
     nodes=np.empty(size, dtype=int),
-    cost_dense=np.empty((size, rep), dtype=float),
     cost_sparse=np.empty((size, rep), dtype=float),
+    cost_sparse_dece=np.empty((size, rep), dtype=float)
 )
 
 # ------------------------------------------------------------------
@@ -142,8 +156,12 @@ logs = run(d, nmin, nmax, logs, rep)
 
 np.savetxt('/tmp/nodes.csv', logs.nodes, delimiter=',')
 np.savetxt(
-    '/tmp/cost_dense.csv', logs.cost_dense, delimiter=','
+    '/tmp/cost_sparse_delta_{}.csv'.format(max_diam),
+    logs.cost_sparse,
+    delimiter=','
 )
 np.savetxt(
-    '/tmp/cost_sparse.csv', logs.cost_sparse, delimiter=','
+    '/tmp/cost_sparse_dece_delta_{}.csv'.format(max_diam),
+    logs.cost_sparse_dece,
+    delimiter=','
 )
