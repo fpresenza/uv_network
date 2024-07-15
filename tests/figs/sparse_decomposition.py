@@ -5,6 +5,7 @@
 """
 import argparse
 import numpy as np
+from numba import njit
 from scipy.spatial import ConvexHull
 import matplotlib.pyplot as plt
 
@@ -18,7 +19,6 @@ from uvnpy.distances.core import (
 )
 from uvnpy.network.subframeworks import (
     valid_extents,
-    subframework_adjacencies,
     isolated_links,
     sparse_subframeworks_greedy_search_by_expansion,
 )
@@ -56,18 +56,22 @@ def valid_ball(subset, adjacency, position, max_diam):
     return True
 
 
-def weight(s):
-    # return 5.0 if s == 2 else 1.0
-    # return 5.0 if s <= 3 else 1 / ((s - 2) * (s - 3))
-    return 5.0 - 4.0 * s / 5.0 if s <= 5 else 1.0
-
-
+@njit
 def decomposition_cost(extents, geodesics):
-    adj = subframework_adjacencies(geodesics, extents)
-    num_links = len(isolated_links(geodesics, extents))
-    ball_sum = sum([weight(len(a)) * np.sum(a) / 2.0 for a in adj])
-    link_sum = weight(2) * num_links
-    return ball_sum + link_sum
+    """
+    Computes the set of isolated links (edges not in any subframework).
+    """
+    n = len(extents)
+    s = 0
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            if geodesics[i, j] == 1:
+                in_ball = (geodesics[i] <= extents) * (geodesics[j] <= extents)
+                # 1.0 if s > 2 else 5.0
+                c = sum(in_ball)
+                s += float(c) if c != 0 else 5.0
+    return s
 
 
 def links_adjacency(geodesics, extents):
