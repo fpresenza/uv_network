@@ -139,14 +139,6 @@ logs = Logs(
 bar = progressbar.ProgressBar(maxval=size)
 
 logs = run(d, nmin, nmax, logs, threshold, rep)
-nodes = logs.nodes
-diam = logs.diam
-hmax = logs.hmax
-load = logs.load
-edges = logs.edges
-rmin = logs.rmin
-rmax = logs.rmax
-alpha = logs.alpha
 
 np.savetxt('/tmp/nodes.csv', logs.nodes, delimiter=',')
 np.savetxt('/tmp/rmin.csv', logs.rmin, delimiter=',')
