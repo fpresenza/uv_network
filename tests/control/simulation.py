@@ -20,6 +20,7 @@ from uvnpy.network.disk_graph import (
     adjacency_histeresis
 )
 from uvnpy.distances.core import (
+    is_inf_rigid,
     rigidity_eigenvalue,
     minimum_rigidity_extents
 )
@@ -47,6 +48,11 @@ Logs = collections.namedtuple(
     adjacency, \
     action_extents, \
     targets')
+
+Agent = collections.namedtuple(
+    'Agent',
+    'dynamics, \
+    computer')
 
 InterAgentMsg = collections.namedtuple(
     'InterAgentMsg',
@@ -149,15 +155,6 @@ class SubframeworkRigidityAgent(object):
         A = adjacency_from_positions(p, self.dmin)
         return rigidity_eigenvalue(A, p)
 
-    def choose_action_extent(self):
-        try:
-            re = self.rigidity_eigenvalue(self.action_extent)
-            new_re = self.rigidity_eigenvalue(self.action_extent - 1)
-            if new_re > re:
-                self.action_extent -= 1
-        except ValueError:
-            pass
-
     def steady(self):
         self.last_control_action = np.zeros(self.dim)
         # self.dm.step(self.current_time, 0)
@@ -227,7 +224,6 @@ class Network(object):
     def __init__(
             self,
             adjacency_matrix,
-            dynamic_model,
             agents,
             comm_range,
             range_cov,
@@ -237,7 +233,6 @@ class Network(object):
         """Clase para simular una red de agentes de forma centralizada"""
         self.ids = np.arange(len(adjacency_matrix))
         self.adjacency_matrix = adjacency_matrix.astype(bool)
-        self.dynamic_model = dynamic_model
         self.agents = agents
 
         self.dim = 2
@@ -252,19 +247,24 @@ class Network(object):
         self.cloud = collections.deque(maxlen=queue)
 
     def collect_positions(self):
-        return np.array([dynamics.x for dynamics in self.dynamic_model])
+        return np.array([
+            agent.dynamics.x for agent in self.agents
+        ])
 
     def collect_estimated_positions(self):
-        return np.array([agent.loc.position for agent in self.agents])
+        return np.array([
+            agent.computer.loc.position for agent in self.agents
+        ])
 
     def collect_action_extents(self):
-        return np.array([agent.action_extent for agent in self.agents])
-
-    def collect_state_extents(self):
-        return np.array([agent.state_extent for agent in self.agents])
+        return np.array([
+            agent.computer.action_extent for agent in self.agents
+        ])
 
     def collect_control_actions(self):
-        return np.array([agent.last_control_action for agent in self.agents])
+        return np.array([
+            agent.computer.last_control_action for agent in self.agents
+        ])
 
     def rigidity_eigenvalue(self):
         return rigidity_eigenvalue(
@@ -275,7 +275,8 @@ class Network(object):
         geodesics = core.geodesics(self.adjacency_matrix.astype(float))
         eigs = []
         for agent in self.agents:
-            subset = geodesics[agent.node_id] <= agent.action_extent
+            subset = geodesics[agent.computer.node_id] <= \
+                agent.computer.action_extent
             A = self.adjacency_matrix[np.ix_(subset, subset)]
             p = self.collect_positions()[subset]   # TODO: IMPROVE SLICE
             eigs.append(rigidity_eigenvalue(A, p))
@@ -291,16 +292,16 @@ class Network(object):
 
     def get_gps(self, node_id):
         gps_measurement = np.random.normal(
-            self.dynamic_model[node_id].x, self.gps_cov
+            self.agents[node_id].dynamics.x, self.gps_cov
         )
-        self.agents[node_id].gps = {self.timestamp: gps_measurement}
+        self.agents[node_id].computer.gps = {self.timestamp: gps_measurement}
 
     def broadcast(self, node_id):
-        msg = self.agents[node_id].send_msg()
+        msg = self.agents[node_id].computer.send_msg()
         for neighbor_id in np.where(self.adjacency_matrix[node_id] == 1)[0]:
             distance = np.sqrt(np.square(
-                (self.dynamic_model[node_id].x -
-                 self.dynamic_model[neighbor_id].x)
+                (self.agents[node_id].dynamics.x -
+                 self.agents[neighbor_id].dynamics.x)
             ).sum())
             range_measurement = np.random.normal(
                 distance,
@@ -311,7 +312,7 @@ class Network(object):
     def receive(self, node_id):
         cloud = self.cloud[0].copy()
         for (msg, range_measurement) in cloud[node_id]:
-            self.agents[node_id].receive_msg(msg, range_measurement)
+            self.agents[node_id].computer.receive_msg(msg, range_measurement)
 
 
 class Targets(object):
@@ -413,10 +414,10 @@ def run(steps, network, logs):
         # update clocks
         network.timestamp = t
         for agent in network.agents:
-            agent.update_clock(t)
+            agent.computer.update_clock(t)
 
         # communication step
-        network.cloud.append({agent.node_id: [] for agent in agents})
+        network.cloud.append({agent.computer.node_id: [] for agent in agents})
         for i in network.ids:
             network.broadcast(i)
         for i in network.ids:
@@ -430,16 +431,18 @@ def run(steps, network, logs):
         alloc = targets.allocation(p)
 
         for i in network.ids:
-            network.agents[i].localization_step()
+            network.agents[i].computer.localization_step()
             if t >= t_init and targets.unfinished():
                 # might be est position
                 u_track = tracking(p[i], alloc[i], targets.range)
-                agents[i].control_step(u_track)
-                # agents[i].choose_extent()
-                network.dynamic_model[i].step(t, agents[i].last_control_action)
+                agents[i].computer.control_step(u_track)
+                # agents[i].computer.choose_extent()
+                network.agents[i].dynamics.step(
+                    t, agents[i].computer.last_control_action
+                )
             else:
-                network.agents[i].steady()
-                network.dynamic_model[i].step(t, np.zeros(2))
+                network.agents[i].computer.steady()
+                network.agents[i].dynamics.step(t, np.zeros(2))
 
         targets.update(network.collect_positions())
 
@@ -449,13 +452,11 @@ def run(steps, network, logs):
 
         # log data
         logs.position[k] = network.collect_positions().ravel()
-        logs.estimated_position[k] = \
-            network.collect_estimated_positions().ravel()
+        logs.estimated_position[k] = network \
+            .collect_estimated_positions().ravel()
         logs.action[k] = network.collect_control_actions().ravel()
         logs.fre[k] = network.rigidity_eigenvalue()
         sfre = network.subframeworks_rigidity_eigenvalue()
-        # if np.any(np.less(sfre, 1e-4)):
-        # raise ValueError
         logs.re[k] = sfre
         logs.adjacency[k] = network.adjacency_matrix.ravel()
         logs.action_extents[k] = network.collect_action_extents()
@@ -480,7 +481,7 @@ def run(steps, network, logs):
 parser = argparse.ArgumentParser(description='')
 parser.add_argument(
     '-s', '--step',
-    default=25e-3, type=float, help='paso de simulación'
+    default=1e-3, type=float, help='paso de simulación'
 )
 parser.add_argument(
     '-q', '--queue',
@@ -488,7 +489,7 @@ parser.add_argument(
 )
 parser.add_argument(
     '-e', '--tf',
-    default=1.0, type=float, help='time_interval final'
+    default=10.0, type=float, help='tiempo otal de simulación'
 )
 
 arg = parser.parse_args()
@@ -517,45 +518,36 @@ position = np.array([
     [-1.0463, -0.8862]
 ])
 
-# position = np.array([
-#     [-7.4851,  7.0387],
-#     [-2.793 ,  6.6516],
-#     [-3.0055,  1.5672],
-#     [ 3.4272,  4.1939],
-#     [ 7.0671, -1.1412],
-#     [ 4.6065,  5.3426],
-#     [-6.767 ,  8.9778],
-#     [ 4.0419, -1.5308],
-#     [ 5.7891, -3.8129],
-#     [ 6.4013, -4.1745]
-# ])
-
 
 dmin = 0.85 * lim
 dmax = 0.90 * lim
 
 adjacency_matrix = adjacency_from_positions(position, dmin)
+if not is_inf_rigid(adjacency_matrix, position):
+    raise ValueError('Framework should be infinitesimally rigid.')
+
 geodesics = core.geodesics(adjacency_matrix)
 action_extents = minimum_rigidity_extents(geodesics, position)
 state_extents = superframework_extents(
     geodesics, action_extents
 )
 
-agents = np.empty(n, dtype=object)
-dynamic_model = np.empty(n, dtype=object)
-for i, pos in enumerate(position):
-    agents[i] = SubframeworkRigidityAgent(
-        i,
-        np.random.normal(pos,  0.5**2),
-        (dmin, dmax),
-        action_extents[i],
-        state_extents[i]
+agents = [
+    Agent(
+        Integrator(position[i]),
+        SubframeworkRigidityAgent(
+            i,
+            np.random.normal(position[i],  0.5**2),
+            (dmin, dmax),
+            action_extents[i],
+            state_extents[i]
+        )
     )
-    dynamic_model[i] = Integrator(pos)
+    for i in range(n)
+]
 
 network = Network(
     adjacency_matrix,
-    dynamic_model,
     agents,
     comm_range=(dmin, dmax),
     range_cov=0.5,
