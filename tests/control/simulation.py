@@ -80,7 +80,8 @@ class Neighborhood(dict):
             timestamp=timestamp,
             position=position,
             covariance=covariance,
-            range=range_measurement)
+            range=range_measurement
+        )
 
 
 class SubframeworkRigidityRobot(object):
@@ -123,7 +124,7 @@ class SubframeworkRigidityRobot(object):
     def update_clock(self, t):
         self.current_time = t
 
-    def send_msg(self):
+    def create_msg(self):
         action_tokens, state_tokens = self.routing.broadcast(
             self.current_time,
             self.action,
@@ -135,15 +136,17 @@ class SubframeworkRigidityRobot(object):
             node_id=self.node_id,
             timestamp=self.current_time,
             action_tokens=action_tokens,
-            state_tokens=state_tokens)
+            state_tokens=state_tokens
+        )
         return msg
 
-    def receive_msg(self, msg, range_measurement):
+    def handle_received_msg(self, msg, range_measurement):
         self.neighborhood.update(
             msg.node_id, msg.timestamp,
             msg.state_tokens[msg.node_id].data['position'],
             msg.state_tokens[msg.node_id].data['covariance'],
-            range_measurement)
+            range_measurement
+        )
         self.routing.update_action(msg.action_tokens.values())
         self.routing.update_state(msg.state_tokens.values())
 
@@ -155,11 +158,10 @@ class SubframeworkRigidityRobot(object):
         A = adjacency_from_positions(p, self.dmin)
         return rigidity_eigenvalue(A, p)
 
-    def steady(self):
-        self.last_control_action = np.zeros(self.dim)
-        # self.dm.step(self.current_time, 0)
+    def set_control_action(self, u):
+        self.last_control_action = u
 
-    def control_step(self, u_ext=0):
+    def compute_control_action(self, u_ext=0):
         # obtengo posiciones del subframework
         position = self.routing.extract_state('position', self.action_extent)
         degree = len(position)
@@ -195,7 +197,7 @@ class SubframeworkRigidityRobot(object):
         self.last_control_action = 0.5 * logistic_saturation(
             5 * u_ext + 4 * u_r + 20 * u_ca, limit=2.5
         )
-        # self.dm.step(self.current_time, self.last_control_action)
+        return self.last_control_action
 
     def localization_step(self):
         self.loc.dynamic_step(self.current_time, self.last_control_action)
@@ -296,8 +298,8 @@ class Network(object):
         )
         self.robots[node_id].computer.gps = {self.timestamp: gps_measurement}
 
-    def broadcast(self, node_id):
-        msg = self.robots[node_id].computer.send_msg()
+    def upload_to_cloud(self, node_id):
+        msg = self.robots[node_id].computer.create_msg()
         for neighbor_id in np.where(self.adjacency_matrix[node_id] == 1)[0]:
             distance = np.sqrt(np.square(
                 (self.robots[node_id].dynamics.x -
@@ -309,14 +311,16 @@ class Network(object):
             )
             self.cloud[-1][neighbor_id].append((msg, range_measurement))
 
-    def receive(self, node_id):
+    def download_from_cloud(self, node_id):
         cloud = self.cloud[0].copy()
         for (msg, range_measurement) in cloud[node_id]:
-            self.robots[node_id].computer.receive_msg(msg, range_measurement)
+            self.robots[node_id].computer.handle_received_msg(
+                msg, range_measurement
+            )
 
 
 class Targets(object):
-    def __init__(self, n, xlim, ylim, range=3):
+    def __init__(self, n, xlim, ylim, range=3.0):
         self.set(n, xlim, ylim)
         self.range = range
 
@@ -413,15 +417,15 @@ def run(steps, network, logs):
 
         # update clocks
         network.timestamp = t
-        for robot in network.robots:
+        for robot in robots:
             robot.computer.update_clock(t)
 
         # communication step
         network.cloud.append({robot.computer.node_id: [] for robot in robots})
         for i in network.ids:
-            network.broadcast(i)
+            network.upload_to_cloud(i)
         for i in network.ids:
-            network.receive(i)
+            network.download_from_cloud(i)
 
         # localization and control step
         network.get_gps(6)
@@ -430,19 +434,21 @@ def run(steps, network, logs):
         p = network.collect_positions()
         alloc = targets.allocation(p)
 
-        for i in network.ids:
-            network.robots[i].computer.localization_step()
+        for robot in robots:
+            robot.computer.localization_step()
             if t >= t_init and targets.unfinished():
                 # might be est position
-                u_track = tracking(p[i], alloc[i], targets.range)
-                robots[i].computer.control_step(u_track)
-                # robots[i].computer.choose_extent()
-                network.robots[i].dynamics.step(
-                    t, robots[i].computer.last_control_action
+                u_track = tracking(
+                    p[robot.computer.node_id],
+                    alloc[robot.computer.node_id],
+                    targets.range
                 )
+                u = robot.computer.compute_control_action(u_track)
+                robot.dynamics.step(t, u)
             else:
-                network.robots[i].computer.steady()
-                network.robots[i].dynamics.step(t, np.zeros(2))
+                u = np.zeros(2)
+                robot.computer.set_control_action(u)
+                robot.dynamics.step(t, u)
 
         targets.update(network.collect_positions())
 
@@ -481,23 +487,23 @@ def run(steps, network, logs):
 parser = argparse.ArgumentParser(description='')
 parser.add_argument(
     '-s', '--step',
-    default=1e-3, type=float, help='paso de simulación'
+    default=1, type=float, help='paso de simulación en miliseg'
+)
+parser.add_argument(
+    '-e', '--tf',
+    default=10.0, type=float, help='tiempo total de simulación en seg'
 )
 parser.add_argument(
     '-q', '--queue',
     default=1, type=int, help='largo de la cola del cloud'
 )
-parser.add_argument(
-    '-e', '--tf',
-    default=10.0, type=float, help='tiempo otal de simulación'
-)
-
 arg = parser.parse_args()
 
 # ------------------------------------------------------------------
 # Configuración
 # ------------------------------------------------------------------
-time_interval = np.arange(0, arg.tf, arg.step)
+step_milli = arg.step / 1000.0
+time_interval = np.arange(0, arg.tf, step_milli)
 steps = list(enumerate(time_interval))
 n_steps = len(steps)
 
