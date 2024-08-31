@@ -49,11 +49,6 @@ Logs = collections.namedtuple(
     action_extents, \
     targets')
 
-Robot = collections.namedtuple(
-    'Robot',
-    'dynamics, \
-    computer')
-
 InterRobotMsg = collections.namedtuple(
     'InterRobotMsg',
     'node_id, \
@@ -96,7 +91,6 @@ class SubframeworkRigidityRobot(object):
         self.action_extent = action_extent
         self.state_extent = state_extent
         self.current_time = t
-        # self.dm = Integrator(pos)
         self.maintenance = CentralizedRigidityMaintenance(
             dim=self.dim, dmax=self.dmin,
             steepness=20/self.dmin, power=0.5, non_adjacent=True
@@ -140,23 +134,24 @@ class SubframeworkRigidityRobot(object):
         )
         return msg
 
-    def handle_received_msg(self, msg, range_measurement):
-        self.neighborhood.update(
-            msg.node_id, msg.timestamp,
-            msg.state_tokens[msg.node_id].data['position'],
-            msg.state_tokens[msg.node_id].data['covariance'],
-            range_measurement
-        )
-        self.routing.update_action(msg.action_tokens.values())
-        self.routing.update_state(msg.state_tokens.values())
+    def handle_received_msgs(self, msgs):
+        for (msg, range_measurement) in msgs:
+            self.neighborhood.update(
+                msg.node_id, msg.timestamp,
+                msg.state_tokens[msg.node_id].data['position'],
+                msg.state_tokens[msg.node_id].data['covariance'],
+                range_measurement
+            )
+            self.routing.update_action(msg.action_tokens.values())
+            self.routing.update_state(msg.state_tokens.values())
 
-    def rigidity_eigenvalue(self, hops):
-        position = self.routing.extract_state('position', hops)
-        p = np.empty((len(position) + 1, self.dim))
-        p[0] = self.loc.position
-        p[1:] = list(position.values())
-        A = adjacency_from_positions(p, self.dmin)
-        return rigidity_eigenvalue(A, p)
+    # def rigidity_eigenvalue(self, hops):
+    #     position = self.routing.extract_state('position', hops)
+    #     p = np.empty((len(position) + 1, self.dim))
+    #     p[0] = self.loc.position
+    #     p[1:] = list(position.values())
+    #     A = adjacency_from_positions(p, self.dmin)
+    #     return rigidity_eigenvalue(A, p)
 
     def set_control_action(self, u):
         self.last_control_action = u
@@ -222,24 +217,30 @@ class SubframeworkRigidityRobot(object):
         self.state['covariance'] = self.loc.covariance
 
 
-class Network(object):
+class Robots(list):
+    def collect_estimated_positions(self):
+        return np.array([robot.loc.position for robot in self])
+
+    def collect_action_extents(self):
+        return np.array([robot.action_extent for robot in self])
+
+    def collect_control_actions(self):
+        return np.array([robot.last_control_action for robot in self])
+
+
+class World(object):
     def __init__(
             self,
-            adjacency_matrix,
             robots,
+            network,
             comm_range,
             range_cov,
             gps_cov,
             queue=1
             ):
-        """Clase para simular una red de robotes de forma centralizada"""
-        self.ids = np.arange(len(adjacency_matrix))
-        self.adjacency_matrix = adjacency_matrix.astype(bool)
+        """Clase para simular una red de robots"""
         self.robots = robots
-
-        self.dim = 2
-        self.timestamp = None
-
+        self.adjacency_matrix = network.astype(bool)
         self.dmin = np.min(comm_range)
         self.dmax = np.max(comm_range)
 
@@ -249,74 +250,36 @@ class Network(object):
         self.cloud = collections.deque(maxlen=queue)
 
     def collect_positions(self):
-        return np.array([
-            robot.dynamics.x for robot in self.robots
-        ])
+        return np.array([robot.x for robot in self.robots])
 
-    def collect_estimated_positions(self):
-        return np.array([
-            robot.computer.loc.position for robot in self.robots
-        ])
-
-    def collect_action_extents(self):
-        return np.array([
-            robot.computer.action_extent for robot in self.robots
-        ])
-
-    def collect_control_actions(self):
-        return np.array([
-            robot.computer.last_control_action for robot in self.robots
-        ])
-
-    def rigidity_eigenvalue(self):
-        return rigidity_eigenvalue(
-            self.adjacency_matrix, self.collect_positions()
-        )
-
-    def subframeworks_rigidity_eigenvalue(self):
-        geodesics = core.geodesics(self.adjacency_matrix.astype(float))
-        eigs = []
-        for robot in self.robots:
-            subset = geodesics[robot.computer.node_id] <= \
-                robot.computer.action_extent
-            A = self.adjacency_matrix[np.ix_(subset, subset)]
-            p = self.collect_positions()[subset]   # TODO: IMPROVE SLICE
-            eigs.append(rigidity_eigenvalue(A, p))
-
-        return eigs
-
-    def update_adjacency(self):
+    def update_adjacency(self, positions):
         self.adjacency_matrix = adjacency_histeresis(
             self.adjacency_matrix,
-            self.collect_positions(),
+            positions,
             self.dmin, self.dmax
         )
 
-    def get_gps(self, node_id):
+    def gps_measurement(self, t, node_index):
         gps_measurement = np.random.normal(
-            self.robots[node_id].dynamics.x, self.gps_cov
+            self.robots[node_index].x, self.gps_cov
         )
-        self.robots[node_id].computer.gps = {self.timestamp: gps_measurement}
+        return {t: gps_measurement}
 
-    def upload_to_cloud(self, node_id):
-        msg = self.robots[node_id].computer.create_msg()
-        for neighbor_id in np.where(self.adjacency_matrix[node_id] == 1)[0]:
+    def upload_to_cloud(self, msg, node_index):
+        neighbors = np.where(self.adjacency_matrix[node_index])[0]
+        for neighbor_index in neighbors:
             distance = np.sqrt(np.square(
-                (self.robots[node_id].dynamics.x -
-                 self.robots[neighbor_id].dynamics.x)
+                (self.robots[node_index].x -
+                 self.robots[neighbor_index].x)
             ).sum())
             range_measurement = np.random.normal(
                 distance,
                 self.range_cov
             )
-            self.cloud[-1][neighbor_id].append((msg, range_measurement))
+            self.cloud[-1][neighbor_index].append((msg, range_measurement))
 
-    def download_from_cloud(self, node_id):
-        cloud = self.cloud[0].copy()
-        for (msg, range_measurement) in cloud[node_id]:
-            self.robots[node_id].computer.handle_received_msg(
-                msg, range_measurement
-            )
+    def download_from_cloud(self, node_index):
+        return self.cloud[0][node_index].copy()
 
 
 class Targets(object):
@@ -393,6 +356,25 @@ class Targets(object):
         return self.data[:, 2].any()
 
 
+def framework_rigidity_eigenvalue(robots, world):
+    return rigidity_eigenvalue(
+        world.adjacency_matrix, world.collect_positions()
+    )
+
+
+def subframeworks_rigidity_eigenvalue(robots, world):
+    geodesics = core.geodesics(world.adjacency_matrix.astype(float))
+    eigs = []
+    for robot in robots:
+        subset = geodesics[robot.node_id] <= \
+            robot.action_extent
+        A = world.adjacency_matrix[np.ix_(subset, subset)]
+        p = world.collect_positions()[subset]   # TODO: IMPROVE SLICE
+        eigs.append(rigidity_eigenvalue(A, p))
+
+    return eigs
+
+
 def tracking(position, target, R):
     r = position - target
     d = np.sqrt(np.square(r).sum())
@@ -406,7 +388,7 @@ def tracking(position, target, R):
 # ------------------------------------------------------------------
 
 
-def run(steps, network, logs):
+def run(steps, world, logs):
     # iteración
     bar = progressbar.ProgressBar(maxval=arg.tf).start()
     perf_time = []
@@ -416,60 +398,63 @@ def run(steps, network, logs):
         t_a = time.perf_counter()
 
         # update clocks
-        network.timestamp = t
         for robot in robots:
-            robot.computer.update_clock(t)
+            robot.update_clock(t)
 
         # communication step
-        network.cloud.append({robot.computer.node_id: [] for robot in robots})
-        for i in network.ids:
-            network.upload_to_cloud(i)
-        for i in network.ids:
-            network.download_from_cloud(i)
+        world.cloud.append([[] for _ in robots])
+        for robot in robots:
+            msg = robot.create_msg()
+            index = index_map[robot.node_id]
+            world.upload_to_cloud(msg, index)
+        for robot in robots:
+            index = index_map[robot.node_id]
+            msgs = world.download_from_cloud(index)
+            robot.handle_received_msgs(msgs)
 
         # localization and control step
-        network.get_gps(6)
-        network.get_gps(8)
+        robots[6].gps = world.gps_measurement(t, 6)
+        robots[8].gps = world.gps_measurement(t, 8)
 
-        p = network.collect_positions()
+        # TODO: should be est position
+        p = world.collect_positions()
         alloc = targets.allocation(p)
 
         for robot in robots:
-            robot.computer.localization_step()
+            robot.localization_step()
             if t >= t_init and targets.unfinished():
-                # might be est position
+                # TODO: should be est position
                 u_track = tracking(
-                    p[robot.computer.node_id],
-                    alloc[robot.computer.node_id],
+                    p[robot.node_id],
+                    alloc[robot.node_id],
                     targets.range
                 )
-                u = robot.computer.compute_control_action(u_track)
-                robot.dynamics.step(t, u)
+                u = robot.compute_control_action(u_track)
             else:
                 u = np.zeros(2)
-                robot.computer.set_control_action(u)
-                robot.dynamics.step(t, u)
+                robot.set_control_action(u)
 
-        targets.update(network.collect_positions())
+            world.robots[robot.node_id].step(t, u)
+
+        world.update_adjacency(world.collect_positions())
+        targets.update(world.collect_positions())
 
         t_b = time.perf_counter()
 
-        network.update_adjacency()
-
         # log data
-        logs.position[k] = network.collect_positions().ravel()
-        logs.estimated_position[k] = network \
+        logs.position[k] = world.collect_positions().ravel()
+        logs.estimated_position[k] = robots \
             .collect_estimated_positions().ravel()
-        logs.action[k] = network.collect_control_actions().ravel()
-        logs.fre[k] = network.rigidity_eigenvalue()
-        sfre = network.subframeworks_rigidity_eigenvalue()
+        logs.action[k] = robots.collect_control_actions().ravel()
+        logs.fre[k] = framework_rigidity_eigenvalue(robots, world)
+        sfre = subframeworks_rigidity_eigenvalue(robots, world)
         logs.re[k] = sfre
-        logs.adjacency[k] = network.adjacency_matrix.ravel()
-        logs.action_extents[k] = network.collect_action_extents()
+        logs.adjacency[k] = world.adjacency_matrix.ravel()
+        logs.action_extents[k] = robots.collect_action_extents()
         logs.targets[k] = targets.data.ravel()
 
         perf_time.append((t_b - t_a)/n)
-        bar.update(np.round(t, 3))
+        # bar.update(np.round(t, 3))
 
     bar.finish()
 
@@ -524,7 +509,6 @@ position = np.array([
     [-1.0463, -0.8862]
 ])
 
-
 dmin = 0.85 * lim
 dmax = 0.90 * lim
 
@@ -532,38 +516,37 @@ adjacency_matrix = adjacency_from_positions(position, dmin)
 if not is_inf_rigid(adjacency_matrix, position):
     raise ValueError('Framework should be infinitesimally rigid.')
 
-geodesics = core.geodesics(adjacency_matrix)
-action_extents = minimum_rigidity_extents(geodesics, position)
-state_extents = superframework_extents(
-    geodesics, action_extents
-)
-
-robots = [
-    Robot(
-        dynamics=Integrator(position[i]),
-        computer=SubframeworkRigidityRobot(
-            i,
-            np.random.normal(position[i],  0.5**2),
-            (dmin, dmax),
-            action_extents[i],
-            state_extents[i]
-        )
-    )
-    for i in range(n)
-]
-
-network = Network(
-    adjacency_matrix,
-    robots,
+world = World(
+    robots=[Integrator(position[i]) for i in range(n)],
+    network=adjacency_matrix,
     comm_range=(dmin, dmax),
     range_cov=0.5,
     gps_cov=1.,
     queue=arg.queue
 )
 
-print(network.collect_action_extents())
-print(network.collect_positions())
-print(network.collect_estimated_positions())
+geodesics = core.geodesics(adjacency_matrix)
+action_extents = minimum_rigidity_extents(geodesics, position)
+state_extents = superframework_extents(
+    geodesics, action_extents
+)
+
+robots = Robots([
+    SubframeworkRigidityRobot(
+        i,
+        np.random.normal(position[i],  0.5**2),
+        (dmin, dmax),
+        action_extents[i],
+        state_extents[i]
+    )
+    for i in range(n)
+])
+
+index_map = {robots[i].node_id: i for i in range(n)}
+
+# print(robots.collect_action_extents())
+# print(world.collect_positions())
+# print(robots.collect_estimated_positions())
 
 n_targets = 30
 targets = Targets(n_targets, (-40, 40), (-40, 40))
@@ -583,19 +566,20 @@ logs = Logs(
     action_extents=np.zeros((n_steps, n)),
     targets=np.empty((n_steps, 3*n_targets))
 )
-logs.position[0] = network.collect_positions().ravel()
-logs.estimated_position[0] = network.collect_estimated_positions().ravel()
+logs.position[0] = world.collect_positions().ravel()
+logs.estimated_position[0] = robots.collect_estimated_positions().ravel()
 logs.action[0] = np.zeros(n*dim)
-logs.fre[0] = network.rigidity_eigenvalue()
-logs.re[0] = network.subframeworks_rigidity_eigenvalue()
-logs.adjacency[0] = network.adjacency_matrix.ravel()
-logs.action_extents[0] = network.collect_action_extents()
+world.adjacency_matrix
+logs.fre[0] = framework_rigidity_eigenvalue(robots, world)
+logs.re[0] = subframeworks_rigidity_eigenvalue(robots, world)
+logs.adjacency[0] = world.adjacency_matrix.ravel()
+logs.action_extents[0] = robots.collect_action_extents()
 logs.targets[0] = targets.data.ravel()
 
-logs = run(steps, network, logs)
+logs = run(steps, world, logs)
 
-print(network.collect_positions())
-print(network.collect_estimated_positions())
+# print(world.collect_positions())
+# print(robots.collect_estimated_positions())
 
 np.savetxt('/tmp/t.csv', time_interval, delimiter=',')
 np.savetxt('/tmp/position.csv', logs.position, delimiter=',')
