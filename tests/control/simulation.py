@@ -224,7 +224,7 @@ class World(object):
     def __init__(
             self,
             robots,
-            network,
+            framework,
             comm_range,
             range_cov,
             gps_cov,
@@ -232,7 +232,8 @@ class World(object):
             ):
         """Clase para simular una red de robots"""
         self.robots = robots
-        self.adjacency_matrix = network.astype(bool)
+        self.adjacency_matrix = framework[0].astype(bool)
+        self.robot_dynamics = framework[1]
         self.dmin = np.min(comm_range)
         self.dmax = np.max(comm_range)
 
@@ -242,7 +243,7 @@ class World(object):
         self.cloud = collections.deque(maxlen=queue)
 
     def collect_positions(self):
-        return np.array([robot.x for robot in self.robots])
+        return np.array([robot.x for robot in self.robot_dynamics])
 
     def update_adjacency(self, positions):
         self.adjacency_matrix = adjacency_histeresis(
@@ -253,16 +254,16 @@ class World(object):
 
     def gps_measurement(self, t, node_index):
         gps_measurement = np.random.normal(
-            self.robots[node_index].x, self.gps_cov
+            self.robot_dynamics[node_index].x, self.gps_cov
         )
         return (t, gps_measurement)
 
-    def upload_to_cloud(self, msg, node_index):
+    def upload_to_cloud(self, node_index, msg):
         neighbors = np.where(self.adjacency_matrix[node_index])[0]
         for neighbor_index in neighbors:
             distance = np.sqrt(np.square(
-                (self.robots[node_index].x -
-                 self.robots[neighbor_index].x)
+                (self.robot_dynamics[node_index].x -
+                 self.robot_dynamics[neighbor_index].x)
             ).sum())
             range_measurement = np.random.normal(
                 distance,
@@ -348,16 +349,16 @@ class Targets(object):
         return self.data[:, 2].any()
 
 
-def framework_rigidity_eigenvalue(robots, world):
+def framework_rigidity_eigenvalue(world):
     return rigidity_eigenvalue(
         world.adjacency_matrix, world.collect_positions()
     )
 
 
-def subframeworks_rigidity_eigenvalue(robots, world):
+def subframeworks_rigidity_eigenvalue(world):
     geodesics = core.geodesics(world.adjacency_matrix.astype(float))
     eigs = []
-    for robot in robots:
+    for robot in world.robots:
         subset = geodesics[robot.node_id] <= \
             robot.action_extent
         A = world.adjacency_matrix[np.ix_(subset, subset)]
@@ -389,16 +390,17 @@ def run(steps, world, logs):
         t_a = time.perf_counter()
 
         # update clocks
-        for robot in robots:
+        for robot in world.robots:
             robot.update_clock(t)
 
         # communication step
         world.cloud.append([[] for _ in robots])
-        for robot in robots:
+        for robot in world.robots:
             msg = robot.create_msg()
             index = index_map[robot.node_id]
-            world.upload_to_cloud(msg, index)
-        for robot in robots:
+            world.upload_to_cloud(index, msg)
+
+        for robot in world.robots:
             index = index_map[robot.node_id]
             msgs = world.download_from_cloud(index)
             robot.handle_received_msgs(msgs)
@@ -411,7 +413,7 @@ def run(steps, world, logs):
         p = world.collect_positions()
         alloc = targets.allocation(p)
 
-        for robot in robots:
+        for robot in world.robots:
             robot.localization_step()
             if t >= t_init and targets.unfinished():
                 # TODO: should be est position
@@ -425,7 +427,7 @@ def run(steps, world, logs):
                 u = np.zeros(2)
                 robot.set_control_action(u)
 
-            world.robots[robot.node_id].step(t, u)
+            world.robot_dynamics[robot.node_id].step(t, u)
 
         world.update_adjacency(world.collect_positions())
         targets.update(world.collect_positions())
@@ -437,8 +439,8 @@ def run(steps, world, logs):
         logs.estimated_position[k] = robots \
             .collect_estimated_positions().ravel()
         logs.action[k] = robots.collect_control_actions().ravel()
-        logs.fre[k] = framework_rigidity_eigenvalue(robots, world)
-        sfre = subframeworks_rigidity_eigenvalue(robots, world)
+        logs.fre[k] = framework_rigidity_eigenvalue(world)
+        sfre = subframeworks_rigidity_eigenvalue(world)
         logs.re[k] = sfre
         logs.adjacency[k] = world.adjacency_matrix.ravel()
         logs.action_extents[k] = robots.collect_action_extents()
@@ -507,14 +509,7 @@ adjacency_matrix = adjacency_from_positions(position, dmin)
 if not is_inf_rigid(adjacency_matrix, position):
     raise ValueError('Framework should be infinitesimally rigid.')
 
-world = World(
-    robots=[Integrator(position[i]) for i in range(n)],
-    network=adjacency_matrix,
-    comm_range=(dmin, dmax),
-    range_cov=0.5,
-    gps_cov=1.,
-    queue=arg.queue
-)
+positions = [Integrator(position[i]) for i in range(n)]
 
 geodesics = core.geodesics(adjacency_matrix)
 action_extents = minimum_rigidity_extents(geodesics, position)
@@ -534,6 +529,15 @@ robots = Robots([
 ])
 
 index_map = {robots[i].node_id: i for i in range(n)}
+
+world = World(
+    robots=robots,
+    framework=(adjacency_matrix, positions),
+    comm_range=(dmin, dmax),
+    range_cov=0.5,
+    gps_cov=1.,
+    queue=arg.queue
+)
 
 # print(robots.collect_action_extents())
 # print(world.collect_positions())
@@ -563,8 +567,8 @@ logs.position[0] = world.collect_positions().ravel()
 logs.estimated_position[0] = robots.collect_estimated_positions().ravel()
 logs.action[0] = np.zeros(n*dim)
 world.adjacency_matrix
-logs.fre[0] = framework_rigidity_eigenvalue(robots, world)
-logs.re[0] = subframeworks_rigidity_eigenvalue(robots, world)
+logs.fre[0] = framework_rigidity_eigenvalue(world)
+logs.re[0] = subframeworks_rigidity_eigenvalue(world)
 logs.adjacency[0] = world.adjacency_matrix.ravel()
 logs.action_extents[0] = robots.collect_action_extents()
 logs.targets[0] = targets.data.ravel()
