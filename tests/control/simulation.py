@@ -109,7 +109,7 @@ class SubframeworkRigidityRobot(object):
         )
         self.neighborhood = Neighborhood()
         self.routing = TokenPassing(self.node_id)
-        self.gps = {}
+        self.gps = None
         self.state = {
             'position': self.loc.position,
             'covariance': self.loc.covariance
@@ -144,14 +144,6 @@ class SubframeworkRigidityRobot(object):
             )
             self.routing.update_action(msg.action_tokens.values())
             self.routing.update_state(msg.state_tokens.values())
-
-    # def rigidity_eigenvalue(self, hops):
-    #     position = self.routing.extract_state('position', hops)
-    #     p = np.empty((len(position) + 1, self.dim))
-    #     p[0] = self.loc.position
-    #     p[1:] = list(position.values())
-    #     A = adjacency_from_positions(p, self.dmin)
-    #     return rigidity_eigenvalue(A, p)
 
     def set_control_action(self, u):
         self.last_control_action = u
@@ -209,10 +201,10 @@ class SubframeworkRigidityRobot(object):
             ])
             self.loc.distances_step(z, xj, Pj)
             self.neighborhood.clear()
-        if len(self.gps) > 0:
-            z = self.gps[max(self.gps.keys())]
+        if self.gps is not None:
+            _, z = self.gps
             self.loc.gps_step(z)
-            self.gps.clear()
+            self.gps = None
         self.state['position'] = self.loc.position
         self.state['covariance'] = self.loc.covariance
 
@@ -263,7 +255,7 @@ class World(object):
         gps_measurement = np.random.normal(
             self.robots[node_index].x, self.gps_cov
         )
-        return {t: gps_measurement}
+        return (t, gps_measurement)
 
     def upload_to_cloud(self, msg, node_index):
         neighbors = np.where(self.adjacency_matrix[node_index])[0]
@@ -392,7 +384,6 @@ def run(steps, world, logs):
     # iteración
     bar = progressbar.ProgressBar(maxval=arg.tf).start()
     perf_time = []
-    t_init = 5.
 
     for k, t in steps[1:]:
         t_a = time.perf_counter()
@@ -454,7 +445,7 @@ def run(steps, world, logs):
         logs.targets[k] = targets.data.ravel()
 
         perf_time.append((t_b - t_a)/n)
-        # bar.update(np.round(t, 3))
+        bar.update(np.round(t, 3))
 
     bar.finish()
 
@@ -487,8 +478,8 @@ arg = parser.parse_args()
 # ------------------------------------------------------------------
 # Configuración
 # ------------------------------------------------------------------
-step_milli = arg.step / 1000.0
-time_interval = np.arange(0, arg.tf, step_milli)
+step_sec = arg.step / 1000.0
+time_interval = np.arange(0, arg.tf, step_sec)
 steps = list(enumerate(time_interval))
 n_steps = len(steps)
 
@@ -555,6 +546,8 @@ targets = Targets(n_targets, (-40, 40), (-40, 40))
 # Simulación
 # ------------------------------------------------------------------
 # initialize()
+
+t_init = np.ceil(np.max(geodesics) * step_sec)
 
 logs = Logs(
     position=np.empty((n_steps, n*dim)),
