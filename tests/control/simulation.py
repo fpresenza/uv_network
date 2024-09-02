@@ -425,7 +425,7 @@ def run(steps, world, logs):
                 u = np.zeros(2)
                 robot.set_control_action(u)
 
-            world.robots[robot.node_id].step(t, u)
+            world.robot_dynamics[robot.node_id].step(t, u)
 
         world.update_adjacency(world.collect_positions())
         targets.update(world.collect_positions())
