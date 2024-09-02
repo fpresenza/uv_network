@@ -85,7 +85,7 @@ class CollisionAvoidance(object):
         power: positive number to exponentiate the distance
         dmin: minimum allowed distance
     """
-    def __init__(self, power=2, dmin=0):
+    def __init__(self, power=2.0, dmin=0.0):
         self.power = power
         self.dmin = dmin
 
@@ -94,5 +94,5 @@ class CollisionAvoidance(object):
         d = np.sqrt(np.square(r).sum(axis=-1))
         d = d.reshape(-1, 1)
         e = self.power
-        grad = - e * (d - self.dmin)**(-e - 1) * r / d
-        return - grad.sum(axis=0)
+        neg_grad = e * (d - self.dmin)**(-e - 1) * r / d
+        return neg_grad.sum(axis=0)

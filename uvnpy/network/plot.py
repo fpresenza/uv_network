@@ -164,7 +164,7 @@ class Animate2(object):
             points.set_data(x[:, 0], x[:, 1])
             if tail is not None:
                 tail.set_data(q[:, inteam, 0], q[:, inteam, 1])
-        self.stamp.set_text('$t = {:.1f} s$'.format(tk))
+        self.stamp.set_text('$t = {:.3f} s$'.format(tk))
         if len(Ek) > 0:
             self.edges.set_segments(Xk[Ek])
         else:
