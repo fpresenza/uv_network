@@ -79,10 +79,15 @@ class Neighborhood(dict):
         )
 
 
-class SubframeworkRigidityRobot(object):
+class Robot(object):
     def __init__(
-            self, node_id, est_pos,
-            comm_range, action_extent=None, state_extent=None, t=0
+            self,
+            node_id,
+            est_pos,
+            comm_range,
+            action_extent=None,
+            state_extent=None,
+            t=0
             ):
         self.node_id = node_id
         self.dim = len(est_pos)
@@ -93,19 +98,17 @@ class SubframeworkRigidityRobot(object):
         self.current_time = t
         self.maintenance = CentralizedRigidityMaintenance(
             dim=self.dim, dmax=self.dmin,
-            steepness=20/self.dmin, power=0.5, non_adjacent=True
+            steepness=20.0/self.dmin, power=0.5, non_adjacent=True
         )
-        self.collision = CollisionAvoidance(power=2)
+        self.collision = CollisionAvoidance(power=2.0)
         self.last_control_action = np.zeros(self.dim)
         self.action = {}
-        ctrl_cov = 0.05**2 * np.eye(self.dim)
-        range_cov = 0.5**2
-        # range_cov = 0.
-        gps_cov = 1.**2 * np.eye(self.dim)
-        # gps_cov = 0. * np.eye(self.dim)
-        cov = 0.5**2 * np.eye(self.dim)
+        ctrl_cov = 0.025 * np.eye(self.dim)
+        range_var = 25.0
+        gps_cov = 100.0 * np.eye(self.dim)
+        position_cov = 25.0 * np.eye(self.dim)
         self.loc = KalmanBasedFilter(
-            est_pos, cov, ctrl_cov, range_cov, gps_cov
+            est_pos, position_cov, ctrl_cov, range_var, gps_cov
         )
         self.neighborhood = Neighborhood()
         self.routing = TokenPassing(self.node_id)
@@ -148,7 +151,23 @@ class SubframeworkRigidityRobot(object):
     def set_control_action(self, u):
         self.last_control_action = u
 
-    def compute_control_action(self, u_ext=0):
+    def compute_control_action(self, target):
+        # go to allocated target
+        r = self.loc.position - target
+        d = np.sqrt(np.square(r).sum())
+        # v_collect = 1.0 if d < 100.0 else np.exp(1.0 - d/100.0)
+        tracking_radius = 100.0    # radius
+        forget_radius = 400.0      # radius
+        v_collect_max = 2.5
+        if d < 100.0:
+            v_collect = v_collect_max
+        elif d < 500.0:
+            v_collect = v_collect_max * \
+                (1.0 - (d - tracking_radius) / forget_radius)
+        else:
+            v_collect = 0.0
+        u_collect = - v_collect * r / d
+
         # obtengo posiciones del subframework
         position = self.routing.extract_state('position', self.action_extent)
         degree = len(position)
@@ -158,33 +177,33 @@ class SubframeworkRigidityRobot(object):
             p[1:] = list(position.values())
 
             # obtengo la accion de control de rigidez
-            u = self.maintenance.update(p)
+            u_sub = self.maintenance.update(p)
+            # u_sub = np.zeros((degree + 1, self.dim), dtype=float)
         else:
-            u = np.zeros((1, self.dim))
+            u_sub = np.zeros((1, self.dim), dtype=float)
 
         # genero la accion de control del centro
         cmd = self.routing.extract_action()
-        u_r = u[0] + sum(cmd.values())
+        u_rigid = u_sub[0] + sum(cmd.values())
 
         # empaco las acciones de control del subframework
         self.action = {
             i: ui
-            for i, ui in zip(position.keys(), u[1:])
+            for i, ui in zip(position.keys(), u_sub[1:])
         }
 
         # accion de evacion de colisiones
         obstacles = self.routing.extract_state('position', 1)
         if len(obstacles) > 0:
             obstacles_pos = list(obstacles.values())
-            u_ca = self.collision.update(self.loc.position, obstacles_pos)
+            u_evasion = self.collision.update(self.loc.position, obstacles_pos)
         else:
-            u_ca = 0
+            u_evasion = np.zeros(self.dim, dtype=float)
 
         # aplico acciones de control
-        self.last_control_action = 0.5 * logistic_saturation(
-            5 * u_ext + 4 * u_r + 20 * u_ca, limit=2.5
+        self.last_control_action = logistic_saturation(
+            u_collect + 40.0 * u_rigid + 20000.0 * u_evasion, limit=2.5
         )
-        return self.last_control_action
 
     def localization_step(self):
         self.loc.dynamic_step(self.current_time, self.last_control_action)
@@ -275,45 +294,43 @@ class World(object):
 
 
 class Targets(object):
-    def __init__(self, n, xlim, ylim, range=3.0):
-        self.set(n, xlim, ylim)
-        self.range = range
+    def __init__(self, n, coverage):
+        self.set(n)
+        self.coverage = coverage
 
-    def set(self, n, xlim, ylim):
-        lower, upper = zip(xlim, ylim)
+    def set(self, n):
         self.data = np.empty((n, 3), dtype=object)
-        # self.data[:, :2] = np.random.uniform(lower, upper, (n, 2))
         self.data[:, :2] = np.array([
-            [24.84, -3.8821],
-            [-35.0464, -23.2889],
-            [-5.6765, 6.6739],
-            [1.7441, -6.9632],
-            [-13.5915, -20.8073],
-            [-33.5566, 8.4019],
-            [2.5689, 6.999],
-            [34.7281, 4.8964],
-            [28.1627, 35.4352],
-            [24.4927, 37.6256],
-            [38.7665, -25.9539],
-            [-4.573, 8.6123],
-            [-31.323, 7.2874],
-            [-27.2087, 22.2981],
-            [-26.9443, 9.2272],
-            [31.5733, -9.4084],
-            [-15.8237, -5.8978],
-            [-30.5408, 10.6855],
-            [-24.998, 33.2679],
-            [-7.549, -1.3672],
-            [17.5176, -23.2711],
-            [2.432, 36.942],
-            [8.7371, -38.0221],
-            [32.9201, 9.4081],
-            [3.7534, 13.4704],
-            [-18.5513, 25.1056],
-            [5.0705, 16.6772],
-            [-21.334, -19.3797],
-            [-36.8785, 1.1317],
-            [9.3937, -10.0719]
+            [748.400, 461.179],
+            [149.536, 267.111],
+            [443.235, 566.739],
+            [517.441, 430.368],
+            [364.085, 291.927],
+            [164.434, 584.019],
+            [525.689, 569.990],
+            [847.281, 548.964],
+            [781.627, 854.352],
+            [744.927, 876.256],
+            [887.665, 240.461],
+            [454.270, 586.123],
+            [186.770, 572.874],
+            [227.913, 722.981],
+            [230.557, 592.272],
+            [815.733, 405.916],
+            [341.763, 441.022],
+            [194.592, 606.855],
+            [250.020, 832.679],
+            [424.510, 486.328],
+            [675.176, 267.289],
+            [524.320, 869.420],
+            [587.371, 119.779],
+            [829.201, 594.081],
+            [537.534, 634.704],
+            [314.487, 751.056],
+            [550.705, 666.772],
+            [286.660, 306.203],
+            [131.215, 511.317],
+            [593.937, 399.281]
         ])
 
         self.data[:, 2] = True
@@ -329,19 +346,19 @@ class Targets(object):
         targets = self.data[untracked, :2].astype(float)
         r = p[:, None] - targets
         d2 = np.square(r).sum(axis=-1)
-        a = {}
+        a = []
         for i in range(len(p)):
             try:
                 j = d2[i].argmin()
-                a[i] = targets[j]
+                a.append(targets[j])
             except ValueError:
-                a[i] = p[i]
+                a.append(p[i])
         return a
 
     def update(self, p):
         r = p[..., None, :] - self.data[:, :2]
         d2 = np.square(r).sum(axis=-1)
-        c2 = (d2 < self.range**2).any(axis=0)
+        c2 = (d2 < self.coverage**2).any(axis=0)
         self.data[c2, 2] = False
 
     def unfinished(self):
@@ -367,14 +384,6 @@ def subframeworks_rigidity_eigenvalue(robots, world):
     return eigs
 
 
-def tracking(position, target, R):
-    r = position - target
-    d = np.sqrt(np.square(r).sum())
-    x = max(d, 10.)
-    K = np.exp((R - x)/10)
-    return - K * r / d
-
-
 # ------------------------------------------------------------------
 # Función run
 # ------------------------------------------------------------------
@@ -382,7 +391,7 @@ def tracking(position, target, R):
 
 def run(steps, world, logs):
     # iteración
-    bar = progressbar.ProgressBar(maxval=arg.tf).start()
+    bar = progressbar.ProgressBar(maxval=arg.simu_time).start()
     perf_time = []
 
     for k, t in steps[1:]:
@@ -412,20 +421,15 @@ def run(steps, world, logs):
         alloc = targets.allocation(p)
 
         for robot in robots:
+            node_index = index_map[robot.node_id]
             robot.localization_step()
             if t >= t_init and targets.unfinished():
                 # TODO: should be est position
-                u_track = tracking(
-                    p[robot.node_id],
-                    alloc[robot.node_id],
-                    targets.range
-                )
-                u = robot.compute_control_action(u_track)
+                robot.compute_control_action(alloc[node_index])
             else:
-                u = np.zeros(2)
-                robot.set_control_action(u)
+                robot.set_control_action(np.zeros(2, dtype=float))
 
-            world.robot_dynamics[robot.node_id].step(t, u)
+            world.robot_dynamics[node_index].step(t, robot.last_control_action)
 
         world.update_adjacency(world.collect_positions())
         targets.update(world.collect_positions())
@@ -449,7 +453,7 @@ def run(steps, world, logs):
 
     bar.finish()
 
-    rt = arg.tf
+    rt = arg.simu_time
     st = sum(perf_time)
     prompt = 'ST={:.3f} secs, RT={:.3f} secs  ==>  RTF={:.3f}'
     print(prompt.format(st, rt, rt / st))
@@ -462,12 +466,12 @@ def run(steps, world, logs):
 # ------------------------------------------------------------------
 parser = argparse.ArgumentParser(description='')
 parser.add_argument(
-    '-s', '--step',
-    default=1, type=float, help='paso de simulación en miliseg'
+    '-s', '--simu_step',
+    default=1, type=int, help='simulation step in milli seconds'
 )
 parser.add_argument(
-    '-e', '--tf',
-    default=10.0, type=float, help='tiempo total de simulación en seg'
+    '-e', '--simu_time',
+    default=10.0, type=float, help='total simulation time in seconds'
 )
 parser.add_argument(
     '-q', '--queue',
@@ -478,30 +482,28 @@ arg = parser.parse_args()
 # ------------------------------------------------------------------
 # Configuración
 # ------------------------------------------------------------------
-step_sec = arg.step / 1000.0
-time_interval = np.arange(0, arg.tf, step_sec)
+step_sec = arg.simu_step / 1000.0
+time_interval = np.arange(0.0, arg.simu_time, step_sec)
 steps = list(enumerate(time_interval))
 n_steps = len(steps)
 
-lim = 10
-dim = 2
-n = 10
-# position = np.random.uniform(-0.9*lim, 0.9*lim, (n, dim))
 position = np.array([
-    [6.2343, 8.2097],
-    [4.5759, 0.487],
-    [-1.7355, -4.0296],
-    [-2.1949, 5.8593],
-    [-8.5903, 4.0411],
-    [6.9784, -0.807],
-    [-7.4382, -2.2692],
-    [0.2778, 6.4405],
-    [7.6862, 5.5808],
-    [-1.0463, -0.8862]
+    [562.343, 582.097],
+    [545.759, 504.870],
+    [482.645, 459.704],
+    [478.051, 558.593],
+    [414.097, 540.411],
+    [569.784, 491.930],
+    [425.618, 477.308],
+    [502.778, 564.405],
+    [576.862, 555.808],
+    [489.537, 491.138]
 ])
+n, dim = position.shape
 
-dmin = 0.85 * lim
-dmax = 0.90 * lim
+coverage = 30.0
+dmin = 85.0
+dmax = 90.0
 
 adjacency_matrix = adjacency_from_positions(position, dmin)
 if not is_inf_rigid(adjacency_matrix, position):
@@ -511,8 +513,8 @@ world = World(
     robot_dynamics=[Integrator(position[i]) for i in range(n)],
     network=adjacency_matrix,
     comm_range=(dmin, dmax),
-    range_st_dev=0.5,
-    gps_st_dev=1.,
+    range_st_dev=5.0,
+    gps_st_dev=10.0,
     queue=arg.queue
 )
 
@@ -523,9 +525,9 @@ state_extents = superframework_extents(
 )
 
 robots = Robots([
-    SubframeworkRigidityRobot(
+    Robot(
         i,
-        np.random.normal(position[i],  0.5),
+        np.random.normal(position[i],  5.0),
         (dmin, dmax),
         action_extents[i],
         state_extents[i]
@@ -540,7 +542,7 @@ index_map = {robots[i].node_id: i for i in range(n)}
 # print(robots.collect_estimated_positions())
 
 n_targets = 30
-targets = Targets(n_targets, (-40, 40), (-40, 40))
+targets = Targets(n_targets, coverage)
 
 # ------------------------------------------------------------------
 # Simulación

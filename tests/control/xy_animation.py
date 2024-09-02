@@ -86,7 +86,7 @@ targets = targets.reshape(n_steps, -1, 3)
 # ------------------------------------------------------------------
 # Create Frames
 # ------------------------------------------------------------------
-lim = 50
+lim = 1000
 timestep = np.diff(t).mean()
 frames = np.empty((n_steps, 5), dtype=np.ndarray)
 steps = list(enumerate(t))
@@ -113,14 +113,14 @@ ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
-    labelsize='xx-small'
+    labelsize='x-small'
 )
 ax.set_aspect('equal')
 # ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$x$ [m]', fontsize='small', labelpad=0.6)
 ax.set_ylabel(r'$y$ [m]', fontsize='small', labelpad=0.6)
-ax.set_xlim(-lim, lim)
-ax.set_ylim(-lim, lim)
+ax.set_xlim(0, lim)
+ax.set_ylim(0, lim)
 # ax.set_title(r'Retardo $\tau = 400$ [ms]')
 # ax.set_title('Sin Retardo')
 
@@ -162,7 +162,7 @@ anim.set_edgestyle(color=cm.coolwarm(20), lw=0.5, zorder=0)
 
 circles = []
 for p in x[0]:
-    circle = plt.Circle(p, 3., alpha=0.3)
+    circle = plt.Circle(p, 30.0, alpha=0.3)
     circles.append(circle)
     ax.add_artist(circle)
 tracked = ax.plot([], [], ls='', marker='s', markersize=3, color='green')

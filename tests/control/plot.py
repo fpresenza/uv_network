@@ -8,17 +8,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 
 from uvnpy.network import plot
-from uvnpy.network.load import one_token_for_each, one_token_for_all
 from uvnpy.network.core import geodesics, diameter
-from uvnpy.network.subframeworks import superframework_extents
-
-
-def network_load(geodesics, extents):
-    action_load = one_token_for_each(geodesics, extents)
-    super_extents = superframework_extents(geodesics, extents)
-    state_load = one_token_for_all(geodesics, super_extents)
-    return action_load + state_load
-
 
 plt.rcParams['text.usetex'] = False
 plt.rcParams['pdf.fonttype'] = 42
@@ -67,7 +57,6 @@ kf = np.argmin(np.abs(t - 25))
 # calculos
 edges = A.sum(-1).sum(-1)/2
 G = [geodesics(adj) for adj in A]
-load = np.array([network_load(g, h) for g, h in zip(G, extents)])
 
 # ------------------------------------------------------------------
 # Plot extents
@@ -93,30 +82,12 @@ fig.savefig('/tmp/extents.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Plot control
 # ------------------------------------------------------------------
-fig, axes = plt.subplots(2, 2, figsize=(10, 4))
+fig, ax = plt.subplots(figsize=(10, 4))
 
-axes[0, 0].set_xlabel('$t$ [$seg$]')
-axes[0, 0].set_ylabel('$x_i$ [$m$]')
-axes[0, 0].grid(1)
-axes[0, 0].plot(t, x[..., 0])
-plt.gca().set_prop_cycle(None)
-
-axes[0, 1].set_xlabel('$t$ [$seg$]')
-axes[0, 1].set_ylabel('$y_i$ [$m$]')
-axes[0, 1].grid(1)
-axes[0, 1].plot(t, x[..., 1])
-plt.gca().set_prop_cycle(None)
-
-axes[1, 0].set_xlabel('$t$ [$seg$]')
-axes[1, 0].set_ylabel('$u_x$ [$m/s$]')
-axes[1, 0].grid(1)
-axes[1, 0].plot(t, u[..., 0], ds='steps-post')
-plt.gca().set_prop_cycle(None)
-
-axes[1, 1].set_xlabel('$t$ [$seg$]')
-axes[1, 1].set_ylabel('$u_y$ [$m/s$]')
-axes[1, 1].grid(1)
-axes[1, 1].plot(t, u[..., 1], ds='steps-post')
+ax.set_xlabel('$t$ [$seg$]')
+ax.set_ylabel(r'$\Vert u \Vert$ [$m/s$]')
+ax.grid(1)
+ax.plot(t, np.sqrt(u[..., 0]**2 + u[..., 1]**2), ds='steps-post')
 fig.savefig('/tmp/control.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
@@ -182,26 +153,6 @@ ax.legend(
 fig.savefig('/tmp/eigenvalues.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
-# Plot load
-# ------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(4.0, 1.75))
-fig.subplots_adjust(
-    bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
-ax.tick_params(
-    axis='both',       # changes apply to the x-axis
-    which='both',      # both major and minor ticks are affected
-    pad=1,
-    labelsize='small')
-ax.grid(1, lw=0.4)
-ax.set_xlabel(r'$t$ [$sec$]', fontsize=10)
-ax.set_ylabel(r'Carga ($\mathcal{L} / \bar{n}$)', fontsize=10)
-# ax[1.plot(t, edges, lw=0.9)
-ax.plot(t, load/2/edges[0], lw=0.9)
-ax.hlines(1, t[0], t[-1], color='k', ls='--', lw=0.9)
-ax.set_ylim(bottom=0)
-fig.savefig('/tmp/load.png', format='png', dpi=360)
-
-# ------------------------------------------------------------------
 # Plot position error
 # ------------------------------------------------------------------
 e2 = np.square(x - hatx).sum(axis=-1)
@@ -231,7 +182,7 @@ fig.savefig('/tmp/pos_error.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 snapshots = np.array([0, 40, 125, 250, 300, 400])
 # lim = np.abs(x).max()
-lim = 40
+lim = 1000
 
 for i, tk in enumerate(snapshots):
     fig, ax = plt.subplots(figsize=(2.5, 2.5))
@@ -247,12 +198,8 @@ for i, tk in enumerate(snapshots):
 
     a = int(lim)
     b = int(0.5 * lim)
-    ax.set_xlim(-a, a)
-    ax.set_ylim(-a, a)
-    ax.set_xticks([-a, -b, 0, b, a])
-    ax.set_yticks([-a, -b, 0, b, a])
-    ax.set_xticklabels([-a, -b, 0, b, a])
-    ax.set_yticklabels([-a, -b, 0, b, a])
+    ax.set_xlim(0, lim)
+    ax.set_ylim(0, lim)
 
     k = np.argmin(np.abs(t - tk))
     ax.text(
@@ -334,7 +281,7 @@ plot.edges(ax, x[0], A[0], color='k', lw=0.5)
 
 show = np.full(targets.shape[1], True)
 show[[2, 6, 19]] = False
-print(targets.shape)
+# print(targets.shape)
 ax.scatter(
     targets[0, show, 0], targets[0, show, 1],
     marker='s', s=4, color='0.6', alpha=0.5)
