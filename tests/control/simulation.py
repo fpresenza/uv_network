@@ -223,7 +223,7 @@ class Robots(list):
 class World(object):
     def __init__(
             self,
-            robots,
+            robot_dynamics,
             network,
             comm_range,
             range_cov,
@@ -231,7 +231,7 @@ class World(object):
             queue=1
             ):
         """Clase para simular una red de robots"""
-        self.robots = robots
+        self.robot_dynamics = robot_dynamics
         self.adjacency_matrix = network.astype(bool)
         self.dmin = np.min(comm_range)
         self.dmax = np.max(comm_range)
@@ -242,7 +242,7 @@ class World(object):
         self.cloud = collections.deque(maxlen=queue)
 
     def collect_positions(self):
-        return np.array([robot.x for robot in self.robots])
+        return np.array([robot.x for robot in self.robot_dynamics])
 
     def update_adjacency(self, positions):
         self.adjacency_matrix = adjacency_histeresis(
@@ -253,7 +253,7 @@ class World(object):
 
     def gps_measurement(self, t, node_index):
         gps_measurement = np.random.normal(
-            self.robots[node_index].x, self.gps_cov
+            self.robot_dynamics[node_index].x, self.gps_cov
         )
         return (t, gps_measurement)
 
@@ -261,8 +261,8 @@ class World(object):
         neighbors = np.where(self.adjacency_matrix[node_index])[0]
         for neighbor_index in neighbors:
             distance = np.sqrt(np.square(
-                (self.robots[node_index].x -
-                 self.robots[neighbor_index].x)
+                (self.robot_dynamics[node_index].x -
+                 self.robot_dynamics[neighbor_index].x)
             ).sum())
             range_measurement = np.random.normal(
                 distance,
@@ -508,7 +508,7 @@ if not is_inf_rigid(adjacency_matrix, position):
     raise ValueError('Framework should be infinitesimally rigid.')
 
 world = World(
-    robots=[Integrator(position[i]) for i in range(n)],
+    robot_dynamics=[Integrator(position[i]) for i in range(n)],
     network=adjacency_matrix,
     comm_range=(dmin, dmax),
     range_cov=0.5,
