@@ -348,7 +348,7 @@ class Targets(object):
         return self.data[:, 2].any()
 
 
-def framework_rigidity_eigenvalue(robots, world):
+def framework_rigidity_eigenvalue(world):
     return rigidity_eigenvalue(
         world.adjacency_matrix, world.collect_positions()
     )
@@ -437,7 +437,7 @@ def run(steps, world, logs):
         logs.estimated_position[k] = robots \
             .collect_estimated_positions().ravel()
         logs.action[k] = robots.collect_control_actions().ravel()
-        logs.fre[k] = framework_rigidity_eigenvalue(robots, world)
+        logs.fre[k] = framework_rigidity_eigenvalue(world)
         sfre = subframeworks_rigidity_eigenvalue(robots, world)
         logs.re[k] = sfre
         logs.adjacency[k] = world.adjacency_matrix.ravel()
@@ -563,7 +563,7 @@ logs.position[0] = world.collect_positions().ravel()
 logs.estimated_position[0] = robots.collect_estimated_positions().ravel()
 logs.action[0] = np.zeros(n*dim)
 world.adjacency_matrix
-logs.fre[0] = framework_rigidity_eigenvalue(robots, world)
+logs.fre[0] = framework_rigidity_eigenvalue(world)
 logs.re[0] = subframeworks_rigidity_eigenvalue(robots, world)
 logs.adjacency[0] = world.adjacency_matrix.ravel()
 logs.action_extents[0] = robots.collect_action_extents()
