@@ -99,9 +99,9 @@ class SubframeworkRigidityRobot(object):
         self.last_control_action = np.zeros(self.dim)
         self.action = {}
         ctrl_cov = 0.05**2 * np.eye(self.dim)
-        range_cov = 0.5
+        range_cov = 0.5**2
         # range_cov = 0.
-        gps_cov = 1. * np.eye(self.dim)
+        gps_cov = 1.**2 * np.eye(self.dim)
         # gps_cov = 0. * np.eye(self.dim)
         cov = 0.5**2 * np.eye(self.dim)
         self.loc = KalmanBasedFilter(
@@ -226,8 +226,8 @@ class World(object):
             robot_dynamics,
             network,
             comm_range,
-            range_cov,
-            gps_cov,
+            range_st_dev,
+            gps_st_dev,
             queue=1
             ):
         """Clase para simular una red de robots"""
@@ -236,8 +236,8 @@ class World(object):
         self.dmin = np.min(comm_range)
         self.dmax = np.max(comm_range)
 
-        self.range_cov = range_cov
-        self.gps_cov = gps_cov
+        self.range_st_dev = range_st_dev
+        self.gps_st_dev = gps_st_dev
 
         self.cloud = collections.deque(maxlen=queue)
 
@@ -253,7 +253,7 @@ class World(object):
 
     def gps_measurement(self, t, node_index):
         gps_measurement = np.random.normal(
-            self.robot_dynamics[node_index].x, self.gps_cov
+            self.robot_dynamics[node_index].x, self.gps_st_dev
         )
         return (t, gps_measurement)
 
@@ -266,7 +266,7 @@ class World(object):
             ).sum())
             range_measurement = np.random.normal(
                 distance,
-                self.range_cov
+                self.range_st_dev
             )
             self.cloud[-1][neighbor_index].append((msg, range_measurement))
 
@@ -511,8 +511,8 @@ world = World(
     robot_dynamics=[Integrator(position[i]) for i in range(n)],
     network=adjacency_matrix,
     comm_range=(dmin, dmax),
-    range_cov=0.5,
-    gps_cov=1.,
+    range_st_dev=0.5,
+    gps_st_dev=1.,
     queue=arg.queue
 )
 
@@ -525,7 +525,7 @@ state_extents = superframework_extents(
 robots = Robots([
     SubframeworkRigidityRobot(
         i,
-        np.random.normal(position[i],  0.5**2),
+        np.random.normal(position[i],  0.5),
         (dmin, dmax),
         action_extents[i],
         state_extents[i]
