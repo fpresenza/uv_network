@@ -155,7 +155,7 @@ hatP[0] = Pi
 q = 0.0
 Q = q**2 * np.eye(2)
 estimator = [KalmanBasedFilter(
-    hatx[0, i], Pi, Q * dt, R**2, G**2, tiempo[0]) for i in nodes]
+    hatx[0, i], Pi, Q, R**2, G**2, tiempo[0]) for i in nodes]
 
 for k in steps[1:]:
     for i in nodes:
@@ -221,7 +221,7 @@ fig2.savefig('/tmp/kfa_gd_kf.png', format='png', dpi=360)
 # q = 0.0
 # Q = q**2 * np.eye(2)
 # estimator = [KalmanBasedFilter(
-#     hatx[0, i], Pi, Q * dt, R**2, G**2, tiempo[0]) for i in nodes]
+#     hatx[0, i], Pi, Q, R**2, G**2, tiempo[0]) for i in nodes]
 
 # for k in steps[1:]:
 #     for i in nodes:

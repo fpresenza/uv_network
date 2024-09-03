@@ -169,7 +169,7 @@ class KalmanBasedFilter(DecentralizedLocalization):
         """
         x = self._x + u * dt
         F = np.eye(len(x))
-        Q = self.ctrl_cov * dt
+        Q = self.ctrl_cov * (dt**2)
         return x, F, Q
 
     def distances_model(self, z, xj, Pj):
