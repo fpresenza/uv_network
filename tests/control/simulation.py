@@ -42,7 +42,9 @@ Logs = collections.namedtuple(
     'Logs',
     'position, \
     estimated_position,  \
+    covariance, \
     action, \
+    velocity, \
     fre, \
     re, \
     adjacency, \
@@ -103,8 +105,8 @@ class Robot(object):
         self.collision = CollisionAvoidance(power=2.0)
         self.last_control_action = np.zeros(self.dim)
         self.action = {}
-        ctrl_cov = 0.025 * np.eye(self.dim)
-        range_var = 25.0
+        ctrl_cov = 0.0225 * np.eye(self.dim)
+        range_var = 100.0
         gps_cov = 100.0 * np.eye(self.dim)
         position_cov = 25.0 * np.eye(self.dim)
         self.loc = KalmanBasedFilter(
@@ -232,6 +234,10 @@ class Robots(list):
     def collect_estimated_positions(self):
         return np.array([robot.loc.position for robot in self])
 
+    def collect_covariances(self):
+        return np.array([
+            np.linalg.eigvalsh(robot.loc.covariance) for robot in self])
+
     def collect_action_extents(self):
         return np.array([robot.action_extent for robot in self])
 
@@ -262,6 +268,9 @@ class World(object):
 
     def collect_positions(self):
         return np.array([robot.x for robot in self.robot_dynamics])
+
+    def collect_velocities(self):
+        return np.array([robot.derivatives for robot in self.robot_dynamics])
 
     def update_adjacency(self, positions):
         self.adjacency_matrix = adjacency_histeresis(
@@ -415,7 +424,6 @@ def run(steps, world, logs):
         # localization and control step
         robots[6].gps = world.gps_measurement(t, 6)
         robots[8].gps = world.gps_measurement(t, 8)
-
         # TODO: should be est position
         p = world.collect_positions()
         alloc = targets.allocation(p)
@@ -429,7 +437,8 @@ def run(steps, world, logs):
             else:
                 robot.set_control_action(np.zeros(2, dtype=float))
 
-            world.robot_dynamics[node_index].step(t, robot.last_control_action)
+            velocity = np.random.normal(robot.last_control_action, 0.15)
+            world.robot_dynamics[node_index].step(t, velocity)
 
         world.update_adjacency(world.collect_positions())
         targets.update(world.collect_positions())
@@ -440,7 +449,10 @@ def run(steps, world, logs):
         logs.position[k] = world.collect_positions().ravel()
         logs.estimated_position[k] = robots \
             .collect_estimated_positions().ravel()
+        logs.covariance[k] = robots \
+            .collect_covariances().ravel()
         logs.action[k] = robots.collect_control_actions().ravel()
+        logs.velocity[k] = world.collect_velocities().ravel()
         logs.fre[k] = framework_rigidity_eigenvalue(world)
         sfre = subframeworks_rigidity_eigenvalue(robots, world)
         logs.re[k] = sfre
@@ -513,7 +525,7 @@ world = World(
     robot_dynamics=[Integrator(position[i]) for i in range(n)],
     network=adjacency_matrix,
     comm_range=(dmin, dmax),
-    range_st_dev=5.0,
+    range_st_dev=10.0,
     gps_st_dev=10.0,
     queue=arg.queue
 )
@@ -554,7 +566,9 @@ t_init = np.ceil(np.max(geodesics) * step_sec)
 logs = Logs(
     position=np.empty((n_steps, n*dim)),
     estimated_position=np.empty((n_steps, n*dim)),
+    covariance=np.empty((n_steps, n*dim)),
     action=np.empty((n_steps, n*dim)),
+    velocity=np.empty((n_steps, n*dim)),
     fre=np.zeros(n_steps),
     re=np.zeros((n_steps, n)),
     adjacency=np.empty((n_steps, n**2), dtype=int),
@@ -563,7 +577,9 @@ logs = Logs(
 )
 logs.position[0] = world.collect_positions().ravel()
 logs.estimated_position[0] = robots.collect_estimated_positions().ravel()
+logs.covariance[0] = robots.collect_covariances().ravel()
 logs.action[0] = np.zeros(n*dim)
+logs.velocity[0] = np.zeros(n*dim)
 world.adjacency_matrix
 logs.fre[0] = framework_rigidity_eigenvalue(world)
 logs.re[0] = subframeworks_rigidity_eigenvalue(robots, world)
@@ -579,7 +595,9 @@ logs = run(steps, world, logs)
 np.savetxt('/tmp/t.csv', time_interval, delimiter=',')
 np.savetxt('/tmp/position.csv', logs.position, delimiter=',')
 np.savetxt('/tmp/est_position.csv', logs.estimated_position, delimiter=',')
+np.savetxt('/tmp/covariance.csv', logs.covariance, delimiter=',')
 np.savetxt('/tmp/action.csv', logs.action, delimiter=',')
+np.savetxt('/tmp/velocity.csv', logs.velocity, delimiter=',')
 np.savetxt('/tmp/fre.csv', logs.fre, delimiter=',')
 np.savetxt('/tmp/re.csv', logs.re, delimiter=',')
 np.savetxt('/tmp/adjacency.csv', logs.adjacency, delimiter=',')

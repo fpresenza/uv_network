@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 
 from uvnpy.network import plot
-from uvnpy.network.core import geodesics, diameter
+from uvnpy.network.core import geodesics
 
 plt.rcParams['text.usetex'] = False
 plt.rcParams['pdf.fonttype'] = 42
@@ -23,7 +23,9 @@ plt.rcParams['font.family'] = 'serif'
 t = np.loadtxt('/tmp/t.csv', delimiter=',')
 x = np.loadtxt('/tmp/position.csv', delimiter=',')
 hatx = np.loadtxt('/tmp/est_position.csv', delimiter=',')
+cov = np.loadtxt('/tmp/covariance.csv', delimiter=',')
 u = np.loadtxt('/tmp/action.csv', delimiter=',')
+v = np.loadtxt('/tmp/velocity.csv', delimiter=',')
 fre = np.loadtxt('/tmp/fre.csv', delimiter=',')
 re = np.loadtxt('/tmp/re.csv', delimiter=',')
 A = np.loadtxt('/tmp/adjacency.csv', delimiter=',')
@@ -37,14 +39,15 @@ extents = extents.astype(int)
 # reshapes
 x = x.reshape(len(t), n, 2)
 hatx = hatx.reshape(len(t), n, 2)
-# print(x[0], hatx[0])
+cov = cov.reshape(len(t), n, 2)
 u = u.reshape(len(t), n, 2)
+v = v.reshape(len(t), n, 2)
 A = A.reshape(len(t), n, n)
 targets = targets.reshape(len(t), -1, 3)
 
 # slice
-ki = np.argmin(np.abs(t - 0))
-kf = np.argmin(np.abs(t - 25))
+# ki = np.argmin(np.abs(t - 0))
+# kf = np.argmin(np.abs(t - 25))
 # t = t[:kf]
 # x = x[:kf]
 # hatx = hatx[:kf]
@@ -59,27 +62,6 @@ edges = A.sum(-1).sum(-1)/2
 G = [geodesics(adj) for adj in A]
 
 # ------------------------------------------------------------------
-# Plot extents
-# ------------------------------------------------------------------
-diam = np.array([diameter(g) for g in G])
-centralization_index = extents.max(axis=-1) / diam
-
-fig, ax = plt.subplots(figsize=(4.0, 1.75))
-fig.subplots_adjust(
-    bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
-ax.tick_params(
-    axis='both',       # changes apply to the x-axis
-    which='both',      # both major and minor ticks are affected
-    pad=1,
-    labelsize='small')
-ax.grid(1, lw=0.4)
-
-ax.plot(t, extents, lw=0.8, ds='steps-post')
-ax.set_xlabel(r'$t$ [$sec$]', fontsize='10')
-ax.set_ylabel(r'Extents', fontsize='10')
-fig.savefig('/tmp/extents.png', format='png', dpi=360)
-
-# ------------------------------------------------------------------
 # Plot control
 # ------------------------------------------------------------------
 fig, ax = plt.subplots(figsize=(10, 4))
@@ -89,6 +71,17 @@ ax.set_ylabel(r'$\Vert u \Vert$ [$m/s$]')
 ax.grid(1)
 ax.plot(t, np.sqrt(u[..., 0]**2 + u[..., 1]**2), ds='steps-post')
 fig.savefig('/tmp/control.png', format='png', dpi=360)
+
+# ------------------------------------------------------------------
+# Plot velocities
+# ------------------------------------------------------------------
+fig, ax = plt.subplots(figsize=(10, 4))
+
+ax.set_xlabel('$t$ [$seg$]')
+ax.set_ylabel(r'$\Vert v \Vert$ [$m/s$]')
+ax.grid(1)
+ax.plot(t, np.sqrt(v[..., 0]**2 + v[..., 1]**2), ds='steps-post')
+fig.savefig('/tmp/velocity.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot position x
@@ -105,7 +98,7 @@ ax.grid(1, lw=0.4)
 
 ax.set_xlabel(r'$t$ [$sec$]', fontsize='10')
 ax.set_ylabel('posición-$x$ [$m$]', fontsize='10')
-ax.plot(t[ki:kf], x[ki:kf, :, 0], lw=0.9)
+ax.plot(t, x[..., 0], lw=0.9, ds='steps-post')
 fig.savefig('/tmp/pos_x.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
@@ -123,7 +116,7 @@ ax.grid(1, lw=0.4)
 
 ax.set_xlabel(r'$t$ [$sec$]', fontsize='10')
 ax.set_ylabel('posición-$y$ [$m$]', fontsize='10')
-ax.plot(t[ki:kf], x[ki:kf, :, 1], lw=0.9)
+ax.plot(t, x[..., 1], lw=0.9, ds='steps-post')
 fig.savefig('/tmp/pos_y.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
@@ -155,7 +148,7 @@ fig.savefig('/tmp/eigenvalues.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Plot position error
 # ------------------------------------------------------------------
-e2 = np.square(x - hatx).sum(axis=-1)
+err = np.sqrt(np.square(x - hatx).sum(axis=-1))
 fig, ax = plt.subplots(figsize=(4.0, 1.75))
 fig.subplots_adjust(
     bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
@@ -166,17 +159,50 @@ ax.tick_params(
     labelsize='small')
 ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$t$ [$sec$]', fontsize=10)
-ax.set_ylabel('Error Cuadrático \n [$m^2$]', fontsize=10)
-ax.semilogy(t, e2.min(axis=1), lw=0.9, label='mín')
-ax.semilogy(t, e2.mean(axis=1), lw=0.9, label='medio')
-ax.semilogy(t, e2.max(axis=1), lw=0.9, label='max')
-ax.set_ylim(bottom=1e-5)
+ax.set_ylabel('Position Error \n [$m$]', fontsize=10)
+# ax.plot(t, err, lw=1.0, ds='steps-post')
+ax.plot(t, np.median(err, axis=1), lw=1.0, label='median', ds='steps-post')
+ax.fill_between(
+    t,
+    np.quantile(err, 0.25, axis=1),
+    np.quantile(err, 0.75, axis=1),
+    alpha=0.3
+)
+# ax.set_ylim(bottom=1e-5)
 ax.legend(
     fontsize=8, handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
     ncol=2, columnspacing=1)
 fig.savefig('/tmp/pos_error.png', format='png', dpi=360)
 
+# ------------------------------------------------------------------
+# Plot covariance
+# ------------------------------------------------------------------
+fig, ax = plt.subplots(figsize=(4.0, 1.75))
+fig.subplots_adjust(
+    bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='small')
+ax.grid(1, lw=0.4)
+ax.set_xlabel(r'$t$ [$sec$]', fontsize=10)
+ax.set_ylabel('Position Covariance \n [$m^2$]', fontsize=10)
+ax.plot(t, np.sqrt(cov[..., 0]**2 + cov[..., 1]**2), lw=1.0, ds='steps-post')
+# ax.plot(t, np.median(err, axis=1), lw=1.0, label='median')
+# ax.fill_between(
+#     t,
+#     np.quantile(err, 0.25, axis=1),
+#     np.quantile(err, 0.75, axis=1),
+#     alpha=0.3
+# )
+# ax.set_ylim(bottom=1e-5)
+# ax.legend(
+#     fontsize=8, handlelength=1, labelspacing=0.4,
+#     borderpad=0.2, handletextpad=0.2, framealpha=1.,
+#     ncol=2, columnspacing=1)
+fig.savefig('/tmp/pos_cov.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Plot snapshots
 # ------------------------------------------------------------------
