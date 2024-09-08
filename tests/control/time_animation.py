@@ -150,7 +150,7 @@ _data = _data.reshape(-1, 1)
 anim = TimeAnimate(
     fig, ax,
     timestep, _t, _data,
-    file='/tmp/error.mp4'
+    file='data/error.mp4'
 )
 
 plt.show()

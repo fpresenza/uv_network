@@ -20,17 +20,17 @@ plt.rcParams['font.family'] = 'serif'
 # ------------------------------------------------------------------
 # Read simulated data
 # ------------------------------------------------------------------
-t = np.loadtxt('/tmp/t.csv', delimiter=',')
-x = np.loadtxt('/tmp/position.csv', delimiter=',')
-hatx = np.loadtxt('/tmp/est_position.csv', delimiter=',')
-cov = np.loadtxt('/tmp/covariance.csv', delimiter=',')
-u = np.loadtxt('/tmp/action.csv', delimiter=',')
-v = np.loadtxt('/tmp/velocity.csv', delimiter=',')
-fre = np.loadtxt('/tmp/fre.csv', delimiter=',')
-re = np.loadtxt('/tmp/re.csv', delimiter=',')
-A = np.loadtxt('/tmp/adjacency.csv', delimiter=',')
-extents = np.loadtxt('/tmp/extents.csv', delimiter=',')
-targets = np.loadtxt('/tmp/targets.csv', delimiter=',')
+t = np.loadtxt('data/t.csv', delimiter=',')
+x = np.loadtxt('data/position.csv', delimiter=',')
+hatx = np.loadtxt('data/est_position.csv', delimiter=',')
+cov = np.loadtxt('data/covariance.csv', delimiter=',')
+u = np.loadtxt('data/action.csv', delimiter=',')
+v = np.loadtxt('data/velocity.csv', delimiter=',')
+fre = np.loadtxt('data/fre.csv', delimiter=',')
+re = np.loadtxt('data/re.csv', delimiter=',')
+A = np.loadtxt('data/adjacency.csv', delimiter=',')
+extents = np.loadtxt('data/extents.csv', delimiter=',')
+targets = np.loadtxt('data/targets.csv', delimiter=',')
 
 n = int(len(x[0])/2)
 nodes = np.arange(n)
@@ -70,7 +70,7 @@ ax.set_xlabel('$t$ [$seg$]')
 ax.set_ylabel(r'$\Vert u \Vert$ [$m/s$]')
 ax.grid(1)
 ax.plot(t, np.sqrt(u[..., 0]**2 + u[..., 1]**2), ds='steps-post')
-fig.savefig('/tmp/control.png', format='png', dpi=360)
+fig.savefig('data/control.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot velocities
@@ -81,7 +81,7 @@ ax.set_xlabel('$t$ [$seg$]')
 ax.set_ylabel(r'$\Vert v \Vert$ [$m/s$]')
 ax.grid(1)
 ax.plot(t, np.sqrt(v[..., 0]**2 + v[..., 1]**2), ds='steps-post')
-fig.savefig('/tmp/velocity.png', format='png', dpi=360)
+fig.savefig('data/velocity.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot position x
@@ -99,7 +99,7 @@ ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$t$ [$sec$]', fontsize='10')
 ax.set_ylabel('posición-$x$ [$m$]', fontsize='10')
 ax.plot(t, x[..., 0], lw=0.9, ds='steps-post')
-fig.savefig('/tmp/pos_x.png', format='png', dpi=360)
+fig.savefig('data/pos_x.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot position y
@@ -117,7 +117,7 @@ ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$t$ [$sec$]', fontsize='10')
 ax.set_ylabel('posición-$y$ [$m$]', fontsize='10')
 ax.plot(t, x[..., 1], lw=0.9, ds='steps-post')
-fig.savefig('/tmp/pos_y.png', format='png', dpi=360)
+fig.savefig('data/pos_y.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot eigenvalues
@@ -143,7 +143,7 @@ ax.legend(
     fontsize=8, handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
     ncol=2, columnspacing=1, loc='lower right')
-fig.savefig('/tmp/eigenvalues.png', format='png', dpi=360)
+fig.savefig('data/eigenvalues.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot position error
@@ -173,7 +173,7 @@ ax.legend(
     fontsize=8, handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
     ncol=2, columnspacing=1)
-fig.savefig('/tmp/pos_error.png', format='png', dpi=360)
+fig.savefig('data/pos_error.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot covariance
@@ -202,7 +202,7 @@ ax.plot(t, np.sqrt(cov[..., 0]**2 + cov[..., 1]**2), lw=1.0, ds='steps-post')
 #     fontsize=8, handlelength=1, labelspacing=0.4,
 #     borderpad=0.2, handletextpad=0.2, framealpha=1.,
 #     ncol=2, columnspacing=1)
-fig.savefig('/tmp/pos_cov.png', format='png', dpi=360)
+fig.savefig('data/pos_cov.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Plot snapshots
 # ------------------------------------------------------------------
@@ -267,7 +267,7 @@ for i, tk in enumerate(snapshots):
         ax, x[max(0, k-150):k+1:5, three_hop_rigid],
         marker='.', color='mediumseagreen', s=1, zorder=1, lw=0.5)
 
-    fig.savefig('/tmp/snapshots_{}.png'.format(int(tk)), format='png', dpi=360)
+    fig.savefig('data/snapshots_{}.png'.format(int(tk)), format='png', dpi=360)
 
 fig, ax = plt.subplots(figsize=(2.5, 2.5))
 fig.subplots_adjust(left=0.15)
@@ -324,7 +324,7 @@ ax.legend(
     ncol=4, columnspacing=0.15,
     loc='upper center')
 
-fig.savefig('/tmp/snapshots_init.png', format='png', dpi=360)
+fig.savefig('data/snapshots_init.png', format='png', dpi=360)
 
 # fig, ax = plt.subplots(figsize=(2.5, 2.5))
 # fig.subplots_adjust(left=0.15)
@@ -369,4 +369,4 @@ fig.savefig('/tmp/snapshots_init.png', format='png', dpi=360)
 #     borderpad=0.2,
 #     ncol=4, columnspacing=0.15,
 #     loc='upper center')
-# fig.savefig('/tmp/snapshots_init.png', format='png', dpi=360)
+# fig.savefig('data/snapshots_init.png', format='png', dpi=360)

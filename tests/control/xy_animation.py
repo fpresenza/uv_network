@@ -51,13 +51,13 @@ class CoverageAnimate(Animate2):
 # ------------------------------------------------------------------
 # Read simulated data
 # ------------------------------------------------------------------
-t = np.loadtxt('/tmp/t.csv', delimiter=',')
+t = np.loadtxt('data/t.csv', delimiter=',')
 t -= t[0]
-x = np.loadtxt('/tmp/position.csv', delimiter=',')
-hatx = np.loadtxt('/tmp/est_position.csv', delimiter=',')
-A = np.loadtxt('/tmp/adjacency.csv', delimiter=',')
-extents = np.loadtxt('/tmp/extents.csv', delimiter=',')
-targets = np.loadtxt('/tmp/targets.csv', delimiter=',')
+x = np.loadtxt('data/position.csv', delimiter=',')
+hatx = np.loadtxt('data/est_position.csv', delimiter=',')
+A = np.loadtxt('data/adjacency.csv', delimiter=',')
+extents = np.loadtxt('data/extents.csv', delimiter=',')
+targets = np.loadtxt('data/targets.csv', delimiter=',')
 
 # preserve only first 'tf' seconds
 tf = 205
@@ -179,5 +179,5 @@ anim.ax.legend(
     fontsize='small',
     handletextpad=1)
 # anim.run()
-anim.run('/tmp/xy.mp4')
+anim.run('data/xy.mp4')
 # plt.show()
