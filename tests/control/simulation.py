@@ -108,12 +108,12 @@ class Robot(object):
         self.collision = CollisionAvoidance(power=2.0)
         self.last_control_action = np.zeros(self.dim)
         self.action = {}
-        vel_meas_cov = 0.0225 * np.eye(self.dim)
-        range_meas_cov = 100.0
-        gps_meas_cov = 100.0 * np.eye(self.dim)
-        pos_cov = 25.0 * np.eye(self.dim)
         self.loc = FirstOrderKalmanFilter(
-            pos, pos_cov, vel_meas_cov, range_meas_cov, gps_meas_cov
+            pos,
+            pos_cov=25.0 * np.eye(self.dim),
+            vel_meas_cov=0.0225 * np.eye(self.dim),
+            range_meas_cov=100.0,
+            gps_meas_cov=100.0 * np.eye(self.dim)
         )
         self.neighborhood = Neighborhood()
         self.routing = TokenPassing(self.node_id)
