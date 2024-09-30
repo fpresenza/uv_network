@@ -11,166 +11,189 @@ np.set_printoptions(precision=10)
 
 
 class DecentralizedLocalization(object):
-    def __init__(self, xi, ti=0.):
-        self.init(xi, ti)
-        self.dim = len(xi)
+    def __init__(self, state, time=0.0):
+        self.x = state.copy()
+        self.t = time
 
-    @property
-    def position(self):
-        return self._x.copy()
-
-    def init(self, xi, ti=0.):
-        self.t = ti
-        self._x = xi.copy()
+    def state(self):
+        return self.x.copy()
 
 
-class GradientBasedFilter(DecentralizedLocalization):
-    def __init__(self, xi, ti, stepsize, W):
+class FirstOrderGradientFilter(DecentralizedLocalization):
+    def __init__(self, position, stepsize, input_weights, time=0.0):
         """
-        Gradient Descent of the cost functoin:
-            V(x) = sum_{ij in E} (wij/2)*(||xi-xj|| - z_obs)^2 +
+        Gradient Descent of the cost function:
+            V(x) = sum_{ij in E} (wij/2)*(||x_i-x_j|| - z_obs)^2 +
                 (1/2)*sum_{i in V} ||x_i - f(x_i, u_i)||_{W_i}^2
 
         args:
         -----
-            xi       : initial state
-            ti       : initial time
-            stepsize : stepsize gradient descent
-            W        : dynamic model weigth
+            position      : initial position
+            stepsize      : gradient descent stepsize
+            input_weights : input weigth
+            time          : initial time
         """
-        super(GradientBasedFilter, self).__init__(xi, ti)
-        self.alpha = stepsize
-        self.W = W
+        super(FirstOrderGradientFilter, self).__init__(position, time)
+        self.stepsize = stepsize
+        self.input_weights = input_weights
 
-    def dynamic_model(self, dt, u):
+    def dynamic_step(self, time, vel_meas, *args):
         """
-        Integrator.
-
-        args:
-        -----
-            dt : time elapsed since last update
-            u  : control action
-        """
-        x = self._x + u * dt
-        return x
-
-    def distances_model(self, z, xj):
-        """
-        Distance with neighbors.
+        Dynamic model.
 
         args:
         -----
-            z  : measurements
-            xj : neighbors states
+            time     : current time
+            vel_meas : velocity measurement
         """
-        r = self._x - xj
+        dt = time - self.t
+        self.t = time
+
+        self.x += self.input_weights.dot(vel_meas * dt)
+
+    def range_step(self, range_meas, anchors):
+        """
+        Range measurements model.
+
+        args:
+        -----
+            range_meas : range measurements
+            anchors    : anchors positions
+        """
+        r = self.x - anchors
         d = np.sqrt(np.square(r).sum(axis=1))
-        m = (z - d)/d
-        g = sum(r * m[:, None])
-        return g
+        m = (range_meas - d)/d
+        self.x += self.stepsize * sum(r * m[:, None])
 
-    def square_distances_model(self, z, xj):
+    def gps_step(self, pos_meas):
         """
-        Square distance with neighbors.
+        GPS measurements model.
 
         args:
         -----
-            z  : measurements
-            xj : neighbors states
+            pos_meas : position measurements
         """
-        r = self._x - xj
-        d2 = np.square(r).sum(axis=1)
-        m = (z - d2)
-        g = sum(r * m[:, None])
-        return g
+        self.x += self.stepsize * (pos_meas - self.x)
 
-    def dynamic_step(self, t, u, *args):
+
+class FirstOrderKalmanFilter(DecentralizedLocalization):
+    def __init__(
+            self,
+            pos,
+            pos_cov,
+            vel_meas_cov,
+            range_meas_cov,
+            gps_meas_cov,
+            time=0.0):
         """
-        Dynamic model step.
+        Kalman Filter that neglects inter-agent cross-correlations.
 
         args:
         -----
-            t : current time
-            u : control action
+            pos            : intial position
+            pos_cov        : initial position covariance
+            vel_meas_cov   : measured velocity covariance
+            range_meas_cov : distance measurement variance
+            gps_meas_cov        : gps covariance
         """
-        dt = t - self.t
-        self.t = t
-        x = self.dynamic_model(dt, u, *args)
-        self._x -= self.W.dot(self._x - x)
+        super(FirstOrderKalmanFilter, self).__init__(pos, time)
+        self.P = pos_cov.copy()
+        self.vel_meas_cov = vel_meas_cov
+        self.range_meas_cov = range_meas_cov
+        self.gps_meas_cov = gps_meas_cov
+        self.position = self.state
 
-    def distances_step(self, z, xj, *args):
-        """
-        Measurement model step.
-
-        args:
-        -----
-            z  : measurements
-            xj : neighbors states
-
-        """
-        g_obs = self.distances_model(z, xj, *args)
-        self._x += self.alpha * g_obs
-
-    def square_distances_step(self, z, xj, *args):
-        """
-        Measurement model step.
-
-        args:
-        -----
-            z  : measurements
-            xj : neighbors states
-
-        """
-        g_obs = self.square_distances_model(z, xj, *args)
-        self._x += self.alpha * g_obs
-
-    def gps_step(self, z):
-        """
-        Position measurements model step.
-
-        args:
-        -----
-            z : measurements
-        """
-        self._x += self.alpha * (z - self._x)
-
-
-class KalmanBasedFilter(DecentralizedLocalization):
-    def __init__(self, xi, Pi, Qu, Rd, Rp, ti=0.):
-        """
-        Kalman Filter without cross-correlations.
-
-        args:
-            xi : intial state
-            Pi : initial covariance
-            Qu : control step covariance
-            Rd : distance measurement variance
-            Rp : gps covariance
-        """
-        super(KalmanBasedFilter, self).__init__(xi, ti)
-        self._P = Pi.copy()
-        self.ctrl_cov = Qu
-        self.range_cov = Rd
-        self.square_range_cov = Rd**2
-        self.gps_cov = Rp * np.eye(self.dim)
-
-    @property
     def covariance(self):
-        return self._P.copy()
+        return self.P.copy()
 
-    def dynamic_model(self, dt, u):
+    def dynamic_step(self, time, vel_meas, *args):
         """
-        Integrator.
+        Dynamic model.
 
         args:
         -----
-            dt : time elapsed since last update
-            u  : control action
+            time     : current time
+            vel_meas : velocity measurement
         """
-        x = self._x + u * dt
-        F = np.eye(len(x))
-        Q = self.ctrl_cov * (dt**2)
-        return x, F, Q
+        dt = time - self.t
+        self.t = time
+
+        self.x += vel_meas * dt
+        self.P += self.vel_meas_cov * (dt**2)
+
+    def range_step(
+            self,
+            range_meas,
+            anchors,
+            anchors_cov):
+        """
+        Range measurements model.
+
+        args:
+        -----
+            range_meas : range measurements
+            anchors    : anchors positions
+            anchors    : anchors positions covariance
+        """
+        r = self.x - anchors
+        d = np.sqrt(np.square(r).sum(axis=-1, keepdims=True))
+        d = d.ravel()
+        dz = range_meas.ravel() - d
+        H = r / d[:, None]
+        Rj = np.matmul(
+            H[:, None], np.matmul(anchors_cov, H[:, :,  None])
+        )
+        R = np.diag((Rj + self.range_meas_cov).ravel())
+
+        Pz = H.dot(self.P).dot(H.T) + R
+        K = self.P.dot(H.T).dot(np.linalg.inv(Pz))
+
+        self.x += K.dot(dz)
+        self.P -= K.dot(H).dot(self.P)
+
+    def gps_step(self, pos_meas):
+        """
+        Position measurements model.
+
+        args:
+        -----
+            pos_meas : position measurements
+        """
+        dz = pos_meas - self.x
+        Pz = self.P + self.gps_meas_cov
+        K = self.P.dot(np.linalg.inv(Pz))
+        self.x += K.dot(dz)
+        self.P -= K.dot(self.P)
+
+
+class SecondOrderKalmanFilter(DecentralizedLocalization):
+    def __init__(
+            self,
+            state,
+            dim,
+            state_cov,
+            vel_meas_cov,
+            range_meas_cov,
+            gps_meas_cov,
+            ti=0.0):
+        """
+        Kalman Filter that neglects inter-agent cross-correlations.
+
+        args:
+            state          : intial state (pos + vel)
+            state_cov      : initial covariance (pos + vel)
+            vel_meas_cov   : accelerometer covariance
+            range_meas_cov : distance measurement variance
+            gps_meas_cov   : gps covariance
+        """
+        super(SecondOrderKalmanFilter, self).__init__(state, ti)
+        self.P = state_cov.copy()
+        self.accel_cov = vel_meas_cov
+        self.range_meas_cov = range_meas_cov
+        self.gps_meas_cov = gps_meas_cov * np.eye(self.dim)
+
+    def covariance(self):
+        return self.P.copy()
 
     def distances_model(self, z, xj, Pj):
         """
@@ -182,51 +205,43 @@ class KalmanBasedFilter(DecentralizedLocalization):
             xj : neighbors states
             Pj : covariance associated to each neighbor
         """
-        r = self._x - xj
+        r = self.x - xj
         d = np.sqrt(np.square(r).sum(axis=-1, keepdims=True))
         d = d.ravel()
         dz = z.ravel() - d
         H = r / d[:, None]
         Rj = np.matmul(H[:, None], np.matmul(Pj, H[:, :,  None]))
-        R = np.diag((Rj + self.range_cov).ravel())
-        return dz, H, R
-
-    def square_distances_model(self, z, xj, Pj):
-        """
-        Square distance with neighbors.
-
-        args:
-        -----
-            z  : measurements
-            xj : neighbors states
-            Pj : covariance associated to each neighbor
-        """
-        r = self._x - xj
-        d2 = np.square(r).sum(axis=-1, keepdims=True)
-        d2 = d2.ravel()
-        dz = z.ravel() - d2
-        H = 2 * r
-        Rj = np.matmul(H[:, None], np.matmul(Pj, H[:, :,  None]))
-        R = np.diag((Rj + self.square_range_cov).ravel())
+        R = np.diag((Rj + self.range_meas_cov).ravel())
         return dz, H, R
 
     def dynamic_step(self, t, u, *args):
         """
-        Dynamic model step.
+        Second Order Integrator.
 
         args:
         -----
             t : current time
-            u : control action
+            u : accelerometer measurement
         """
         dt = t - self.t
         self.t = t
 
-        x, F, Q = self.dynamic_model(dt, u, *args)
-        self._x[:] = x
-        self._P[:] = F.dot(self._P).dot(F.T) + Q
+        dt2 = dt**2
+        Q = dt2 * self.accel_cov
 
-    def distances_step(self, z, xj, Pj, *args):
+        self.x[:self.dim] += self.x[self.dim:] * dt
+        self.x[self.dim:] += u * dt
+
+        Pxdx = self.P[:self.dim, self.dim:]
+        Pdxx = self.P[self.dim:, :self.dim]
+        Pdxdx = self.P[self.dim:, self.dim:]
+
+        self.P[:self.dim, :self.dim] += dt * Pxdx + dt * Pdxx + dt2 * Pdxdx
+        self.P[:self.dim, self.dim:] += dt * Pdxdx
+        self.P[self.dim:, :self.dim] += dt * Pdxdx
+        self.P[self.dim:, self.dim:] += dt2 * Q
+
+    def range_step(self, z, xj, Pj, *args):
         """
         Distance measurements model step.
 
@@ -238,31 +253,13 @@ class KalmanBasedFilter(DecentralizedLocalization):
 
         """
         dz, H, R = self.distances_model(z, xj, Pj, *args)
-        Pz = H.dot(self._P).dot(H.T) + R
-        K = self._P.dot(H.T).dot(np.linalg.inv(Pz))
+        Pz = H.dot(self.P).dot(H.T) + R
+        K = self.P.dot(H.T).dot(np.linalg.inv(Pz))
 
-        self._x += K.dot(dz)
-        self._P -= K.dot(H).dot(self._P)
+        self.x += K.dot(dz)
+        self.P -= K.dot(H).dot(self.P)
 
-    def square_distances_step(self, z, xj, Pj, *args):
-        """
-        Distance measurements model step.
-
-        args:
-        -----
-            z  : measurements
-            xj : neighbors states
-            Pj : weigth associated to each neighbor
-
-        """
-        dz, H, R = self.square_distances_model(z, xj, Pj, *args)
-        Pz = H.dot(self._P).dot(H.T) + R
-        K = self._P.dot(H.T).dot(np.linalg.inv(Pz))
-
-        self._x += K.dot(dz)
-        self._P -= K.dot(H).dot(self._P)
-
-    def gps_step(self, z):
+    def gps_step(self, pos_meas):
         """
         Position measurements model step.
 
@@ -270,8 +267,8 @@ class KalmanBasedFilter(DecentralizedLocalization):
         -----
             z : measurements
         """
-        dz = z - self._x
-        Pz = self._P + self.gps_cov
-        K = self._P.dot(np.linalg.inv(Pz))
-        self._x += K.dot(dz)
-        self._P -= K.dot(self._P)
+        dz = pos_meas - self.x
+        Pz = self.P + self.gps_meas_cov
+        K = self.P.dot(np.linalg.inv(Pz))
+        self.x += K.dot(dz)
+        self.P -= K.dot(self.P)

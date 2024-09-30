@@ -128,7 +128,7 @@ class Animate2(object):
             style = data.get(
                 'style', {'color': 'b', 'marker': 'o', 'markersize': '5'}
             )
-            style.update(ls='', zorder=1, label=name)
+            style.update(ls='', label=name)
             line = self.ax.plot([], [], **style)
             self.teams[name]['points'] = line[0]
             if data.get('tail') is True:

@@ -8,8 +8,8 @@ from uvnpy.network.core import edges_from_adjacency, incidence_from_edges
 from uvnpy.network.disk_graph import adjacency_from_positions
 from uvnpy.distances.core import distance_matrix_from_edges, is_inf_rigid
 from uvnpy.distances.localization import (
-    GradientBasedFilter,
-    KalmanBasedFilter
+    FirstOrderGradientFilter,
+    FirstOrderKalmanFilter
 )
 
 np.set_printoptions(precision=3, suppress=True, linewidth=200)
@@ -61,14 +61,14 @@ ax.tick_params(
     labelsize='small')
 ax.grid(lw=0.4)
 ax.set_xlabel(r'Step ($k$)', fontsize=10)
-ax.set_ylabel(r'MAE $[meters]$', fontsize=10)
+ax.set_ylabel(r'RMS error $[meters]$', fontsize=10)
 
 # GD 1
 ##################
 stepsize = 0.025
 W = np.eye(2)
-estimator = [GradientBasedFilter(
-    hatx[0, i], tiempo[0], stepsize, W) for i in nodes]
+estimator = [FirstOrderGradientFilter(
+    hatx[0, i], stepsize, W, tiempo[0]) for i in nodes]
 
 for k in steps[1:]:
     for i in nodes:
@@ -76,17 +76,17 @@ for k in steps[1:]:
         xj = hatx[k-1, Ni]
         ei = np.logical_or(E[:, 0] == i, E[:, 1] == i)
         zi = z[k-1, ei]
-        estimator[i].distances_step(zi, xj)
+        estimator[i].range_step(zi, xj)
         if i == 0 or i == 1:
             estimator[i].gps_step(y[k-1, i])
-        hatx[k, i] = estimator[i].position
+        hatx[k, i] = estimator[i].state()
 
 # hatz = distance_matrix_from_edges(E, hatx)
 
 ax.plot(
     # steps, np.abs(d - hatz).sum(axis=1) / len(E),
     # steps, np.abs(x - hatx).sum(axis=1).sum(axis=1) / n,
-    steps, np.mean(np.sqrt(np.square(x - hatx).sum(axis=2)), axis=1),
+    steps, np.sqrt(np.mean(np.square(x - hatx).sum(axis=2), axis=1)),
     label=r'GD $(\alpha = {})$'.format(stepsize), lw=1
 )
 
@@ -120,32 +120,6 @@ ax2.legend(
     labelspacing=0.5, borderpad=0.2, loc='upper right')
 fig2.savefig('/tmp/kfa_gd_1.png', format='png', dpi=360)
 
-
-# # GD 2
-# ##################
-# stepsize = 0.00025
-# W = np.eye(2)
-# estimator = [GradientBasedFilter(
-#     hatx[0, i], tiempo[0], stepsize, W) for i in nodes]
-
-# for k in steps[1:]:
-#     for i in nodes:
-#         Ni = A[i].astype(bool)
-#         xj = hatx[k-1, Ni]
-#         ei = np.logical_or(E[:, 0] == i, E[:, 1] == i)
-#         z2i = z2[k-1, ei]
-#         # estimator[i].dynamic_step(tiempo[k], u)
-#         estimator[i].square_distances_step(z2i, xj)
-#         hatx[k, i] = estimator[i].position
-
-# hatz = distance_matrix_from_edges(E, hatx)
-
-# ax.plot(
-#     steps, np.abs(d - hatz).sum(axis=1) / len(E),
-#     label=r'GD2 $(\alpha = {})$'.format(stepsize), lw=1
-# )
-
-
 # KGD
 ##################
 Pi = p**2 * np.eye(2)
@@ -154,8 +128,8 @@ hatP[0] = Pi
 
 q = 0.0
 Q = q**2 * np.eye(2)
-estimator = [KalmanBasedFilter(
-    hatx[0, i], Pi, Q, R**2, G**2, tiempo[0]) for i in nodes]
+estimator = [FirstOrderKalmanFilter(
+    hatx[0, i], Pi, Q, R, G**2 * np.eye(2), tiempo[0]) for i in nodes]
 
 for k in steps[1:]:
     for i in nodes:
@@ -164,20 +138,18 @@ for k in steps[1:]:
         Pj = hatP[k-1, Ni]
         ei = np.logical_or(E[:, 0] == i, E[:, 1] == i)
         zi = z[k-1, ei]
-        estimator[i].distances_step(zi, xj, 0*Pj)
+        estimator[i].range_step(zi, xj, Pj)
         if i == 0 or i == 1:
             estimator[i].gps_step(y[k-1, i])
-        hatx[k, i] = estimator[i].position
-        hatP[k, i] = estimator[i].covariance
+        hatx[k, i] = estimator[i].state()
+        hatP[k, i] = estimator[i].covariance()
 
 # hatz = distance_matrix_from_edges(E, hatx)
-
-print(hatx)
 
 ax.plot(
     # steps, np.abs(d - hatz).sum(axis=1) / len(E),
     # steps, np.abs(x - hatx).sum(axis=1).sum(axis=1) / n,
-    steps, np.mean(np.sqrt(np.square(x - hatx).sum(axis=2)), axis=1),
+    steps, np.sqrt(np.mean(np.square(x - hatx).sum(axis=2), axis=1)),
     label=r'KGD', lw=1
 )
 
@@ -210,38 +182,6 @@ ax2.legend(
     fontsize='small', handlelength=1.5,
     labelspacing=0.5, borderpad=0.2, loc='upper right')
 fig2.savefig('/tmp/kfa_gd_kf.png', format='png', dpi=360)
-
-
-# # KGD2
-# ##################
-# Pi = p**2 * np.eye(2)
-# hatP = np.empty((len(tiempo), n, 2, 2))
-# hatP[0] = Pi
-
-# q = 0.0
-# Q = q**2 * np.eye(2)
-# estimator = [KalmanBasedFilter(
-#     hatx[0, i], Pi, Q, R**2, G**2, tiempo[0]) for i in nodes]
-
-# for k in steps[1:]:
-#     for i in nodes:
-#         Ni = A[i].astype(bool)
-#         xj = hatx[k-1, Ni]
-#         Pj = hatP[k-1, Ni]
-#         ei = np.logical_or(E[:, 0] == i, E[:, 1] == i)
-#         z2i = z2[k-1, ei]
-#         # estimator[i].dynamic_step(tiempo[k], u)
-#         estimator[i].square_distances_step(z2i, xj, Pj)
-#         hatx[k, i] = estimator[i].position
-#         hatP[k, i] = estimator[i].covariance
-
-# hatz = distance_matrix_from_edges(E, hatx)
-
-# ax.plot(
-#     steps, np.abs(d - hatz).sum(axis=1) / len(E),
-#     label=r'KGD2', lw=1
-# )
-
 
 # Común
 ##################

@@ -25,7 +25,9 @@ x = np.loadtxt('data/position.csv', delimiter=',')
 hatx = np.loadtxt('data/est_position.csv', delimiter=',')
 cov = np.loadtxt('data/covariance.csv', delimiter=',')
 u = np.loadtxt('data/action.csv', delimiter=',')
-v = np.loadtxt('data/velocity.csv', delimiter=',')
+v = np.loadtxt('data/vel_meas_err.csv', delimiter=',')
+g = np.loadtxt('data/gps_meas_err.csv', delimiter=',')
+r = np.loadtxt('data/range_meas_err.csv', delimiter=',')
 fre = np.loadtxt('data/fre.csv', delimiter=',')
 re = np.loadtxt('data/re.csv', delimiter=',')
 A = np.loadtxt('data/adjacency.csv', delimiter=',')
@@ -42,6 +44,7 @@ hatx = hatx.reshape(len(t), n, 2)
 cov = cov.reshape(len(t), n, 2)
 u = u.reshape(len(t), n, 2)
 v = v.reshape(len(t), n, 2)
+g = g.reshape(len(t), n, 2)
 A = A.reshape(len(t), n, n)
 targets = targets.reshape(len(t), -1, 3)
 
@@ -75,13 +78,62 @@ fig.savefig('data/control.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Plot velocities
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(10, 4))
+fig, ax = plt.subplots(figsize=(4.0, 1.75))
+fig.subplots_adjust(
+    bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
 
 ax.set_xlabel('$t$ [$seg$]')
-ax.set_ylabel(r'$\Vert v \Vert$ [$m/s$]')
+ax.set_ylabel(r'$\Vert v - \tilde{v} \Vert$ [$m/s$]')
 ax.grid(1)
-ax.plot(t, np.sqrt(v[..., 0]**2 + v[..., 1]**2), ds='steps-post')
-fig.savefig('data/velocity.png', format='png', dpi=360)
+ax.plot(
+    t, np.median(np.sqrt(v[..., 0]**2 + v[..., 1]**2), axis=1),
+    lw=0.75, label='median', ds='steps-post'
+)
+ax.legend(
+    fontsize=8, handlelength=1, labelspacing=0.4,
+    borderpad=0.2, handletextpad=0.2, framealpha=1.,
+    ncol=2, columnspacing=1)
+fig.savefig('data/vel_meas_err.png', format='png', dpi=360)
+
+# ------------------------------------------------------------------
+# Plot gps
+# ------------------------------------------------------------------
+fig, ax = plt.subplots(figsize=(4.0, 1.75))
+fig.subplots_adjust(
+    bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
+
+ax.set_xlabel('$t$ [$seg$]')
+ax.set_ylabel(r'$\Vert p - \tilde{p} \Vert$ [$m/s$]')
+ax.grid(1)
+ax.plot(
+    t, np.nanmedian(np.sqrt(g[..., 0]**2 + g[..., 1]**2), axis=1),
+    lw=0.75, label='median', ds='steps-post'
+)
+ax.legend(
+    fontsize=8, handlelength=1, labelspacing=0.4,
+    borderpad=0.2, handletextpad=0.2, framealpha=1.,
+    ncol=2, columnspacing=1)
+fig.savefig('data/gps_meas_err.png', format='png', dpi=360)
+
+# ------------------------------------------------------------------
+# Plot range
+# ------------------------------------------------------------------
+fig, ax = plt.subplots(figsize=(4.0, 1.75))
+fig.subplots_adjust(
+    bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
+
+ax.set_xlabel('$t$ [$seg$]')
+ax.set_ylabel(r'$\Vert d_{ij} - \tilde{d}_{ij} \Vert$ [$m/s$]')
+ax.grid(1)
+ax.plot(
+    t, np.nanmedian(np.abs(r), axis=1),
+    lw=0.75, label='median', ds='steps-post'
+)
+ax.legend(
+    fontsize=8, handlelength=1, labelspacing=0.4,
+    borderpad=0.2, handletextpad=0.2, framealpha=1.,
+    ncol=2, columnspacing=1)
+fig.savefig('data/range_meas_err.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot position x
@@ -97,9 +149,9 @@ ax.tick_params(
 ax.grid(1, lw=0.4)
 
 ax.set_xlabel(r'$t$ [$sec$]', fontsize='10')
-ax.set_ylabel('posición-$x$ [$m$]', fontsize='10')
+ax.set_ylabel('position-$x$ [$m$]', fontsize='10')
 ax.plot(t, x[..., 0], lw=0.9, ds='steps-post')
-fig.savefig('data/pos_x.png', format='png', dpi=360)
+# fig.savefig('data/pos_x.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot position y
@@ -115,9 +167,9 @@ ax.tick_params(
 ax.grid(1, lw=0.4)
 
 ax.set_xlabel(r'$t$ [$sec$]', fontsize='10')
-ax.set_ylabel('posición-$y$ [$m$]', fontsize='10')
+ax.set_ylabel('position-$y$ [$m$]', fontsize='10')
 ax.plot(t, x[..., 1], lw=0.9, ds='steps-post')
-fig.savefig('data/pos_y.png', format='png', dpi=360)
+# fig.savefig('data/pos_y.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot eigenvalues
@@ -188,8 +240,9 @@ ax.tick_params(
     labelsize='small')
 ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$t$ [$sec$]', fontsize=10)
-ax.set_ylabel('Position Covariance \n [$m^2$]', fontsize=10)
-ax.plot(t, np.sqrt(cov[..., 0]**2 + cov[..., 1]**2), lw=1.0, ds='steps-post')
+ax.set_ylabel('Position Covariance \n Trace [$m^2$]', fontsize=10)
+# ax.plot(t, np.sqrt(cov[..., 0]**2 + cov[..., 1]**2), lw=1.0, ds='steps-post')
+ax.semilogy(t, cov[..., 0] + cov[..., 1], lw=1.0, ds='steps-post')
 # ax.plot(t, np.median(err, axis=1), lw=1.0, label='median')
 # ax.fill_between(
 #     t,
@@ -267,7 +320,9 @@ for i, tk in enumerate(snapshots):
         ax, x[max(0, k-150):k+1:5, three_hop_rigid],
         marker='.', color='mediumseagreen', s=1, zorder=1, lw=0.5)
 
-    fig.savefig('data/snapshots_{}.png'.format(int(tk)), format='png', dpi=360)
+    # fig.savefig(
+    #     'data/snapshots_{}.png'.format(int(tk)),
+    #     format='png', dpi=360)
 
 fig, ax = plt.subplots(figsize=(2.5, 2.5))
 fig.subplots_adjust(left=0.15)
@@ -324,7 +379,7 @@ ax.legend(
     ncol=4, columnspacing=0.15,
     loc='upper center')
 
-fig.savefig('data/snapshots_init.png', format='png', dpi=360)
+# fig.savefig('data/snapshots_init.png', format='png', dpi=360)
 
 # fig, ax = plt.subplots(figsize=(2.5, 2.5))
 # fig.subplots_adjust(left=0.15)
@@ -370,3 +425,5 @@ fig.savefig('data/snapshots_init.png', format='png', dpi=360)
 #     ncol=4, columnspacing=0.15,
 #     loc='upper center')
 # fig.savefig('data/snapshots_init.png', format='png', dpi=360)
+
+# plt.show()
