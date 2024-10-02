@@ -211,8 +211,12 @@ class Robot(object):
             u_collect + 40.0 * u_rigid + 20000.0 * u_evasion, limit=2.5
         )
 
-    def localization_step(self, vel_meas, gps_meas):
+    def velocity_measurement_step(self, vel_meas):
         self.loc.dynamic_step(self.current_time, vel_meas)
+        self.state['position'] = self.loc.position()
+        self.state['covariance'] = self.loc.covariance()
+
+    def range_measurement_step(self):
         if len(self.neighborhood) > 0:
             neighbors_data = self.neighborhood.values()
             z = np.array([
@@ -225,9 +229,12 @@ class Robot(object):
                 neighbor.covariance for neighbor in neighbors_data
             ])
             self.loc.range_step(z, xj, Pj)
+            self.state['position'] = self.loc.position()
+            self.state['covariance'] = self.loc.covariance()
             self.neighborhood.clear()
-        if gps_meas is not None:
-            self.loc.gps_step(gps_meas)
+
+    def gps_measurement_step(self, gps_meas):
+        self.loc.gps_step(gps_meas)
         self.state['position'] = self.loc.position()
         self.state['covariance'] = self.loc.covariance()
 
@@ -253,6 +260,7 @@ class World(object):
             robot_dynamics,
             network,
             comm_range,
+            gps_available,
             vel_meas_stdev,
             range_meas_stdev,
             gps_meas_stdev,
@@ -264,6 +272,7 @@ class World(object):
         self.adjacency_matrix = network.astype(bool)
         self.dmin = np.min(comm_range)
         self.dmax = np.max(comm_range)
+        self.gps_available = gps_available
 
         self.vel_meas_stdev = vel_meas_stdev
         self.range_meas_stdev = range_meas_stdev
@@ -279,8 +288,13 @@ class World(object):
         return np.array([robot.x for robot in self.robot_dynamics])
 
     def collect_vel_meas_err(self):
-        vel = np.array([robot.derivatives[0] for robot in self.robot_dynamics])
-        return vel - self.vel_meas
+        try:
+            vel = np.array(
+                [robot.derivatives[0] for robot in self.robot_dynamics]
+            )
+            return vel - self.vel_meas
+        except IndexError:
+            return np.full((self.n, 2), np.nan)
 
     def collect_gps_meas_err(self):
         pos = np.array([robot.x for robot in self.robot_dynamics])
@@ -291,23 +305,28 @@ class World(object):
         dist[np.logical_not(self.adjacency_matrix)] = np.nan
         return dist - self.range_meas
 
-    def update_adjacency(self, positions):
+    def update_adjacency(self):
         self.adjacency_matrix = adjacency_histeresis(
             self.adjacency_matrix,
-            positions,
+            self.collect_positions(),
             self.dmin, self.dmax
         )
 
     def velocity_measurement(self, node_index):
-        self.vel_meas[node_index] = np.random.normal(
-            self.robot_dynamics[node_index].derivatives[0], self.vel_meas_stdev
-        )
+        try:
+            vel = self.robot_dynamics[node_index].derivatives[0]
+            self.vel_meas[node_index] = np.random.normal(
+                vel, self.vel_meas_stdev
+            )
+        except IndexError:
+            self.vel_meas[node_index] = np.full(2, np.nan)
         return self.vel_meas[node_index]
 
     def gps_measurement(self, node_index):
-        self.gps_meas[node_index] = np.random.normal(
-            self.robot_dynamics[node_index].x, self.gps_meas_stdev
-        )
+        if node_index in self.gps_available:
+            self.gps_meas[node_index] = np.random.normal(
+                self.robot_dynamics[node_index].x, self.gps_meas_stdev
+            )
         return self.gps_meas[node_index]
 
     def upload_to_cloud(self, msg, node_index):
@@ -460,31 +479,37 @@ def run(steps, world, logs):
                 robot.compute_control_action(alloc[node_index])
             else:
                 robot.set_control_action(np.zeros(2, dtype=float))
-            world.robot_dynamics[node_index].step(t, robot.last_control_action)
+
+            robot.range_measurement_step()
+
+            gps_meas = world.gps_measurement(node_index)
+            if not np.isnan(gps_meas).any():
+                robot.gps_measurement_step(gps_meas)
 
             vel_meas = world.velocity_measurement(node_index)
-            if robot.node_id in [6, 8]:
-                gps_meas = world.gps_measurement(node_index)
-            else:
-                gps_meas = None
-            robot.localization_step(vel_meas, gps_meas)
+            if not np.isnan(vel_meas).any():
+                robot.velocity_measurement_step(vel_meas)
 
-        world.update_adjacency(world.collect_positions())
-        targets.update(world.collect_positions())
-
-        t_b = time.perf_counter()
-
-        # log data
-        logs.position[k] = world.collect_positions().ravel()
+        # log control data
         logs.estimated_position[k] = robots \
             .collect_estimated_positions().ravel()
         logs.covariance[k] = robots \
             .collect_covariances().ravel()
         logs.action[k] = robots.collect_control_actions().ravel()
-
         logs.vel_meas_err[k] = world.collect_vel_meas_err().ravel()
         logs.gps_meas_err[k] = world.collect_gps_meas_err().ravel()
         logs.range_meas_err[k] = world.collect_range_meas_err().ravel()
+
+        for robot in robots:
+            node_index = index_map[robot.node_id]
+            world.robot_dynamics[node_index].step(t, robot.last_control_action)
+        world.update_adjacency()
+        targets.update(world.collect_positions())
+
+        t_b = time.perf_counter()
+
+        # log simu data
+        logs.position[k] = world.collect_positions().ravel()
         logs.fre[k] = framework_rigidity_eigenvalue(world)
         logs.re[k] = subframeworks_rigidity_eigenvalue(robots, world)
         logs.adjacency[k] = world.adjacency_matrix.ravel()
@@ -520,6 +545,10 @@ parser.add_argument(
     '-q', '--queue',
     default=1, type=int, help='largo de la cola del cloud'
 )
+parser.add_argument(
+    '-c', '--control_step',
+    default=1, type=int, help='control step in milli seconds'
+)
 arg = parser.parse_args()
 
 # ------------------------------------------------------------------
@@ -531,17 +560,18 @@ steps = list(enumerate(time_interval))
 n_steps = len(steps)
 
 position = np.array([
-    [562.343, 582.097],
-    [545.759, 504.870],
-    [482.645, 459.704],
-    [478.051, 558.593],
-    [414.097, 540.411],
-    [569.784, 491.930],
-    [425.618, 477.308],
-    [502.778, 564.405],
-    [576.862, 555.808],
-    [489.537, 491.138]
+    [162.343, 182.097],
+    [145.759, 104.870],
+    [82.645,  59.704],
+    [78.051, 158.593],
+    [14.097, 140.411],
+    [169.784,  91.930],
+    [25.618,  77.308],
+    [102.778, 164.405],
+    [176.862, 155.808],
+    [89.537,  91.138]
 ])
+
 n, dim = position.shape
 
 coverage = 30.0
@@ -556,6 +586,7 @@ world = World(
     robot_dynamics=[Integrator(position[i]) for i in range(n)],
     network=adjacency_matrix,
     comm_range=(dmin, dmax),
+    gps_available=[6, 8],
     vel_meas_stdev=0.15,
     range_meas_stdev=10.0,
     gps_meas_stdev=10.0,
@@ -611,9 +642,9 @@ logs.position[0] = world.collect_positions().ravel()
 logs.estimated_position[0] = robots.collect_estimated_positions().ravel()
 logs.covariance[0] = robots.collect_covariances().ravel()
 logs.action[0] = np.zeros(n*dim)
-logs.vel_meas_err[0] = np.zeros(n*dim)
-logs.gps_meas_err[0] = np.zeros(n*dim)
-logs.range_meas_err[0] = np.zeros(n*n)
+logs.vel_meas_err[0] = np.full(n*dim, np.nan)
+logs.gps_meas_err[0] = np.full(n*dim, np.nan)
+logs.range_meas_err[0] = np.full(n*n, np.nan)
 world.adjacency_matrix
 logs.fre[0] = framework_rigidity_eigenvalue(world)
 logs.re[0] = subframeworks_rigidity_eigenvalue(robots, world)

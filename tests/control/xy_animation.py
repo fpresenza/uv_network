@@ -18,8 +18,11 @@ plt.rcParams['mathtext.fontset'] = 'dejavuserif'
 plt.rcParams['font.family'] = 'serif'
 
 
-def time_index(t, ts):
-    return np.argmin(np.abs(t - ts))
+def termination_time_index(t, ts):
+    if ts == np.inf:
+        return len(t) - 1
+    else:
+        return np.argmin(np.abs(t - ts))
 
 
 def slow_motion(data):
@@ -60,8 +63,8 @@ extents = np.loadtxt('data/extents.csv', delimiter=',')
 targets = np.loadtxt('data/targets.csv', delimiter=',')
 
 # preserve only first 'tf' seconds
-tf = 205
-kf = time_index(t, tf)
+tf = np.inf
+kf = termination_time_index(t, tf)
 t = t[:kf]
 x = x[:kf]
 hatx = hatx[:kf]
@@ -97,13 +100,16 @@ for k, tk in steps:
     Y = targets[k]
     frames[k] = tk, X, E, T, Y
 
-a, b, c = time_index(t, 15.), time_index(t, 30), time_index(t, 100)
-adjusted_frames = np.vstack([
-    frames[0:a:1],
-    frames[a:b:2],
-    frames[b:c:5],
-    frames[c::5]
-])
+a = termination_time_index(t, 15.0)
+b = termination_time_index(t, 30.0)
+c = termination_time_index(t, 100.0)
+# adjusted_frames = np.vstack([
+#     frames[0:a:1],
+#     frames[a:b:2],
+#     frames[b:c:5],
+#     frames[c::5]
+# ])
+adjusted_frames = frames[::10]
 
 # ------------------------------------------------------------------
 # Animation

@@ -65,7 +65,7 @@ edges = A.sum(-1).sum(-1)/2
 G = [geodesics(adj) for adj in A]
 
 # ------------------------------------------------------------------
-# Plot control
+# Plot control action
 # ------------------------------------------------------------------
 fig, ax = plt.subplots(figsize=(10, 4))
 
@@ -76,7 +76,7 @@ ax.plot(t, np.sqrt(u[..., 0]**2 + u[..., 1]**2), ds='steps-post')
 fig.savefig('data/control.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
-# Plot velocities
+# Plot velocity measurement error
 # ------------------------------------------------------------------
 fig, ax = plt.subplots(figsize=(4.0, 1.75))
 fig.subplots_adjust(
@@ -86,9 +86,10 @@ ax.set_xlabel('$t$ [$seg$]')
 ax.set_ylabel(r'$\Vert v - \tilde{v} \Vert$ [$m/s$]')
 ax.grid(1)
 ax.plot(
-    t, np.median(np.sqrt(v[..., 0]**2 + v[..., 1]**2), axis=1),
+    t, np.nanmedian(np.sqrt(v[..., 0]**2 + v[..., 1]**2), axis=1),
     lw=0.75, label='median', ds='steps-post'
 )
+ax.set_ylim(bottom=0)
 ax.legend(
     fontsize=8, handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
@@ -96,7 +97,7 @@ ax.legend(
 fig.savefig('data/vel_meas_err.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
-# Plot gps
+# Plot gps measurement error
 # ------------------------------------------------------------------
 fig, ax = plt.subplots(figsize=(4.0, 1.75))
 fig.subplots_adjust(
@@ -109,6 +110,7 @@ ax.plot(
     t, np.nanmedian(np.sqrt(g[..., 0]**2 + g[..., 1]**2), axis=1),
     lw=0.75, label='median', ds='steps-post'
 )
+ax.set_ylim(bottom=0)
 ax.legend(
     fontsize=8, handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
@@ -116,7 +118,7 @@ ax.legend(
 fig.savefig('data/gps_meas_err.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
-# Plot range
+# Plot range measurement error
 # ------------------------------------------------------------------
 fig, ax = plt.subplots(figsize=(4.0, 1.75))
 fig.subplots_adjust(
@@ -129,6 +131,7 @@ ax.plot(
     t, np.nanmedian(np.abs(r), axis=1),
     lw=0.75, label='median', ds='steps-post'
 )
+ax.set_ylim(bottom=0)
 ax.legend(
     fontsize=8, handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
