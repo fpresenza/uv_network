@@ -457,6 +457,7 @@ def run(steps, world, logs):
             index = index_map[robot.node_id]
             msgs = world.download_from_cloud(index)
             robot.handle_received_msgs(msgs)
+            robot.range_measurement_step()
 
         # localization and control step
         # TODO: should be est position
@@ -470,8 +471,6 @@ def run(steps, world, logs):
                 robot.compute_control_action(alloc[node_index])
             else:
                 robot.set_control_action(np.zeros(2, dtype=float))
-
-            robot.range_measurement_step()
 
             gps_meas = world.gps_measurement(node_index)
             if (gps_meas is not None):
