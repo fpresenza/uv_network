@@ -85,6 +85,7 @@ fig.savefig('data/control.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Plot velocity measurement error
 # ------------------------------------------------------------------
+e_vel = np.sqrt(v[..., 0]**2 + v[..., 1]**2)
 fig, ax = plt.subplots(figsize=(4.0, 2.0))
 fig.subplots_adjust(
     bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
@@ -98,13 +99,13 @@ ax.set_xlabel('$t$ [$s$]', fontsize=8)
 ax.set_ylabel(r'$\Vert e_{\mathrm{vel}} \Vert$ [$m/s$]', fontsize=8)
 ax.grid(1)
 ax.plot(
-    t, np.nanmedian(np.sqrt(v[..., 0]**2 + v[..., 1]**2), axis=1),
+    t, np.nanmedian(e_vel, axis=1),
     lw=0.8, label='median', ds='steps-post'
 )
 ax.fill_between(
     t,
-    np.nanmin(np.sqrt(v[..., 0]**2 + v[..., 1]**2), axis=1),
-    np.nanmax(np.sqrt(v[..., 0]**2 + v[..., 1]**2), axis=1),
+    np.nanmin(e_vel, axis=1),
+    np.nanmax(e_vel, axis=1),
     alpha=0.3
 )
 ax.set_ylim(bottom=0.0)
@@ -117,6 +118,7 @@ fig.savefig('data/vel_meas_err.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Plot gps measurement error
 # ------------------------------------------------------------------
+e_gps = np.sqrt(g[..., 0]**2 + g[..., 1]**2)
 fig, ax = plt.subplots(figsize=(4.0, 2.0))
 fig.subplots_adjust(
     bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
@@ -130,13 +132,13 @@ ax.set_xlabel('$t$ [$s$]', fontsize=8)
 ax.set_ylabel(r'$\Vert e_{\mathrm{gps}} \Vert$ [$m/s$]', fontsize=8)
 ax.grid(1)
 ax.plot(
-    t, np.nanmedian(np.sqrt(g[..., 0]**2 + g[..., 1]**2), axis=1),
+    t, np.nanmedian(e_gps, axis=1),
     lw=0.8, label='median', ds='steps-post'
 )
 ax.fill_between(
     t,
-    np.nanmin(np.sqrt(g[..., 0]**2 + g[..., 1]**2), axis=1),
-    np.nanmax(np.sqrt(g[..., 0]**2 + g[..., 1]**2), axis=1),
+    np.nanmin(e_gps, axis=1),
+    np.nanmax(e_gps, axis=1),
     alpha=0.3
 )
 ax.set_ylim(bottom=0.0)
@@ -149,6 +151,7 @@ fig.savefig('data/gps_meas_err.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Plot range measurement error
 # ------------------------------------------------------------------
+e_range = np.abs(r)
 fig, ax = plt.subplots(figsize=(4.0, 2.0))
 fig.subplots_adjust(
     bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
@@ -162,13 +165,13 @@ ax.set_xlabel('$t$ [$s$]', fontsize=8)
 ax.set_ylabel(r'$\Vert e_{\mathrm{range}} \Vert$ [$m$]', fontsize=8)
 ax.grid(1)
 ax.plot(
-    t, np.nanmedian(np.abs(r), axis=1),
+    t, np.nanmedian(e_range, axis=1),
     lw=0.8, label='median', ds='steps-post'
 )
 ax.fill_between(
     t,
-    np.nanmin(np.abs(r), axis=1),
-    np.nanmax(np.abs(r), axis=1),
+    np.nanmin(e_range, axis=1),
+    np.nanmax(e_range, axis=1),
     alpha=0.3
 )
 ax.set_ylim(bottom=0.0)
@@ -260,14 +263,14 @@ ax.tick_params(
 ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$t$ [$s$]', fontsize=8)
 ax.set_ylabel(r'$\Vert e_{\mathrm{ekf}} \Vert$ [$m$]', fontsize=8)
-ax.semilogy(t, np.median(err, axis=1), lw=0.8, label='median', ds='steps-post')
+ax.plot(t, np.median(err, axis=1), lw=0.8, label='median', ds='steps-post')
 ax.fill_between(
     t,
     np.min(err, axis=1),
     np.max(err, axis=1),
     alpha=0.3
 )
-ax.set_ylim(bottom=1e-2)
+ax.set_ylim(bottom=0.0)
 ax.legend(
     fontsize=8, handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
