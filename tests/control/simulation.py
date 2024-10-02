@@ -23,7 +23,6 @@ from uvnpy.distances.core import (
     is_inf_rigid,
     rigidity_eigenvalue,
     minimum_rigidity_extents,
-    distance_matrix
 )
 from uvnpy.distances.control import (
     CentralizedRigidityMaintenance,
@@ -268,9 +267,9 @@ class World(object):
         self.range_meas_stdev = range_meas_stdev
         self.gps_meas_stdev = gps_meas_stdev
 
-        self.vel_meas = np.full((self.n, 2), np.nan)
-        self.gps_meas = np.full((self.n, 2), np.nan)
-        self.range_meas = np.full((self.n, self.n), np.nan)
+        self.vel_meas_err = np.full((self.n, 2), np.nan)
+        self.gps_meas_err = np.full((self.n, 2), np.nan)
+        self.range_meas_err = np.full((self.n, self.n), np.nan)
 
         self.cloud = collections.deque(maxlen=queue)
 
@@ -278,22 +277,13 @@ class World(object):
         return np.array([robot.x for robot in self.robot_dynamics])
 
     def collect_vel_meas_err(self):
-        try:
-            vel = np.array(
-                [robot.derivatives[0] for robot in self.robot_dynamics]
-            )
-            return vel - self.vel_meas
-        except IndexError:
-            return np.full((self.n, 2), np.nan)
+        return self.vel_meas_err.copy()
 
     def collect_gps_meas_err(self):
-        pos = np.array([robot.x for robot in self.robot_dynamics])
-        return pos - self.gps_meas
+        return self.gps_meas_err.copy()
 
     def collect_range_meas_err(self):
-        dist = distance_matrix(self.collect_positions())
-        dist[np.logical_not(self.adjacency_matrix)] = np.nan
-        return dist - self.range_meas
+        return self.range_meas_err.copy()
 
     def update_adjacency(self):
         self.adjacency_matrix = adjacency_histeresis(
@@ -303,36 +293,47 @@ class World(object):
         )
 
     def velocity_measurement(self, node_index):
-        try:
+        if len(self.robot_dynamics[node_index].derivatives) > 0:
             vel = self.robot_dynamics[node_index].derivatives[0]
-            self.vel_meas[node_index] = np.random.normal(
-                vel, self.vel_meas_stdev
+            self.vel_meas_err[node_index] = np.random.normal(
+                scale=self.vel_meas_stdev, size=2
             )
-        except IndexError:
-            self.vel_meas[node_index] = np.full(2, np.nan)
-        return self.vel_meas[node_index]
+            return vel + self.vel_meas_err[node_index]
+        else:
+            self.vel_meas_err[node_index] = np.nan
+            return None
 
     def gps_measurement(self, node_index):
         if node_index in self.gps_available:
-            self.gps_meas[node_index] = np.random.normal(
-                self.robot_dynamics[node_index].x, self.gps_meas_stdev
+            pos = self.robot_dynamics[node_index].x
+            self.gps_meas_err[node_index] = np.random.normal(
+                scale=self.gps_meas_stdev, size=2
             )
-        return self.gps_meas[node_index]
+            return pos + self.gps_meas_err[node_index]
+        else:
+            self.gps_meas_err[node_index] = np.nan
+            return None
 
     def upload_to_cloud(self, msg, node_index):
-        neighbors = np.where(self.adjacency_matrix[node_index])[0]
-        for neighbor_index in neighbors:
-            distance = np.sqrt(np.square(
-                (self.robot_dynamics[node_index].x -
-                 self.robot_dynamics[neighbor_index].x)
-            ).sum())
-            self.range_meas[node_index, neighbor_index] = np.random.normal(
-                distance,
-                self.range_meas_stdev
-            )
-            self.cloud[-1][neighbor_index].append(
-                (msg, self.range_meas[node_index, neighbor_index])
-            )
+        for neighbor_index in range(self.n):
+            if self.adjacency_matrix[node_index, neighbor_index]:
+                distance = np.sqrt(np.square(
+                    (self.robot_dynamics[node_index].x -
+                     self.robot_dynamics[neighbor_index].x)
+                ).sum())
+                self.range_meas_err[node_index, neighbor_index] = \
+                    np.random.normal(
+                        scale=self.range_meas_stdev, size=1
+                    )
+                self.cloud[-1][neighbor_index].append(
+                    (
+                        msg,
+                        distance +
+                        self.range_meas_err[node_index, neighbor_index]
+                    )
+                )
+            else:
+                self.range_meas_err[node_index, neighbor_index] = np.nan
 
     def download_from_cloud(self, node_index):
         return self.cloud[0][node_index].copy()
@@ -473,11 +474,11 @@ def run(steps, world, logs):
             robot.range_measurement_step()
 
             gps_meas = world.gps_measurement(node_index)
-            if not np.isnan(gps_meas).any():
+            if (gps_meas is not None):
                 robot.gps_measurement_step(gps_meas)
 
             vel_meas = world.velocity_measurement(node_index)
-            if not np.isnan(vel_meas).any():
+            if (vel_meas is not None):
                 robot.velocity_measurement_step(vel_meas)
 
         # log control data
