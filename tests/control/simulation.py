@@ -117,10 +117,6 @@ class Robot(object):
         )
         self.neighborhood = Neighborhood()
         self.routing = TokenPassing(self.node_id)
-        self.state = {
-            'position': self.loc.position(),
-            'covariance': self.loc.covariance()
-        }
 
     def update_clock(self, t):
         self.current_time = t
@@ -128,8 +124,8 @@ class Robot(object):
     def create_msg(self):
         action_tokens, state_tokens = self.routing.broadcast(
             self.current_time,
-            self.action,
-            self.state,
+            self.action.copy(),
+            {'position': self.loc.x.copy(), 'covariance': self.loc.P.copy()},
             self.action_extent,
             self.state_extent
         )
@@ -213,8 +209,6 @@ class Robot(object):
 
     def velocity_measurement_step(self, vel_meas):
         self.loc.dynamic_step(self.current_time, vel_meas)
-        self.state['position'] = self.loc.position()
-        self.state['covariance'] = self.loc.covariance()
 
     def range_measurement_step(self):
         if len(self.neighborhood) > 0:
@@ -229,14 +223,10 @@ class Robot(object):
                 neighbor.covariance for neighbor in neighbors_data
             ])
             self.loc.range_step(z, xj, Pj)
-            self.state['position'] = self.loc.position()
-            self.state['covariance'] = self.loc.covariance()
             self.neighborhood.clear()
 
     def gps_measurement_step(self, gps_meas):
         self.loc.gps_step(gps_meas)
-        self.state['position'] = self.loc.position()
-        self.state['covariance'] = self.loc.covariance()
 
 
 class Robots(list):
@@ -602,8 +592,8 @@ robots = Robots([
         i,
         np.random.normal(position[i],  5.0),
         (dmin, dmax),
-        action_extents[i],
-        state_extents[i]
+        int(action_extents[i]),
+        int(state_extents[i])
     )
     for i in range(n)
 ])

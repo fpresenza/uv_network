@@ -67,29 +67,47 @@ G = [geodesics(adj) for adj in A]
 # ------------------------------------------------------------------
 # Plot control action
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(10, 4))
+fig, ax = plt.subplots(figsize=(4.0, 2.0))
+fig.subplots_adjust(
+    bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='x-small')
 
-ax.set_xlabel('$t$ [$seg$]')
-ax.set_ylabel(r'$\Vert u \Vert$ [$m/s$]')
+ax.set_xlabel('$t$ [$s$]', fontsize=8)
+ax.set_ylabel(r'$\Vert u \Vert$ [$m/s$]', fontsize=8)
 ax.grid(1)
-ax.plot(t, np.sqrt(u[..., 0]**2 + u[..., 1]**2), ds='steps-post')
+ax.plot(t, np.sqrt(u[..., 0]**2 + u[..., 1]**2), lw=0.8, ds='steps-post')
 fig.savefig('data/control.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot velocity measurement error
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(4.0, 1.75))
+fig, ax = plt.subplots(figsize=(4.0, 2.0))
 fig.subplots_adjust(
     bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='x-small')
 
-ax.set_xlabel('$t$ [$seg$]')
-ax.set_ylabel(r'$\Vert v - \tilde{v} \Vert$ [$m/s$]')
+ax.set_xlabel('$t$ [$s$]', fontsize=8)
+ax.set_ylabel(r'$\Vert e_{\mathrm{vel}} \Vert$ [$m/s$]', fontsize=8)
 ax.grid(1)
 ax.plot(
     t, np.nanmedian(np.sqrt(v[..., 0]**2 + v[..., 1]**2), axis=1),
-    lw=0.75, label='median', ds='steps-post'
+    lw=0.8, label='median', ds='steps-post'
 )
-ax.set_ylim(bottom=0)
+ax.fill_between(
+    t,
+    np.nanmin(np.sqrt(v[..., 0]**2 + v[..., 1]**2), axis=1),
+    np.nanmax(np.sqrt(v[..., 0]**2 + v[..., 1]**2), axis=1),
+    alpha=0.3
+)
+ax.set_ylim(bottom=0.0)
 ax.legend(
     fontsize=8, handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
@@ -99,18 +117,29 @@ fig.savefig('data/vel_meas_err.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Plot gps measurement error
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(4.0, 1.75))
+fig, ax = plt.subplots(figsize=(4.0, 2.0))
 fig.subplots_adjust(
     bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='x-small')
 
-ax.set_xlabel('$t$ [$seg$]')
-ax.set_ylabel(r'$\Vert p - \tilde{p} \Vert$ [$m/s$]')
+ax.set_xlabel('$t$ [$s$]', fontsize=8)
+ax.set_ylabel(r'$\Vert e_{\mathrm{gps}} \Vert$ [$m/s$]', fontsize=8)
 ax.grid(1)
 ax.plot(
     t, np.nanmedian(np.sqrt(g[..., 0]**2 + g[..., 1]**2), axis=1),
-    lw=0.75, label='median', ds='steps-post'
+    lw=0.8, label='median', ds='steps-post'
 )
-ax.set_ylim(bottom=0)
+ax.fill_between(
+    t,
+    np.nanmin(np.sqrt(g[..., 0]**2 + g[..., 1]**2), axis=1),
+    np.nanmax(np.sqrt(g[..., 0]**2 + g[..., 1]**2), axis=1),
+    alpha=0.3
+)
+ax.set_ylim(bottom=0.0)
 ax.legend(
     fontsize=8, handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
@@ -120,18 +149,29 @@ fig.savefig('data/gps_meas_err.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Plot range measurement error
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(4.0, 1.75))
+fig, ax = plt.subplots(figsize=(4.0, 2.0))
 fig.subplots_adjust(
     bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='x-small')
 
-ax.set_xlabel('$t$ [$seg$]')
-ax.set_ylabel(r'$\Vert d_{ij} - \tilde{d}_{ij} \Vert$ [$m/s$]')
+ax.set_xlabel('$t$ [$s$]', fontsize=8)
+ax.set_ylabel(r'$\Vert e_{\mathrm{range}} \Vert$ [$m$]', fontsize=8)
 ax.grid(1)
 ax.plot(
     t, np.nanmedian(np.abs(r), axis=1),
-    lw=0.75, label='median', ds='steps-post'
+    lw=0.8, label='median', ds='steps-post'
 )
-ax.set_ylim(bottom=0)
+ax.fill_between(
+    t,
+    np.nanmin(np.abs(r), axis=1),
+    np.nanmax(np.abs(r), axis=1),
+    alpha=0.3
+)
+ax.set_ylim(bottom=0.0)
 ax.legend(
     fontsize=8, handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
@@ -148,12 +188,12 @@ ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
-    labelsize='small')
+    labelsize='x-small')
 ax.grid(1, lw=0.4)
 
-ax.set_xlabel(r'$t$ [$sec$]', fontsize='10')
-ax.set_ylabel('position-$x$ [$m$]', fontsize='10')
-ax.plot(t, x[..., 0], lw=0.9, ds='steps-post')
+ax.set_xlabel(r'$t$ [$s$]', fontsize=8)
+ax.set_ylabel('position-$x$ [$m$]', fontsize=8)
+ax.plot(t, x[..., 0], lw=0.8, ds='steps-post')
 # fig.savefig('data/pos_x.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
@@ -166,64 +206,68 @@ ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
-    labelsize='small')
+    labelsize='x-small')
 ax.grid(1, lw=0.4)
 
-ax.set_xlabel(r'$t$ [$sec$]', fontsize='10')
-ax.set_ylabel('position-$y$ [$m$]', fontsize='10')
-ax.plot(t, x[..., 1], lw=0.9, ds='steps-post')
+ax.set_xlabel(r'$t$ [$s$]', fontsize=8)
+ax.set_ylabel('position-$y$ [$m$]', fontsize=8)
+ax.plot(t, x[..., 1], lw=0.8, ds='steps-post')
 # fig.savefig('data/pos_y.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot eigenvalues
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(4.0, 1.75))
+fig, ax = plt.subplots(figsize=(4.0, 2.0))
 fig.subplots_adjust(
     bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
-    labelsize='small')
+    labelsize='x-small')
 ax.grid(1, lw=0.4)
 
-ax.set_xlabel(r'$t$ [$sec$]', fontsize='10')
-ax.set_ylabel('Autovalores \n de Rigidez', fontsize='10')
-ax.semilogy(t, re.min(axis=1), lw=0.9, label='min')
-ax.semilogy(t, re.mean(axis=1), lw=0.9, label='medio')
-ax.semilogy(t, re.max(axis=1), lw=0.9, label='max')
-ax.semilogy(t, fre, ls='--', color='k', lw=0.9, label=r'framework')
+ax.set_xlabel(r'$t$ [$s$]', fontsize=8)
+ax.set_ylabel('Autovalores \n de Rigidez', fontsize=8)
+ax.semilogy(t, np.median(re, axis=1), lw=0.8, label='median')
+ax.semilogy(t, fre, ls='--', color='k', lw=0.8, label=r'framework')
 ax.set_ylim(bottom=1e-4, top=3)
+ax.fill_between(
+    t,
+    np.min(re, axis=1),
+    np.max(re, axis=1),
+    alpha=0.3
+)
+ax.set_ylim(bottom=1e-2)
 ax.legend(
     fontsize=8, handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
-    ncol=2, columnspacing=1, loc='lower right')
+    ncol=2, columnspacing=1)
 fig.savefig('data/eigenvalues.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot position error
 # ------------------------------------------------------------------
 err = np.sqrt(np.square(x - hatx).sum(axis=-1))
-fig, ax = plt.subplots(figsize=(4.0, 1.75))
+fig, ax = plt.subplots(figsize=(4.0, 2.0))
 fig.subplots_adjust(
     bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
-    labelsize='small')
+    labelsize='x-small')
 ax.grid(1, lw=0.4)
-ax.set_xlabel(r'$t$ [$sec$]', fontsize=10)
-ax.set_ylabel('Position Error \n [$m$]', fontsize=10)
-# ax.plot(t, err, lw=1.0, ds='steps-post')
-ax.plot(t, np.median(err, axis=1), lw=1.0, label='median', ds='steps-post')
+ax.set_xlabel(r'$t$ [$s$]', fontsize=8)
+ax.set_ylabel(r'$\Vert e_{\mathrm{ekf}} \Vert$ [$m$]', fontsize=8)
+ax.semilogy(t, np.median(err, axis=1), lw=0.8, label='median', ds='steps-post')
 ax.fill_between(
     t,
-    np.quantile(err, 0.25, axis=1),
-    np.quantile(err, 0.75, axis=1),
+    np.min(err, axis=1),
+    np.max(err, axis=1),
     alpha=0.3
 )
-# ax.set_ylim(bottom=1e-5)
+ax.set_ylim(bottom=1e-2)
 ax.legend(
     fontsize=8, handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
@@ -233,31 +277,35 @@ fig.savefig('data/pos_error.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Plot covariance
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(4.0, 1.75))
+fig, ax = plt.subplots(figsize=(4.0, 2.0))
 fig.subplots_adjust(
     bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
-    labelsize='small')
+    labelsize='x-small')
 ax.grid(1, lw=0.4)
-ax.set_xlabel(r'$t$ [$sec$]', fontsize=10)
-ax.set_ylabel('Position Covariance \n Trace [$m^2$]', fontsize=10)
-# ax.plot(t, np.sqrt(cov[..., 0]**2 + cov[..., 1]**2), lw=1.0, ds='steps-post')
-ax.semilogy(t, cov[..., 0] + cov[..., 1], lw=1.0, ds='steps-post')
-# ax.plot(t, np.median(err, axis=1), lw=1.0, label='median')
-# ax.fill_between(
-#     t,
-#     np.quantile(err, 0.25, axis=1),
-#     np.quantile(err, 0.75, axis=1),
-#     alpha=0.3
-# )
-# ax.set_ylim(bottom=1e-5)
-# ax.legend(
-#     fontsize=8, handlelength=1, labelspacing=0.4,
-#     borderpad=0.2, handletextpad=0.2, framealpha=1.,
-#     ncol=2, columnspacing=1)
+ax.set_xlabel(r'$t$ [$s$]', fontsize=8)
+ax.set_ylabel(
+    r'$\mathrm{tr}(\mathrm{cov}(e_{\mathrm{ekf}}))$ [$m^2$]', fontsize=8
+)
+# ax.plot(t, np.sqrt(cov[..., 0]**2 + cov[..., 1]**2), lw=0.8, ds='steps-post')
+ax.semilogy(
+    t, np.median(cov[..., 0] + cov[..., 1], axis=1),
+    lw=0.8, label='median', ds='steps-post'
+)
+ax.fill_between(
+    t,
+    np.min(cov[..., 0] + cov[..., 1], axis=1),
+    np.max(cov[..., 0] + cov[..., 1], axis=1),
+    alpha=0.3
+)
+ax.set_ylim(bottom=1e-2)
+ax.legend(
+    fontsize=8, handlelength=1, labelspacing=0.4,
+    borderpad=0.2, handletextpad=0.2, framealpha=1.,
+    ncol=2, columnspacing=1)
 fig.savefig('data/pos_cov.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Plot snapshots

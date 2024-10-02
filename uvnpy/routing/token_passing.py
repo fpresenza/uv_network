@@ -94,9 +94,9 @@ class TokenPassing(object):
         action_tokens[self.node_id] = Token(
             center=self.node_id,
             timestamp=timestamp,
-            hops_to_target=action_extent.copy(),
+            hops_to_target=action_extent,
             hops_travelled=0,
-            data=action.copy())
+            data=action)
 
         # Tokens de estado de otros nodos para retransmitir
         state_tokens = {
@@ -108,9 +108,9 @@ class TokenPassing(object):
         state_tokens[self.node_id] = Token(
             center=self.node_id,
             timestamp=timestamp,
-            hops_to_target=state_extent.copy(),
+            hops_to_target=state_extent,
             hops_travelled=0,
-            data=state.copy())
+            data=state)
 
         self.action.clear()
         self.state.clear()
