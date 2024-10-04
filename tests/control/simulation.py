@@ -217,9 +217,6 @@ class Robot(object):
             40.0 * self.u_rigidity,
             limit=2.5
         )
-        self.u_target = np.zeros(self.dim, dtype=float)
-        self.u_collision = np.zeros(self.dim, dtype=float)
-        self.u_rigidity = np.zeros(self.dim, dtype=float)
 
     def velocity_measurement_step(self, vel_meas):
         self.loc.dynamic_step(self.current_time, vel_meas)
@@ -462,16 +459,19 @@ def run(steps, world, logs):
             robot.update_clock(t)
 
         # communication step
-        world.cloud.append([[] for _ in robots])
-        for robot in robots:
-            msg = robot.create_msg()
-            index = index_map[robot.node_id]
-            world.upload_to_cloud(msg, index)
-        for robot in robots:
-            index = index_map[robot.node_id]
-            msgs = world.download_from_cloud(index)
-            robot.handle_received_msgs(msgs)
-            robot.range_measurement_step()
+        if (k % comm_skip == 0):
+            world.cloud.append([[] for _ in robots])
+            for robot in robots:
+                msg = robot.create_msg()
+                index = index_map[robot.node_id]
+                world.upload_to_cloud(msg, index)
+            for robot in robots:
+                index = index_map[robot.node_id]
+                msgs = world.download_from_cloud(index)
+                robot.handle_received_msgs(msgs)
+                robot.range_measurement_step()
+                if t >= t_init:
+                    robot.rigidity_maintenance_control_action()
 
         # localization and control step
         # TODO: should be est position
@@ -484,7 +484,6 @@ def run(steps, world, logs):
             if t >= t_init:
                 robot.target_collection_control_action(alloc[node_index])
                 robot.collision_avoidance_control_action()
-                robot.rigidity_maintenance_control_action()
                 robot.compose_control_actions()
             else:
                 robot.set_control_action(np.zeros(2, dtype=float))
@@ -530,7 +529,7 @@ def run(steps, world, logs):
 
     rt = arg.simu_time
     st = sum(perf_time)
-    prompt = 'ST={:.3f} secs, RT={:.3f} secs  ==>  RTF={:.3f}'
+    prompt = 'ST={:.3f} secs (per robot), RT={:.3f} secs  ==>  RTF={:.3f}'
     print(prompt.format(st, rt, rt / st))
 
     return logs
@@ -542,7 +541,11 @@ def run(steps, world, logs):
 parser = argparse.ArgumentParser(description='')
 parser.add_argument(
     '-s', '--simu_step',
-    default=1, type=int, help='simulation step in milli seconds'
+    default=1, type=float, help='simulation step in milli seconds'
+)
+parser.add_argument(
+    '-c', '--comm_step',
+    default=1, type=float, help='communication step in milli seconds'
 )
 parser.add_argument(
     '-t', '--simu_time',
@@ -552,17 +555,15 @@ parser.add_argument(
     '-q', '--queue',
     default=1, type=int, help='largo de la cola del cloud'
 )
-parser.add_argument(
-    '-c', '--comm_step',
-    default=1, type=int, help='communication step in milli seconds'
-)
 arg = parser.parse_args()
 
 # ------------------------------------------------------------------
 # Configuración
 # ------------------------------------------------------------------
-step_sec = arg.simu_step / 1000.0
-time_interval = np.arange(0.0, arg.simu_time, step_sec)
+simu_step = arg.simu_step / 1000.0
+comm_step = arg.comm_step / 1000.0
+comm_skip = int(comm_step / simu_step)
+time_interval = np.arange(0.0, arg.simu_time, simu_step)
 steps = list(enumerate(time_interval))
 n_steps = len(steps)
 
@@ -629,7 +630,7 @@ targets = Targets(n_targets, coverage)
 # ------------------------------------------------------------------
 # initialize()
 
-t_init = np.ceil(np.max(geodesics) * step_sec)
+t_init = np.ceil(np.max(geodesics) * comm_step)
 
 logs = Logs(
     position=np.empty((n_steps, n*dim)),
