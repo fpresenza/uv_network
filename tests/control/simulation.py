@@ -105,6 +105,9 @@ class Robot(object):
             steepness=20.0/self.dmin, power=0.5, non_adjacent=True
         )
         self.collision = CollisionAvoidance(power=2.0)
+        self.u_target = np.zeros(self.dim)
+        self.u_collision = np.zeros(self.dim)
+        self.u_rigidity = np.zeros(self.dim)
         self.last_control_action = np.zeros(self.dim)
         self.action = {}
         self.loc = FirstOrderKalmanFilter(
@@ -150,7 +153,7 @@ class Robot(object):
     def set_control_action(self, u):
         self.last_control_action = u
 
-    def compute_control_action(self, target):
+    def target_collection_control_action(self, target):
         # go to allocated target
         r = self.loc.position() - target
         d = np.sqrt(np.square(r).sum())
@@ -158,15 +161,27 @@ class Robot(object):
         tracking_radius = 100.0    # radius
         forget_radius = 400.0      # radius
         v_collect_max = 2.5
-        if d < 100.0:
+        if d < tracking_radius:
             v_collect = v_collect_max
-        elif d < 500.0:
+        elif d < (tracking_radius + forget_radius):
             v_collect = v_collect_max * \
                 (1.0 - (d - tracking_radius) / forget_radius)
         else:
             v_collect = 0.0
-        u_collect = - v_collect * r / d
+        self.u_target = - v_collect * r / d
 
+    def collision_avoidance_control_action(self):
+        # accion de evacion de colisiones
+        obstacles = self.routing.extract_state('position', 1)
+        if len(obstacles) > 0:
+            obstacles_pos = list(obstacles.values())
+            self.u_collision = self.collision.update(
+                self.loc.position(), obstacles_pos
+            )
+        else:
+            self.u_collision = np.zeros(self.dim, dtype=float)
+
+    def rigidity_maintenance_control_action(self):
         # obtengo posiciones del subframework
         position = self.routing.extract_state('position', self.action_extent)
         degree = len(position)
@@ -183,7 +198,7 @@ class Robot(object):
 
         # genero la accion de control del centro
         cmd = self.routing.extract_action()
-        u_rigid = u_sub[0] + sum(cmd.values())
+        self.u_rigidity = u_sub[0] + sum(cmd.values())
 
         # empaco las acciones de control del subframework
         self.action = {
@@ -191,20 +206,17 @@ class Robot(object):
             for i, ui in zip(position.keys(), u_sub[1:])
         }
 
-        # accion de evacion de colisiones
-        obstacles = self.routing.extract_state('position', 1)
-        if len(obstacles) > 0:
-            obstacles_pos = list(obstacles.values())
-            u_evasion = self.collision.update(
-                self.loc.position(), obstacles_pos
-            )
-        else:
-            u_evasion = np.zeros(self.dim, dtype=float)
-
+    def compose_control_actions(self):
         # aplico acciones de control
         self.last_control_action = logistic_saturation(
-            u_collect + 40.0 * u_rigid + 20000.0 * u_evasion, limit=2.5
+            self.u_target +
+            20000.0 * self.u_collision +
+            40.0 * self.u_rigidity,
+            limit=2.5
         )
+        self.u_target = np.zeros(self.dim)
+        self.u_collision = np.zeros(self.dim)
+        self.u_rigidity = np.zeros(self.dim)
 
     def velocity_measurement_step(self, vel_meas):
         self.loc.dynamic_step(self.current_time, vel_meas)
@@ -468,7 +480,10 @@ def run(steps, world, logs):
             node_index = index_map[robot.node_id]
 
             if t >= t_init and targets.unfinished():
-                robot.compute_control_action(alloc[node_index])
+                robot.target_collection_control_action(alloc[node_index])
+                robot.collision_avoidance_control_action()
+                robot.rigidity_maintenance_control_action()
+                robot.compose_control_actions()
             else:
                 robot.set_control_action(np.zeros(2, dtype=float))
 
@@ -536,8 +551,8 @@ parser.add_argument(
     default=1, type=int, help='largo de la cola del cloud'
 )
 parser.add_argument(
-    '-c', '--control_step',
-    default=1, type=int, help='control step in milli seconds'
+    '-c', '--comm_step',
+    default=1, type=int, help='communication step in milli seconds'
 )
 arg = parser.parse_args()
 
