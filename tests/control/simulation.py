@@ -15,10 +15,7 @@ from uvnpy.routing.token_passing import TokenPassing
 from uvnpy.dynamics.linear_models import Integrator
 from uvnpy.toolkit.functions import logistic_saturation
 from uvnpy.network.subframeworks import superframework_extents
-from uvnpy.network.disk_graph import (
-    adjacency_from_positions,
-    adjacency_histeresis
-)
+from uvnpy.network.disk_graph import adjacency_from_positions
 from uvnpy.distances.core import (
     is_inf_rigid,
     rigidity_eigenvalue,
@@ -95,14 +92,14 @@ class Robot(object):
             ):
         self.node_id = node_id
         self.dim = len(pos)
-        self.dmin = np.min(comm_range)
-        self.dmax = np.max(comm_range)
+        self.comm_range = comm_range
+        self.safe_comm_range = 0.94 * comm_range
         self.action_extent = action_extent
         self.state_extent = state_extent
         self.current_time = t
         self.maintenance = CentralizedRigidityMaintenance(
-            dim=self.dim, dmax=self.dmin,
-            steepness=20.0/self.dmin, power=0.5, non_adjacent=True
+            dim=self.dim, dmax=self.safe_comm_range,
+            steepness=20.0/self.safe_comm_range, power=0.5, non_adjacent=True
         )
         self.collision = CollisionAvoidance(power=2.0)
         self.u_target = np.zeros(self.dim, dtype=float)
@@ -271,8 +268,7 @@ class World(object):
         self.robot_dynamics = robot_dynamics
         self.n = len(robot_dynamics)
         self.adjacency_matrix = network.astype(bool)
-        self.dmin = np.min(comm_range)
-        self.dmax = np.max(comm_range)
+        self.comm_range = comm_range
         self.gps_available = gps_available
 
         self.vel_meas_stdev = vel_meas_stdev
@@ -298,11 +294,9 @@ class World(object):
         return self.range_meas_err.copy()
 
     def update_adjacency(self):
-        self.adjacency_matrix = adjacency_histeresis(
-            self.adjacency_matrix,
-            self.collect_positions(),
-            self.dmin, self.dmax
-        )
+        self.adjacency_matrix = adjacency_from_positions(
+            self.collect_positions(), self.comm_range
+        ).astype(bool)
 
     def velocity_measurement(self, node_index):
         if len(self.robot_dynamics[node_index].derivatives) > 0:
@@ -582,17 +576,16 @@ position = np.array([
 
 n, dim = position.shape
 
-dmin = 85.0
-dmax = 90.0
+comm_range = 90.0
 
-adjacency_matrix = adjacency_from_positions(position, dmin)
+adjacency_matrix = adjacency_from_positions(position, comm_range)
 if not is_inf_rigid(adjacency_matrix, position):
     raise ValueError('Framework should be infinitesimally rigid.')
 
 world = World(
     robot_dynamics=[Integrator(position[i]) for i in range(n)],
     network=adjacency_matrix,
-    comm_range=(dmin, dmax),
+    comm_range=comm_range,
     gps_available=[6, 8],
     vel_meas_stdev=0.15,
     range_meas_stdev=10.0,
@@ -608,7 +601,7 @@ robots = Robots([
     Robot(
         i,
         np.random.normal(position[i],  5.0),
-        (dmin, dmax),
+        comm_range,
         int(action_extents[i]),
         int(state_extents[i])
     )
