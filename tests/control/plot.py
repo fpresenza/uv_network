@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 
 from uvnpy.network import plot
-from uvnpy.network.core import geodesics
 
 plt.rcParams['text.usetex'] = False
 plt.rcParams['pdf.fonttype'] = 42
@@ -62,7 +61,6 @@ targets = targets.reshape(len(t), -1, 3)
 
 # calculos
 edges = A.sum(-1).sum(-1)/2
-G = [geodesics(adj) for adj in A]
 
 # ------------------------------------------------------------------
 # Plot control action
