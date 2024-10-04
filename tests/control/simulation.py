@@ -105,10 +105,10 @@ class Robot(object):
             steepness=20.0/self.dmin, power=0.5, non_adjacent=True
         )
         self.collision = CollisionAvoidance(power=2.0)
-        self.u_target = np.zeros(self.dim)
-        self.u_collision = np.zeros(self.dim)
-        self.u_rigidity = np.zeros(self.dim)
-        self.last_control_action = np.zeros(self.dim)
+        self.u_target = np.zeros(self.dim, dtype=float)
+        self.u_collision = np.zeros(self.dim, dtype=float)
+        self.u_rigidity = np.zeros(self.dim, dtype=float)
+        self.last_control_action = np.zeros(self.dim, dtype=float)
         self.action = {}
         self.loc = FirstOrderKalmanFilter(
             pos,
@@ -154,21 +154,24 @@ class Robot(object):
         self.last_control_action = u
 
     def target_collection_control_action(self, target):
-        # go to allocated target
-        r = self.loc.position() - target
-        d = np.sqrt(np.square(r).sum())
-        # v_collect = 1.0 if d < 100.0 else np.exp(1.0 - d/100.0)
-        tracking_radius = 100.0    # radius
-        forget_radius = 400.0      # radius
-        v_collect_max = 2.5
-        if d < tracking_radius:
-            v_collect = v_collect_max
-        elif d < (tracking_radius + forget_radius):
-            v_collect = v_collect_max * \
-                (1.0 - (d - tracking_radius) / forget_radius)
+        if (target is not None):
+            # go to allocated target
+            r = self.loc.position() - target
+            d = np.sqrt(np.square(r).sum())
+            # v_collect = 1.0 if d < 100.0 else np.exp(1.0 - d/100.0)
+            tracking_radius = 100.0    # radius
+            forget_radius = 400.0      # radius
+            v_collect_max = 2.5
+            if d < tracking_radius:
+                v_collect = v_collect_max
+            elif d < (tracking_radius + forget_radius):
+                v_collect = v_collect_max * \
+                    (1.0 - (d - tracking_radius) / forget_radius)
+            else:
+                v_collect = 0.0
+            self.u_target = - v_collect * r / d
         else:
-            v_collect = 0.0
-        self.u_target = - v_collect * r / d
+            self.u_target = np.zeros(self.dim, dtype=float)
 
     def collision_avoidance_control_action(self):
         # accion de evacion de colisiones
@@ -214,9 +217,9 @@ class Robot(object):
             40.0 * self.u_rigidity,
             limit=2.5
         )
-        self.u_target = np.zeros(self.dim)
-        self.u_collision = np.zeros(self.dim)
-        self.u_rigidity = np.zeros(self.dim)
+        self.u_target = np.zeros(self.dim, dtype=float)
+        self.u_collision = np.zeros(self.dim, dtype=float)
+        self.u_rigidity = np.zeros(self.dim, dtype=float)
 
     def velocity_measurement_step(self, vel_meas):
         self.loc.dynamic_step(self.current_time, vel_meas)
@@ -400,18 +403,17 @@ class Targets(object):
         return self.data[:, 2]
 
     def allocation(self, p):
+        alloc = {i: None for i in range(len(p))}
         untracked = self.data[:, 2].astype(bool)
-        targets = self.data[untracked, :2].astype(float)
-        r = p[:, None] - targets
-        d2 = np.square(r).sum(axis=-1)
-        a = []
-        for i in range(len(p)):
-            try:
+        if untracked.any():
+            targets = self.data[untracked, :2].astype(float)
+            r = p[:, None] - targets
+            d2 = np.square(r).sum(axis=-1)
+            for i in range(len(p)):
                 j = d2[i].argmin()
-                a.append(targets[j])
-            except ValueError:
-                a.append(p[i])
-        return a
+                alloc[i] = targets[j]
+
+        return alloc
 
     def update(self, p):
         r = p[..., None, :] - self.data[:, :2]
@@ -479,7 +481,7 @@ def run(steps, world, logs):
         for robot in robots:
             node_index = index_map[robot.node_id]
 
-            if t >= t_init and targets.unfinished():
+            if t >= t_init:
                 robot.target_collection_control_action(alloc[node_index])
                 robot.collision_avoidance_control_action()
                 robot.rigidity_maintenance_control_action()
@@ -579,7 +581,6 @@ position = np.array([
 
 n, dim = position.shape
 
-coverage = 30.0
 dmin = 85.0
 dmax = 90.0
 
@@ -620,6 +621,7 @@ print('Index map: {}'.format(index_map))
 # print(robots.collect_estimated_positions())
 
 n_targets = 30
+coverage = 30.0
 targets = Targets(n_targets, coverage)
 
 # ------------------------------------------------------------------
