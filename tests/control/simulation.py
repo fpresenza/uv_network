@@ -352,38 +352,7 @@ class Targets(object):
 
     def set(self, n):
         self.data = np.empty((n, 3), dtype=object)
-        self.data[:, :2] = np.array([
-            [748.400, 461.179],
-            [149.536, 267.111],
-            [443.235, 566.739],
-            [517.441, 430.368],
-            [364.085, 291.927],
-            [164.434, 584.019],
-            [525.689, 569.990],
-            [847.281, 548.964],
-            [781.627, 854.352],
-            [744.927, 876.256],
-            [887.665, 240.461],
-            [454.270, 586.123],
-            [186.770, 572.874],
-            [227.913, 722.981],
-            [230.557, 592.272],
-            [815.733, 405.916],
-            [341.763, 441.022],
-            [194.592, 606.855],
-            [250.020, 832.679],
-            [424.510, 486.328],
-            [675.176, 267.289],
-            [524.320, 869.420],
-            [587.371, 119.779],
-            [829.201, 594.081],
-            [537.534, 634.704],
-            [314.487, 751.056],
-            [550.705, 666.772],
-            [286.660, 306.203],
-            [131.215, 511.317],
-            [593.937, 399.281]
-        ])
+        self.data[:, :2] = np.random.uniform(0.0, 1000.0, (n, 2))
 
         self.data[:, 2] = True
 
@@ -610,19 +579,14 @@ robots = Robots([
 
 index_map = {robots[i].node_id: i for i in range(n)}
 print('Index map: {}'.format(index_map))
-# print(robots.collect_action_extents())
-# print(world.collect_positions())
-# print(robots.collect_estimated_positions())
 
-n_targets = 30
+n_targets = 80
 coverage = 30.0
 targets = Targets(n_targets, coverage)
 
 # ------------------------------------------------------------------
 # Simulación
 # ------------------------------------------------------------------
-# initialize()
-
 t_init = np.ceil(np.max(geodesics) * comm_step)
 
 logs = Logs(
@@ -654,9 +618,6 @@ logs.action_extents[0] = robots.collect_action_extents()
 logs.targets[0] = targets.data.ravel()
 
 logs = run(steps, world, logs)
-
-# print(world.collect_positions())
-# print(robots.collect_estimated_positions())
 
 np.savetxt('data/t.csv', time_interval, delimiter=',')
 np.savetxt('data/position.csv', logs.position, delimiter=',')
