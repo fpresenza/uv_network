@@ -298,6 +298,23 @@ class World(object):
             self.collect_positions(), self.comm_range
         ).astype(bool)
 
+    def framework_rigidity_eigenvalue(self):
+        return rigidity_eigenvalue(
+            self.adjacency_matrix, self.collect_positions()
+        )
+
+    def subframeworks_rigidity_eigenvalue(self, robots):
+        geodesics = core.geodesics(self.adjacency_matrix.astype(float))
+        eigs = []
+        for robot in robots:
+            if robot.action_extent > 0:
+                subset = geodesics[robot.node_id] <= robot.action_extent
+                A = self.adjacency_matrix[np.ix_(subset, subset)]
+                p = self.collect_positions()[subset]   # TODO: IMPROVE SLICE
+                eigs.append(rigidity_eigenvalue(A, p))
+
+        return eigs
+
     def velocity_measurement(self, node_index):
         if len(self.robot_dynamics[node_index].derivatives) > 0:
             vel = self.robot_dynamics[node_index].derivatives[0]
@@ -385,25 +402,6 @@ class Targets(object):
         return self.data[:, 2].any()
 
 
-def framework_rigidity_eigenvalue(world):
-    return rigidity_eigenvalue(
-        world.adjacency_matrix, world.collect_positions()
-    )
-
-
-def subframeworks_rigidity_eigenvalue(robots, world):
-    geodesics = core.geodesics(world.adjacency_matrix.astype(float))
-    eigs = []
-    for robot in robots:
-        subset = geodesics[robot.node_id] <= \
-            robot.action_extent
-        A = world.adjacency_matrix[np.ix_(subset, subset)]
-        p = world.collect_positions()[subset]   # TODO: IMPROVE SLICE
-        eigs.append(rigidity_eigenvalue(A, p))
-
-    return eigs
-
-
 # ------------------------------------------------------------------
 # Función run
 # ------------------------------------------------------------------
@@ -479,8 +477,8 @@ def run(steps, world, logs):
 
         # log simu data
         logs.position[k] = world.collect_positions().ravel()
-        logs.fre[k] = framework_rigidity_eigenvalue(world)
-        logs.re[k] = subframeworks_rigidity_eigenvalue(robots, world)
+        logs.fre[k] = world.framework_rigidity_eigenvalue()
+        logs.re[k] = world.subframeworks_rigidity_eigenvalue(robots)
         logs.adjacency[k] = world.adjacency_matrix.ravel()
         logs.action_extents[k] = robots.collect_action_extents()
         logs.targets[k] = targets.data.ravel()
@@ -550,6 +548,9 @@ comm_range = 90.0
 adjacency_matrix = adjacency_from_positions(position, comm_range)
 if not is_inf_rigid(adjacency_matrix, position):
     raise ValueError('Framework should be infinitesimally rigid.')
+geodesics = core.geodesics(adjacency_matrix)
+action_extents = minimum_rigidity_extents(geodesics, position)
+state_extents = superframework_extents(geodesics, action_extents)
 
 world = World(
     robot_dynamics=[Integrator(position[i]) for i in range(n)],
@@ -561,10 +562,6 @@ world = World(
     gps_meas_stdev=10.0,
     queue=arg.queue
 )
-
-geodesics = core.geodesics(adjacency_matrix)
-action_extents = minimum_rigidity_extents(geodesics, position)
-state_extents = superframework_extents(geodesics, action_extents)
 
 robots = Robots([
     Robot(
@@ -611,8 +608,8 @@ logs.vel_meas_err[0] = np.full(n*dim, np.nan)
 logs.gps_meas_err[0] = np.full(n*dim, np.nan)
 logs.range_meas_err[0] = np.full(n*n, np.nan)
 world.adjacency_matrix
-logs.fre[0] = framework_rigidity_eigenvalue(world)
-logs.re[0] = subframeworks_rigidity_eigenvalue(robots, world)
+logs.fre[0] = world.framework_rigidity_eigenvalue()
+logs.re[0] = world.subframeworks_rigidity_eigenvalue(robots)
 logs.adjacency[0] = world.adjacency_matrix.ravel()
 logs.action_extents[0] = robots.collect_action_extents()
 logs.targets[0] = targets.data.ravel()
