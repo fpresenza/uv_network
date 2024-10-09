@@ -52,6 +52,7 @@ InterRobotMsg = collections.namedtuple(
     'InterRobotMsg',
     'node_id, \
     timestamp, \
+    in_balls, \
     action_tokens, \
     state_tokens')
 
@@ -59,22 +60,29 @@ NeigborhoodData = collections.namedtuple(
     'NeigborhoodData',
     'node_id, \
     timestamp, \
-    covariance, \
     position, \
-    range')
+    covariance, \
+    range, \
+    isolated_edge')
 
 
 class Neighborhood(dict):
     def update(
-            self, node_id, timestamp,
-            position, covariance, range_measurement
+            self,
+            node_id,
+            timestamp,
+            position,
+            covariance,
+            range_measurement,
+            isolated_edge
             ):
         self[node_id] = NeigborhoodData(
             node_id=node_id,
             timestamp=timestamp,
             position=position,
             covariance=covariance,
-            range=range_measurement
+            range=range_measurement,
+            isolated_edge=isolated_edge
         )
 
 
@@ -95,7 +103,8 @@ class Robot(object):
         self.action_extent = action_extent
         self.state_extent = state_extent
         self.current_time = t
-        self.in_subframeworks = []
+        self.centered_ball = {node_id} if (action_extent > 0) else set()
+        self.in_balls = self.centered_ball
         self.maintenance = CentralizedRigidityMaintenance(
             dim=self.dim, dmax=self.safe_comm_range,
             steepness=20.0/self.safe_comm_range, power=0.5, non_adjacent=True
@@ -131,32 +140,28 @@ class Robot(object):
         msg = InterRobotMsg(
             node_id=self.node_id,
             timestamp=self.current_time,
+            in_balls=self.in_balls.copy(),
             action_tokens=action_tokens,
             state_tokens=state_tokens
         )
         return msg
 
     def handle_received_msgs(self, msgs):
+        self.neighborhood.clear()
         for (msg, range_measurement) in msgs:
             self.neighborhood.update(
-                msg.node_id, msg.timestamp,
-                msg.state_tokens[msg.node_id].data['position'],
-                msg.state_tokens[msg.node_id].data['covariance'],
-                range_measurement
+                node_id=msg.node_id,
+                timestamp=msg.timestamp,
+                position=msg.state_tokens[msg.node_id].data['position'],
+                covariance=msg.state_tokens[msg.node_id].data['covariance'],
+                range_measurement=range_measurement,
+                isolated_edge=self.in_balls.isdisjoint(msg.in_balls)
             )
             self.routing.update_action(msg.action_tokens.values())
             self.routing.update_state(msg.state_tokens.values())
 
-        self.in_subframeworks = self.routing.action_centers()
-        # if len(self.routing.action) > 0:
-        #    self.state_extent = np.max(
-        #        [
-        #            token.hops_to_target
-        #            for token in self.routing.action_tokens()
-        #        ]
-        #    )
-        # else:
-        #     self.state_extent = 1
+        self.in_balls = self.centered_ball.union(self.routing.action_centers())
+        # self.state_extent = max(1, self.max_action_extent())
 
     def set_control_action(self, u):
         self.last_control_action = u
@@ -241,7 +246,6 @@ class Robot(object):
                 neighbor.covariance for neighbor in neighbors_data
             ])
             self.loc.range_step(z, xj, Pj)
-            self.neighborhood.clear()
 
     def gps_measurement_step(self, gps_meas):
         self.loc.gps_step(gps_meas)
@@ -442,6 +446,7 @@ def initialize_robots():
                 robot.handle_received_msgs(msgs)
                 robot.range_measurement_step()
             comm_events += 1
+            print('Communication event {} finished'.format(comm_events))
 
         # localization step
         for robot in robots:
@@ -485,14 +490,6 @@ def initialize_robots():
         'Initialization completed after {} communication events.'
         .format(comm_events)
     )
-    print(
-        'State extents: \n' +
-        '\n'.join(
-            '\t node = {}, extent = {}'
-            .format(robot.node_id, robot.state_extent)
-            for robot in robots
-        )
-    )
 
 
 def run_mission():
@@ -521,7 +518,6 @@ def run_mission():
                 robot.handle_received_msgs(msgs)
                 robot.range_measurement_step()
                 robot.rigidity_maintenance_control_action()
-
         # localization and control step
         # TODO: should be est position
         p = world.collect_positions()
@@ -708,6 +704,14 @@ logs = Logs(
 )
 
 initialize_robots()
+print(
+    'State extents: \n' +
+    '\n'.join(
+        '\t node = {}, extent = {}'
+        .format(robot.node_id, robot.state_extent)
+        for robot in robots
+    )
+)
 run_mission()
 
 np.savetxt('data/t.csv', logs.time, delimiter=',')

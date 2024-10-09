@@ -43,7 +43,7 @@ class TokenPassing(object):
         self.state = {}    # guarda los tokens de estado recibidos (fifo)
 
     def action_centers(self):
-        return list(self.action)
+        return set(self.action)
 
     def action_tokens(self):
         # Extrae los tokens de accion de la queue
@@ -52,6 +52,14 @@ class TokenPassing(object):
     def state_tokens(self):
         # Extrae los tokens de estado de la queue
         return tuple(self.state.values())
+
+    def max_action_extents(self):
+        if len(self.action) > 0:
+            return np.max(
+               [token.hops_to_target for token in self.action.values()]
+            )
+        else:
+            return 0
 
     def extract_action(self):
         """ Extrae los datos encontrados en los token de accion que tienen
