@@ -8,6 +8,7 @@ import collections
 import time
 import progressbar
 import numpy as np
+import copy
 
 from uvnpy.network import core
 from uvnpy.distances.localization import FirstOrderKalmanFilter
@@ -94,6 +95,7 @@ class Robot(object):
         self.action_extent = action_extent
         self.state_extent = state_extent
         self.current_time = t
+        self.in_subframeworks = []
         self.maintenance = CentralizedRigidityMaintenance(
             dim=self.dim, dmax=self.safe_comm_range,
             steepness=20.0/self.safe_comm_range, power=0.5, non_adjacent=True
@@ -111,6 +113,7 @@ class Robot(object):
             range_meas_cov=100.0,
             gps_meas_cov=100.0 * np.eye(self.dim)
         )
+        self.state = {'position': self.loc.x, 'covariance': self.loc.P}
         self.neighborhood = Neighborhood()
         self.routing = TokenPassing(self.node_id)
 
@@ -120,8 +123,8 @@ class Robot(object):
     def create_msg(self):
         action_tokens, state_tokens = self.routing.broadcast(
             self.current_time,
-            self.action.copy(),
-            {'position': self.loc.x.copy(), 'covariance': self.loc.P.copy()},
+            copy.deepcopy(self.action),
+            copy.deepcopy(self.state),
             self.action_extent,
             self.state_extent
         )
@@ -144,13 +147,14 @@ class Robot(object):
             self.routing.update_action(msg.action_tokens.values())
             self.routing.update_state(msg.state_tokens.values())
 
+        self.in_subframeworks = self.routing.action_centers()
         # if len(self.routing.action) > 0:
-        #     self.state_extent = np.max(
-        #         [
-        #             token.hops_to_target
-        #             for token in self.routing.action_tokens()
-        #         ]
-        #     )
+        #    self.state_extent = np.max(
+        #        [
+        #            token.hops_to_target
+        #            for token in self.routing.action_tokens()
+        #        ]
+        #    )
         # else:
         #     self.state_extent = 1
 

@@ -42,6 +42,9 @@ class TokenPassing(object):
         self.action = {}    # guarda los tokens de accion recibidos (fifo)
         self.state = {}    # guarda los tokens de estado recibidos (fifo)
 
+    def action_centers(self):
+        return list(self.action)
+
     def action_tokens(self):
         # Extrae los tokens de accion de la queue
         return tuple(self.action.values())
