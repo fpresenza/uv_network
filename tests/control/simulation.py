@@ -63,7 +63,7 @@ NeigborhoodData = collections.namedtuple(
     position, \
     covariance, \
     range, \
-    isolated_edge')
+    is_isolated_edge')
 
 
 class Neighborhood(dict):
@@ -74,7 +74,7 @@ class Neighborhood(dict):
             position,
             covariance,
             range_measurement,
-            isolated_edge
+            is_isolated_edge
             ):
         self[node_id] = NeigborhoodData(
             node_id=node_id,
@@ -82,7 +82,7 @@ class Neighborhood(dict):
             position=position,
             covariance=covariance,
             range=range_measurement,
-            isolated_edge=isolated_edge
+            is_isolated_edge=is_isolated_edge
         )
 
 
@@ -155,7 +155,7 @@ class Robot(object):
                 position=msg.state_tokens[msg.node_id].data['position'],
                 covariance=msg.state_tokens[msg.node_id].data['covariance'],
                 range_measurement=range_measurement,
-                isolated_edge=self.in_balls.isdisjoint(msg.in_balls)
+                is_isolated_edge=self.in_balls.isdisjoint(msg.in_balls)
             )
             self.routing.update_action(msg.action_tokens.values())
             self.routing.update_state(msg.state_tokens.values())
