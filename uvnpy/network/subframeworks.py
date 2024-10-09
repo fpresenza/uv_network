@@ -34,9 +34,9 @@ def subframework_adjacencies(geodesics, extents):
     return [adjacency[:, s][s] for s in S]
 
 
+@njit
 def superframework_extents(geodesics, extents):
-    super_geodesics = geodesics * (geodesics <= extents)
-    return np.max(super_geodesics, axis=1).astype(extents.dtype)
+    return np.array([np.max(extents[g <= extents]) for g in geodesics])
 
 
 @njit
