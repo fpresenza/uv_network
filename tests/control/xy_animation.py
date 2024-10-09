@@ -83,7 +83,7 @@ hatx = hatx.reshape(n_steps, n, 2)
 A = A.reshape(n_steps, n, n)
 teams = np.empty((n_steps, 2*n), dtype=int)
 teams[:, :n] = extents
-teams[:, n:] = 0
+teams[:, n:] = -1 - np.arange(n)
 targets = targets.reshape(n_steps, -1, 3)
 
 # ------------------------------------------------------------------
@@ -95,7 +95,7 @@ frames = np.empty((n_steps, 5), dtype=np.ndarray)
 steps = list(enumerate(t))
 for k, tk in steps:
     E = edges_from_adjacency(A[k])
-    X = np.vstack([x[k], hatx[k]])
+    X = np.vstack([x[k], x[k]])
     T = teams[k]
     Y = targets[k]
     frames[k] = tk, X, E, T, Y
@@ -109,7 +109,7 @@ c = termination_time_index(t, 100.0)
 #     frames[b:c:5],
 #     frames[c::5]
 # ])
-adjusted_frames = frames[::10]
+adjusted_frames = frames[::1]
 
 # ------------------------------------------------------------------
 # Animation
@@ -132,38 +132,57 @@ ax.set_ylim(0, lim)
 
 anim = CoverageAnimate(fig, ax, timestep, adjusted_frames, maxlen=1)
 # cm.coolwarm goes from 0 (blue) to 255 (red)
-anim.set_teams({
-    '$1$-hop': {
-        'id': 1,
-        'tail': False,
+# teams_dict = {
+#     '$0$-hop': {
+#         'id': 0,
+#         'tail': False,
+#         'style': {
+#             # 'color': 'royalblue',
+#             'color': cm.coolwarm(250),
+#             'marker': f'$0$',
+#             'markersize': (0 + 1) * 2
+#         }
+#     },
+#     '$1$-hop': {
+#         'id': 1,
+#         'tail': False,
+#         'style': {
+#             # 'color': 'royalblue',
+#             'color': cm.coolwarm(150),
+#             'marker': 'o',
+#             'markersize': (1 + 1) * 2
+#         }
+#     },
+#     '$2$-hop': {
+#         'id': 2,
+#         'tail': False,
+#         'style': {
+#             # 'color': 'chocolate',
+#             'color': cm.coolwarm(200),
+#             'marker': 'o',
+#             'markersize': (2 + 1) * 2
+#         }
+#     },
+#     '$3$-hop': {
+#         'id': 3,
+#         'tail': False,
+#         'style': {
+#             # 'color': 'mediumseagreen',
+#             'color': cm.coolwarm(255),
+#             'marker': 'o',
+#             'markersize': (3 + 1) * 2
+#         }
+#     }
+# }
+teams_dict = {i: {
+        'id': -1-i,
         'style': {
-            # 'color': 'royalblue',
-            'color': cm.coolwarm(150),
-            'marker': 'o',
-            'markersize': (1 + 1) * 2
+            'color': 'k',
+            'marker': f'${i}$'
         }
-    },
-    '$2$-hop': {
-        'id': 2,
-        'tail': False,
-        'style': {
-            # 'color': 'chocolate',
-            'color': cm.coolwarm(200),
-            'marker': 'o',
-            'markersize': (2 + 1) * 2
-        }
-    },
-    '$3$-hop': {
-        'id': 3,
-        'tail': False,
-        'style': {
-            # 'color': 'mediumseagreen',
-            'color': cm.coolwarm(255),
-            'marker': 'o',
-            'markersize': (3 + 1) * 2
-        }
-    }
-})
+    } for i in range(n)
+}
+anim.set_teams(teams_dict)
 anim.set_edgestyle(color=cm.coolwarm(20), lw=0.5, zorder=0)
 
 circles = []
@@ -179,11 +198,11 @@ untracked = ax.plot(
 extras = circles + tracked + untracked
 anim.set_extra_artists(*extras)
 
-anim.ax.legend(
-    ncol=3,
-    loc='upper center',
-    fontsize='small',
-    handletextpad=1)
+# anim.ax.legend(
+#     ncol=3,
+#     loc='upper center',
+#     fontsize='small',
+#     handletextpad=1)
 # anim.run()
 anim.run('data/xy.mp4')
 # plt.show()
