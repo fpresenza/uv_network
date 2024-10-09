@@ -91,12 +91,14 @@ class TokenPassing(object):
             if token.hops_travelled < token.hops_to_target}
 
         # Token de accion propio para transmitir
-        action_tokens[self.node_id] = Token(
-            center=self.node_id,
-            timestamp=timestamp,
-            hops_to_target=action_extent,
-            hops_travelled=0,
-            data=action)
+        if action_extent > 0:
+            action_tokens[self.node_id] = Token(
+                center=self.node_id,
+                timestamp=timestamp,
+                hops_to_target=action_extent,
+                hops_travelled=0,
+                data=action
+            )
 
         # Tokens de estado de otros nodos para retransmitir
         state_tokens = {
@@ -105,12 +107,14 @@ class TokenPassing(object):
             if token.hops_travelled < token.hops_to_target}
 
         # Token de estado propio para transmitir
-        state_tokens[self.node_id] = Token(
-            center=self.node_id,
-            timestamp=timestamp,
-            hops_to_target=state_extent,
-            hops_travelled=0,
-            data=state)
+        if state_extent > 0:
+            state_tokens[self.node_id] = Token(
+                center=self.node_id,
+                timestamp=timestamp,
+                hops_to_target=state_extent,
+                hops_travelled=0,
+                data=state
+            )
 
         self.action.clear()
         self.state.clear()
