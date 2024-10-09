@@ -145,8 +145,9 @@ class FirstOrderKalmanFilter(DecentralizedLocalization):
         )
         R = np.diag((Rj + self.range_meas_cov).ravel())
 
-        Pz = H.dot(self.P).dot(H.T) + R
-        K = self.P.dot(H.T).dot(np.linalg.inv(Pz))
+        PHt = self.P.dot(H.T)
+        Pz = H.dot(PHt) + R
+        K = PHt.dot(np.linalg.inv(Pz))
 
         self.x += K.dot(dz)
         self.P -= K.dot(H).dot(self.P)
