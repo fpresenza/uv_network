@@ -645,7 +645,6 @@ print(
 if not is_inf_rigid(adjacency_matrix, position):
     raise ValueError('Framework should be infinitesimally rigid.')
 
-geodesics = core.geodesics(adjacency_matrix)
 action_extents = np.array([0, 2, 0, 0, 0, 0, 0, 0, 0, 0], dtype=int)
 print(
     'Action extents: \n' +
