@@ -7,6 +7,30 @@
 """
 import numpy as np
 from numba import njit
+import networkx as nx
+
+
+def adjacency_dict(adjacency_matrix):
+    """Transforms adjacency matrix to adjacency list
+
+    Parameters
+    ----------
+    adjacency_matrix : numpy.ndarray
+
+    Returns
+    -------
+    L : dict
+        Adjacency list
+    """
+    return {i: np.nonzero(adj)[0] for i, adj in enumerate(adjacency_matrix)}
+
+
+def geodesics_dict(adjacency_matrix):
+    return dict(
+        nx.shortest_path_length(
+            nx.from_numpy_array(adjacency_matrix)
+        )
+    )
 
 
 def complete_edges(n, directed=False):
