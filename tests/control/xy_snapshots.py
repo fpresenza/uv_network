@@ -6,6 +6,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
+import progressbar
 
 from uvnpy.network import plot
 
@@ -20,6 +21,7 @@ plt.rcParams['font.family'] = 'serif'
 # Read simulated data
 # ------------------------------------------------------------------
 t = np.loadtxt('data/t.csv', delimiter=',')
+tc = np.loadtxt('data/tc.csv', delimiter=',')
 x = np.loadtxt('data/position.csv', delimiter=',')
 hatx = np.loadtxt('data/est_position.csv', delimiter=',')
 cov = np.loadtxt('data/covariance.csv', delimiter=',')
@@ -48,17 +50,13 @@ re = re.reshape(len(t), -1)
 A = A.reshape(len(t), n, n)
 targets = targets.reshape(len(t), -1, 3)
 
-comm_events = np.arange(0, t[-1], 0.25)
-
-# calculos
-edges = A.sum(-1).sum(-1)/2
-
 # ------------------------------------------------------------------
 # Plot snapshots
 # ------------------------------------------------------------------
 lim = 1000
+bar = progressbar.ProgressBar(maxval=tc[-1]).start()
 
-for tk in comm_events:
+for tk in tc:
     fig, ax = plt.subplots(figsize=(5, 5))
     ax.tick_params(
         axis='both',       # changes apply to the x-axis
@@ -102,3 +100,5 @@ for tk in comm_events:
 
     fig.savefig('data/snapshots/{}.png'.format(k), format='png', dpi=360)
     plt.close()
+
+bar.finish()
