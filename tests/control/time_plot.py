@@ -17,6 +17,7 @@ plt.rcParams['font.family'] = 'serif'
 # Read simulated data
 # ------------------------------------------------------------------
 t = np.loadtxt('data/t.csv', delimiter=',')
+tc = np.loadtxt('data/tc.csv', delimiter=',')
 x = np.loadtxt('data/position.csv', delimiter=',')
 hatx = np.loadtxt('data/est_position.csv', delimiter=',')
 cov = np.loadtxt('data/covariance.csv', delimiter=',')
@@ -45,8 +46,6 @@ re = re.reshape(len(t), -1)
 A = A.reshape(len(t), n, n)
 targets = targets.reshape(len(t), -1, 3)
 
-comm_events = np.arange(0, t[-1], 0.25)
-
 # slice
 # ki = np.argmin(np.abs(t - 0))
 # kf = np.argmin(np.abs(t - 25))
@@ -58,9 +57,6 @@ comm_events = np.arange(0, t[-1], 0.25)
 # re = re[:kf]
 # A = A[:kf]
 # state_extents = state_extents[:kf]
-
-# calculos
-edges = A.sum(-1).sum(-1)/2
 
 # ------------------------------------------------------------------
 # Plot control action
@@ -78,7 +74,7 @@ ax.set_xlabel('$t$ [$s$]', fontsize=8)
 ax.set_ylabel(r'$\Vert u \Vert$ [$m/s$]', fontsize=8)
 ax.grid(1)
 ax.plot(t, np.sqrt(u[..., 0]**2 + u[..., 1]**2), lw=0.8, ds='steps-post')
-fig.savefig('data/control.png', format='png', dpi=360)
+fig.savefig('data/time/control.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot state extents
@@ -96,7 +92,7 @@ ax.set_xlabel('$t$ [$s$]', fontsize=8)
 ax.set_ylabel('state extents', fontsize=8)
 ax.grid(1)
 ax.plot(t, state_extents, lw=0.8, marker='.', ds='steps-post')
-fig.savefig('data/state_extents.png', format='png', dpi=360)
+fig.savefig('data/time/state_extents.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot velocity measurement error
@@ -129,7 +125,7 @@ fig.savefig('data/state_extents.png', format='png', dpi=360)
 #     fontsize=8, handlelength=1, labelspacing=0.4,
 #     borderpad=0.2, handletextpad=0.2, framealpha=1.,
 #     ncol=2, columnspacing=1)
-# fig.savefig('data/vel_meas_err.png', format='png', dpi=360)
+# fig.savefig('data/time/vel_meas_err.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot gps measurement error
@@ -162,7 +158,7 @@ fig.savefig('data/state_extents.png', format='png', dpi=360)
 #     fontsize=8, handlelength=1, labelspacing=0.4,
 #     borderpad=0.2, handletextpad=0.2, framealpha=1.,
 #     ncol=2, columnspacing=1)
-# fig.savefig('data/gps_meas_err.png', format='png', dpi=360)
+# fig.savefig('data/time/gps_meas_err.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot range measurement error
@@ -195,7 +191,7 @@ fig.savefig('data/state_extents.png', format='png', dpi=360)
 #     fontsize=8, handlelength=1, labelspacing=0.4,
 #     borderpad=0.2, handletextpad=0.2, framealpha=1.,
 #     ncol=2, columnspacing=1)
-# fig.savefig('data/range_meas_err.png', format='png', dpi=360)
+# fig.savefig('data/time/range_meas_err.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot position x
@@ -213,7 +209,7 @@ ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$t$ [$s$]', fontsize=8)
 ax.set_ylabel('position-$x$ [$m$]', fontsize=8)
 ax.plot(t, x[..., 0], lw=0.8, ds='steps-post')
-# fig.savefig('data/pos_x.png', format='png', dpi=360)
+# fig.savefig('data/time/pos_x.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot position y
@@ -231,7 +227,7 @@ ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$t$ [$s$]', fontsize=8)
 ax.set_ylabel('position-$y$ [$m$]', fontsize=8)
 ax.plot(t, x[..., 1], lw=0.8, ds='steps-post')
-# fig.savefig('data/pos_y.png', format='png', dpi=360)
+# fig.savefig('data/time/pos_y.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot eigenvalues
@@ -270,13 +266,13 @@ ax.fill_between(
     np.max(re, axis=1),
     alpha=0.3
 )
-ax.vlines(comm_events, 1e-4, 1, lw=0.75, color='g', alpha=0.5)
+ax.vlines(tc, 1e-4, 1, lw=0.75, color='g', alpha=0.5)
 ax.set_ylim(bottom=1e-4)
 ax.legend(
     fontsize=8, handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
     ncol=2, columnspacing=1)
-fig.savefig('data/eigenvalues.png', format='png', dpi=360)
+fig.savefig('data/time/eigenvalues.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot position error
@@ -305,7 +301,7 @@ ax.legend(
     fontsize=8, handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
     ncol=2, columnspacing=1)
-fig.savefig('data/pos_error.png', format='png', dpi=360)
+fig.savefig('data/time/pos_error.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot covariance
@@ -340,6 +336,6 @@ fig.savefig('data/pos_error.png', format='png', dpi=360)
 #     fontsize=8, handlelength=1, labelspacing=0.4,
 #     borderpad=0.2, handletextpad=0.2, framealpha=1.,
 #     ncol=2, columnspacing=1)
-# fig.savefig('data/pos_cov.png', format='png', dpi=360)
+# fig.savefig('data/time/pos_cov.png', format='png', dpi=360)
 
 plt.show()
