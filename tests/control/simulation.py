@@ -441,7 +441,7 @@ def initialize_robots():
             robot.update_clock(t)
 
         # communication step
-        if (t % comm_step) < simu_step - 1e-6:
+        if (k % comm_skip == 0):
             comm_events += 1
             logs.time_comm.append(t)
             world.cloud.append([[] for _ in robots])
@@ -514,7 +514,7 @@ def run_mission():
             robot.update_clock(t)
 
         # communication step
-        if (t % comm_step) < simu_step - 1e-6:
+        if (k % comm_skip == 0):
             logs.time_comm.append(t)
             world.cloud.append([[] for _ in robots])
             for robot in robots:
@@ -594,7 +594,7 @@ parser.add_argument(
     default=1, type=float, help='simulation step in milli seconds'
 )
 parser.add_argument(
-    '-c', '--comm_step',
+    '-c', '--comm_skip',
     default=1, type=float, help='communication step in milli seconds'
 )
 parser.add_argument(
@@ -611,11 +611,11 @@ arg = parser.parse_args()
 # Configuración
 # ------------------------------------------------------------------
 np.random.seed(0)
-simu_step = arg.simu_step / 1000.0
-comm_step = arg.comm_step / 1000.0
 simu_time = arg.simu_time
+simu_step = arg.simu_step / 1000.0
 time_steps = [simu_step * k for k in range(int(simu_time / simu_step))]
 n_steps = len(time_steps)
+comm_skip = arg.comm_skip
 
 print(
     'Simulation Time: begin = {}, end = {}, step = {}'
@@ -623,7 +623,7 @@ print(
 )
 print(
     'Communication Time: begin = {}, end = {}, step = {}'
-    .format(0.0, simu_time, comm_step)
+    .format(0.0, simu_time, comm_skip * simu_step)
 )
 
 position = np.array([
