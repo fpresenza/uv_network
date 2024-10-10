@@ -59,7 +59,7 @@ t -= t[0]
 x = np.loadtxt('data/position.csv', delimiter=',')
 hatx = np.loadtxt('data/est_position.csv', delimiter=',')
 A = np.loadtxt('data/adjacency.csv', delimiter=',')
-extents = np.loadtxt('data/extents.csv', delimiter=',')
+action_extents = np.loadtxt('data/action_extents.csv', delimiter=',')
 targets = np.loadtxt('data/targets.csv', delimiter=',')
 
 # preserve only first 'tf' seconds
@@ -69,12 +69,12 @@ t = t[:kf]
 x = x[:kf]
 hatx = hatx[:kf]
 A = A[:kf]
-extents = extents[:kf]
+action_extents = action_extents[:kf]
 targets = targets[:kf]
 
 n = int(len(x[0])/2)
 nodes = np.arange(n)
-extents = extents.astype(int)
+action_extents = action_extents.astype(int)
 n_steps = len(t)
 
 # reshapes
@@ -82,7 +82,7 @@ x = x.reshape(n_steps, n, 2)
 hatx = hatx.reshape(n_steps, n, 2)
 A = A.reshape(n_steps, n, n)
 teams = np.empty((n_steps, 2*n), dtype=int)
-teams[:, :n] = extents
+teams[:, :n] = action_extents
 teams[:, n:] = -1 - np.arange(n)
 targets = targets.reshape(n_steps, -1, 3)
 
@@ -109,7 +109,7 @@ c = termination_time_index(t, 100.0)
 #     frames[b:c:5],
 #     frames[c::5]
 # ])
-adjusted_frames = frames[::1]
+adjusted_frames = frames[::5]
 
 # ------------------------------------------------------------------
 # Animation
