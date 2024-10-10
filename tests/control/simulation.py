@@ -34,6 +34,7 @@ np.set_printoptions(
 Logs = collections.namedtuple(
     'Logs',
     'time, \
+    time_comm, \
     position, \
     estimated_position,  \
     covariance, \
@@ -434,7 +435,9 @@ def initialize_robots():
             robot.update_clock(t)
 
         # communication step
-        if (t % comm_step) < simu_step:
+        if (t % comm_step) < simu_step - 1e-6:
+            comm_events += 1
+            logs.time_comm.append(t)
             world.cloud.append([[] for _ in robots])
             for robot in robots:
                 msg = robot.create_msg()
@@ -445,7 +448,6 @@ def initialize_robots():
                 msgs = world.download_from_cloud(index)
                 robot.handle_received_msgs(msgs)
                 robot.range_measurement_step()
-            comm_events += 1
             print('Communication event {} finished'.format(comm_events))
 
         # localization step
@@ -506,7 +508,8 @@ def run_mission():
             robot.update_clock(t)
 
         # communication step
-        if (t % comm_step) < simu_step:
+        if (t % comm_step) < simu_step - 1e-6:
+            logs.time_comm.append(t)
             world.cloud.append([[] for _ in robots])
             for robot in robots:
                 msg = robot.create_msg()
@@ -688,6 +691,7 @@ targets = Targets(n_targets, coverage)
 # ------------------------------------------------------------------
 logs = Logs(
     time=[],
+    time_comm=[],
     position=[],
     estimated_position=[],
     covariance=[],
@@ -715,6 +719,7 @@ print(
 run_mission()
 
 np.savetxt('data/t.csv', logs.time, delimiter=',')
+np.savetxt('data/tc.csv', logs.time_comm, delimiter=',')
 np.savetxt('data/position.csv', logs.position, delimiter=',')
 np.savetxt('data/est_position.csv', logs.estimated_position, delimiter=',')
 np.savetxt('data/covariance.csv', logs.covariance, delimiter=',')
