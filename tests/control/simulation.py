@@ -199,7 +199,7 @@ class Robot(object):
             self.u_collision = np.zeros(self.dim, dtype=float)
 
     def rigidity_maintenance_control_action(self):
-        # get subframework positions
+        # get actions for ball subframework
         position = self.routing.extract_state('position', self.action_extent)
         n_sub = len(position)
         if n_sub > 0:
@@ -212,15 +212,21 @@ class Robot(object):
         else:
             u_sub = np.zeros((1, self.dim), dtype=float)
 
-        # compose all containing subframeworks control actions
-        cmd = self.routing.extract_action()
-        self.u_rigidity = u_sub[0] + sum(cmd.values())
-
-        # empaco las acciones de control del subframework
+        # pack control action for other robots within ball
         self.action = {
             i: ui
             for i, ui in zip(position.keys(), u_sub[1:])
         }
+
+        # compose all control actions from containing balls
+        cmd = self.routing.extract_action()
+        self.u_rigidity = u_sub[0] + sum(cmd.values())
+
+        # add action for isolated edges
+        for neighbor in self.neighborhood.values():
+            if neighbor.is_isolated_edge:
+                p = np.vstack([self.loc.position(), neighbor.position])
+                self.u_rigidity += self.maintenance.update(p)[0]
 
     def compose_control_actions(self):
         # aplico acciones de control
