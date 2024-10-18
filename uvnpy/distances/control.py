@@ -11,9 +11,10 @@ from uvnpy.distances import core
 from uvnpy.toolkit import functions
 
 
-class CentralizedRigidityMaintenance(object):
+class CentralizedRigidityMaintenancePowEig(object):
     """
-    Gradient based Rigidity Maintenance Control.
+    Rigidity Maintenance Control based on the minimization of the
+    inverse of the rigidity eigenvalue.
 
     args:
     -----
@@ -21,26 +22,24 @@ class CentralizedRigidityMaintenance(object):
         dmax: maximum connectivity distance
         steepness: connectivity decrease factor
         power: positive number to exponentiate the ridigity eigenvalue
-        non_adjacent: bool to consider non-adjacent vertices relations
+        adjacent_only: bool to consider non-adjacent vertices relations
     """
-    def __init__(self, dim, dmax, steepness, power, non_adjacent=False):
+    def __init__(self, dim, dmax, steepness, power, adjacent_only=False):
         self.dim = dim
         self.midpoint = dmax
         self.steepness = steepness
         self.r = power
         self.dof = int(dim * (dim + 1)/2)
-        self.non_adjacent = non_adjacent
+        self.adjacent_only = adjacent_only
 
-    def gradient(self, x, eigenvalue, eigenvector):
-        dS_dx = functions.derivative_eval(self.weighted_rigidity_matrix, x)
-        dlambda_dx = eigenvector.dot(dS_dx).dot(eigenvector)
-        dlambda_dx = dlambda_dx.reshape(x.shape)
-        u = -self.r * eigenvalue**(-self.r - 1) * dlambda_dx
-        return u
+    def gradient(self, matrix_deriv, eigenvalue, eigenvector):
+        dlambda_dx = eigenvector.dot(matrix_deriv).dot(eigenvector)
+        return -self.r * eigenvalue**(-self.r - 1) * dlambda_dx
 
     def weighted_rigidity_matrix(self, x):
         w = core.distance_matrix(x)
-        w[w > self.midpoint] *= int(self.non_adjacent)
+        if self.adjacent_only:
+            w[w > self.midpoint] = 0.0
         w[w > 0] = functions.logistic(w[w > 0], self.midpoint, self.steepness)
         S = core.rigidity_laplacian_multiple_axes(w, x)
         return S
@@ -48,8 +47,51 @@ class CentralizedRigidityMaintenance(object):
     def update(self, x):
         S = self.weighted_rigidity_matrix(x)
         e, V = np.linalg.eigh(S)
-        grad = self.gradient(x, e[self.dof], V[:, self.dof])
-        return -grad
+        dS_dx = functions.derivative_eval(self.weighted_rigidity_matrix, x)
+        grad = self.gradient(dS_dx, e[self.dof], V[:, self.dof])
+        return -grad.reshape(x.shape)
+
+
+class CentralizedRigidityMaintenanceLogDet(object):
+    """
+    Rigidity Maintenance Control based on the minimization of the
+    logarithm of the product of all nonzero laplacian eigenvalues.
+
+    args:
+    -----
+        dim: realization space dimension
+        dmax: maximum connectivity distance
+        steepness: connectivity decrease factor
+        adjacent_only: bool to consider non-adjacent vertices relations
+    """
+    def __init__(self, dim, dmax, steepness, adjacent_only=False):
+        self.dim = dim
+        self.midpoint = dmax
+        self.steepness = steepness
+        self.dof = int(dim * (dim + 1)/2)
+        self.adjacent_only = adjacent_only
+
+    def gradient(self, matrix_deriv, eigenvalue, eigenvector):
+        dlambda_dx = eigenvector.dot(matrix_deriv).dot(eigenvector)
+        return - dlambda_dx / eigenvalue
+
+    def weighted_rigidity_matrix(self, x):
+        w = core.distance_matrix(x)
+        if self.adjacent_only:
+            w[w > self.midpoint] = 0.0
+        w[w > 0] = functions.logistic(w[w > 0], self.midpoint, self.steepness)
+        S = core.rigidity_laplacian_multiple_axes(w, x)
+        return S
+
+    def update(self, x):
+        S = self.weighted_rigidity_matrix(x)
+        e, V = np.linalg.eigh(S)
+        dS_dx = functions.derivative_eval(self.weighted_rigidity_matrix, x)
+        grad = [
+            self.gradient(dS_dx, e[k], V[:, k])
+            for k in range(self.dof, x.size)
+        ]
+        return - sum(grad).reshape(x.shape)
 
 
 class CommunicationLoad(object):
