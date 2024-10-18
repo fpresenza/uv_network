@@ -541,7 +541,7 @@ def run_mission(k):
                 msgs = world.download_from_cloud(node_index)
                 robot.handle_received_msgs(msgs)
                 robot.range_measurement_step()
-                # robot.rigidity_maintenance_control_action()
+                robot.rigidity_maintenance_control_action()
 
         # localization and control step
         # TODO: should be est position
