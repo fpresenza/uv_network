@@ -3,6 +3,7 @@
 """ Created on mié 29 dic 2021 16:41:13 -03
 @author: fran
 """
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
@@ -18,45 +19,45 @@ plt.rcParams['font.family'] = 'serif'
 
 
 # ------------------------------------------------------------------
+# Parse arguments
+# ------------------------------------------------------------------
+parser = argparse.ArgumentParser(description='')
+parser.add_argument(
+    '-s', '--skip',
+    default=1, type=int, help='communication step in milli seconds'
+)
+arg = parser.parse_args()
+
+# ------------------------------------------------------------------
 # Read simulated data
 # ------------------------------------------------------------------
 t = np.loadtxt('data/t.csv', delimiter=',')
-tc = np.loadtxt('data/tc.csv', delimiter=',')
 x = np.loadtxt('data/position.csv', delimiter=',')
-hatx = np.loadtxt('data/est_position.csv', delimiter=',')
-cov = np.loadtxt('data/covariance.csv', delimiter=',')
-u = np.loadtxt('data/action.csv', delimiter=',')
-v = np.loadtxt('data/vel_meas_err.csv', delimiter=',')
-g = np.loadtxt('data/gps_meas_err.csv', delimiter=',')
-r = np.loadtxt('data/range_meas_err.csv', delimiter=',')
-fre = np.loadtxt('data/fre.csv', delimiter=',')
-re = np.loadtxt('data/re.csv', delimiter=',')
 A = np.loadtxt('data/adjacency.csv', delimiter=',')
-state_extents = np.loadtxt('data/state_extents.csv', delimiter=',')
 targets = np.loadtxt('data/targets.csv', delimiter=',')
 
 n = int(len(x[0])/2)
+n_targets = int(len(targets[0]) / 3)
 nodes = np.arange(n)
-state_extents = state_extents.astype(int)
+
+# slices
+t = t[::arg.skip]
+x = x[::arg.skip]
+A = A[::arg.skip]
+targets = targets[::arg.skip]
 
 # reshapes
-x = x.reshape(len(t), n, 2)
-hatx = hatx.reshape(len(t), n, 2)
-cov = cov.reshape(len(t), n, 2)
-u = u.reshape(len(t), n, 2)
-v = v.reshape(len(t), n, 2)
-g = g.reshape(len(t), n, 2)
-re = re.reshape(len(t), -1)
-A = A.reshape(len(t), n, n)
-targets = targets.reshape(len(t), -1, 3)
+x = x.reshape(-1, n, 2)
+A = A.reshape(-1, n, n)
+targets = targets.reshape(-1, n_targets, 3)
 
 # ------------------------------------------------------------------
 # Plot snapshots
 # ------------------------------------------------------------------
 lim = 1000
-bar = progressbar.ProgressBar(maxval=tc[-1]).start()
+bar = progressbar.ProgressBar(maxval=t[-1]).start()
 
-for tk in tc:
+for k, tk in enumerate(t):
     fig, ax = plt.subplots(figsize=(5, 5))
     ax.tick_params(
         axis='both',       # changes apply to the x-axis
@@ -71,7 +72,6 @@ for tk in tc:
     ax.set_xlim(0, lim)
     ax.set_ylim(0, lim)
 
-    k = np.argmin(np.abs(t - tk))
     ax.text(
             0.05, 0.01, r't = {:.2f}s'.format(tk),
             verticalalignment='bottom', horizontalalignment='left',
@@ -100,5 +100,6 @@ for tk in tc:
 
     fig.savefig('data/snapshots/{}.png'.format(k), format='png', dpi=360)
     plt.close()
+    bar.update(tk)
 
 bar.finish()

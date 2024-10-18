@@ -3,6 +3,7 @@
 """ Created on mié 29 dic 2021 16:41:13 -03
 @author: fran
 """
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -49,6 +50,17 @@ class CoverageAnimate(Animate2):
         Yu = Y[untracked]
         self._extra_artists[-2].set_data(Yt[:, 0], Yt[:, 1])
         self._extra_artists[-1].set_data(Yu[:, 0], Yu[:, 1])
+
+
+# ------------------------------------------------------------------
+# Parse arguments
+# ------------------------------------------------------------------
+parser = argparse.ArgumentParser(description='')
+parser.add_argument(
+    '-s', '--skip',
+    default=1, type=int, help='communication step in milli seconds'
+)
+arg = parser.parse_args()
 
 
 # ------------------------------------------------------------------
@@ -100,16 +112,16 @@ for k, tk in steps:
     Y = targets[k]
     frames[k] = tk, X, E, T, Y
 
-a = termination_time_index(t, 15.0)
-b = termination_time_index(t, 30.0)
-c = termination_time_index(t, 100.0)
+# a = termination_time_index(t, 15.0)
+# b = termination_time_index(t, 30.0)
+# c = termination_time_index(t, 100.0)
 # adjusted_frames = np.vstack([
 #     frames[0:a:1],
 #     frames[a:b:2],
 #     frames[b:c:5],
 #     frames[c::5]
 # ])
-adjusted_frames = frames[::5]
+adjusted_frames = frames[::arg.skip]
 
 # ------------------------------------------------------------------
 # Animation
