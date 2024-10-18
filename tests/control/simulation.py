@@ -461,11 +461,11 @@ def initialize_robots():
             world.cloud.append([[] for _ in robots])
             for robot in robots:
                 msg = robot.create_msg()
-                index = index_map[robot.node_id]
-                world.upload_to_cloud(msg, index)
+                node_index = index_map[robot.node_id]
+                world.upload_to_cloud(msg, node_index)
             for robot in robots:
-                index = index_map[robot.node_id]
-                msgs = world.download_from_cloud(index)
+                node_index = index_map[robot.node_id]
+                msgs = world.download_from_cloud(node_index)
                 robot.handle_received_msgs(msgs)
                 robot.range_measurement_step()
             print('Communication event {} finished'.format(comm_events))
@@ -481,12 +481,6 @@ def initialize_robots():
             vel_meas = world.velocity_measurement(node_index)
             if (vel_meas is not None):
                 robot.velocity_measurement_step(vel_meas)
-
-        for robot in robots:
-            node_index = index_map[robot.node_id]
-            world.robot_dynamics[node_index].step(t, robot.last_control_action)
-        world.update_adjacency()
-        targets.update(world.positions())
 
         # log data
         logs.time.append(t)
@@ -506,6 +500,12 @@ def initialize_robots():
         logs.state_extents.append(robots.collect_state_extents())
         logs.targets.append(targets.data.ravel().copy())
 
+        for robot in robots:
+            node_index = index_map[robot.node_id]
+            world.robot_dynamics[node_index].step(t, robot.last_control_action)
+        world.update_adjacency()
+        targets.update(world.positions())
+
         k += 1
 
     print(
@@ -513,12 +513,13 @@ def initialize_robots():
         .format(comm_events)
     )
 
+    return k
 
-def run_mission():
+
+def run_mission(k):
     bar = progressbar.ProgressBar(maxval=arg.simu_time).start()
     perf_time = []
 
-    k = 0
     while len(time_steps) > 0:
         t_a = time.perf_counter()
 
@@ -533,14 +534,14 @@ def run_mission():
             world.cloud.append([[] for _ in robots])
             for robot in robots:
                 msg = robot.create_msg()
-                index = index_map[robot.node_id]
-                world.upload_to_cloud(msg, index)
+                node_index = index_map[robot.node_id]
+                world.upload_to_cloud(msg, node_index)
             for robot in robots:
-                index = index_map[robot.node_id]
-                msgs = world.download_from_cloud(index)
+                node_index = index_map[robot.node_id]
+                msgs = world.download_from_cloud(node_index)
                 robot.handle_received_msgs(msgs)
                 robot.range_measurement_step()
-                robot.rigidity_maintenance_control_action()
+                # robot.rigidity_maintenance_control_action()
 
         # localization and control step
         # TODO: should be est position
@@ -561,12 +562,6 @@ def run_mission():
             if (vel_meas is not None):
                 robot.velocity_measurement_step(vel_meas)
 
-        for robot in robots:
-            node_index = index_map[robot.node_id]
-            world.robot_dynamics[node_index].step(t, robot.last_control_action)
-        world.update_adjacency()
-        targets.update(world.positions())
-
         # log data
         logs.time.append(t)
         logs.position.append(world.collect_positions())
@@ -584,6 +579,12 @@ def run_mission():
         logs.action_extents.append(robots.collect_action_extents())
         logs.state_extents.append(robots.collect_state_extents())
         logs.targets.append(targets.data.ravel().copy())
+
+        for robot in robots:
+            node_index = index_map[robot.node_id]
+            world.robot_dynamics[node_index].step(t, robot.last_control_action)
+        world.update_adjacency()
+        targets.update(world.positions())
 
         k += 1
 
@@ -608,12 +609,12 @@ parser.add_argument(
     default=1, type=float, help='simulation step in milli seconds'
 )
 parser.add_argument(
-    '-c', '--comm_skip',
-    default=1, type=float, help='communication step in milli seconds'
-)
-parser.add_argument(
     '-t', '--simu_time',
     default=10.0, type=float, help='total simulation time in seconds'
+)
+parser.add_argument(
+    '-c', '--comm_skip',
+    default=1, type=int, help='communication step in milli seconds'
 )
 parser.add_argument(
     '-q', '--queue',
@@ -668,8 +669,8 @@ print(
 if not is_inf_rigid(adjacency_matrix, position):
     raise ValueError('Framework should be infinitesimally rigid.')
 
-action_extents = np.array([1, 1, 1, 2, 2, 1, 2, 1, 1, 1], dtype=int)
-# action_extents = np.array([0, 2, 0, 0, 0, 0, 0, 0, 0, 0], dtype=int)
+# action_extents = np.array([1, 1, 1, 2, 2, 1, 2, 1, 1, 1], dtype=int)
+action_extents = np.array([0, 2, 0, 0, 0, 0, 0, 0, 0, 0], dtype=int)
 print(
     'Action extents: \n' +
     '\n'.join(
@@ -730,7 +731,7 @@ logs = Logs(
     targets=[]
 )
 
-initialize_robots()
+k = initialize_robots()
 print(
     'State extents: \n' +
     '\n'.join(
@@ -739,7 +740,7 @@ print(
         for robot in robots
     )
 )
-run_mission()
+run_mission(k)
 
 np.savetxt('data/t.csv', logs.time, delimiter=',')
 np.savetxt('data/tc.csv', logs.time_comm, delimiter=',')
