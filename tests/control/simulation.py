@@ -18,7 +18,7 @@ from uvnpy.toolkit.functions import logistic_saturation
 from uvnpy.network.disk_graph import adjacency_from_positions
 from uvnpy.distances.core import is_inf_rigid, rigidity_eigenvalue
 from uvnpy.distances.control import (
-    CentralizedRigidityMaintenance,
+    CentralizedRigidityMaintenanceLogDet,
     CollisionAvoidance
 )
 
@@ -101,16 +101,15 @@ class Robot(object):
             ):
         self.node_id = node_id
         self.dim = len(pos)
-        self.comm_range = comm_range
-        self.safe_comm_range = 0.94 * comm_range
         self.action_extent = action_extent
         self.state_extent = state_extent
         self.current_time = t
         self.centered_ball = {node_id} if (action_extent > 0) else set()
         self.in_balls = self.centered_ball
-        self.maintenance = CentralizedRigidityMaintenance(
-            dim=self.dim, dmax=self.safe_comm_range,
-            steepness=20.0/self.safe_comm_range, power=0.5, non_adjacent=True
+        self.maintenance = CentralizedRigidityMaintenanceLogDet(
+            dim=2,
+            dmax=0.95 * comm_range,
+            steepness=50.0/comm_range
         )
         self.collision = CollisionAvoidance(power=2.0)
         self.u_target = np.zeros(self.dim, dtype=float)
@@ -656,7 +655,7 @@ position = np.array([
 
 n, dim = position.shape
 
-comm_range = 90.0
+comm_range = 100.0
 
 adjacency_matrix = adjacency_from_positions(position, comm_range)
 print(
