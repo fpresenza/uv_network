@@ -6,7 +6,6 @@
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 
 from uvnpy.network.core import edges_from_adjacency
 from uvnpy.network.plot import Animate2
@@ -39,17 +38,19 @@ class CoverageAnimate(Animate2):
     def __init__(self, *args, **kwargs):
         super(CoverageAnimate, self).__init__(*args, **kwargs)
 
+    def set_xlim(self, t):
+        return (0.0, 500.0 + t)
+
+    def set_ylim(self, t):
+        return (0.0, 500.0 + t)
+
     def _update_extra_artists(self, frame):
-        P = frame[1]
-        Y = frame[4]
-        n = int(len(P)/2)
-        for i in range(n):
-            self._extra_artists[i].center = P[i]
-        untracked = Y[:, 2].astype(bool)
-        Yt = Y[~untracked]
-        Yu = Y[untracked]
-        self._extra_artists[-2].set_data(Yt[:, 0], Yt[:, 1])
-        self._extra_artists[-1].set_data(Yu[:, 0], Yu[:, 1])
+        for i, target in enumerate(frame[4]):
+            if (target[2] == 0):
+                try:
+                    self._extra_artists[i].remove()
+                except ValueError:
+                    pass
 
 
 # ------------------------------------------------------------------
@@ -101,7 +102,7 @@ targets = targets.reshape(n_steps, -1, 3)
 # ------------------------------------------------------------------
 # Create Frames
 # ------------------------------------------------------------------
-lim = 1000
+lim = 4000.0
 timestep = np.diff(t).mean()
 frames = np.empty((n_steps, 5), dtype=np.ndarray)
 steps = list(enumerate(t))
@@ -137,8 +138,8 @@ ax.set_aspect('equal')
 # ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$x$ [m]', fontsize='small', labelpad=0.6)
 ax.set_ylabel(r'$y$ [m]', fontsize='small', labelpad=0.6)
-ax.set_xlim(0, lim)
-ax.set_ylim(0, lim)
+ax.set_xlim(0.0, 500.0)
+ax.set_ylim(0.0, 500.0)
 # ax.set_title(r'Retardo $\tau = 400$ [ms]')
 # ax.set_title('Sin Retardo')
 
@@ -151,34 +152,35 @@ teams_dict = {
         'style': {
             'color': 'goldenrod',
             'marker': '*',
-            'markersize': 15
+            'markersize': 12
+        }
+    },
+    'noncenters': {
+        'id': 0,
+        'tail': False,
+        'style': {
+            'color': 'C0',
+            'marker': 'o',
+            'markersize': 7
         }
     }
 }
-for i in range(n):
-    teams_dict[i] = {
-        'id': -1-i,
-        'style': {
-            'color': 'k',
-            'marker': f'${i}$',
-            'markeredgewidth': 0.3
-        }
-    }
+# for i in range(n):
+#     teams_dict[i] = {
+#         'id': -1-i,
+#         'style': {
+#             'color': 'k',
+#             'marker': f'${i}$',
+#             'markeredgewidth': 0.3
+#         }
+#     }
 anim.set_teams(teams_dict)
-anim.set_edgestyle(color=cm.coolwarm(20), lw=0.5, zorder=0)
+anim.set_edgestyle(color='k', lw=0.5, zorder=0)
 
-circles = []
-for p in x[0]:
-    circle = plt.Circle(p, 30.0, alpha=0.3)
-    circles.append(circle)
+for p in targets[0]:
+    circle = plt.Circle(p, 30.0, color='r', alpha=0.3)
     ax.add_artist(circle)
-tracked = ax.plot([], [], ls='', marker='s', markersize=3, color='green')
-untracked = ax.plot(
-    targets[0, :, 0], targets[0, :, 1],
-    ls='', marker='s', markersize=3, color='0.6'
-)
-extras = circles + tracked + untracked
-anim.set_extra_artists(*extras)
+    anim.add_extra_artists(circle)
 
 # anim.ax.legend(
 #     ncol=3,
