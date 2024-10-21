@@ -196,6 +196,8 @@ class Robot(object):
             self.u_collision = self.collision.update(
                 self.loc.position(), obstacles_pos
             )
+            # collision control gain
+            self.u_collision *= 20000.0
         else:
             self.u_collision = np.zeros(self.dim, dtype=float)
 
@@ -229,12 +231,15 @@ class Robot(object):
                 p = np.vstack([self.loc.position(), neighbor.position])
                 self.u_rigidity += self.maintenance.update(p)[0]
 
+        # rigidity control gain
+        self.u_rigidity *= 40.0
+
     def compose_actions(self):
         # aplico acciones de control
         self.last_control_action = logistic_saturation(
             self.u_target +
-            20000.0 * self.u_collision +
-            40.0 * self.u_rigidity,
+            self.u_collision +
+            self.u_rigidity,
             limit=2.5
         )
 

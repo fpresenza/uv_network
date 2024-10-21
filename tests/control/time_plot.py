@@ -96,7 +96,7 @@ ax[0].tick_params(
 ax[0].set_xlabel('$t$ [$s$]', fontsize=8)
 ax[0].set_ylabel(r'$u_{c, x}$ [$m/s$]', fontsize=8)
 ax[0].grid(1)
-ax[0].plot(t, 20000.0 * u_c[..., 0], lw=0.8, ds='steps-post')
+ax[0].plot(t, u_c[..., 0], lw=0.8, ds='steps-post')
 
 ax[1].tick_params(
     axis='both',       # changes apply to the x-axis
@@ -107,7 +107,7 @@ ax[1].tick_params(
 ax[1].set_xlabel('$t$ [$s$]', fontsize=8)
 ax[1].set_ylabel(r'$u_{c, y}$ [$m/s$]', fontsize=8)
 ax[1].grid(1)
-ax[1].plot(t, 20000.0 * u_c[..., 1], lw=0.8, ds='steps-post')
+ax[1].plot(t, u_c[..., 1], lw=0.8, ds='steps-post')
 fig.savefig('data/time/collision_control.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
@@ -125,8 +125,7 @@ ax[0].tick_params(
 ax[0].set_xlabel('$t$ [$s$]', fontsize=8)
 ax[0].set_ylabel(r'$u_{r, x}$ [$m/s$]', fontsize=8)
 ax[0].grid(1)
-ax[0].plot(t, 40 * u_r[..., 0], lw=0.8, ds='steps-post')
-# ax[0].vlines(tc, -5, 5, lw=0.75, color='k', alpha=0.5)
+ax[0].plot(t, u_r[..., 0], lw=0.8, ds='steps-post')
 
 ax[1].tick_params(
     axis='both',       # changes apply to the x-axis
@@ -137,14 +136,13 @@ ax[1].tick_params(
 ax[1].set_xlabel('$t$ [$s$]', fontsize=8)
 ax[1].set_ylabel(r'$u_{r, y}$ [$m/s$]', fontsize=8)
 ax[1].grid(1)
-ax[1].plot(t, 40 * u_r[..., 1], lw=0.8, ds='steps-post')
-# ax[1].vlines(tc, -5, 5, lw=0.75, color='k', alpha=0.5)
+ax[1].plot(t, u_r[..., 1], lw=0.8, ds='steps-post')
 fig.savefig('data/time/rigidity_control.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot control action composition
 # ------------------------------------------------------------------
-u = logistic_saturation(u_t + 20000.0 * u_c + 40.0 * u_r, limit=2.5)
+u = logistic_saturation(u_t + u_c + u_r, limit=2.5)
 fig, ax = plt.subplots(2, 1, figsize=(4.0, 4.0))
 fig.subplots_adjust(
     bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
@@ -158,7 +156,6 @@ ax[0].set_xlabel('$t$ [$s$]', fontsize=8)
 ax[0].set_ylabel(r'$u_{x}$ [$m/s$]', fontsize=8)
 ax[0].grid(1)
 ax[0].plot(t, u[..., 0], lw=0.8, ds='steps-post')
-# ax[0].vlines(tc, -5, 5, lw=0.75, color='k', alpha=0.5)
 
 ax[1].tick_params(
     axis='both',       # changes apply to the x-axis
@@ -170,7 +167,6 @@ ax[1].set_xlabel('$t$ [$s$]', fontsize=8)
 ax[1].set_ylabel(r'$u_{y}$ [$m/s$]', fontsize=8)
 ax[1].grid(1)
 ax[1].plot(t, u[..., 1], lw=0.8, ds='steps-post')
-# ax[1].vlines(tc, -5, 5, lw=0.75, color='k', alpha=0.5)
 fig.savefig('data/time/rigidity_control.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
