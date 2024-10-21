@@ -58,7 +58,7 @@ class CoverageAnimate(Animate2):
 parser = argparse.ArgumentParser(description='')
 parser.add_argument(
     '-s', '--skip',
-    default=1, type=int, help='communication step in milli seconds'
+    default=1, type=int, help='numbers of frames skipped during animation'
 )
 arg = parser.parse_args()
 
