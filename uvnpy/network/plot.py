@@ -120,7 +120,13 @@ class Animate2(object):
         self.teams = {}
         edgestyle = {'color': '0.2', 'linewidth': 0.7, 'zorder': 10}
         self.set_edgestyle(**edgestyle)
-        self._extra_artists = None
+        self._extra_artists = []
+
+    def set_xlim(self, t):
+        return (0.0, 1.0)
+
+    def set_ylim(self, t):
+        return (0.0, 1.0)
 
     def set_teams(self, teams):
         self.teams = teams.copy()
@@ -146,13 +152,13 @@ class Animate2(object):
     def _update_extra_artists(self, frame):
         pass
 
-    def set_extra_artists(self, *artists):
-        self._extra_artists = []
-        for artist in artists:
-            self._extra_artists.append(artist)
+    def add_extra_artists(self, artist):
+        self._extra_artists.append(artist)
 
     def update(self, frame):
         tk, Xk, Ek, Tk = frame[:4]
+        self.ax.set_xlim(self.set_xlim(tk))
+        self.ax.set_ylim(self.set_ylim(tk))
         q = np.array(self.x_tail)
         self.x_tail.append(Xk)
         for data in self.teams.values():
