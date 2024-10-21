@@ -339,7 +339,6 @@ ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$t$ [$s$]', fontsize=8)
 ax.set_ylabel('Autovalores \n de Rigidez', fontsize=8)
 for k, vertex in enumerate(np.where(action_extents[0] > 0)[0]):
-    print(vertex)
     ax.semilogy(
         t, re[:, k],
         lw=0.8,
