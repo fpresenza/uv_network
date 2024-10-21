@@ -104,8 +104,8 @@ class Robot(object):
         self.action_extent = action_extent
         self.state_extent = state_extent
         self.current_time = t
-        self.centered_ball = {node_id} if (action_extent > 0) else set()
-        self.in_balls = self.centered_ball
+        self.self_centered_ball = {node_id} if (action_extent > 0) else set()
+        self.in_balls = self.self_centered_ball
         self.maintenance = CentralizedRigidityMaintenanceLogDet(
             dim=2,
             dmax=0.95 * comm_range,
@@ -162,8 +162,9 @@ class Robot(object):
             self.routing.update_action(msg.action_tokens.values())
             self.routing.update_state(msg.state_tokens.values())
 
-        self.in_balls = self.centered_ball.union(self.routing.action_centers())
-        # self.state_extent = max(1, self.max_action_extent())
+        self.in_balls = self.self_centered_ball.union(
+            self.routing.action_centers()
+        )
 
     def set_control_action(self, u):
         self.last_control_action = u
