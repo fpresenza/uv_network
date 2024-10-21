@@ -31,11 +31,13 @@ r = np.loadtxt('data/range_meas_err.csv', delimiter=',')
 fre = np.loadtxt('data/fre.csv', delimiter=',')
 re = np.loadtxt('data/re.csv', delimiter=',')
 A = np.loadtxt('data/adjacency.csv', delimiter=',')
+action_extents = np.loadtxt('data/action_extents.csv', delimiter=',')
 state_extents = np.loadtxt('data/state_extents.csv', delimiter=',')
 targets = np.loadtxt('data/targets.csv', delimiter=',')
 
 n = int(len(x[0])/2)
 nodes = np.arange(n)
+action_extents = action_extents.astype(int)
 state_extents = state_extents.astype(int)
 
 # reshapes
@@ -336,34 +338,29 @@ ax.grid(1, lw=0.4)
 
 ax.set_xlabel(r'$t$ [$s$]', fontsize=8)
 ax.set_ylabel('Autovalores \n de Rigidez', fontsize=8)
-ax.semilogy(
-    t, np.median(re, axis=1),
-    lw=0.8,
-    marker='.',
-    ds='steps-post',
-    label='median'
-)
+for k, vertex in enumerate(np.where(action_extents[0] > 0)[0]):
+    print(vertex)
+    ax.semilogy(
+        t, re[:, k],
+        lw=0.8,
+        marker='.',
+        ds='steps-post',
+        label=r'$F_{{{}}}$'.format(vertex)
+    )
 ax.semilogy(
     t, fre,
     lw=0.8,
     ls='--',
     color='k',
     ds='steps-post',
-    label=r'framework'
+    label=r'$F$'
 )
 ax.set_ylim(bottom=1e-4, top=3)
-ax.fill_between(
-    t,
-    np.min(re, axis=1),
-    np.max(re, axis=1),
-    alpha=0.3
-)
-# ax.vlines(tc, 1e-4, 1, lw=0.75, color='g', alpha=0.5)
 ax.set_ylim(bottom=1e-4)
 ax.legend(
     fontsize=8, handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
-    ncol=2, columnspacing=1)
+    ncol=4, columnspacing=1)
 fig.savefig('data/time/eigenvalues.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
