@@ -6,7 +6,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from uvnpy.toolkit.functions import logistic_saturation
 
 plt.rcParams['text.usetex'] = False
 plt.rcParams['pdf.fonttype'] = 42
@@ -142,7 +141,7 @@ fig.savefig('data/time/rigidity_control.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Plot control action composition
 # ------------------------------------------------------------------
-u = logistic_saturation(u_t + u_c + u_r, limit=2.5)
+u = u_t + u_c + u_r
 fig, ax = plt.subplots(2, 1, figsize=(4.0, 4.0))
 fig.subplots_adjust(
     bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
