@@ -11,7 +11,7 @@ from uvnpy.distances import core
 from uvnpy.toolkit import functions
 
 
-class CentralizedRigidityMaintenancePowEig(object):
+class RigidityMaintenancePowEig(object):
     """
     Rigidity Maintenance Control based on the minimization of the
     inverse of the rigidity eigenvalue.
@@ -52,7 +52,7 @@ class CentralizedRigidityMaintenancePowEig(object):
         return -grad.reshape(x.shape)
 
 
-class CentralizedRigidityMaintenanceLogDet(object):
+class RigidityMaintenanceLogDet(object):
     """
     Rigidity Maintenance Control based on the minimization of the
     logarithm of the product of all nonzero laplacian eigenvalues.
