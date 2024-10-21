@@ -197,7 +197,7 @@ class Robot(object):
                 self.loc.position(), obstacles_pos
             )
             # collision control gain
-            self.u_collision *= 20000.0
+            self.u_collision *= 40000.0    # entre 20k y 50k
         else:
             self.u_collision = np.zeros(self.dim, dtype=float)
 
@@ -232,7 +232,7 @@ class Robot(object):
                 self.u_rigidity += self.maintenance.update(p)[0]
 
         # rigidity control gain
-        self.u_rigidity *= 40.0
+        self.u_rigidity *= 15.0    # entre 10 y 20
 
     def compose_actions(self):
         # aplico acciones de control
