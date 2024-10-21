@@ -53,7 +53,7 @@ class TokenPassing(object):
         # Extrae los tokens de estado de la queue
         return tuple(self.state.values())
 
-    def max_action_extents(self):
+    def max_action_extent(self):
         if len(self.action) > 0:
             return np.max(
                [token.hops_to_target for token in self.action.values()]
