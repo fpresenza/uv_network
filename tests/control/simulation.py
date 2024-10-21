@@ -166,6 +166,9 @@ class Robot(object):
             self.routing.action_centers()
         )
 
+    def update_state_extent(self):
+        self.state_extent = max(1, self.routing.max_action_extent())
+
     def set_control_action(self, u):
         self.last_control_action = u
 
@@ -472,6 +475,7 @@ def initialize_robots():
                 node_index = index_map[robot.node_id]
                 msgs = world.download_from_cloud(node_index)
                 robot.handle_received_msgs(msgs)
+                robot.update_state_extent()
                 robot.range_measurement_step()
             print('Communication event {} finished'.format(comm_events))
 
@@ -701,7 +705,7 @@ robots = Robots([
         pos=np.random.normal(position[i],  5.0),
         comm_range=comm_range,
         action_extent=int(action_extents[i]),
-        state_extent=2
+        # state_extent=2
     )
     for i in range(n)
 ])
