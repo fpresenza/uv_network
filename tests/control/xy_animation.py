@@ -94,7 +94,7 @@ x = x.reshape(n_steps, n, 2)
 hatx = hatx.reshape(n_steps, n, 2)
 A = A.reshape(n_steps, n, n)
 teams = np.empty((n_steps, 2*n), dtype=int)
-teams[:, :n] = action_extents
+teams[:, :n] = np.minimum(1, action_extents)
 teams[:, n:] = -1 - np.arange(n)
 targets = targets.reshape(n_steps, -1, 3)
 
@@ -144,56 +144,26 @@ ax.set_ylim(0, lim)
 
 anim = CoverageAnimate(fig, ax, timestep, adjusted_frames, maxlen=1)
 # cm.coolwarm goes from 0 (blue) to 255 (red)
-# teams_dict = {
-#     '$0$-hop': {
-#         'id': 0,
-#         'tail': False,
-#         'style': {
-#             # 'color': 'royalblue',
-#             'color': cm.coolwarm(250),
-#             'marker': f'$0$',
-#             'markersize': (0 + 1) * 2
-#         }
-#     },
-#     '$1$-hop': {
-#         'id': 1,
-#         'tail': False,
-#         'style': {
-#             # 'color': 'royalblue',
-#             'color': cm.coolwarm(150),
-#             'marker': 'o',
-#             'markersize': (1 + 1) * 2
-#         }
-#     },
-#     '$2$-hop': {
-#         'id': 2,
-#         'tail': False,
-#         'style': {
-#             # 'color': 'chocolate',
-#             'color': cm.coolwarm(200),
-#             'marker': 'o',
-#             'markersize': (2 + 1) * 2
-#         }
-#     },
-#     '$3$-hop': {
-#         'id': 3,
-#         'tail': False,
-#         'style': {
-#             # 'color': 'mediumseagreen',
-#             'color': cm.coolwarm(255),
-#             'marker': 'o',
-#             'markersize': (3 + 1) * 2
-#         }
-#     }
-# }
-teams_dict = {i: {
+teams_dict = {
+    'centers': {
+        'id': 1,
+        'tail': False,
+        'style': {
+            'color': 'goldenrod',
+            'marker': '*',
+            'markersize': 15
+        }
+    }
+}
+for i in range(n):
+    teams_dict[i] = {
         'id': -1-i,
         'style': {
             'color': 'k',
-            'marker': f'${i}$'
+            'marker': f'${i}$',
+            'markeredgewidth': 0.3
         }
-    } for i in range(n)
-}
+    }
 anim.set_teams(teams_dict)
 anim.set_edgestyle(color=cm.coolwarm(20), lw=0.5, zorder=0)
 
