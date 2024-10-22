@@ -39,10 +39,10 @@ class CoverageAnimate(Animate2):
         super(CoverageAnimate, self).__init__(*args, **kwargs)
 
     def set_xlim(self, t):
-        return (0.0, 500.0 + t)
+        return (0.0, min(1500.0 + t, 4000.0))
 
     def set_ylim(self, t):
-        return (0.0, 500.0 + t)
+        return (0.0, min(1500.0 + t, 4000.0))
 
     def _update_extra_artists(self, frame):
         for i, target in enumerate(frame[4]):
@@ -138,13 +138,12 @@ ax.set_aspect('equal')
 # ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$x$ [m]', fontsize='small', labelpad=0.6)
 ax.set_ylabel(r'$y$ [m]', fontsize='small', labelpad=0.6)
-ax.set_xlim(0.0, 500.0)
-ax.set_ylim(0.0, 500.0)
+ax.set_xlim(0.0, 1500.0)
+ax.set_ylim(0.0, 1500.0)
 # ax.set_title(r'Retardo $\tau = 400$ [ms]')
 # ax.set_title('Sin Retardo')
 
 anim = CoverageAnimate(fig, ax, timestep, adjusted_frames, maxlen=1)
-# cm.coolwarm goes from 0 (blue) to 255 (red)
 teams_dict = {
     'centers': {
         'id': 1,
@@ -161,7 +160,7 @@ teams_dict = {
         'style': {
             'color': 'C0',
             'marker': 'o',
-            'markersize': 7
+            'markersize': 5
         }
     }
 }
