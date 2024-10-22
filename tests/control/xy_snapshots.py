@@ -55,7 +55,7 @@ targets = targets.reshape(-1, n_targets, 3)
 # Plot snapshots
 # ------------------------------------------------------------------
 lim = 1000
-bar = progressbar.ProgressBar(maxval=t[-1]).start()
+bar = progressbar.ProgressBar(maxval=np.round(t[-1], 3)).start()
 
 for k, tk in enumerate(t):
     fig, ax = plt.subplots(figsize=(5, 5))
@@ -73,7 +73,7 @@ for k, tk in enumerate(t):
     ax.set_ylim(0, lim)
 
     ax.text(
-            0.05, 0.01, r't = {:.2f}s'.format(tk),
+            0.05, 0.01, r't = {:.3f}s'.format(tk),
             verticalalignment='bottom', horizontalalignment='left',
             transform=ax.transAxes, color='r', fontsize=8)
 
@@ -100,6 +100,6 @@ for k, tk in enumerate(t):
 
     fig.savefig('data/snapshots/{}.png'.format(k), format='png', dpi=360)
     plt.close()
-    bar.update(tk)
+    bar.update(np.round(tk, 3))
 
 bar.finish()
