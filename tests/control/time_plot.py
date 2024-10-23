@@ -3,9 +3,11 @@
 """ Created on mié 29 dic 2021 16:41:13 -03
 @author: fran
 """
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 
+from uvnpy.toolkit import data
 
 plt.rcParams['text.usetex'] = False
 plt.rcParams['pdf.fonttype'] = 42
@@ -13,162 +15,183 @@ plt.rcParams['ps.fonttype'] = 42
 plt.rcParams['mathtext.fontset'] = 'dejavuserif'
 plt.rcParams['font.family'] = 'serif'
 
+# ------------------------------------------------------------------
+# Parse arguments
+# ------------------------------------------------------------------
+parser = argparse.ArgumentParser(description='')
+parser.add_argument(
+    '-i', '--init',
+    default=0.0, type=float, help='init time in milli seconds'
+)
+parser.add_argument(
+    '-e', '--end',
+    default=0.0, type=float, help='end time in milli seconds'
+)
+parser.add_argument(
+    '-j', '--jump',
+    default=1, type=int, help='numbers of frames jumped'
+)
+parser.add_argument(
+    '-s', '--subset',
+    default=-1, type=int, nargs='+', help='subset of nodes to plot'
+)
+arg = parser.parse_args()
 
 # ------------------------------------------------------------------
 # Read simulated data
 # ------------------------------------------------------------------
 t = np.loadtxt('data/t.csv', delimiter=',')
-tc = np.loadtxt('data/tc.csv', delimiter=',')
-x = np.loadtxt('data/position.csv', delimiter=',')
-hatx = np.loadtxt('data/est_position.csv', delimiter=',')
-cov = np.loadtxt('data/covariance.csv', delimiter=',')
-u_t = np.loadtxt('data/target_action.csv', delimiter=',')
-u_c = np.loadtxt('data/collision_action.csv', delimiter=',')
-u_r = np.loadtxt('data/rigidity_action.csv', delimiter=',')
-v = np.loadtxt('data/vel_meas_err.csv', delimiter=',')
-g = np.loadtxt('data/gps_meas_err.csv', delimiter=',')
-r = np.loadtxt('data/range_meas_err.csv', delimiter=',')
-fre = np.loadtxt('data/fre.csv', delimiter=',')
-re = np.loadtxt('data/re.csv', delimiter=',')
-A = np.loadtxt('data/adjacency.csv', delimiter=',')
-action_extents = np.loadtxt('data/action_extents.csv', delimiter=',')
-state_extents = np.loadtxt('data/state_extents.csv', delimiter=',')
-targets = np.loadtxt('data/targets.csv', delimiter=',')
+arg.end = t[-1] if (arg.end == 0) else arg.end
 
-n = int(len(x[0])/2)
+# slices
+k_i = int(np.argmin(np.abs(t - arg.init)))
+k_e = int(np.argmin(np.abs(t - arg.end)))
+
+t = t[k_i:k_e:arg.jump]
+
+x = data.read_csv(
+    'data/position.csv',
+    rows=(k_i, k_e), jump=arg.jump, dtype=float, shape=(-1, 2), asarray=True
+)
+n = len(x[0])
 nodes = np.arange(n)
-action_extents = action_extents.astype(int)
-state_extents = state_extents.astype(int)
+if (arg.subset == -1):
+    subset = nodes
+else:
+    subset = arg.subset
 
-# reshapes
-x = x.reshape(len(t), n, 2)
-hatx = hatx.reshape(len(t), n, 2)
-cov = cov.reshape(len(t), n, 2)
-u_t = u_t.reshape(len(t), n, 2)
-u_c = u_c.reshape(len(t), n, 2)
-u_r = u_r.reshape(len(t), n, 2)
-v = v.reshape(len(t), n, 2)
-g = g.reshape(len(t), n, 2)
-re = re.reshape(len(t), -1)
-A = A.reshape(len(t), n, n)
-targets = targets.reshape(len(t), -1, 3)
+
+A = data.read_csv(
+    'data/adjacency.csv',
+    rows=(k_i, k_e), jump=arg.jump, dtype=float, shape=(n, n), asarray=True
+)
+targets = data.read_csv(
+    'data/targets.csv',
+    rows=(k_i, k_e), jump=arg.jump, dtype=float, shape=(-1, 3), asarray=True
+)
+u_t = data.read_csv(
+    'data/target_action.csv',
+    rows=(k_i, k_e), jump=arg.jump, dtype=float, shape=(n, 2), asarray=True
+)
+u_c = data.read_csv(
+    'data/collision_action.csv',
+    rows=(k_i, k_e), jump=arg.jump, dtype=float, shape=(n, 2), asarray=True
+)
+u_r = data.read_csv(
+    'data/rigidity_action.csv',
+    rows=(k_i, k_e), jump=arg.jump, dtype=float, shape=(n, 2), asarray=True
+)
+fre = data.read_csv(
+    'data/fre.csv',
+    rows=(k_i, k_e), jump=arg.jump, dtype=float, asarray=True
+)
+re = data.read_csv(
+    'data/re.csv',
+    rows=(k_i, k_e), jump=arg.jump, dtype=float, asarray=True
+)
+action_extents = data.read_csv(
+    'data/action_extents.csv',
+    rows=(k_i, k_e), jump=arg.jump, dtype=float, asarray=True
+)
+
+
+# tc = np.loadtxt('data/tc.csv', delimiter=',')
+# hatx = np.loadtxt('data/est_position.csv', delimiter=',')
+# cov = np.loadtxt('data/covariance.csv', delimiter=',')
+
+# v = np.loadtxt('data/vel_meas_err.csv', delimiter=',')
+# g = np.loadtxt('data/gps_meas_err.csv', delimiter=',')
+# r = np.loadtxt('data/range_meas_err.csv', delimiter=',')
+# state_extents = np.loadtxt('data/state_extents.csv', delimiter=',')
+
 
 # ------------------------------------------------------------------
 # Plot target control action
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(2, 1, figsize=(4.0, 4.0))
+fig, ax = plt.subplots(figsize=(4.0, 4.0))
 fig.subplots_adjust(
     bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
-ax[0].tick_params(
+ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
     labelsize='x-small')
 
-ax[0].set_xlabel('$t$ [$s$]', fontsize=8)
-ax[0].set_ylabel(r'$u_{t, x}$ [$m/s$]', fontsize=8)
-ax[0].grid(1)
-ax[0].plot(t, u_t[..., 0], lw=0.8, ds='steps-post')
-
-ax[1].tick_params(
-    axis='both',       # changes apply to the x-axis
-    which='both',      # both major and minor ticks are affected
-    pad=1,
-    labelsize='x-small')
-
-ax[1].set_xlabel('$t$ [$s$]', fontsize=8)
-ax[1].set_ylabel(r'$u_{t, y}$ [$m/s$]', fontsize=8)
-ax[1].grid(1)
-ax[1].plot(t, u_t[..., 1], lw=0.8, ds='steps-post')
+ax.set_xlabel('$t$ [$s$]', fontsize=8)
+ax.set_ylabel(r'$\Vert u_t \Vert$ [$m/s$]', fontsize=8)
+ax.grid(1)
+ax.plot(
+    t,
+    np.sqrt(u_t[:, subset, 0]**2 + u_t[:, subset, 1]**2),
+    lw=0.8, ds='steps-post'
+)
 fig.savefig('data/time/target_control.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot collision control action
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(2, 1, figsize=(4.0, 4.0))
+fig, ax = plt.subplots(figsize=(4.0, 4.0))
 fig.subplots_adjust(
     bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
-ax[0].tick_params(
+ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
     labelsize='x-small')
 
-ax[0].set_xlabel('$t$ [$s$]', fontsize=8)
-ax[0].set_ylabel(r'$u_{c, x}$ [$m/s$]', fontsize=8)
-ax[0].grid(1)
-ax[0].plot(t, u_c[..., 0], lw=0.8, ds='steps-post')
-
-ax[1].tick_params(
-    axis='both',       # changes apply to the x-axis
-    which='both',      # both major and minor ticks are affected
-    pad=1,
-    labelsize='x-small')
-
-ax[1].set_xlabel('$t$ [$s$]', fontsize=8)
-ax[1].set_ylabel(r'$u_{c, y}$ [$m/s$]', fontsize=8)
-ax[1].grid(1)
-ax[1].plot(t, u_c[..., 1], lw=0.8, ds='steps-post')
+ax.set_xlabel('$t$ [$s$]', fontsize=8)
+ax.set_ylabel(r'$\Vert u_c \Vert$ [$m/s$]', fontsize=8)
+ax.grid(1)
+ax.plot(
+    t,
+    np.sqrt(u_c[:, subset, 0]**2 + u_c[:, subset, 1]**2),
+    lw=0.8, ds='steps-post'
+)
 fig.savefig('data/time/collision_control.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot rigidity control action
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(2, 1, figsize=(4.0, 4.0))
+fig, ax = plt.subplots(figsize=(4.0, 4.0))
 fig.subplots_adjust(
     bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
-ax[0].tick_params(
+ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
     labelsize='x-small')
 
-ax[0].set_xlabel('$t$ [$s$]', fontsize=8)
-ax[0].set_ylabel(r'$u_{r, x}$ [$m/s$]', fontsize=8)
-ax[0].grid(1)
-ax[0].plot(t, u_r[..., 0], lw=0.8, ds='steps-post')
-
-ax[1].tick_params(
-    axis='both',       # changes apply to the x-axis
-    which='both',      # both major and minor ticks are affected
-    pad=1,
-    labelsize='x-small')
-
-ax[1].set_xlabel('$t$ [$s$]', fontsize=8)
-ax[1].set_ylabel(r'$u_{r, y}$ [$m/s$]', fontsize=8)
-ax[1].grid(1)
-ax[1].plot(t, u_r[..., 1], lw=0.8, ds='steps-post')
+ax.set_xlabel('$t$ [$s$]', fontsize=8)
+ax.set_ylabel(r'$\Vert u_r \Vert$ [$m/s$]', fontsize=8)
+ax.grid(1)
+ax.plot(
+    t,
+    np.sqrt(u_r[:, subset, 0]**2 + u_r[:, subset, 1]**2),
+    lw=0.8, ds='steps-post'
+)
 fig.savefig('data/time/rigidity_control.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot control action composition
 # ------------------------------------------------------------------
 u = u_t + u_c + u_r
-fig, ax = plt.subplots(2, 1, figsize=(4.0, 4.0))
+fig, ax = plt.subplots(figsize=(4.0, 4.0))
 fig.subplots_adjust(
     bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
-ax[0].tick_params(
+ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
     labelsize='x-small')
 
-ax[0].set_xlabel('$t$ [$s$]', fontsize=8)
-ax[0].set_ylabel(r'$u_{x}$ [$m/s$]', fontsize=8)
-ax[0].grid(1)
-ax[0].plot(t, u[..., 0], lw=0.8, ds='steps-post')
-
-ax[1].tick_params(
-    axis='both',       # changes apply to the x-axis
-    which='both',      # both major and minor ticks are affected
-    pad=1,
-    labelsize='x-small')
-
-ax[1].set_xlabel('$t$ [$s$]', fontsize=8)
-ax[1].set_ylabel(r'$u_{y}$ [$m/s$]', fontsize=8)
-ax[1].grid(1)
-ax[1].plot(t, u[..., 1], lw=0.8, ds='steps-post')
-fig.savefig('data/time/rigidity_control.png', format='png', dpi=360)
+ax.set_xlabel('$t$ [$s$]', fontsize=8)
+ax.set_ylabel(r'$\Vert u \Vert$ [$m/s$]', fontsize=8)
+ax.grid(1)
+ax.plot(
+    t,
+    np.sqrt(u[:, subset, 0]**2 + u[:, subset, 1]**2),
+    lw=0.8, ds='steps-post'
+)
 
 # ------------------------------------------------------------------
 # Plot state extents
@@ -191,7 +214,7 @@ fig.savefig('data/time/rigidity_control.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Plot velocity measurement error
 # ------------------------------------------------------------------
-# e_vel = np.sqrt(v[..., 0]**2 + v[..., 1]**2)
+# e_vel = np.sqrt(v[:, subset, 0]**2 + v[:, subset, 1]**2)
 # fig, ax = plt.subplots(figsize=(4.0, 2.0))
 # fig.subplots_adjust(
 #     bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
@@ -224,7 +247,7 @@ fig.savefig('data/time/rigidity_control.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Plot gps measurement error
 # ------------------------------------------------------------------
-# e_gps = np.sqrt(g[..., 0]**2 + g[..., 1]**2)
+# e_gps = np.sqrt(g[:, subset, 0]**2 + g[:, subset, 1]**2)
 # fig, ax = plt.subplots(figsize=(4.0, 2.0))
 # fig.subplots_adjust(
 #     bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
@@ -302,7 +325,7 @@ fig.savefig('data/time/rigidity_control.png', format='png', dpi=360)
 
 # ax.set_xlabel(r'$t$ [$s$]', fontsize=8)
 # ax.set_ylabel('position-$x$ [$m$]', fontsize=8)
-# ax.plot(t, x[..., 0], lw=0.8, ds='steps-post')
+# ax.plot(t, x[:, subset, 0], lw=0.8, ds='steps-post')
 # fig.savefig('data/time/pos_x.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
@@ -320,7 +343,7 @@ fig.savefig('data/time/rigidity_control.png', format='png', dpi=360)
 
 # ax.set_xlabel(r'$t$ [$s$]', fontsize=8)
 # ax.set_ylabel('position-$y$ [$m$]', fontsize=8)
-# ax.plot(t, x[..., 1], lw=0.8, ds='steps-post')
+# ax.plot(t, x[:, subset, 1], lw=0.8, ds='steps-post')
 # fig.savefig('data/time/pos_y.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
@@ -408,15 +431,18 @@ fig.savefig('data/time/eigenvalues.png', format='png', dpi=360)
 #     r'$\mathrm{tr}(\mathrm{cov}(e_{\mathrm{pos}}))$ [$m^2$]', fontsize=8
 # )
 # # ax.plot(
-#     t, np.sqrt(cov[..., 0]**2 + cov[..., 1]**2), lw=0.8, ds='steps-post')
+#     t,
+#     np.sqrt(cov[:, subset, 0]**2 + cov[:, subset, 1]**2),
+#     lw=0.8, ds='steps-post'
+# )
 # ax.semilogy(
-#     t, np.median(cov[..., 0] + cov[..., 1], axis=1),
+#     t, np.median(cov[:, subset, 0] + cov[:, subset, 1], axis=1),
 #     lw=0.8, label='median', ds='steps-post'
 # )
 # ax.fill_between(
 #     t,
-#     np.min(cov[..., 0] + cov[..., 1], axis=1),
-#     np.max(cov[..., 0] + cov[..., 1], axis=1),
+#     np.min(cov[:, subset, 0] + cov[:, subset, 1], axis=1),
+#     np.max(cov[:, subset, 0] + cov[:, subset, 1], axis=1),
 #     alpha=0.3
 # )
 # ax.set_ylim(bottom=1e-2)
