@@ -64,11 +64,11 @@ nodes = np.arange(n)
 # ------------------------------------------------------------------
 # Plot snapshots
 # ------------------------------------------------------------------
-lim = 1000
 bar = progressbar.ProgressBar(maxval=N).start()
 
 for k in range(N):
     tk = t[k_i + k]
+    lim = min(1500.0 + tk, 4000.0)
     fig, ax = plt.subplots(figsize=(5, 5))
     ax.tick_params(
         axis='both',       # changes apply to the x-axis
