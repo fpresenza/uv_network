@@ -9,6 +9,7 @@ import time
 import progressbar
 import numpy as np
 import copy
+import numba as nb
 
 from uvnpy.network import core
 from uvnpy.distances.localization import FirstOrderKalmanFilter
@@ -16,10 +17,19 @@ from uvnpy.routing.token_passing import TokenPassing
 from uvnpy.dynamics.linear_models import Integrator
 from uvnpy.toolkit.functions import logistic_saturation
 from uvnpy.network.disk_graph import adjacency_from_positions
-from uvnpy.distances.core import is_inf_rigid, rigidity_eigenvalue
+from uvnpy.distances.core import (
+    is_inf_rigid,
+    rigidity_eigenvalue,
+    sufficiently_dispersed_position,
+    minimum_rigidity_radius
+)
 from uvnpy.distances.control import (
-    CentralizedRigidityMaintenanceLogDet,
+    RigidityMaintenanceLogDet,
     CollisionAvoidance
+)
+from uvnpy.network.subframeworks import (
+    valid_extents,
+    sparse_subframeworks_greedy_search_by_expansion,
 )
 
 
@@ -106,7 +116,7 @@ class Robot(object):
         self.current_time = t
         self.self_centered_ball = {node_id} if (action_extent > 0) else set()
         self.in_balls = self.self_centered_ball
-        self.maintenance = CentralizedRigidityMaintenanceLogDet(
+        self.maintenance = RigidityMaintenanceLogDet(
             dim=2,
             dmax=0.95 * comm_range,
             steepness=50.0/comm_range
@@ -177,7 +187,6 @@ class Robot(object):
             # go to allocated target
             r = self.loc.position() - target
             d = np.sqrt(np.square(r).sum())
-            # v_collect = 1.0 if d < 100.0 else np.exp(1.0 - d/100.0)
             tracking_radius = 100.0    # radius
             forget_radius = 400.0      # radius
             v_collect_max = 2.5
@@ -201,7 +210,7 @@ class Robot(object):
                 self.loc.position(), obstacles_pos
             )
             # collision control gain
-            self.u_collision *= 40000.0    # entre 20k y 50k
+            self.u_collision *= 20000.0    # entre 10k y 50k
         else:
             self.u_collision = np.zeros(self.dim, dtype=float)
 
@@ -215,7 +224,6 @@ class Robot(object):
             p[1:] = list(position.values())
             # get rigidity maintenance control action
             u_sub = self.maintenance.update(p)
-            # u_sub = np.zeros((n_sub + 1, self.dim), dtype=float)
         else:
             u_sub = np.zeros((1, self.dim), dtype=float)
 
@@ -411,15 +419,12 @@ class World(object):
 
 
 class Targets(object):
-    def __init__(self, n, coverage):
-        self.set(n)
-        self.coverage = coverage
-
-    def set(self, n):
+    def __init__(self, density, length, coverage):
+        n = int(density * length**2)
         self.data = np.empty((n, 3), dtype=object)
-        self.data[:, :2] = np.random.uniform(0.0, 1000.0, (n, 2))
-
+        self.data[:, :2] = np.random.uniform(0.0, length * 1000.0, (n, 2))
         self.data[:, 2] = True
+        self.coverage = coverage
 
     def position(self):
         return self.data[:, :2]
@@ -450,9 +455,52 @@ class Targets(object):
         return self.data[:, 2].any()
 
 
+def valid_ball(subset, adjacency, position, max_diam):
+    """
+    A ball is considered valid if:
+        it has zero radius
+            or
+        (it does not exceeds the maximum allowed diameter
+            and
+        it is infinitesimally rigid)
+    """
+    if sum(subset) == 1:
+        return True
+
+    A = adjacency[:, subset][subset]
+    if core.geodesics(A).max() > max_diam:
+        return False
+
+    p = position[subset]
+    if not is_inf_rigid(A, p):
+        return False
+
+    return True
+
+
+@nb.njit
+def decomposition_cost(extents, geodesics):
+    """
+    Computes the set of isolated links (edges not in any subframework).
+    """
+    n = len(extents)
+    s = 0
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            if geodesics[i, j] == 1:
+                in_ball = (geodesics[i] <= extents) * (geodesics[j] <= extents)
+                # 1.0 if s > 2 else 5.0
+                c = sum(in_ball)
+                s += float(c) if c != 0 else 5.0
+    return s
+
+
 # ------------------------------------------------------------------
 # Función run
 # ------------------------------------------------------------------
+
+
 def initialize_robots():
     k = 0
     comm_events = 0
@@ -634,7 +682,7 @@ arg = parser.parse_args()
 # ------------------------------------------------------------------
 # Configuración
 # ------------------------------------------------------------------
-np.random.seed(0)
+np.random.seed(1)
 simu_time = arg.simu_time
 simu_step = arg.simu_step / 1000.0
 time_steps = [simu_step * k for k in range(int(simu_time / simu_step))]
@@ -650,23 +698,23 @@ print(
     .format(0.0, simu_time, comm_skip * simu_step)
 )
 
-position = np.array([
-    [162.343, 182.097],
-    [145.759, 104.870],
-    [82.645,  59.704],
-    [78.051, 158.593],
-    [14.097, 140.411],
-    [169.784,  91.930],
-    [25.618,  77.308],
-    [102.778, 164.405],
-    [176.862, 155.808],
-    [89.537,  91.138]
-])
+region_length = 4.0    # km
+# position = np.random.uniform(
+#     (0.0, 0.0),
+#     (300.0, 300.0),
+#     (30, 2)
+# )
 
-n, dim = position.shape
+n = 30
+position = sufficiently_dispersed_position(n, (0.0, 500.0), (0.0, 500.0), 30.0)
+adjacency_matrix, Rmin = minimum_rigidity_radius(
+    adjacency_from_positions(position, dmax=2/np.sqrt(n)),
+    position,
+    return_radius=True
+)
 
-comm_range = 100.0
-
+comm_range = np.ceil(Rmin / 5.0) * 5.0
+print(comm_range)
 adjacency_matrix = adjacency_from_positions(position, comm_range)
 print(
     'Adjacency list: \n' +
@@ -678,8 +726,20 @@ print(
 if not is_inf_rigid(adjacency_matrix, position):
     raise ValueError('Framework should be infinitesimally rigid.')
 
-# action_extents = np.array([1, 1, 1, 2, 2, 1, 2, 1, 1, 1], dtype=int)
-action_extents = np.array([0, 2, 0, 0, 0, 0, 0, 0, 0, 0], dtype=int)
+geodesics_matrix = core.geodesics(adjacency_matrix)
+max_diam = 4
+valid_action_extents = valid_extents(
+    geodesics_matrix,
+    valid_ball,
+    adjacency_matrix,
+    position,
+    max_diam
+)
+action_extents = sparse_subframeworks_greedy_search_by_expansion(
+    valid_extents=valid_action_extents,
+    metric=decomposition_cost,
+    geodesics=geodesics_matrix,
+)
 print(
     'Action extents: \n' +
     '\n'.join(
@@ -713,9 +773,9 @@ robots = Robots([
 index_map = {robots[i].node_id: i for i in range(n)}
 # print('Index map: {}'.format(index_map))
 
-n_targets = 80
-coverage = 30.0
-targets = Targets(n_targets, coverage)
+target_density = 80.0    # targets per km2
+target_coverage = 30.0
+targets = Targets(target_density, region_length, target_coverage)
 
 # ------------------------------------------------------------------
 # Simulación
