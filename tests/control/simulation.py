@@ -457,27 +457,22 @@ class Targets(object):
         return self.data[:, 2].any()
 
 
-def valid_ball(subset, adjacency, position, max_diam):
+def valid_ball(subset, adjacency, position):
     """
-    A ball is considered valid if:
+        A ball is considered valid if:
         it has zero radius
             or
-        (it does not exceeds the maximum allowed diameter
-            and
-        it is infinitesimally rigid)
+        it is infinitesimally rigid
     """
     if sum(subset) == 1:
         return True
 
     A = adjacency[:, subset][subset]
-    if core.geodesics(A).max() > max_diam:
-        return False
-
     p = position[subset]
-    if not is_inf_rigid(A, p):
-        return False
+    if is_inf_rigid(A, p):
+        return True
 
-    return True
+    return False
 
 
 @nb.njit
@@ -684,7 +679,7 @@ arg = parser.parse_args()
 # ------------------------------------------------------------------
 # Configuración
 # ------------------------------------------------------------------
-np.random.seed(1)
+np.random.seed(0)
 simu_time = arg.simu_time
 simu_step = arg.simu_step / 1000.0
 time_steps = [simu_step * k for k in range(int(simu_time / simu_step))]
@@ -701,11 +696,6 @@ print(
 )
 
 region_length = 4.0    # km
-# position = np.random.uniform(
-#     (0.0, 0.0),
-#     (300.0, 300.0),
-#     (30, 2)
-# )
 
 n = 30
 position = sufficiently_dispersed_position(n, (0.0, 500.0), (0.0, 500.0), 30.0)
@@ -716,7 +706,7 @@ adjacency_matrix, Rmin = minimum_rigidity_radius(
 )
 
 comm_range = np.ceil(Rmin / 5.0) * 5.0
-print(comm_range)
+print('Communication range: {}'.format(comm_range))
 adjacency_matrix = adjacency_from_positions(position, comm_range)
 print(
     'Adjacency list: \n' +
@@ -729,13 +719,12 @@ if not is_inf_rigid(adjacency_matrix, position):
     raise ValueError('Framework should be infinitesimally rigid.')
 
 geodesics_matrix = core.geodesics(adjacency_matrix)
-max_diam = 4
+max_extent = 2
 valid_action_extents = valid_extents(
-    geodesics_matrix,
-    valid_ball,
-    adjacency_matrix,
-    position,
-    max_diam
+    geodesics=geodesics_matrix,
+    condition=valid_ball,
+    max_extent=max_extent,
+    args=(adjacency_matrix, position)
 )
 action_extents = sparse_subframeworks_greedy_search_by_expansion(
     valid_extents=valid_action_extents,
