@@ -10,12 +10,13 @@ from numba import njit
 import itertools
 
 
-def valid_extents(geodesics, condition, *args):
+def valid_extents(geodesics, condition, max_extent=None, args=()):
     extents = []
     for g in geodesics:
         extents.append([])
-        ecc = int(g.max())
-        for h in range(ecc + 1):
+        if max_extent is None:
+            max_extent = int(g.max())
+        for h in range(max_extent + 1):
             subset = g <= h
             if condition(subset, *args):
                 extents[-1].append(h)

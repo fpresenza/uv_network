@@ -34,21 +34,16 @@ plt.rcParams['font.family'] = 'serif'
 markers = ['o', '^', 'v', 's', 'd', '<', '>']
 
 
-def valid_ball(subset, adjacency, position, max_diam):
+def valid_ball(subset, adjacency, position):
     """A ball is considered valid if:
         it has zero radius
             or
-        (it does not exceeds the maximum allowed diameter
-            and
-        it is infinitesimally rigid)
+        it is infinitesimally rigid
     """
     if sum(subset) == 1:
         return True
 
     A = adjacency[:, subset][subset]
-    if geodesics(A).max() > max_diam:
-        return False
-
     p = position[subset]
     if not is_inf_rigid(A, p):
         return False
@@ -88,19 +83,24 @@ parser.add_argument(
 )
 arg = parser.parse_args()
 
-n = 50
+n = 30
 if arg.seed >= 0:
     np.random.seed(arg.seed)
 
-p = sufficiently_dispersed_position(n, (0, 1), (0, 0.9), 0.1)
+p = sufficiently_dispersed_position(n, (0.0, 500.0), (0.0, 500.0), 30.0)
 
 A = adjacency_from_positions(p, dmax=2/np.sqrt(n))
 A, Rmin = minimum_rigidity_radius(A, p, return_radius=True)
 
+comm_range = np.ceil(Rmin / 5.0) * 5.0
+A = adjacency_from_positions(p, dmax=comm_range)
+
 G = geodesics(A)
 print("Graph diameter: {}".format(G.max()))
-max_diam = 4
-h_valid = valid_extents(G, valid_ball, A, p, max_diam)
+max_extent = 2
+h_valid = valid_extents(
+    G, condition=valid_ball, max_extent=max_extent,  args=(A, p)
+)
 print(h_valid)
 
 h_sparsed = sparse_subframeworks_greedy_search_by_expansion(
@@ -111,11 +111,13 @@ h_sparsed = sparse_subframeworks_greedy_search_by_expansion(
 
 h_sparsed_dece = np.empty(n, dtype=int)
 for i in range(n):
-    S = G[i] <= max_diam
+    S = G[i] <= 2 * max_extent
     Ai = A[:, S][S]
     pi = p[S]
     Gi = geodesics(Ai)
-    h_valid_i = valid_extents(Gi, valid_ball, Ai, pi, max_diam)
+    h_valid_i = valid_extents(
+        Gi, condition=valid_ball, max_extent=max_extent, args=(Ai, pi)
+    )
     h_sparsed_i = sparse_subframeworks_greedy_search_by_expansion(
         valid_extents=h_valid_i,
         metric=decomposition_cost,
@@ -137,8 +139,8 @@ ax.tick_params(
     labelsize='x-small'
 )
 ax.set_aspect('equal')
-ax.set_xlim(-0.05, 1.05)
-ax.set_ylim(-0.05, 1.05)
+ax.set_xlim(0.0, 500.0)
+ax.set_ylim(0.0, 500.0)
 ax.set_xticklabels([])
 ax.set_yticklabels([])
 
@@ -170,8 +172,8 @@ ax.tick_params(
 )
 # ax.grid(1, lw=0.4)
 ax.set_aspect('equal')
-ax.set_xlim(-0.05, 1.05)
-ax.set_ylim(-0.05, 1.05)
+ax.set_xlim(0.0, 500.0)
+ax.set_ylim(0.0, 500.0)
 ax.set_xticklabels([])
 ax.set_yticklabels([])
 
@@ -226,7 +228,6 @@ fig.savefig(
     '/tmp/sparse_rigidity_extents.png', format='png', dpi=360
 )
 
-
 fig, ax = plt.subplots(figsize=(2.25, 2.25))
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
@@ -237,8 +238,8 @@ ax.tick_params(
     labelsize='x-small'
 )
 ax.set_aspect('equal')
-ax.set_xlim(-0.05, 1.05)
-ax.set_ylim(-0.05, 1.05)
+ax.set_xlim(0.0, 500.0)
+ax.set_ylim(0.0, 500.0)
 ax.set_xticklabels([])
 ax.set_yticklabels([])
 
