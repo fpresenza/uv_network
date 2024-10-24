@@ -191,7 +191,7 @@ class Robot(object):
             d = np.sqrt(np.square(r).sum())
             tracking_radius = 100.0    # radius
             forget_radius = 400.0      # radius
-            v_collect_max = 2.5
+            v_collect_max = 2.0
             if d < tracking_radius:
                 v_collect = v_collect_max
             elif d < (tracking_radius + forget_radius):
@@ -212,7 +212,7 @@ class Robot(object):
                 self.loc.position(), obstacles_pos
             )
             # collision control gain
-            self.u_collision *= 20000.0    # entre 10k y 50k
+            self.u_collision *= 30000.0    # entre 10k y 50k
         else:
             self.u_collision = np.zeros(self.dim, dtype=float)
 
@@ -249,12 +249,13 @@ class Robot(object):
         self.u_rigidity *= 15.0    # entre 10 y 20
 
     def compose_actions(self):
-        # aplico acciones de control
+        # compose control actions from different objectives and
+        # apply logistic saturation
         self.last_control_action = logistic_saturation(
             self.u_target +
             self.u_collision +
             self.u_rigidity,
-            limit=2.5
+            limit=3.0
         )
 
     def velocity_measurement_step(self, vel_meas):
