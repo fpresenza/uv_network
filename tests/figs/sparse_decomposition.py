@@ -35,7 +35,8 @@ markers = ['o', '^', 'v', 's', 'd', '<', '>']
 
 
 def valid_ball(subset, adjacency, position):
-    """A ball is considered valid if:
+    """
+        A ball is considered valid if:
         it has zero radius
             or
         it is infinitesimally rigid
@@ -45,10 +46,10 @@ def valid_ball(subset, adjacency, position):
 
     A = adjacency[:, subset][subset]
     p = position[subset]
-    if not is_inf_rigid(A, p):
-        return False
+    if is_inf_rigid(A, p):
+        return True
 
-    return True
+    return False
 
 
 @njit
@@ -216,7 +217,7 @@ plot.edges(
 
 plot.edges(
     ax, p, Aiso,
-    lw=1.75, color='k', alpha=0.25, zorder=0
+    lw=0.3, color='k', alpha=0.6, zorder=0
 )
 
 ax.legend(
@@ -282,7 +283,7 @@ plot.edges(
 
 plot.edges(
     ax, p, Aiso,
-    lw=1.75, color='k', alpha=0.25, zorder=0
+    lw=0.3, color='k', alpha=0.6, zorder=0
 )
 
 ax.legend(
