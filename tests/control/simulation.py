@@ -24,7 +24,7 @@ from uvnpy.distances.core import (
     minimum_rigidity_radius
 )
 from uvnpy.distances.control import (
-    RigidityMaintenanceLogDet,
+    RigidityMaintenance,
     CollisionAvoidance
 )
 from uvnpy.network.subframeworks import (
@@ -116,10 +116,12 @@ class Robot(object):
         self.current_time = t
         self.self_centered_ball = {node_id} if (action_extent > 0) else set()
         self.in_balls = self.self_centered_ball
-        self.maintenance = RigidityMaintenanceLogDet(
+        self.maintenance = RigidityMaintenance(
             dim=2,
             dmax=0.95 * comm_range,
-            steepness=50.0/comm_range
+            steepness=50.0/comm_range,
+            eigenvalues='all',
+            functional='log'
         )
         self.collision = CollisionAvoidance(power=2.0)
         self.u_target = np.zeros(self.dim, dtype=float)
