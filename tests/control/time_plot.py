@@ -361,9 +361,9 @@ ax.grid(1, lw=0.4)
 
 ax.set_xlabel(r'$t$ [$s$]', fontsize=8)
 ax.set_ylabel('Autovalores \n de Rigidez', fontsize=8)
-for k, vertex in enumerate(np.where(action_extents[0] > 0)[0]):
+for vertex in np.where(np.any(action_extents > 0, axis=0))[0]:
     ax.semilogy(
-        t, re[:, k],
+        t, re[:, vertex],
         lw=0.8,
         marker='.',
         ds='steps-post',
