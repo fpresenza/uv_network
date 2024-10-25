@@ -94,9 +94,9 @@ n_steps = len(t)
 x = x.reshape(n_steps, n, 2)
 hatx = hatx.reshape(n_steps, n, 2)
 A = A.reshape(n_steps, n, n)
-teams = np.empty((n_steps, 2*n), dtype=int)
+teams = np.empty((n_steps, n), dtype=int)
 teams[:, :n] = np.minimum(1, action_extents)
-teams[:, n:] = -1 - np.arange(n)
+# teams[:, n:] = -1 - np.arange(n)
 targets = targets.reshape(n_steps, -1, 3)
 
 # ------------------------------------------------------------------
@@ -108,7 +108,8 @@ frames = np.empty((n_steps, 5), dtype=np.ndarray)
 steps = list(enumerate(t))
 for k, tk in steps:
     E = edges_from_adjacency(A[k])
-    X = np.vstack([x[k], x[k]])
+    # X = np.vstack([x[k], x[k]])
+    X = x[k]
     T = teams[k]
     Y = targets[k]
     frames[k] = tk, X, E, T, Y
