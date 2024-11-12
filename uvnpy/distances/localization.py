@@ -10,6 +10,61 @@ import numpy as np
 np.set_printoptions(precision=10)
 
 
+class StatelessKalmanFilter(object):
+    def __init__(
+            self,
+            input_covariance,
+            distance_measurement_covariance,
+            position_measurement_covariance):
+        self.input_covariance = input_covariance
+        self.distance_measurement_covariance = distance_measurement_covariance
+        self.position_measurement_covariance = position_measurement_covariance
+
+    def first_order_dynamic_step(
+            self,
+            position,
+            covariance,
+            elapsed_time,
+            input):
+        position = position + input * elapsed_time
+        covariance = covariance + self.input_covariance * (elapsed_time**2)
+        return position, covariance
+
+    def asynchronous_distance_measurement_step(
+            self,
+            position,
+            covariance,
+            distance_measurement,
+            anchor_position,
+            anchor_covariance):
+        r = position - anchor_position
+        d = np.sqrt(np.square(r).sum())
+
+        H = r.reshape(1, -1) / d
+
+        PHt = covariance.dot(H.T)
+        CHt = anchor_covariance.dot(H.T)
+        Pz = H.dot(PHt + CHt) + self.distance_measurement_covariance
+        K = PHt / Pz
+
+        position = position + K.dot(distance_measurement - d)
+        covariance = covariance - K.dot(H).dot(covariance)
+
+        return position, covariance
+
+    def position_measurement_step(
+            self,
+            position,
+            covariance,
+            position_measurement):
+        Pz = covariance + self.position_measurement_covariance
+        K = covariance.dot(np.linalg.inv(Pz))
+        position = position + K.dot(position_measurement - position)
+        covariance = covariance - K.dot(covariance)
+
+        return position, covariance
+
+
 class DecentralizedLocalization(object):
     def __init__(self, state, time=0.0):
         self.x = state.copy()
