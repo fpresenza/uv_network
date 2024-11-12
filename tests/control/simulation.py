@@ -190,13 +190,14 @@ class Robot(object):
             r = self.loc.position() - target
             d = np.sqrt(np.square(r).sum())
             tracking_radius = 100.0    # radius
-            forget_radius = 400.0      # radius
-            v_collect_max = 2.0
+            forget_radius = 800.0      # radius
+            v_collect_max = 2.5
             if d < tracking_radius:
                 v_collect = v_collect_max
-            elif d < (tracking_radius + forget_radius):
-                v_collect = v_collect_max * \
-                    (1.0 - (d - tracking_radius) / forget_radius)
+            elif d < forget_radius:
+                fade = (d - tracking_radius)/(forget_radius - tracking_radius)
+                factor = 1.0 - fade
+                v_collect = v_collect_max * factor
             else:
                 v_collect = 0.0
             self.u_target = - v_collect * r / d
