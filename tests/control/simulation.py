@@ -500,17 +500,16 @@ def decomposition_cost(extents, geodesics):
 # ------------------------------------------------------------------
 
 
-def initialize_robots():
-    k = 0
+def initialize_robots(simu_counter):
     comm_events = 0
     while comm_events < 2 * np.max(action_extents):
         # update clocks
-        t = time_steps.pop(0)
+        t = time_steps[simu_counter]
         for robot in robots:
             robot.update_clock(t)
 
         # communication step
-        if (k % comm_skip == 0):
+        if (simu_counter % comm_skip == 0):
             comm_events += 1
             logs.time_comm.append(t)
             world.cloud.append([[] for _ in robots])
@@ -562,30 +561,29 @@ def initialize_robots():
         world.update_adjacency()
         targets.update(world.positions())
 
-        k += 1
+        simu_counter += 1
 
     print(
         'Initialization completed after {} communication events.'
         .format(comm_events)
     )
 
-    return k
+    return simu_counter
 
 
-def run_mission(k):
+def run_mission(simu_counter, end_counter):
     bar = progressbar.ProgressBar(maxval=arg.simu_time).start()
     perf_time = []
-
-    while len(time_steps) > 0:
+    while simu_counter < end_counter:
         t_a = time.perf_counter()
 
         # update clocks
-        t = time_steps.pop(0)
+        t = time_steps[simu_counter]
         for robot in robots:
             robot.update_clock(t)
 
         # communication step
-        if (k % comm_skip == 0):
+        if (simu_counter % comm_skip == 0):
             logs.time_comm.append(t)
             world.cloud.append([[] for _ in robots])
             for robot in robots:
@@ -642,7 +640,7 @@ def run_mission(k):
         world.update_adjacency()
         targets.update(world.positions())
 
-        k += 1
+        simu_counter += 1
 
         t_b = time.perf_counter()
         perf_time.append((t_b - t_a)/n)
@@ -654,6 +652,8 @@ def run_mission(k):
     st = sum(perf_time)
     prompt = 'ST={:.3f} secs (per robot), RT={:.3f} secs  ==>  RTF={:.3f}'
     print(prompt.format(st, rt, rt / st))
+
+    return simu_counter
 
 
 # ------------------------------------------------------------------
@@ -681,6 +681,11 @@ arg = parser.parse_args()
 # ------------------------------------------------------------------
 # Configuración
 # ------------------------------------------------------------------
+
+
+def index_of(t): return int(t / simu_step)
+
+
 np.random.seed(0)
 simu_time = arg.simu_time
 simu_step = arg.simu_step / 1000.0
@@ -793,7 +798,47 @@ logs = Logs(
     targets=[]
 )
 
-k = initialize_robots()
+simu_counter = 0
+for t_break in [200.0, 400.0, 600.0, 800.0]:
+    simu_counter = initialize_robots(simu_counter)
+    print(
+        'State extents: \n' +
+        '\n'.join(
+            '\t node = {}, extent = {}'
+            .format(robot.node_id, robot.state_extent)
+            for robot in robots
+        )
+    )
+    simu_counter = run_mission(simu_counter, end_counter=index_of(t_break))
+
+    position = world.positions()
+    adjacency_matrix = world.adjacency_matrix.copy().astype(float)
+    geodesics_matrix = core.geodesics(adjacency_matrix)
+    max_extent = 2
+    valid_action_extents = valid_extents(
+        geodesics=geodesics_matrix,
+        condition=valid_ball,
+        max_extent=max_extent,
+        args=(adjacency_matrix, position)
+    )
+    action_extents = sparse_subframeworks_greedy_search_by_expansion(
+        valid_extents=valid_action_extents,
+        metric=decomposition_cost,
+        geodesics=geodesics_matrix,
+    )
+    print(
+        'Action extents: \n' +
+        '\n'.join(
+            '\t node = {}, extent = {}'.format(i, r)
+            for i, r in enumerate(action_extents) if r > 0
+        )
+    )
+    for robot in robots:
+        node_index = index_map[robot.node_id]
+        robot.action_extent = action_extents[node_index]
+        robot.last_control_action = np.zeros(2, dtype=float)
+
+simu_counter = initialize_robots(simu_counter)
 print(
     'State extents: \n' +
     '\n'.join(
@@ -802,7 +847,7 @@ print(
         for robot in robots
     )
 )
-run_mission(k)
+simu_counter = run_mission(simu_counter, end_counter=index_of(1000.0))
 
 np.savetxt('data/t.csv', logs.time, delimiter=',')
 np.savetxt('data/tc.csv', logs.time_comm, delimiter=',')
