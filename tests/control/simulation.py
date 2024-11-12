@@ -253,9 +253,7 @@ class Robot(object):
         # compose control actions from different objectives and
         # apply logistic saturation
         self.last_control_action = logistic_saturation(
-            self.u_target +
-            self.u_collision +
-            self.u_rigidity,
+            (self.u_target + self.u_collision + self.u_rigidity) * 0.85,
             limit=3.0
         )
 
