@@ -123,10 +123,10 @@ class Animate2(object):
         self._extra_artists = []
 
     def set_xlim(self, t):
-        return (0.0, 1.0)
+        return self.ax.get_xlim()
 
     def set_ylim(self, t):
-        return (0.0, 1.0)
+        return self.ax.get_xlim()
 
     def set_teams(self, teams):
         self.teams = teams.copy()
