@@ -370,6 +370,8 @@ class World(object):
                 A = self.adjacency_matrix[np.ix_(subset, subset)]
                 p = self.positions(subset)
                 eigs.append(rigidity_eigenvalue(A, p))
+            else:
+                eigs.append(np.inf)
 
         return eigs
 
