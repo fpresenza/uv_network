@@ -150,7 +150,7 @@ def _classic_rigidity_laplacian(A, p):
     edges = np.argwhere(np.triu(A) > 0)
     for i, j in edges:
         dji = p[j] - p[i]
-        L[i, j] = L[j, i] = dji.reshape(d, 1).dot(dji.reshape(1, d))
+        L[i, j] = L[j, i] = -dji.reshape(d, 1).dot(dji.reshape(1, d))
         L[i, i] -= L[i, j]
         L[j, j] -= L[i, j]
 
