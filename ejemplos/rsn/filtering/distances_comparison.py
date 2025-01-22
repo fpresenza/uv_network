@@ -47,7 +47,7 @@ hatx = np.empty((len(tiempo), n, 2))
 hatx[0] = x[0] + np.random.normal(0, p, (n, 2))
 
 
-fig, ax = plt.subplots(figsize=(3.5, 2.5))
+fig, ax = plt.subplots(figsize=(4, 2.5))
 fig.subplots_adjust(bottom=0.2, left=0.21, right=0.91)
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
@@ -55,8 +55,8 @@ ax.tick_params(
     pad=1,
     labelsize='small')
 ax.grid(lw=0.4)
-ax.set_xlabel('Tiempo ($k$)', fontsize=10)
-ax.set_ylabel('Error cuádratico \n' + r'medio ($\xi / e$) [m]', fontsize=10)
+ax.set_xlabel('Step ($k$)', fontsize=10)
+ax.set_ylabel(r'Error ($\xi / |E|$) [$m^2$]', fontsize=10)
 
 # GD 1
 ##################
@@ -89,7 +89,7 @@ hatz = distances.from_edges(E, hatx)
 
 ax.semilogy(
     steps, np.square(d - hatz).sum(axis=1) / 2 / len(E),
-    label=r'GD $(\alpha = 0.15)$', lw=1)
+    label=r'GD $(\alpha = 0.15)$', lw=1, marker='o', markersize=3)
 
 fig2, ax2 = plot.figure(figsize=(2.5, 2.5))
 ax2.tick_params(
@@ -230,7 +230,7 @@ hatz = distances.from_edges(E, hatx)
 
 ax.semilogy(
     steps, np.square(d - hatz).sum(axis=1) / 2 / len(E),
-    label=r'GD $(\alpha_{BB})$', lw=1)
+    label=r'GD $(\alpha_{BB})$', lw=1, marker='s', markersize=3)
 
 fig2, ax2 = plot.figure(figsize=(2.5, 2.5))
 ax2.tick_params(
@@ -299,7 +299,7 @@ hatz = distances.from_edges(E, hatx)
 
 ax.semilogy(
     steps, np.square(d - hatz).sum(axis=1) / 2 / len(E),
-    label=r'FKA', lw=1)
+    label=r'DKF', lw=1, marker='x', markersize=3)
 
 fig2, ax2 = plot.figure(figsize=(2.5, 2.5))
 ax2.tick_params(
