@@ -135,6 +135,13 @@ def fast_degree_load_std(degree, hops, geodesics):
     return coeff.dot(degree).sum()
 
 
+@njit
+def fast_degree_load_flat(degree, hops, geodesics):
+    coeff = np.reshape(hops, (-1, 1)) - geodesics
+    coeff = np.clip(coeff, a_min=0, a_max=1)
+    return coeff.dot(degree).sum()
+
+
 def degree_load_flat(A, hops):
     """La funcion de peso es 1 para todo nodo en Vi excepto para
     aquellos en la frontera que tienen peso 0."""

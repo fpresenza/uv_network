@@ -8,7 +8,7 @@ import collections
 import numpy as np
 import progressbar
 
-from uvnpy.network.subsets import geodesics, fast_degree_load_std
+from uvnpy.network.subsets import geodesics, fast_degree_load_flat
 from uvnpy.rsn.rigidity import fast_extents, minimum_radius
 from uvnpy.rsn.distances import matrix as distance_matrix
 from uvnpy.rsn.distances import matrix_between as distance_between
@@ -81,28 +81,25 @@ def run(d, nmin, nmax, logs, threshold, rep):
 
             h = fast_extents(A, p, threshold)
             geo = geodesics(A)
-            deg = A.sum(axis=1)
             logs.diam[0, k, r] = np.max(geo)
             logs.hmax[0, k, r] = np.max(h)
-            logs.load[0, k, r] = fast_degree_load_std(deg, h, geo) / n
+            logs.load[0, k, r] = fast_degree_load_flat(A, h, geo) / n
             logs.edges[0, k, r] = np.sum(A) / 2
 
             A = disk_adjacency(p, dmax=Rmin + 0.05 * (Rmax - Rmin))
             h = fast_extents(A, p, threshold)
             geo = geodesics(A)
-            deg = A.sum(axis=1)
             logs.diam[1, k, r] = np.max(geo)
             logs.hmax[1, k, r] = np.max(h)
-            logs.load[1, k, r] = fast_degree_load_std(deg, h, geo) / n
+            logs.load[1, k, r] = fast_degree_load_flat(A, h, geo) / n
             logs.edges[1, k, r] = np.sum(A) / 2
 
             A = disk_adjacency(p, dmax=Rmin + 0.1 * (Rmax - Rmin))
             h = fast_extents(A, p, threshold)
             geo = geodesics(A)
-            deg = A.sum(axis=1)
             logs.diam[2, k, r] = np.max(geo)
             logs.hmax[2, k, r] = np.max(h)
-            logs.load[2, k, r] = fast_degree_load_std(deg, h, geo) / n
+            logs.load[2, k, r] = fast_degree_load_flat(A, h, geo) / n
             logs.edges[2, k, r] = np.sum(A) / 2
 
     bar.finish()
