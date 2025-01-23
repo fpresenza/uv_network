@@ -51,7 +51,7 @@ for i in range(3):
 # ------------------------------------------------------------------
 # Delay and Diameter
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(4, 3))
+fig, ax = plt.subplots(figsize=(4, 2.5))
 fig.subplots_adjust(bottom=0.2)
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
@@ -93,7 +93,7 @@ ax.legend(
 fig.savefig('/tmp/delay_vs_diam_1.png', format='png', dpi=360)
 # plt.show()
 
-fig, ax = plt.subplots(figsize=(4, 3))
+fig, ax = plt.subplots(figsize=(4, 2.5))
 fig.subplots_adjust(bottom=0.2)
 # ax.set_title(r'$\alpha = 0.1$')
 ax.tick_params(
@@ -132,7 +132,7 @@ ax.legend(
     labelspacing=0.5, borderpad=0.2, loc='upper left')
 fig.savefig('/tmp/delay_vs_diam_2.png', format='png', dpi=360)
 
-fig, ax = plt.subplots(figsize=(4, 3))
+fig, ax = plt.subplots(figsize=(4, 2.5))
 fig.subplots_adjust(bottom=0.2)
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
@@ -171,7 +171,7 @@ fig.savefig('/tmp/delay_vs_diam_3.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Load and Average Degree
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(4, 3))
+fig, ax = plt.subplots(figsize=(4, 2.5))
 fig.subplots_adjust(bottom=0.2)
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
@@ -213,7 +213,7 @@ ax.legend(
 )
 fig.savefig('/tmp/load_vs_edges_1.png', format='png', dpi=360)
 
-fig, ax = plt.subplots(figsize=(4, 3))
+fig, ax = plt.subplots(figsize=(4, 2.5))
 fig.subplots_adjust(bottom=0.2)
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
@@ -255,7 +255,7 @@ ax.legend(
 )
 fig.savefig('/tmp/load_vs_edges_2.png', format='png', dpi=360)
 
-fig, ax = plt.subplots(figsize=(4, 3))
+fig, ax = plt.subplots(figsize=(4, 2.5))
 fig.subplots_adjust(bottom=0.2)
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
@@ -300,7 +300,7 @@ fig.savefig('/tmp/load_vs_edges_3.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Min max radius
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(4, 3))
+fig, ax = plt.subplots(figsize=(4, 2.5))
 fig.subplots_adjust(bottom=0.2, left=0.23)
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
@@ -343,7 +343,7 @@ fig.savefig('/tmp/min_max_radius.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Minimum alpha
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(4, 3))
+fig, ax = plt.subplots(figsize=(4, 2.5))
 fig.subplots_adjust(bottom=0.2, left=0.23)
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
