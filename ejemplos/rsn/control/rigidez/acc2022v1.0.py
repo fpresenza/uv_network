@@ -22,7 +22,7 @@ from uvnpy.toolkit.calculus import gradient
 # ------------------------------------------------------------------
 # Definición de variables globales, funciones y clases
 # ------------------------------------------------------------------
-Logs = collections.namedtuple('Logs', 'x hatx u fre re adjacency')
+Logs = collections.namedtuple('Logs', 'x hatx u fre re adjacency hops')
 
 
 def load(x, coeff, dmin, dmax):
@@ -164,6 +164,7 @@ def run(steps, logs, t_perf, A, dinamica):
         logs.fre[k] = rigidity.eigenvalue(A, x)
         logs.re[k] = re
         logs.adjacency[k] = A.ravel()
+        logs.hops[k] = hops
 
         t_perf.append((t_b - t_a)/n)
         bar.update(np.round(t, 3))
@@ -301,7 +302,8 @@ logs = Logs(
     u=np.empty((tiempo.size, n*dim)),
     fre=np.zeros(tiempo.size),
     re=np.zeros((tiempo.size, n)),
-    adjacency=np.empty((tiempo.size, n**2), dtype=int))
+    adjacency=np.empty((tiempo.size, n**2), dtype=int),
+    hops=np.empty((tiempo.size, n), dtype=int))
 logs.x[0] = x.ravel()
 logs.hatx[0] = hatx.ravel()
 logs.u[0] = np.zeros(n*dim)
@@ -309,6 +311,7 @@ logs.fre[0] = rigidity.eigenvalue(A, x)
 logs.re[0] = [
     rigidity.subframework_eigenvalue(A, x, i, h) for i, h in enumerate(hops)]
 logs.adjacency[0] = A.ravel()
+logs.hops[0] = hops
 
 # ------------------------------------------------------------------
 # Simulación
@@ -322,7 +325,7 @@ np.savetxt('/tmp/u.csv', logs.u, delimiter=',')
 np.savetxt('/tmp/fre.csv', logs.fre, delimiter=',')
 np.savetxt('/tmp/re.csv', logs.re, delimiter=',')
 np.savetxt('/tmp/adjacency.csv', logs.adjacency, delimiter=',')
-np.savetxt('/tmp/hops.csv', hops, delimiter=',')
+np.savetxt('/tmp/hops.csv', logs.hops, delimiter=',')
 
 st = arg.tf - arg.ti
 rt = sum(t_perf)
