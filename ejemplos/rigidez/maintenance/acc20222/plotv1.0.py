@@ -18,16 +18,16 @@ plt.rcParams['font.family'] = 'serif'
 
 # extraigo datos
 t = np.loadtxt('/tmp/t.csv', delimiter=',')
-x = np.loadtxt('/tmp/x.csv', delimiter=',')
-hatx = np.loadtxt('/tmp/hatx.csv', delimiter=',')
-u = np.loadtxt('/tmp/u.csv', delimiter=',')
+x = np.loadtxt('/tmp/position.csv', delimiter=',')
+hatx = np.loadtxt('/tmp/est_position.csv', delimiter=',')
+u = np.loadtxt('/tmp/action.csv', delimiter=',')
 fre = np.loadtxt('/tmp/fre.csv', delimiter=',')
 re = np.loadtxt('/tmp/re.csv', delimiter=',')
 A = np.loadtxt('/tmp/adjacency.csv', delimiter=',')
-hops = np.loadtxt('/tmp/hops.csv', delimiter=',')
+hops = np.loadtxt('/tmp/extents.csv', delimiter=',')
 n = int(len(x[0])/2)
 nodes = np.arange(n)
-hops = hops.astype(int)
+hops = hops[0].astype(int)
 
 # reshapes
 x = x.reshape(len(t), n, 2)
@@ -37,7 +37,7 @@ A = A.reshape(len(t), n, n)
 
 
 # slice
-kf = np.argmin(np.abs(t - 200))
+kf = np.argmin(np.abs(t - 400))
 t = t[:kf]
 x = x[:kf]
 hatx = hatx[:kf]
@@ -96,7 +96,7 @@ ax.fill_between(t, re.min(axis=1), re.max(axis=1), alpha=0.5)
 ax.set_ylim(bottom=1e-3)
 ax.legend(
     fontsize='medium', handlelength=1.5,
-    labelspacing=0.5, borderpad=0.2)
+    labelspacing=0.5, borderpad=0.2, loc='lower right')
 fig.savefig('/tmp/eigenvalues.png', format='png', dpi=300)
 
 fig, ax = plt.subplots(figsize=(4, 2.5))
@@ -129,7 +129,6 @@ ax.legend(
 fig.savefig('/tmp/load.png', format='png', dpi=300)
 
 # instantes
-hops = hops[0]
 instants = np.array([0., 10, 20, 50, 100, 200])
 lim = np.abs(x).max()
 one_hop_rigid = hops == 1
@@ -138,17 +137,18 @@ three_hop_rigid = hops == 3
 four_hop_rigid = hops == 4
 
 for i, tk in enumerate(instants):
-    fig, ax = plt.subplots(figsize=(2.2, 2))
+    fig, ax = plt.subplots(figsize=(2.5, 2.5))
+    fig.subplots_adjust(left=0.2)
     ax.tick_params(
         axis='both',       # changes apply to the x-axis
         which='both',      # both major and minor ticks are affected
         pad=1,
-        labelsize='xx-small')
+        labelsize='x-small')
     ax.grid(1, lw=0.4)
     ax.set_aspect('equal')
 
-    a = 10 * (lim // 10 + 1)
-    b = a // 2
+    a = int(10 * (lim // 10 + 1))
+    b = int(a // 2)
     ax.set_xlim(-a, a)
     ax.set_ylim(-a, a)
     ax.set_xticks([-a, -b, 0, b, a])
@@ -160,44 +160,28 @@ for i, tk in enumerate(instants):
     ax.text(
             0.05, 0.01, r't = {:.2f}s'.format(tk),
             verticalalignment='bottom', horizontalalignment='left',
-            transform=ax.transAxes, color='k', fontsize=5)
+            transform=ax.transAxes, color='r', fontsize=6)
 
     network.plot.nodes(
-        ax, x[k, one_hop_rigid],
-        marker='o', color='royalblue', s=7, zorder=20, label=r'$h=1$')
-    network.plot.nodes(
-        ax, x[k, two_hop_rigid],
-        marker='D', color='chocolate', s=7, zorder=20, label=r'$h=2$')
-    network.plot.nodes(
-        ax, x[k, three_hop_rigid],
-        marker='s', color='mediumseagreen', s=7, zorder=20, label=r'$h=3$')
-    network.plot.nodes(
-        ax, x[k, four_hop_rigid],
-        marker='^', color='purple', s=7, zorder=10, label=r'$h=4$')
+        ax, x[k],
+        marker='o', color='royalblue', s=7, zorder=20)
     network.plot.edges(ax, x[k], A[k], color='k', lw=0.5)
-
     network.plot.nodes(
-        ax, x[max(0, k-600):k:20, one_hop_rigid],
+        ax, x[max(0, k-600):k:20],
         marker='.', color='royalblue', s=1, zorder=1, lw=0.5)
-    network.plot.nodes(
-        ax, x[max(0, k-600):k:20, two_hop_rigid],
-        marker='.', color='chocolate', s=1, zorder=1, lw=0.5)
-    network.plot.nodes(
-        ax, x[max(0, k-600):k:20, three_hop_rigid],
-        marker='.', color='mediumseagreen', s=1, zorder=1, lw=0.5)
-    network.plot.nodes(
-        ax, x[max(0, k-600):k:20, four_hop_rigid],
-        marker='.', color='purple', s=1, zorder=1, lw=0.5)
 
-    if i == 0:
-        ax.legend(
-            fontsize='xx-small',
-            handletextpad=0.0,
-            borderpad=0.2,
-            ncol=4, columnspacing=0.2,
-            loc='upper center')
+    # if i == 0:
+    #     ax.legend(
+    #         fontsize='xx-small',
+    #         handletextpad=0.0,
+    #         borderpad=0.2,
+    #         ncol=4, columnspacing=0.2,
+    #         loc='upper center')
 
-    fig.savefig('/tmp/instants_{}.png'.format(int(tk)), format='png', dpi=300)
+    fig.savefig(
+        '/tmp/instants_{}.png'.format(int(tk)),
+        format='png', dpi=360, bbox_inches='tight'
+    )
 
 
 # animacion

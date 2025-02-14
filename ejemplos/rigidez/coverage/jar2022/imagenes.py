@@ -105,9 +105,8 @@ fig.savefig('/tmp/control.png', format='png', dpi=360)
 
 """ Position """
 """ x """
-fig, ax = plt.subplots(figsize=(2.75, 1.75))
-fig.subplots_adjust(
-    bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.2)
+fig, ax = plt.subplots(figsize=(4, 2.5))
+fig.subplots_adjust(bottom=0.2, left=0.15)
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
@@ -115,8 +114,8 @@ ax.tick_params(
     labelsize='small')
 ax.grid(1, lw=0.4)
 
-ax.set_xlabel(r'$t$ [$sec$]', fontsize='10')
-ax.set_ylabel('posición-$x$ [$m$]', fontsize='10')
+ax.set_xlabel(r'Time [$s$]', fontsize=10)
+ax.set_ylabel('$x$-coordinate [$m$]', fontsize=10)
 ax.plot(t[ki:kf], x[ki:kf, :, 0], lw=0.9)
 fig.savefig('/tmp/pos_x.png', format='png', dpi=360)
 
@@ -134,7 +133,7 @@ ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$t$ [$sec$]', fontsize='10')
 ax.set_ylabel('posición-$y$ [$m$]', fontsize='10')
 ax.plot(t[ki:kf], x[ki:kf, :, 1], lw=0.9)
-fig.savefig('/tmp/pos_y.png', format='png', dpi=360)
+fig.savefig('/tmp/pos_y.png', format='png', dpi=360, bbox_inches='tight')
 
 """ Metrics """
 """ eigenvalues """
@@ -203,7 +202,7 @@ ax.legend(
 fig.savefig('/tmp/pos_error.png', format='png', dpi=360)
 
 """ INSTANTS """
-instants = np.array([0, 40, 125, 250, 300, 400])
+instants = np.array([0, 7, 40, 125, 200, 250])
 # lim = np.abs(x).max()
 lim = 40
 
@@ -232,43 +231,34 @@ for i, tk in enumerate(instants):
     ax.text(
             0.05, 0.01, r't = {:.2f}s'.format(tk),
             verticalalignment='bottom', horizontalalignment='left',
-            transform=ax.transAxes, color='r', fontsize=8)
+            transform=ax.transAxes, color='r', fontsize=6)
 
     one_hop_rigid = extents[k] == 1
     two_hop_rigid = extents[k] == 2
     three_hop_rigid = extents[k] == 3
 
     network.plot.nodes(
-        ax, x[k, one_hop_rigid],
-        marker='o', color='royalblue', s=8, zorder=20, label=r'$h_0=1$')
-    network.plot.nodes(
-        ax, x[k, two_hop_rigid],
-        marker='D', color='chocolate', s=8, zorder=20, label=r'$h_0=2$')
-    network.plot.nodes(
-        ax, x[k, three_hop_rigid],
-        marker='s', color='mediumseagreen', s=8, zorder=20, label=r'$h_0=3$')
+        ax, x[k],
+        marker='o', color='royalblue', s=8, zorder=20)
     network.plot.edges(ax, x[k], A[k], color='k', lw=0.5)
 
     untracked = targets[k, :, 2].astype(bool)
     tracked = np.logical_not(untracked)
     ax.scatter(
         targets[k, untracked, 0], targets[k, untracked, 1],
-        marker='s', s=4, color='0.6')
+        marker='s', s=4, color='0.3')
     ax.scatter(
         targets[k, tracked, 0], targets[k, tracked, 1],
-        marker='s', s=4, color='0.2')
+        marker='x', s=4, color='0.3', lw=0.4)
 
     network.plot.nodes(
-        ax, x[max(0, k-150):k+1:5, one_hop_rigid],
+        ax, x[max(0, k-150):k+1:5],
         marker='.', color='royalblue', s=1, zorder=1, lw=0.5)
-    network.plot.nodes(
-        ax, x[max(0, k-150):k+1:5, two_hop_rigid],
-        marker='.', color='chocolate', s=1, zorder=1, lw=0.5)
-    network.plot.nodes(
-        ax, x[max(0, k-150):k+1:5, three_hop_rigid],
-        marker='.', color='mediumseagreen', s=1, zorder=1, lw=0.5)
 
-    fig.savefig('/tmp/instants_{}.png'.format(int(tk)), format='png', dpi=360)
+    fig.savefig(
+        '/tmp/instants_{}.png'.format(int(tk)),
+        format='png', dpi=360, bbox_inches='tight'
+    )
 
 fig, ax = plt.subplots(figsize=(2.5, 2.5))
 fig.subplots_adjust(left=0.15)

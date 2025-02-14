@@ -65,8 +65,7 @@ ax.set_xticks(np.arange(20, nmax + 1, 20))
 ax.set_xticklabels(np.arange(20, nmax + 1, 20))
 ax.plot(
     nodes, 2 * np.median(hmax[0], axis=1),
-    label=r'$\mathrm{delay}(h_m)$', lw=1, marker='o', markersize=4
-)
+    label=r'$\mathrm{RTD}$', marker='o', markersize=4, markevery=4, lw=0.7)
 # ax.fill_between(
 #     nodes,
 #     2 * np.quantile(hmax[0], 0.25, axis=1),
@@ -75,8 +74,7 @@ ax.plot(
 # )
 ax.plot(
     nodes, np.median(diam[0], axis=1),
-    label=r'$\mathrm{diam}(G)$', lw=1, marker='s', markersize=4
-)
+    label=r'$\mathrm{diam}$', marker='s', markersize=3, markevery=4, lw=0.7)
 # ax.fill_between(
 #     nodes,
 #     np.quantile(diam[0], 0.25, axis=1),
@@ -107,8 +105,7 @@ ax.set_xticks(np.arange(20, nmax + 1, 20))
 ax.set_xticklabels(np.arange(20, nmax + 1, 20))
 ax.plot(
     nodes, 2 * np.median(hmax[1], axis=1),
-    label=r'$\mathrm{delay}(h_m)$', lw=1, marker='o', markersize=4
-)
+    label=r'$\mathrm{RTD}$', marker='o', markersize=3, markevery=4, lw=0.7)
 # ax.fill_between(
 #     nodes,
 #     2 * np.quantile(hmax[1], 0.25, axis=1),
@@ -116,8 +113,7 @@ ax.plot(
 #     alpha=0.3)
 ax.plot(
     nodes, np.median(diam[1], axis=1),
-    label=r'$\mathrm{diam}(G)$', lw=1, marker='s', markersize=4
-)
+    label=r'$\mathrm{diam}$', marker='s', markersize=3, markevery=4, lw=0.7)
 # ax.fill_between(
 #     nodes,
 #     np.quantile(diam[1], 0.25, axis=1),
@@ -145,7 +141,7 @@ ax.set_xticks(np.arange(20, nmax + 1, 20))
 ax.set_xticklabels(np.arange(20, nmax + 1, 20))
 ax.plot(
     nodes, 2 * np.median(hmax[2], axis=1),
-    label=r'$\mathrm{delay}(h_m)$', lw=1, marker='o', markersize=4)
+    label=r'$\mathrm{RTD}$', marker='o', markersize=3, markevery=4, lw=0.7)
 # ax.fill_between(
 #     nodes,
 #     2 * np.quantile(hmax[2], 0.25, axis=1),
@@ -153,7 +149,7 @@ ax.plot(
 #     alpha=0.3)
 ax.plot(
     nodes, np.median(diam[2], axis=1),
-    label=r'$\mathrm{diam}(G)$', lw=1, marker='s', markersize=4)
+    label=r'$\mathrm{diam}$', marker='s', markersize=3, markevery=4, lw=0.7)
 # ax.fill_between(
 #     nodes,
 #     np.quantile(diam[2], 0.25, axis=1),
@@ -185,8 +181,7 @@ ax.set_xticks(np.arange(20, nmax + 1, 20))
 ax.set_xticklabels(np.arange(20, nmax + 1, 20))
 ax.plot(
     nodes, np.median(load[0], axis=1),
-    label=r'$\mathrm{load}(G, h_m)$', lw=1, marker='o', markersize=4
-)
+    label=r'$\mathrm{CL}$', marker='o', markersize=3, markevery=4, lw=0.7)
 # ax.fill_between(
 #     nodes,
 #     np.quantile(load[0], 0.25, axis=1),
@@ -195,8 +190,7 @@ ax.plot(
 # )
 ax.plot(
     nodes, 2 * np.median(edges[0], axis=1) / nodes,
-    label=r'$\mathrm{deg}(G)$', lw=1, marker='s', markersize=4
-)
+    label=r'$\mathrm{deg}$', marker='s', markersize=3, markevery=4, lw=0.7)
 # ax.fill_between(
 #     nodes,
 #     2 * np.quantile(edges[0], 0.25, axis=1) / nodes,
@@ -227,8 +221,7 @@ ax.set_xticks(np.arange(20, nmax + 1, 20))
 ax.set_xticklabels(np.arange(20, nmax + 1, 20))
 ax.plot(
     nodes, np.median(load[1], axis=1),
-    label=r'$\mathrm{load}(G, h_m)$', lw=1, marker='o', markersize=4
-)
+    label=r'$\mathrm{CL}$', marker='o', markersize=3, markevery=4, lw=0.7)
 # ax.fill_between(
 #     nodes,
 #     np.quantile(load[1], 0.25, axis=1),
@@ -237,8 +230,7 @@ ax.plot(
 # )
 ax.plot(
     nodes, 2 * np.median(edges[1], axis=1) / nodes,
-    label=r'$\mathrm{deg}(G)$', lw=1, marker='s', markersize=4
-)
+    label=r'$\mathrm{deg}$', marker='s', markersize=3, markevery=4, lw=0.7)
 # ax.fill_between(
 #     nodes,
 #     2 * np.quantile(edges[1], 0.25, axis=1) / nodes,
@@ -269,8 +261,7 @@ ax.set_xticks(np.arange(20, nmax + 1, 20))
 ax.set_xticklabels(np.arange(20, nmax + 1, 20))
 ax.plot(
     nodes, np.median(load[2], axis=1),
-    label=r'$\mathrm{load}(G, h_m)$', lw=1, marker='o', markersize=4
-)
+    label=r'$\mathrm{CL}$', marker='o', markersize=3, markevery=4, lw=0.7)
 # ax.fill_between(
 #     nodes,
 #     np.quantile(load[2], 0.25, axis=1),
@@ -279,8 +270,7 @@ ax.plot(
 # )
 ax.plot(
     nodes, 2 * np.median(edges[2], axis=1) / nodes,
-    label=r'$\mathrm{deg}(G)$', lw=1, marker='s', markersize=4
-)
+    label=r'$\mathrm{deg}$', marker='s', markersize=3, markevery=4, lw=0.7)
 # ax.fill_between(
 #     nodes,
 #     2 * np.quantile(edges[2], 0.25, axis=1) / nodes,
