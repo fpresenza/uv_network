@@ -29,14 +29,16 @@ def minimum_alpha(A, p, dist, Rmin, Rmax, threshold=1e-5):
     """Calcula el alpha necesario para que todos los subframeworks
     tengan alcance unitario"""
     A = A.copy()
-    h = minimum_rigidity_extents(A, p, threshold)
+    G = geodesics(A)
+    h = minimum_rigidity_extents(G, p, threshold)
     if np.all(h == 1):
         return 0.
     else:
         radius = np.unique(dist[dist > Rmin])
         for R in radius:
             A[dist == R] = 1
-            h = minimum_rigidity_extents(A, p, threshold)
+            G = geodesics(A)
+            h = minimum_rigidity_extents(G, p, threshold)
             if np.all(h == 1):
                 return (R - Rmin) / (Rmax - Rmin)
 
@@ -74,24 +76,24 @@ def run(d, nmin, nmax, logs, threshold, rep):
             logs.rmin[k, r] = Rmin
             logs.alpha[k, r] = Alpha
 
-            h = minimum_rigidity_extents(A, p, threshold)
             G = geodesics(A)
+            h = minimum_rigidity_extents(G, p, threshold)
             logs.diam[0, k, r] = np.max(G)
             logs.hmax[0, k, r] = np.max(h)
             logs.load[0, k, r] = network_load(G, h)
             logs.edges[0, k, r] = np.sum(A) / 2
 
             A = adjacency_from_positions(p, dmax=Rmin + 0.05 * (Rmax - Rmin))
-            h = minimum_rigidity_extents(A, p, threshold)
             G = geodesics(A)
+            h = minimum_rigidity_extents(G, p, threshold)
             logs.diam[1, k, r] = np.max(G)
             logs.hmax[1, k, r] = np.max(h)
             logs.load[1, k, r] = network_load(G, h)
             logs.edges[1, k, r] = np.sum(A) / 2
 
             A = adjacency_from_positions(p, dmax=Rmin + 0.1 * (Rmax - Rmin))
-            h = minimum_rigidity_extents(A, p, threshold)
             G = geodesics(A)
+            h = minimum_rigidity_extents(G, p, threshold)
             logs.diam[2, k, r] = np.max(G)
             logs.hmax[2, k, r] = np.max(h)
             logs.load[2, k, r] = network_load(G, h)
