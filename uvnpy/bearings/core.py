@@ -5,6 +5,8 @@
 @institute LAR - FIUBA, Universidad de Buenos Aires, Argentina
 @date mar feb 14 11:23:21 -03 2025
 """
+import numpy as np
+# from transformations import unit_vector
 from numba import njit
 
 
@@ -14,7 +16,25 @@ THRESHOLD_SV = 1e-3
 
 @njit
 def rigidity_matrix(A, p):
-    return
+    n, d = p.shape
+    m = int(A.sum() / 2)
+    Id = np.eye(d)
+    R = np.zeros((m*d, n*d))
+    e = 0
+    for i in range(n):
+        for j in range(i+1, n):
+            if A[i, j] == 1:
+                x = p[i] - p[j]
+                q = np.dot(x, x)
+                P = Id - np.dot(x.reshape(-1, 1), x.reshape(1, -1)) / q
+                M = P / np.sqrt(q)
+                di = d * i
+                dj = d * j
+                de = d * e
+                R[de:de + d, di:di + d] = M
+                R[de:de + d, dj:dj + d] = -M
+                e += 1
+    return R
 
 
 def rigidity_matrix_multiple_axes(D, p):
@@ -57,7 +77,9 @@ def rigidity_laplacian_multiple_axes(A, p):
 
 
 def is_inf_rigid(A, p, threshold=THRESHOLD_SV):
-    return
+    n, d = p.shape
+    R = rigidity_matrix(A, p)
+    return np.linalg.matrix_rank(R, tol=threshold) == n*d - d - 1
 
 
 def rigidity_eigenvalue(A, p):
