@@ -37,19 +37,6 @@ def rigidity_matrix(A, p):
     return R
 
 
-def rigidity_matrix_multiple_axes(D, p):
-    """Matriz de rigidez
-
-    args:
-        D: matriz de incidencia (n, m)
-        p: array de posiciones (n, d)
-
-    returns
-        R: jacobiano (ne, n * d)
-    """
-    return
-
-
 @njit
 def _rigidity_laplacian(A, p):
     return
@@ -92,4 +79,18 @@ def minimum_rigidity_extents(geodesics, p, threshold=THRESHOLD_SV):
     ---------
         framework is rigid
     """
-    return
+    n, d = p.shape
+    A = geodesics.copy()
+    A[A > 1] = 0
+    extents = np.empty(n, dtype=int)
+    for i in range(n):
+        minimum_found = False
+        h = 0
+        while not minimum_found:
+            h += 1
+            subset = geodesics[i] <= h
+            Ai = A[np.ix_(subset, subset)]
+            pi = p[subset]
+            minimum_found = is_inf_rigid(Ai, pi, threshold)
+        extents[i] = h
+    return extents
