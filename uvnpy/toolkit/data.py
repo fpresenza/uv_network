@@ -2,6 +2,16 @@ import csv
 import numpy as np
 
 
+def write_csv(file_path, data, one_row=False):
+    with open(file_path, 'w', newline='') as f:
+        writer = csv.writer(f)
+        if one_row:
+            writer.writerow(data)
+        else:
+            for row in data:
+                writer.writerow(row)
+
+
 def read_csv(
         file_path,
         rows=(0, 1),
