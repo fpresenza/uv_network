@@ -57,6 +57,7 @@ class TokenPassing(object):
         if len(self.action) > 0:
             return np.max(
                [token.hops_to_target for token in self.action.values()]
+               # TODO!: try token.hops_travelled
             )
         else:
             return 0
