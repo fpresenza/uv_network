@@ -24,15 +24,15 @@ def rigidity_matrix(A, p):
     for i in range(n):
         for j in range(i+1, n):
             if A[i, j] == 1:
-                x = p[i] - p[j]
+                x = p[j] - p[i]
                 q = np.dot(x, x)
                 P = Id - np.dot(x.reshape(-1, 1), x.reshape(1, -1)) / q
                 M = P / np.sqrt(q)
                 di = d * i
                 dj = d * j
                 de = d * e
-                R[de:de + d, di:di + d] = M
-                R[de:de + d, dj:dj + d] = -M
+                R[de:de + d, di:di + d] = -M
+                R[de:de + d, dj:dj + d] = M
                 e += 1
     return R
 
