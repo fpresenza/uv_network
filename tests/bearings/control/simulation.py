@@ -420,24 +420,24 @@ class World(object):
 
 
 class Targets(object):
-    def __init__(self, density, length, coverage):
-        n = int(density * length**2)
-        self.data = np.empty((n, 3), dtype=object)
-        self.data[:, :2] = np.random.uniform(0.0, length * 1000.0, (n, 2))
-        self.data[:, 2] = True
+    def __init__(self, n, side_length, height, coverage):
+        self.data = np.empty((n, 4), dtype=object)
+        self.data[:, :2] = np.random.uniform(0.0, side_length, (n, 2))
+        self.data[:, 2] = 5.0 + np.random.uniform(0.0, height, n)
+        self.data[:, 3] = True
         self.coverage = coverage
 
     def position(self):
-        return self.data[:, :2]
+        return self.data[:, :3]
 
     def untracked(self):
-        return self.data[:, 2]
+        return self.data[:, 3]
 
     def allocation(self, p):
         alloc = {i: None for i in range(len(p))}
-        untracked = self.data[:, 2].astype(bool)
+        untracked = self.data[:, 3].astype(bool)
         if untracked.any():
-            targets = self.data[untracked, :2].astype(float)
+            targets = self.data[untracked, :3].astype(float)
             r = p[:, None] - targets
             d2 = np.square(r).sum(axis=-1)
             for i in range(len(p)):
@@ -447,13 +447,13 @@ class Targets(object):
         return alloc
 
     def update(self, p):
-        r = p[..., None, :] - self.data[:, :2]
+        r = p[..., None, :] - self.data[:, :3]
         d2 = np.square(r).sum(axis=-1)
         c2 = (d2 < self.coverage**2).any(axis=0)
-        self.data[c2, 2] = False
+        self.data[c2, 3] = False
 
     def unfinished(self):
-        return self.data[:, 2].any()
+        return self.data[:, 3].any()
 
 # ------------------------------------------------------------------
 # Función run
@@ -666,7 +666,6 @@ print(
 
 # world parameters
 
-region_length = 0.1    # km
 
 n = 20
 position = np.zeros((n, 3), dtype=float)
@@ -728,9 +727,12 @@ robots = Robots([
 index_map = {robots[i].node_id: i for i in range(n)}
 # print('Index map: {}'.format(index_map))
 
-target_density = 80.0    # targets per km2
-target_coverage = 30.0
-targets = Targets(target_density, region_length, target_coverage)
+targets = Targets(
+    n=100,
+    side_length=100.0,
+    height=45.0,
+    target_coverage=5.0
+)
 
 # ------------------------------------------------------------------
 # Simulación
