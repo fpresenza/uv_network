@@ -626,7 +626,7 @@ parser.add_argument(
 )
 parser.add_argument(
     '-c', '--comm_skip',
-    default=1, type=int, help='communication step in milli seconds'
+    default=1, type=int, help='communication skip in number of simu_step'
 )
 parser.add_argument(
     '-q', '--queue',
@@ -646,7 +646,7 @@ np.random.seed(0)
 simu_time = arg.simu_time
 simu_step = arg.simu_step / 1000.0
 time_steps = [simu_step * k for k in range(int(simu_time / simu_step))]
-n_steps = len(time_steps)
+n_steps = int(simu_time / simu_step)
 comm_skip = arg.comm_skip
 
 print(
