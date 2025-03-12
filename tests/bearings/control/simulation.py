@@ -707,17 +707,17 @@ world = World(
     robot_dynamics=[Integrator(position[i]) for i in range(n)],
     network=adjacency_matrix,
     comm_range=comm_range,
-    gps_available=[6, 8],
-    vel_meas_stdev=0.15,
-    bearing_meas_stdev=10.0,
-    gps_meas_stdev=10.0,
+    gps_available=range(n),
+    vel_meas_stdev=0.0,
+    bearing_meas_stdev=0.0,
+    gps_meas_stdev=0.0,
     queue=arg.queue
 )
 
 robots = Robots([
     Robot(
         node_id=i,
-        pos=np.random.normal(position[i],  5.0),
+        pos=np.random.normal(position[i],  0.0),
         comm_range=comm_range,
         action_extent=int(action_extents[i]),
         # state_extent=2
