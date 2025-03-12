@@ -9,7 +9,7 @@ import copy
 import transformations
 
 from uvnpy.network import core
-from uvnpy.bearings.localization import FirstOrderKalmanFilter
+from uvnpy.bearings.localization import FirstOrderGradientFilter
 from uvnpy.routing.token_passing import TokenPassing
 from uvnpy.dynamics.linear_models import Integrator
 from uvnpy.toolkit.functions import logistic_saturation
@@ -97,14 +97,14 @@ class Robot(object):
     def __init__(
             self,
             node_id,
-            pos,
+            position,
             comm_range,
             action_extent=0,
             state_extent=1,
             t=0.0
             ):
         self.node_id = node_id
-        self.dim = len(pos)
+        self.dim = len(position)
         self.action_extent = action_extent
         self.state_extent = state_extent
         self.current_time = t
@@ -123,12 +123,12 @@ class Robot(object):
         self.u_rigidity = np.zeros(self.dim, dtype=float)
         self.last_control_action = np.zeros(self.dim, dtype=float)
         self.action = {}
-        self.loc = FirstOrderKalmanFilter(
-            pos,
-            pos_cov=25.0 * np.eye(self.dim),
-            vel_meas_cov=0.0225 * np.eye(self.dim),
-            bearing_meas_cov=100.0,
-            gps_meas_cov=100.0 * np.eye(self.dim)
+        self.loc = FirstOrderGradientFilter(
+            position,
+            pos_cov=0.0 * np.eye(self.dim),
+            vel_meas_cov=0.0 * np.eye(self.dim),
+            bearing_meas_cov=0.0 * np.eye(self.dim),
+            gps_meas_cov=0.0 * np.eye(self.dim)
         )
         self.state = {'position': self.loc.x, 'covariance': self.loc.P}
         self.neighborhood = Neighborhood()
@@ -384,11 +384,11 @@ class World(object):
 
     def gps_measurement(self, node_index):
         if node_index in self.gps_available:
-            pos = self.robot_dynamics[node_index].x
+            position = self.robot_dynamics[node_index].x
             self.gps_meas_err[node_index] = np.random.normal(
                 scale=self.gps_meas_stdev, size=self.dim
             )
-            return pos + self.gps_meas_err[node_index]
+            return position + self.gps_meas_err[node_index]
         else:
             self.gps_meas_err[node_index] = np.nan
             return None
@@ -717,7 +717,7 @@ world = World(
 robots = Robots([
     Robot(
         node_id=i,
-        pos=np.random.normal(position[i],  0.0),
+        position=np.random.normal(position[i],  0.0),
         comm_range=comm_range,
         action_extent=int(action_extents[i]),
         # state_extent=2
