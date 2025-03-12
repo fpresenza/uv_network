@@ -9,7 +9,7 @@ import copy
 import transformations
 
 from uvnpy.network import core
-from uvnpy.bearings.localization import FirstOrderGradientFilter
+from uvnpy.bearings.localization import FirstOrderKalmanFilter
 from uvnpy.routing.token_passing import TokenPassing
 from uvnpy.dynamics.linear_models import Integrator
 from uvnpy.toolkit.functions import logistic_saturation
@@ -113,7 +113,7 @@ class Robot(object):
         self.maintenance = RigidityMaintenance(
             dim=2,
             dmax=0.95 * comm_range,
-            steepness=50.0/comm_range,
+            steepness=50.0 / comm_range,
             eigenvalues='all',
             functional='log'
         )
@@ -123,7 +123,7 @@ class Robot(object):
         self.u_rigidity = np.zeros(self.dim, dtype=float)
         self.last_control_action = np.zeros(self.dim, dtype=float)
         self.action = {}
-        self.loc = FirstOrderGradientFilter(
+        self.loc = FirstOrderKalmanFilter(
             position,
             pos_cov=0.0 * np.eye(self.dim),
             vel_meas_cov=0.0 * np.eye(self.dim),
