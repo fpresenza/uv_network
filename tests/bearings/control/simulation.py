@@ -6,28 +6,21 @@ import time
 import progressbar
 import numpy as np
 import copy
-import numba as nb
+import transformations
 
 from uvnpy.network import core
-from uvnpy.distances.localization import FirstOrderKalmanFilter
+from uvnpy.bearings.localization import FirstOrderKalmanFilter
 from uvnpy.routing.token_passing import TokenPassing
 from uvnpy.dynamics.linear_models import Integrator
 from uvnpy.toolkit.functions import logistic_saturation
 from uvnpy.network.disk_graph import adjacency_from_positions
-from uvnpy.distances.core import (
+from uvnpy.bearings.core import (
     is_inf_rigid,
-    rigidity_eigenvalue,
-    sufficiently_dispersed_position,
-    minimum_rigidity_radius
+    minimum_rigidity_extents,
+    rigidity_eigenvalue
 )
-from uvnpy.distances.control import (
-    RigidityMaintenance,
-    CollisionAvoidance
-)
-from uvnpy.network.subframeworks import (
-    valid_extents,
-    sparse_subframeworks_greedy_search_by_expansion,
-)
+from uvnpy.distances.control import CollisionAvoidance
+from uvnpy.bearings.control import RigidityMaintenance
 
 
 # ------------------------------------------------------------------
@@ -302,6 +295,7 @@ class Robots(list):
 class World(object):
     def __init__(
             self,
+            dim,
             robot_dynamics,
             network,
             comm_range,
@@ -312,6 +306,7 @@ class World(object):
             queue=1
             ):
         """Clase para simular una red de robots"""
+        self.dim = dim
         self.robot_dynamics = robot_dynamics
         self.n = len(robot_dynamics)
         self.adjacency_matrix = network.astype(bool)
@@ -376,7 +371,7 @@ class World(object):
         if len(self.robot_dynamics[node_index].derivatives) > 0:
             vel = self.robot_dynamics[node_index].derivatives[0]
             self.vel_meas_err[node_index] = np.random.normal(
-                scale=self.vel_meas_stdev, size=2
+                scale=self.vel_meas_stdev, size=self.dim
             )
             return vel + self.vel_meas_err[node_index]
         else:
@@ -387,7 +382,7 @@ class World(object):
         if node_index in self.gps_available:
             pos = self.robot_dynamics[node_index].x
             self.gps_meas_err[node_index] = np.random.normal(
-                scale=self.gps_meas_stdev, size=2
+                scale=self.gps_meas_stdev, size=self.dim
             )
             return pos + self.gps_meas_err[node_index]
         else:
@@ -397,19 +392,20 @@ class World(object):
     def upload_to_cloud(self, msg, node_index):
         for neighbor_index in range(self.n):
             if self.adjacency_matrix[node_index, neighbor_index]:
-                distance = np.sqrt(np.square(
-                    (self.robot_dynamics[node_index].x -
-                     self.robot_dynamics[neighbor_index].x)
-                ).sum())
                 self.bearing_meas_err[node_index, neighbor_index] = \
                     np.random.normal(
-                        scale=self.bearing_meas_stdev, size=1
+                        scale=self.bearing_meas_stdev, size=self.dim
                     )
+                bearing = transformations.unit_vector(
+                    (
+                        self.robot_dynamics[node_index].x -
+                        self.robot_dynamics[neighbor_index].x
+                    ) + self.bearing_meas_err[node_index, neighbor_index]
+                )
                 self.cloud[-1][neighbor_index].append(
                     (
                         msg,
-                        distance +
-                        self.bearing_meas_err[node_index, neighbor_index]
+                        bearing
                     )
                 )
             else:
@@ -454,43 +450,6 @@ class Targets(object):
 
     def unfinished(self):
         return self.data[:, 2].any()
-
-
-def valid_ball(subset, adjacency, position):
-    """
-        A ball is considered valid if:
-        it has zero radius
-            or
-        it is infinitesimally rigid
-    """
-    if sum(subset) == 1:
-        return True
-
-    A = adjacency[:, subset][subset]
-    p = position[subset]
-    if is_inf_rigid(A, p):
-        return True
-
-    return False
-
-
-@nb.njit
-def decomposition_cost(extents, geodesics):
-    """
-    Computes the set of isolated links (edges not in any subframework).
-    """
-    n = len(extents)
-    s = 0
-
-    for i in range(n):
-        for j in range(i + 1, n):
-            if geodesics[i, j] == 1:
-                in_ball = (geodesics[i] <= extents) * (geodesics[j] <= extents)
-                # 1.0 if s > 2 else 5.0
-                c = sum(in_ball)
-                s += float(c) if c != 0 else 5.0
-    return s
-
 
 # ------------------------------------------------------------------
 # Función run
@@ -701,15 +660,9 @@ print(
 
 region_length = 4.0    # km
 
-n = 30
-position = sufficiently_dispersed_position(n, (0.0, 500.0), (0.0, 500.0), 30.0)
-adjacency_matrix, Rmin = minimum_rigidity_radius(
-    adjacency_from_positions(position, dmax=2/np.sqrt(n)),
-    position,
-    return_radius=True
-)
-
-comm_range = np.ceil(Rmin / 5.0) * 5.0
+n = 20
+position = None
+comm_range = None
 print('Communication range: {}'.format(comm_range))
 adjacency_matrix = adjacency_from_positions(position, comm_range)
 print(
@@ -723,18 +676,7 @@ if not is_inf_rigid(adjacency_matrix, position):
     raise ValueError('Framework should be infinitesimally rigid.')
 
 geodesics_matrix = core.geodesics(adjacency_matrix)
-max_extent = 2
-valid_action_extents = valid_extents(
-    geodesics=geodesics_matrix,
-    condition=valid_ball,
-    max_extent=max_extent,
-    args=(adjacency_matrix, position)
-)
-action_extents = sparse_subframeworks_greedy_search_by_expansion(
-    valid_extents=valid_action_extents,
-    metric=decomposition_cost,
-    geodesics=geodesics_matrix,
-)
+action_extents = minimum_rigidity_extents(geodesics_matrix, position)
 print(
     'Action extents: \n' +
     '\n'.join(
@@ -744,6 +686,7 @@ print(
 )
 
 world = World(
+    dim=3,
     robot_dynamics=[Integrator(position[i]) for i in range(n)],
     network=adjacency_matrix,
     comm_range=comm_range,
@@ -811,18 +754,7 @@ for t_break in [200.0, 400.0, 600.0, 800.0]:
     position = world.positions()
     adjacency_matrix = world.adjacency_matrix.copy().astype(float)
     geodesics_matrix = core.geodesics(adjacency_matrix)
-    max_extent = 2
-    valid_action_extents = valid_extents(
-        geodesics=geodesics_matrix,
-        condition=valid_ball,
-        max_extent=max_extent,
-        args=(adjacency_matrix, position)
-    )
-    action_extents = sparse_subframeworks_greedy_search_by_expansion(
-        valid_extents=valid_action_extents,
-        metric=decomposition_cost,
-        geodesics=geodesics_matrix,
-    )
+    action_extents = minimum_rigidity_extents(geodesics_matrix, position)
     print(
         'Action extents: \n' +
         '\n'.join(
