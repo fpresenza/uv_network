@@ -14,6 +14,10 @@ from uvnpy.routing.token_passing import TokenPassing
 from uvnpy.dynamics.linear_models import Integrator
 from uvnpy.toolkit.functions import logistic_saturation
 from uvnpy.network.disk_graph import adjacency_from_positions
+from uvnpy.distances.core import (
+    sufficiently_dispersed_position,
+    minimum_rigidity_radius
+)
 from uvnpy.bearings.core import (
     is_inf_rigid,
     minimum_rigidity_extents,
@@ -658,11 +662,20 @@ print(
     .format(0.0, simu_time, comm_skip * simu_step)
 )
 
-region_length = 4.0    # km
+region_length = 0.1    # km
 
 n = 20
-position = None
-comm_range = None
+position = np.zeros((n, 3), dtype=float)
+position[:, :2] = sufficiently_dispersed_position(
+    n, (0.0, 25.0), (0.0, 25.0), 5.0
+)
+adjacency_matrix, Rmin = minimum_rigidity_radius(
+    adjacency_from_positions(position, dmax=2/np.sqrt(n)),
+    position,
+    return_radius=True
+)
+
+comm_range = np.ceil(Rmin / 5.0) * 5.0
 print('Communication range: {}'.format(comm_range))
 adjacency_matrix = adjacency_from_positions(position, comm_range)
 print(
