@@ -646,6 +646,8 @@ arg = parser.parse_args()
 def index_of(t): return int(t / simu_step)
 
 
+# Simulation parameters
+
 np.random.seed(0)
 simu_time = arg.simu_time
 simu_step = arg.simu_step / 1000.0
@@ -661,6 +663,8 @@ print(
     'Communication Time: begin = {}, end = {}, step = {}'
     .format(0.0, simu_time, comm_skip * simu_step)
 )
+
+# world parameters
 
 region_length = 0.1    # km
 
