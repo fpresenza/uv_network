@@ -50,7 +50,7 @@ Logs = collections.namedtuple(
     rigidity_action, \
     vel_meas_err, \
     gps_meas_err, \
-    range_meas_err, \
+    bearing_meas_err, \
     fre, \
     re, \
     adjacency, \
@@ -72,7 +72,7 @@ NeigborhoodData = collections.namedtuple(
     timestamp, \
     position, \
     covariance, \
-    range, \
+    bearing, \
     is_isolated_edge')
 
 
@@ -83,7 +83,7 @@ class Neighborhood(dict):
             timestamp,
             position,
             covariance,
-            range_measurement,
+            bearing_measurement,
             is_isolated_edge
             ):
         self[node_id] = NeigborhoodData(
@@ -91,7 +91,7 @@ class Neighborhood(dict):
             timestamp=timestamp,
             position=position,
             covariance=covariance,
-            range=range_measurement,
+            bearing=bearing_measurement,
             is_isolated_edge=is_isolated_edge
         )
 
@@ -130,7 +130,7 @@ class Robot(object):
             pos,
             pos_cov=25.0 * np.eye(self.dim),
             vel_meas_cov=0.0225 * np.eye(self.dim),
-            range_meas_cov=100.0,
+            bearing_meas_cov=100.0,
             gps_meas_cov=100.0 * np.eye(self.dim)
         )
         self.state = {'position': self.loc.x, 'covariance': self.loc.P}
@@ -159,13 +159,13 @@ class Robot(object):
 
     def handle_received_msgs(self, msgs):
         self.neighborhood.clear()
-        for (msg, range_measurement) in msgs:
+        for (msg, bearing_measurement) in msgs:
             self.neighborhood.update(
                 node_id=msg.node_id,
                 timestamp=msg.timestamp,
                 position=msg.state_tokens[msg.node_id].data['position'],
                 covariance=msg.state_tokens[msg.node_id].data['covariance'],
-                range_measurement=range_measurement,
+                bearing_measurement=bearing_measurement,
                 is_isolated_edge=self.in_balls.isdisjoint(msg.in_balls)
             )
             self.routing.update_action(msg.action_tokens.values())
@@ -257,11 +257,11 @@ class Robot(object):
     def velocity_measurement_step(self, vel_meas):
         self.loc.dynamic_step(self.current_time, vel_meas)
 
-    def range_measurement_step(self):
+    def bearing_measurement_step(self):
         if len(self.neighborhood) > 0:
             neighbors_data = self.neighborhood.values()
             z = np.array([
-                neighbor.range for neighbor in neighbors_data
+                neighbor.bearing for neighbor in neighbors_data
             ])
             xj = np.array([
                 neighbor.position for neighbor in neighbors_data
@@ -269,7 +269,7 @@ class Robot(object):
             Pj = np.array([
                 neighbor.covariance for neighbor in neighbors_data
             ])
-            self.loc.range_step(z, xj, Pj)
+            self.loc.bearing_step(z, xj, Pj)
 
     def gps_measurement_step(self, gps_meas):
         self.loc.gps_step(gps_meas)
@@ -307,7 +307,7 @@ class World(object):
             comm_range,
             gps_available,
             vel_meas_stdev,
-            range_meas_stdev,
+            bearing_meas_stdev,
             gps_meas_stdev,
             queue=1
             ):
@@ -319,12 +319,12 @@ class World(object):
         self.gps_available = gps_available
 
         self.vel_meas_stdev = vel_meas_stdev
-        self.range_meas_stdev = range_meas_stdev
+        self.bearing_meas_stdev = bearing_meas_stdev
         self.gps_meas_stdev = gps_meas_stdev
 
         self.vel_meas_err = np.full((self.n, 2), np.nan)
         self.gps_meas_err = np.full((self.n, 2), np.nan)
-        self.range_meas_err = np.full((self.n, self.n), np.nan)
+        self.bearing_meas_err = np.full((self.n, self.n), np.nan)
 
         self.cloud = collections.deque(maxlen=queue)
 
@@ -343,8 +343,8 @@ class World(object):
     def collect_gps_meas_err(self):
         return self.gps_meas_err.copy().ravel()
 
-    def collect_range_meas_err(self):
-        return self.range_meas_err.copy().ravel()
+    def collect_bearing_meas_err(self):
+        return self.bearing_meas_err.copy().ravel()
 
     def update_adjacency(self):
         self.adjacency_matrix = adjacency_from_positions(
@@ -401,19 +401,19 @@ class World(object):
                     (self.robot_dynamics[node_index].x -
                      self.robot_dynamics[neighbor_index].x)
                 ).sum())
-                self.range_meas_err[node_index, neighbor_index] = \
+                self.bearing_meas_err[node_index, neighbor_index] = \
                     np.random.normal(
-                        scale=self.range_meas_stdev, size=1
+                        scale=self.bearing_meas_stdev, size=1
                     )
                 self.cloud[-1][neighbor_index].append(
                     (
                         msg,
                         distance +
-                        self.range_meas_err[node_index, neighbor_index]
+                        self.bearing_meas_err[node_index, neighbor_index]
                     )
                 )
             else:
-                self.range_meas_err[node_index, neighbor_index] = np.nan
+                self.bearing_meas_err[node_index, neighbor_index] = np.nan
 
     def download_from_cloud(self, node_index):
         return self.cloud[0][node_index].copy()
@@ -519,7 +519,7 @@ def initialize_robots(simu_counter):
                 msgs = world.download_from_cloud(node_index)
                 robot.handle_received_msgs(msgs)
                 robot.update_state_extent()
-                robot.range_measurement_step()
+                robot.bearing_measurement_step()
             print('Communication event {} finished'.format(comm_events))
 
         # localization step
@@ -544,7 +544,7 @@ def initialize_robots(simu_counter):
         logs.rigidity_action.append(robots.collect_rigidity_actions())
         logs.vel_meas_err.append(world.collect_vel_meas_err())
         logs.gps_meas_err.append(world.collect_gps_meas_err())
-        logs.range_meas_err.append(world.collect_range_meas_err())
+        logs.bearing_meas_err.append(world.collect_bearing_meas_err())
         logs.fre.append(world.framework_rigidity_eigenvalue())
         logs.re.append(world.subframeworks_rigidity_eigenvalue(robots))
         logs.adjacency.append(world.adjacency_matrix.ravel())
@@ -591,7 +591,7 @@ def run_mission(simu_counter, end_counter):
                 node_index = index_map[robot.node_id]
                 msgs = world.download_from_cloud(node_index)
                 robot.handle_received_msgs(msgs)
-                robot.range_measurement_step()
+                robot.bearing_measurement_step()
                 robot.rigidity_maintenance_control_action()
 
         # localization and control step
@@ -623,7 +623,7 @@ def run_mission(simu_counter, end_counter):
         logs.rigidity_action.append(robots.collect_rigidity_actions())
         logs.vel_meas_err.append(world.collect_vel_meas_err())
         logs.gps_meas_err.append(world.collect_gps_meas_err())
-        logs.range_meas_err.append(world.collect_range_meas_err())
+        logs.bearing_meas_err.append(world.collect_bearing_meas_err())
         logs.fre.append(world.framework_rigidity_eigenvalue())
         logs.re.append(world.subframeworks_rigidity_eigenvalue(robots))
         logs.adjacency.append(world.adjacency_matrix.ravel())
@@ -749,7 +749,7 @@ world = World(
     comm_range=comm_range,
     gps_available=[6, 8],
     vel_meas_stdev=0.15,
-    range_meas_stdev=10.0,
+    bearing_meas_stdev=10.0,
     gps_meas_stdev=10.0,
     queue=arg.queue
 )
@@ -786,7 +786,7 @@ logs = Logs(
     rigidity_action=[],
     vel_meas_err=[],
     gps_meas_err=[],
-    range_meas_err=[],
+    bearing_meas_err=[],
     fre=[],
     re=[],
     adjacency=[],
@@ -856,7 +856,7 @@ np.savetxt('data/collision_action.csv', logs.collision_action, delimiter=',')
 np.savetxt('data/rigidity_action.csv', logs.rigidity_action, delimiter=',')
 np.savetxt('data/vel_meas_err.csv', logs.vel_meas_err, delimiter=',')
 np.savetxt('data/gps_meas_err.csv', logs.gps_meas_err, delimiter=',')
-np.savetxt('data/range_meas_err.csv', logs.range_meas_err, delimiter=',')
+np.savetxt('data/bearing_meas_err.csv', logs.bearing_meas_err, delimiter=',')
 np.savetxt('data/fre.csv', logs.fre, delimiter=',')
 np.savetxt('data/re.csv', logs.re, delimiter=',')
 np.savetxt('data/adjacency.csv', logs.adjacency, delimiter=',')
