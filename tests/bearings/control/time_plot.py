@@ -42,13 +42,17 @@ arg.end = t[-1] if (arg.end == 0) else arg.end
 
 # slices
 k_i = int(np.argmin(np.abs(t - arg.init)))
-k_e = int(np.argmin(np.abs(t - arg.end)))
+k_e = int(np.argmin(np.abs(t - arg.end))) + 1
 
 t = t[k_i:k_e:arg.jump]
 
 x = data.read_csv(
     'data/position.csv',
-    rows=(k_i, k_e), jump=arg.jump, dtype=float, shape=(-1, 3), asarray=True
+    rows=(k_i, k_e),
+    jump=arg.jump,
+    dtype=float,
+    shape=(-1, 3),
+    asarray=True
 )
 n = len(x[0])
 nodes = np.arange(n)
@@ -68,32 +72,60 @@ A = data.read_csv(
 # )
 u_t = data.read_csv(
     'data/target_action.csv',
-    rows=(k_i, k_e), jump=arg.jump, dtype=float, shape=(n, 3), asarray=True
+    rows=(k_i, k_e),
+    jump=arg.jump,
+    dtype=float,
+    shape=(n, 3),
+    asarray=True
 )
 u_c = data.read_csv(
     'data/collision_action.csv',
-    rows=(k_i, k_e), jump=arg.jump, dtype=float, shape=(n, 3), asarray=True
+    rows=(k_i, k_e),
+    jump=arg.jump,
+    dtype=float,
+    shape=(n, 3),
+    asarray=True
 )
 u_r = data.read_csv(
     'data/rigidity_action.csv',
-    rows=(k_i, k_e), jump=arg.jump, dtype=float, shape=(n, 3), asarray=True
+    rows=(k_i, k_e),
+    jump=arg.jump,
+    dtype=float,
+    shape=(n, 3),
+    asarray=True
 )
 fre = data.read_csv(
     'data/fre.csv',
-    rows=(k_i, k_e), jump=arg.jump, dtype=float, asarray=True
+    rows=(k_i, k_e),
+    jump=arg.jump,
+    dtype=float,
+    asarray=True
 )
 re = data.read_csv(
     'data/re.csv',
-    rows=(k_i, k_e), jump=arg.jump, dtype=float, asarray=True
+    rows=(k_i, k_e),
+    jump=arg.jump,
+    dtype=float,
+    asarray=True
 )
 action_extents = data.read_csv(
     'data/action_extents.csv',
-    rows=(k_i, k_e), jump=arg.jump, dtype=float, asarray=True
+    rows=(k_i, k_e),
+    jump=arg.jump,
+    dtype=float,
+    asarray=True
 )
 
+hatx = data.read_csv(
+    'data/est_position.csv',
+    rows=(k_i, k_e),
+    jump=arg.jump,
+    dtype=float,
+    shape=(-1, 3),
+    asarray=True
+)
 
 # tc = np.loadtxt('data/tc.csv', delimiter=',')
-# hatx = np.loadtxt('data/est_position.csv', delimiter=',')
 # cov = np.loadtxt('data/covariance.csv', delimiter=',')
 
 # v = np.loadtxt('data/vel_meas_err.csv', delimiter=',')
@@ -386,31 +418,44 @@ fig.savefig('data/time/eigenvalues.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Plot position error
 # ------------------------------------------------------------------
-# err = np.sqrt(np.square(x - hatx).sum(axis=-1))
-# fig, ax = plt.subplots(figsize=(4.0, 2.0))
-# fig.subplots_adjust(
-#     bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
-# ax.tick_params(
-#     axis='both',       # changes apply to the x-axis
-#     which='both',      # both major and minor ticks are affected
-#     pad=1,
-#     labelsize='x-small')
-# ax.grid(1, lw=0.4)
-# ax.set_xlabel(r'$t$ [$s$]', fontsize=8)
-# ax.set_ylabel(r'$\Vert e_{\mathrm{pos}} \Vert$ [$m$]', fontsize=8)
-# ax.plot(t, np.median(err, axis=1), lw=0.8, label='median', ds='steps-post')
-# ax.fill_between(
-#     t,
-#     np.min(err, axis=1),
-#     np.max(err, axis=1),
-#     alpha=0.3
-# )
+err = np.sqrt(np.square(x - hatx).sum(axis=-1))
+fig, ax = plt.subplots(figsize=(4.0, 2.0))
+fig.subplots_adjust(
+    bottom=0.215,
+    top=0.925,
+    wspace=0.33,
+    right=0.975,
+    left=0.18
+)
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='x-small'
+)
+ax.grid(1, lw=0.4)
+ax.set_xlabel(r'$t$ [$s$]', fontsize=8)
+ax.set_ylabel(r'$\Vert p - \hat{p} \Vert \ (\mathrm{m})$', fontsize=8)
+ax.plot(
+    t,
+    np.median(err, axis=1),
+    lw=0.8,
+    label='median',
+    ds='steps-post'
+)
+ax.fill_between(t, np.min(err, axis=1), np.max(err, axis=1), alpha=0.3)
 # ax.set_ylim(bottom=0.0)
-# ax.legend(
-#     fontsize=8, handlelength=1, labelspacing=0.4,
-#     borderpad=0.2, handletextpad=0.2, framealpha=1.,
-#     ncol=2, columnspacing=1)
-# fig.savefig('data/time/pos_error.png', format='png', dpi=360)
+ax.legend(
+    fontsize=8,
+    handlelength=1,
+    labelspacing=0.4,
+    borderpad=0.2,
+    handletextpad=0.2,
+    framealpha=1.,
+    ncol=2,
+    columnspacing=1
+)
+fig.savefig('data/time/pos_error.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot covariance
