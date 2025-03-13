@@ -41,26 +41,38 @@ arg.end = t[-1] if (arg.end == 0) else arg.end
 
 # slices
 k_i = int(np.argmin(np.abs(t - arg.init)))
-k_e = int(np.argmin(np.abs(t - arg.end)))
+k_e = int(np.argmin(np.abs(t - arg.end))) + 1
 
 t = t[k_i:k_e:arg.jump]
 
 x = data.read_csv(
     'data/position.csv',
-    rows=(k_i, k_e), jump=arg.jump, dtype=float, shape=(-1, 3)
+    rows=(k_i, k_e),
+    jump=arg.jump,
+    dtype=float,
+    shape=(-1, 3)
 )
 n = len(x[0])
 
 A = data.read_csv(
     'data/adjacency.csv',
-    rows=(k_i, k_e), jump=arg.jump, dtype=float, shape=(n, n)
+    rows=(k_i, k_e),
+    jump=arg.jump,
+    dtype=float,
+    shape=(n, n)
 )
 targets = data.read_csv(
     'data/targets.csv',
-    rows=(k_i, k_e), jump=arg.jump, dtype=float, shape=(-1, 4)
+    rows=(k_i, k_e),
+    jump=arg.jump,
+    dtype=float,
+    shape=(-1, 4)
 )
 action_extents = data.read_csv(
-    'data/action_extents.csv', rows=(k_i, k_e), jump=arg.jump, dtype=float
+    'data/action_extents.csv',
+    rows=(k_i, k_e),
+    jump=arg.jump,
+    dtype=float
 )
 
 N = len(x)
