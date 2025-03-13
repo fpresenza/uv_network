@@ -70,7 +70,7 @@ def is_inf_rigid(A, p, threshold=THRESHOLD_SV):
 
 
 def rigidity_eigenvalue(A, p):
-    return
+    return 1.0
 
 
 def minimum_rigidity_extents(geodesics, p, threshold=THRESHOLD_SV):

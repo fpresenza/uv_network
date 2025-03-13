@@ -14,10 +14,7 @@ from uvnpy.routing.token_passing import TokenPassing
 from uvnpy.dynamics.linear_models import Integrator
 from uvnpy.toolkit.functions import logistic_saturation
 from uvnpy.network.disk_graph import adjacency_from_positions
-from uvnpy.distances.core import (
-    sufficiently_dispersed_position,
-    minimum_rigidity_radius
-)
+from uvnpy.distances.core import minimum_rigidity_radius
 from uvnpy.bearings.core import (
     is_inf_rigid,
     minimum_rigidity_extents,
@@ -125,7 +122,7 @@ class Robot(object):
         self.action = {}
         self.loc = FirstOrderKalmanFilter(
             position,
-            pos_cov=0.0 * np.eye(self.dim),
+            position_cov=0.0 * np.eye(self.dim),
             vel_meas_cov=0.0 * np.eye(self.dim),
             bearing_meas_cov=0.0 * np.eye(self.dim),
             gps_meas_cov=0.0 * np.eye(self.dim)
@@ -321,8 +318,8 @@ class World(object):
         self.bearing_meas_stdev = bearing_meas_stdev
         self.gps_meas_stdev = gps_meas_stdev
 
-        self.vel_meas_err = np.full((self.n, 2), np.nan)
-        self.gps_meas_err = np.full((self.n, 2), np.nan)
+        self.vel_meas_err = np.full((self.n, self.dim), np.nan)
+        self.gps_meas_err = np.full((self.n, self.dim), np.nan)
         self.bearing_meas_err = np.full((self.n, self.n), np.nan)
 
         self.cloud = collections.deque(maxlen=queue)
@@ -396,22 +393,17 @@ class World(object):
     def upload_to_cloud(self, msg, node_index):
         for neighbor_index in range(self.n):
             if self.adjacency_matrix[node_index, neighbor_index]:
-                self.bearing_meas_err[node_index, neighbor_index] = \
-                    np.random.normal(
+                noise = np.random.normal(
                         scale=self.bearing_meas_stdev, size=self.dim
                     )
                 bearing = transformations.unit_vector(
-                    (
-                        self.robot_dynamics[node_index].x -
-                        self.robot_dynamics[neighbor_index].x
-                    ) + self.bearing_meas_err[node_index, neighbor_index]
+                    self.robot_dynamics[node_index].x -
+                    self.robot_dynamics[neighbor_index].x +
+                    noise
                 )
-                self.cloud[-1][neighbor_index].append(
-                    (
-                        msg,
-                        bearing
-                    )
-                )
+                self.bearing_meas_err[node_index, neighbor_index] = \
+                    np.dot(noise, noise)
+                self.cloud[-1][neighbor_index].append((msg, bearing))
             else:
                 self.bearing_meas_err[node_index, neighbor_index] = np.nan
 
@@ -668,13 +660,32 @@ print(
 
 
 n = 20
-position = np.zeros((n, 3), dtype=float)
-position[:, :2] = sufficiently_dispersed_position(
-    n, (0.0, 25.0), (0.0, 25.0), 5.0
-)
+position = np.array([
+    [5.9452, 4.2963, 0.],
+    [11.2323, 7.6117, 0.],
+    [20.9797, 5.9435, 0.],
+    [12.5597, 23.5646, 0.],
+    [15.8499, 21.6822, 0.],
+    [23.5052, 18.7691, 0.],
+    [24.86, 11.2955, 0.],
+    [1.7717, 7.3199, 0.],
+    [3.8089, 10.4372, 0.],
+    [3.2822, 15.1029, 0.],
+    [6.8706, 14.8058, 0.],
+    [7.7595, 9.3259, 0.],
+    [13.1243, 18.7649, 0.],
+    [8.3377, 23.104, 0.],
+    [21.558, 1.2173, 0.],
+    [18.5024, 17.0129, 0.],
+    [0.7559, 17.7584, 0.],
+    [15.5558, 6.9767, 0.],
+    [15.0098, 14.7185, 0.],
+    [11.0509, 12.9988, 0.],
+])
+print(position)
 adjacency_matrix, Rmin = minimum_rigidity_radius(
-    adjacency_from_positions(position, dmax=2/np.sqrt(n)),
-    position,
+    adjacency_from_positions(position[:, :2], dmax=10.0),
+    position[:, :2],
     return_radius=True
 )
 
@@ -690,16 +701,6 @@ print(
 )
 if not is_inf_rigid(adjacency_matrix, position):
     raise ValueError('Framework should be infinitesimally rigid.')
-
-geodesics_matrix = core.geodesics(adjacency_matrix)
-action_extents = minimum_rigidity_extents(geodesics_matrix, position)
-print(
-    'Action extents: \n' +
-    '\n'.join(
-        '\t node = {}, extent = {}'.format(i, r)
-        for i, r in enumerate(action_extents) if r > 0
-    )
-)
 
 world = World(
     dim=3,
@@ -718,7 +719,7 @@ robots = Robots([
         node_id=i,
         position=np.random.normal(position[i],  0.0),
         comm_range=comm_range,
-        action_extent=int(action_extents[i]),
+        action_extent=1,
         # state_extent=2
     )
     for i in range(n)
@@ -731,7 +732,7 @@ targets = Targets(
     n=100,
     side_length=100.0,
     height=45.0,
-    target_coverage=5.0
+    coverage=5.0
 )
 
 # ------------------------------------------------------------------
@@ -758,18 +759,7 @@ logs = Logs(
 )
 
 simu_counter = 0
-for t_break in [200.0, 400.0, 600.0, 800.0]:
-    simu_counter = initialize_robots(simu_counter)
-    print(
-        'State extents: \n' +
-        '\n'.join(
-            '\t node = {}, extent = {}'
-            .format(robot.node_id, robot.state_extent)
-            for robot in robots
-        )
-    )
-    simu_counter = run_mission(simu_counter, end_counter=index_of(t_break))
-
+for t_break in [simu_time]:
     position = world.positions()
     adjacency_matrix = world.adjacency_matrix.copy().astype(float)
     geodesics_matrix = core.geodesics(adjacency_matrix)
@@ -784,18 +774,10 @@ for t_break in [200.0, 400.0, 600.0, 800.0]:
     for robot in robots:
         node_index = index_map[robot.node_id]
         robot.action_extent = action_extents[node_index]
-        robot.last_control_action = np.zeros(2, dtype=float)
+        robot.last_control_action = np.zeros(3, dtype=float)
 
-simu_counter = initialize_robots(simu_counter)
-print(
-    'State extents: \n' +
-    '\n'.join(
-        '\t node = {}, extent = {}'
-        .format(robot.node_id, robot.state_extent)
-        for robot in robots
-    )
-)
-simu_counter = run_mission(simu_counter, end_counter=index_of(1000.0))
+    simu_counter = initialize_robots(simu_counter)
+    simu_counter = run_mission(simu_counter, end_counter=index_of(t_break))
 
 np.savetxt('data/t.csv', logs.time, delimiter=',')
 np.savetxt('data/tc.csv', logs.time_comm, delimiter=',')
