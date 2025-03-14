@@ -127,7 +127,6 @@ class Robot(object):
             bearing_meas_cov=0.0 * np.eye(self.dim),
             gps_meas_cov=0.0 * np.eye(self.dim)
         )
-        self.state = {'position': self.loc.x, 'covariance': self.loc.P}
         self.neighborhood = Neighborhood()
         self.routing = TokenPassing(self.node_id)
 
@@ -136,11 +135,14 @@ class Robot(object):
 
     def create_msg(self):
         action_tokens, state_tokens = self.routing.broadcast(
-            self.current_time,
-            copy.deepcopy(self.action),
-            copy.deepcopy(self.state),
-            self.action_extent,
-            self.state_extent
+            timestamp=self.current_time,
+            action=copy.deepcopy(self.action),
+            state={
+                'position': self.loc.state(),
+                'covariance': self.loc.covariance()
+            },
+            action_extent=self.action_extent,
+            state_extent=self.state_extent
         )
         msg = InterRobotMsg(
             node_id=self.node_id,
