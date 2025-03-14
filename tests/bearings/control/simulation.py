@@ -192,8 +192,7 @@ class Robot(object):
             if d < tracking_radius:
                 v_collect = v_collect_max
             elif d < forget_radius:
-                fade = (d - tracking_radius)/(forget_radius - tracking_radius)
-                factor = 1.0 - fade
+                factor = (forget_radius - d)/(forget_radius - tracking_radius)
                 v_collect = v_collect_max * factor
             else:
                 v_collect = 0.0
