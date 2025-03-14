@@ -47,7 +47,7 @@ def rigidity_laplacian(A, p):
 
 
 def rigidity_laplacian_multiple_axes(A, p):
-    """Matriz de rigidez.
+    """Matriz normalizada de rigidez.
 
         S =  R^T W R
 
@@ -60,7 +60,22 @@ def rigidity_laplacian_multiple_axes(A, p):
     returns
         S: laplaciano de rigidez (..., n * d, n * d)
     """
-    return
+    n, d = p.shape[-2:]
+    In = np.eye(n, dtype=bool)
+    Id = np.eye(d, dtype=float)
+    r = p[..., np.newaxis, :] - p[..., np.newaxis, :, :]
+    l2 = np.sum(r*r, axis=-1)
+    R = r[..., np.newaxis] * r[..., np.newaxis, :]
+    P = R / l2[..., np.newaxis, np.newaxis]
+    S = P - Id                             # projection matrices
+    W = A / l2                             # weights
+    S *= W[..., np.newaxis, np.newaxis]    # apply weights
+    S[..., In, :, :] = 0.0
+    S[..., In, :, :] -= S.sum(p.ndim - 1)
+    S = S.swapaxes(-3, -2)
+    s = list(S.shape)
+    s[-4:] = n * d, n * d
+    return S.reshape(s)
 
 
 def is_inf_rigid(A, p, threshold=THRESHOLD_SV):
