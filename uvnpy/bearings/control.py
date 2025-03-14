@@ -7,7 +7,8 @@
 """
 import numpy as np
 
-from uvnpy.distances import core
+from uvnpy.distances.core import distance_matrix
+from uvnpy.bearings.core import rigidity_laplacian_multiple_axes
 from uvnpy.toolkit import functions
 
 
@@ -63,15 +64,22 @@ class RigidityMaintenance(object):
         return - eigenvalue_deriv / eigenvalue
 
     def weighted_rigidity_matrix(self, x):
-        w = core.distance_matrix(x)
+        w = distance_matrix(x)
         off_diag = np.logical_not(np.eye(x.shape[-2], dtype=bool))
         w[..., off_diag] = functions.logistic(
             d=w[..., off_diag],
             midpoint=self.midpoint,
             steepness=self.steepness
         )
-        S = core.rigidity_laplacian_multiple_axes(w, x)
+        S = rigidity_laplacian_multiple_axes(w, x)
         return S
 
     def update(self, x):
-        return np.zeros(x.shape)
+        S = self.weighted_rigidity_matrix(x)
+        e, V = np.linalg.eigh(S)
+        dS_dx = functions.derivative_eval(self.weighted_rigidity_matrix, x)
+        grad = sum([
+            self.gradient(dS_dx, e[k], V[:, k])
+            for k in range(self.dof, self.eig_max(x))
+        ])
+        return - grad.reshape(x.shape)
