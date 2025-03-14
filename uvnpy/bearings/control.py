@@ -22,7 +22,6 @@ class RigidityMaintenance(object):
         dmax: maximum connectivity distance
         steepness: connectivity decrease factor
         power: positive number to exponentiate the eigenvalues
-        adjacent_only: bool to consider non-adjacent vertices relations
         eigenvalues: which ones to consider (min of all)
         functional: wich function of the einengvalues (power or logarithmic)
     """
@@ -32,7 +31,6 @@ class RigidityMaintenance(object):
             dmax,
             steepness,
             power=1.0,
-            adjacent_only=False,
             eigenvalues='min',
             functional='pow'
             ):
@@ -41,7 +39,6 @@ class RigidityMaintenance(object):
         self.steepness = steepness
         self.r = abs(power)
         self.dof = dim + 1
-        self.adjacent_only = adjacent_only
 
         if eigenvalues == 'min':
             self.eig_max = lambda x: self.dof + 1
@@ -67,8 +64,6 @@ class RigidityMaintenance(object):
 
     def weighted_rigidity_matrix(self, x):
         w = core.distance_matrix(x)
-        if self.adjacent_only:
-            w[w > self.midpoint] = 0.0
         w[w > 0] = functions.logistic(w[w > 0], self.midpoint, self.steepness)
         S = core.rigidity_laplacian_multiple_axes(w, x)
         return S
