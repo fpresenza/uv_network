@@ -64,7 +64,12 @@ class RigidityMaintenance(object):
 
     def weighted_rigidity_matrix(self, x):
         w = core.distance_matrix(x)
-        w[w > 0] = functions.logistic(w[w > 0], self.midpoint, self.steepness)
+        off_diag = np.logical_not(np.eye(x.shape[-2], dtype=bool))
+        w[..., off_diag] = functions.logistic(
+            d=w[..., off_diag],
+            midpoint=self.midpoint,
+            steepness=self.steepness
+        )
         S = core.rigidity_laplacian_multiple_axes(w, x)
         return S
 
