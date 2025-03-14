@@ -20,7 +20,7 @@ from uvnpy.bearings.core import (
     minimum_rigidity_extents,
     rigidity_eigenvalue
 )
-from uvnpy.distances.control import CollisionAvoidance
+from uvnpy.distances.control import CollisionAvoidanceVanishing
 from uvnpy.bearings.control import RigidityMaintenance
 
 
@@ -114,7 +114,11 @@ class Robot(object):
             eigenvalues='all',
             functional='log'
         )
-        self.collision = CollisionAvoidance(power=2.0)
+        self.collision = CollisionAvoidanceVanishing(
+            power=2.0,
+            dmin=1,
+            dmax=comm_range
+        )
         self.u_target = np.zeros(self.dim, dtype=float)
         self.u_collision = np.zeros(self.dim, dtype=float)
         self.u_rigidity = np.zeros(self.dim, dtype=float)
