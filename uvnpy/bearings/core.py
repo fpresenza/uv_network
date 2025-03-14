@@ -39,11 +39,23 @@ def rigidity_matrix(A, p):
 
 @njit
 def _rigidity_laplacian(A, p):
-    return
+    n, d = p.shape
+    Id = np.eye(d)
+    L = np.zeros((n, n, d, d))
+    edges = np.argwhere(np.triu(A) > 0)
+    for i, j in edges:
+        r = (p[j] - p[i]).reshape(d, 1)
+        l2 = np.square(r).sum()
+        L[i, j] = L[j, i] = (r.dot(r.T) / l2 - Id) / l2
+        L[i, i] -= L[i, j]
+        L[j, j] -= L[i, j]
+
+    return L
 
 
 def rigidity_laplacian(A, p):
-    return
+    L = _rigidity_laplacian(A, p)
+    return L.swapaxes(1, 2).reshape(p.size, p.size)
 
 
 def rigidity_laplacian_multiple_axes(A, p):
@@ -85,7 +97,10 @@ def is_inf_rigid(A, p, threshold=THRESHOLD_SV):
 
 
 def rigidity_eigenvalue(A, p):
-    return 1.0
+    d = p.shape[1]
+    S = rigidity_laplacian(A, p)
+    eig = np.linalg.eigvalsh(S)
+    return eig[d + 1]
 
 
 def minimum_rigidity_extents(geodesics, p, threshold=THRESHOLD_SV):
