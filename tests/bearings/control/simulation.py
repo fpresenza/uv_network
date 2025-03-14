@@ -108,7 +108,7 @@ class Robot(object):
         self.self_centered_ball = {node_id} if (action_extent > 0) else set()
         self.in_balls = self.self_centered_ball
         self.maintenance = RigidityMaintenance(
-            dim=2,
+            dim=3,
             dmax=0.95 * comm_range,
             steepness=50.0 / comm_range,
             eigenvalues='all',
