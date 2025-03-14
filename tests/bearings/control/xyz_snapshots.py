@@ -4,6 +4,7 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import progressbar
+from mpl_toolkits.mplot3d import Axes3D
 
 from uvnpy.toolkit import data
 from uvnpy.network import plot
@@ -13,7 +14,6 @@ plt.rcParams['pdf.fonttype'] = 42
 plt.rcParams['ps.fonttype'] = 42
 plt.rcParams['mathtext.fontset'] = 'dejavuserif'
 plt.rcParams['font.family'] = 'serif'
-
 
 # ------------------------------------------------------------------
 # Parse arguments
@@ -89,42 +89,49 @@ for k in range(N):
     tk = t[k_i + k]
     fig = plt.figure()
     ax = fig.add_subplot(projection="3d")
+    fig.subplots_adjust(right=0.5)
+    # fig.set_size_inches(10, 8)  # Width = 10, Height = 8
     fig.tight_layout()
     ax.tick_params(
         axis='both',       # changes apply to the x-axis
         which='both',      # both major and minor ticks are affected
-        pad=1,
-        labelsize='x-small')
-    # ax.grid(1, lw=0.4)
+        pad=-2,
+        labelsize='x-small'
+    )
     ax.set_aspect('equal')
-    # ax.set_xlabel(r'$\mathrm{x}$', fontsize='x-small', labelpad=0.6)
-    # ax.set_ylabel(r'$\mathrm{y}$', fontsize='x-small', labelpad=0)
+    ax.set_xlabel(r'$x \ (\mathrm{m})$', fontsize='small', labelpad=0.5)
+    ax.set_ylabel(r'$y \ (\mathrm{m})$', fontsize='small', labelpad=0.5)
+    ax.set_zlabel(r'$z \ (\mathrm{m})$', fontsize='small', labelpad=-8.0)
+    # ax.zaxis.labelpad = 0
 
     ax.set_xlim3d(0, 100.0)
     ax.set_ylim3d(0, 100.0)
-    ax.set_zlim3d(0, 100.0)
-    # ax.set_xticks([])
-    # ax.set_yticks([])
-    # ax.set_zticks([])
+    ax.set_zlim3d(0, 50.0)
+    ax.set_xticks([0.0, 25.0, 50.0, 75.0, 100.0])
+    ax.set_yticks([0.0, 25.0, 50.0, 75.0, 100.0])
+    ax.set_zticks([0.0, 25.0, 50.0])
     # ax.set_xticklabels([])
     # ax.set_yticklabels([])
     # ax.set_zticklabels([])
-    # ax.view_init(elev=27.5, azim=-17.5)
-
-    ax.text(
-            5.0, 5.0, 15.0, r't = {:.3f}s'.format(tk),
-            verticalalignment='bottom', horizontalalignment='left',
-            transform=ax.transAxes, color='green', fontsize=6)
+    ax.view_init(elev=10.0, azim=-50.0)
 
     plot.nodes(
         ax, x[k],
         color='b',
         marker='x',
         s=20,
-        lw=1
+        lw=1,
+        zorder=10,
+        # alpha=1
     )
     plot.edges(
-        ax, x[k], A[k], color='k', lw=0.35, zorder=0
+        ax,
+        x[k],
+        A[k],
+        color='0.0',
+        alpha=0.5,
+        lw=0.5,
+        zorder=0
     )
 
     untracked = targets[k][:, 3].astype(bool)
@@ -133,18 +140,45 @@ for k in range(N):
         targets[k][untracked, 0],
         targets[k][untracked, 1],
         targets[k][untracked, 2],
-        marker='o',
-        s=4,
-        color='0.6'
+        marker='d',
+        # linewidth=2,
+        edgecolor='black',
+        facecolor='black',
+        s=6,
     )
     ax.scatter(
         targets[k][tracked, 0],
         targets[k][tracked, 1],
         targets[k][tracked, 2],
-        marker='o',
-        s=4,
-        color='green'
+        marker='d',
+        linewidth=0.2,
+        edgecolor='black',
+        facecolor='none',
+        s=3,
     )
+    ax.xaxis._axinfo['grid'].update(
+        color='0.5',
+        linestyle='-',
+        linewidth=0.25,
+        alpha=0.5
+    )
+    ax.yaxis._axinfo['grid'].update(
+        color='0.5',
+        linestyle='-',
+        linewidth=0.25,
+        alpha=0.5
+    )
+    ax.zaxis._axinfo['grid'].update(
+        color='0.5',
+        linestyle='-',
+        linewidth=0.25,
+        alpha=0.5
+    )
+
+    # Shorten the Z-axis (flatten effect)
+    ax.get_proj = lambda: np.dot(Axes3D.get_proj(ax), np.diag([1, 1, 0.5, 1]))
+    ax.set_box_aspect(None, zoom=0.85)
+
     fig.savefig(
         'data/snapshots/{}.png'.format(k),
         format='png',
