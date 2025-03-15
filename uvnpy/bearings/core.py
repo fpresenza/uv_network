@@ -78,9 +78,8 @@ def rigidity_laplacian_multiple_axes(A, p):
     r = p[..., np.newaxis, :] - p[..., np.newaxis, :, :]
     l2 = np.sum(r*r, axis=-1)
     R = r[..., np.newaxis] * r[..., np.newaxis, :]
-    P = R / l2[..., np.newaxis, np.newaxis]
-    S = P - Id                             # projection matrices
-    S *= A[..., np.newaxis, np.newaxis]    # apply weights
+    S = R / l2[..., np.newaxis, np.newaxis] - Id    # projection matrices
+    S *= A[..., np.newaxis, np.newaxis]             # apply weights
     S[..., In, :, :] = 0.0
     S[..., In, :, :] -= S.sum(p.ndim - 1)
     S = S.swapaxes(-3, -2)
