@@ -18,7 +18,6 @@ class RigidityMaintenance(object):
 
     args:
     -----
-        dim: realization space dimension
         dmax: maximum connectivity distance
         steepness: connectivity decrease factor
         power: positive number to exponentiate the eigenvalues
@@ -28,7 +27,6 @@ class RigidityMaintenance(object):
     """
     def __init__(
             self,
-            dim,
             dmax,
             steepness,
             power=1.0,
@@ -36,15 +34,13 @@ class RigidityMaintenance(object):
             eigenvalues='min',
             functional='pow'
             ):
-        self.dim = dim
         self.midpoint = dmax
         self.steepness = steepness
         self.r = abs(power)
-        self.dof = int(dim * (dim + 1)/2)
         self.adjacent_only = adjacent_only
 
         if eigenvalues == 'min':
-            self.eig_max = lambda x: self.dof + 1
+            self.eig_max = lambda x: self.dof(x) + 1
         elif eigenvalues == 'all':
             self.eig_max = lambda x: x.size
         else:
@@ -56,6 +52,11 @@ class RigidityMaintenance(object):
             self.gradient = self.gradient_log
         else:
             ValueError('Invalid selection of functional.')
+
+    def dof(self, x):
+        n, d = x.shape
+        s = min(n - 1, d)
+        return int((s + 1) * (2*d - s)/2)
 
     def gradient_pow(self, matrix_deriv, eigenvalue, eigenvector):
         eigenvalue_deriv = eigenvector.dot(matrix_deriv).dot(eigenvector)
@@ -79,7 +80,7 @@ class RigidityMaintenance(object):
         dS_dx = functions.derivative_eval(self.weighted_rigidity_matrix, x)
         grad = sum([
             self.gradient(dS_dx, e[k], V[:, k])
-            for k in range(self.dof, self.eig_max(x))
+            for k in range(self.dof(x), self.eig_max(x))
         ])
         return - grad.reshape(x.shape)
 
