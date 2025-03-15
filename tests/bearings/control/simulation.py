@@ -12,9 +12,9 @@ from uvnpy.network import core
 from uvnpy.bearings.localization import FirstOrderKalmanFilter
 from uvnpy.routing.token_passing import TokenPassing
 from uvnpy.dynamics.linear_models import Integrator
-from uvnpy.toolkit.functions import logistic_saturation
+# from uvnpy.toolkit.functions import logistic_saturation
 from uvnpy.network.disk_graph import adjacency_from_positions
-from uvnpy.distances.core import minimum_rigidity_radius
+# from uvnpy.distances.core import minimum_rigidity_radius
 from uvnpy.bearings.core import (
     is_inf_rigid,
     minimum_rigidity_extents,
@@ -110,7 +110,7 @@ class Robot(object):
         self.maintenance = RigidityMaintenance(
             dim=3,
             dmax=0.95 * comm_range,
-            steepness=50.0 / comm_range,
+            steepness=100.0 / comm_range,
             eigenvalues='all',
             functional='log'
         )
@@ -186,9 +186,9 @@ class Robot(object):
             # go to allocated target
             r = self.loc.position() - target
             d = np.sqrt(np.square(r).sum())
-            tracking_radius = 100.0    # radius
-            forget_radius = 800.0      # radius
-            v_collect_max = 2.5
+            tracking_radius = 50.0    # radius
+            forget_radius = 100.0     # radius
+            v_collect_max = 2.0
             if d < tracking_radius:
                 v_collect = v_collect_max
             elif d < forget_radius:
@@ -209,7 +209,7 @@ class Robot(object):
                 self.loc.position(), obstacles_pos
             )
             # collision control gain
-            self.u_collision *= 30000.0    # entre 10k y 50k
+            self.u_collision *= 0.5
         else:
             self.u_collision = np.zeros(self.dim, dtype=float)
 
@@ -243,15 +243,17 @@ class Robot(object):
                 self.u_rigidity += self.maintenance.update(p)[0]
 
         # rigidity control gain
-        self.u_rigidity *= 15.0    # entre 10 y 20
+        self.u_rigidity *= 0.125
 
     def compose_actions(self):
         # compose control actions from different objectives and
         # apply logistic saturation
-        self.last_control_action = logistic_saturation(
-            (self.u_target + self.u_collision + self.u_rigidity) * 0.85,
-            limit=3.0
-        )
+        # self.last_control_action = logistic_saturation(
+        #     (self.u_target + self.u_collision + self.u_rigidity) * 0.85,
+        #     limit=3.0
+        # )
+        self.last_control_action = \
+            self.u_target + self.u_collision + self.u_rigidity
 
     def velocity_measurement_step(self, vel_meas):
         self.loc.dynamic_step(self.current_time, vel_meas)
@@ -420,7 +422,7 @@ class Targets(object):
     def __init__(self, n, side_length, height, coverage):
         self.data = np.empty((n, 4), dtype=object)
         self.data[:, :2] = np.random.uniform(0.0, side_length, (n, 2))
-        self.data[:, 2] = 5.0 + np.random.uniform(0.0, height, n)
+        self.data[:, 2] = np.random.uniform(10.0, height, n)
         self.data[:, 3] = True
         self.coverage = coverage
 
@@ -666,35 +668,37 @@ print(
 
 n = 20
 position = np.array([
-    [5.9452, 4.2963, 0.],
-    [11.2323, 7.6117, 0.],
-    [20.9797, 5.9435, 0.],
-    [12.5597, 23.5646, 0.],
-    [15.8499, 21.6822, 0.],
-    [23.5052, 18.7691, 0.],
-    [24.86, 11.2955, 0.],
-    [1.7717, 7.3199, 0.],
-    [3.8089, 10.4372, 0.],
-    [3.2822, 15.1029, 0.],
-    [6.8706, 14.8058, 0.],
-    [7.7595, 9.3259, 0.],
-    [13.1243, 18.7649, 0.],
-    [8.3377, 23.104, 0.],
-    [21.558, 1.2173, 0.],
-    [18.5024, 17.0129, 0.],
-    [0.7559, 17.7584, 0.],
-    [15.5558, 6.9767, 0.],
-    [15.0098, 14.7185, 0.],
-    [11.0509, 12.9988, 0.],
-])
-print(position)
-adjacency_matrix, Rmin = minimum_rigidity_radius(
-    adjacency_from_positions(position[:, :2], dmax=10.0),
-    position[:, :2],
-    return_radius=True
-)
+    [8.9178, 6.44445, 0.],
+    [16.84845, 11.41755, 0.],
+    [31.46955, 8.91525, 0.],
+    [18.83955, 35.3469, 0.],
+    [23.77485, 32.5233, 0.],
+    [35.2578, 28.15365, 0.],
+    [37.29, 16.94325, 0.],
+    [2.65755, 10.97985, 0.],
+    [5.71335, 15.6558, 0.],
+    [4.9233, 22.65435, 0.],
+    [10.3059, 22.2087, 0.],
+    [11.63925, 13.98885, 0.],
+    [19.68645, 28.14735, 0.],
+    [12.50655, 34.656, 0.],
+    [32.337, 1.82595, 0.],
+    [27.7536, 25.51935, 0.],
+    [1.13385, 26.6376, 0.],
+    [23.3337, 10.46505, 0.],
+    [22.5147, 22.07775, 0.],
+    [16.57635, 19.4982, 0.]])
 
-comm_range = np.ceil(Rmin / 5.0) * 5.0
+
+print(position)
+# adjacency_matrix, Rmin = minimum_rigidity_radius(
+#     adjacency_from_positions(position[:, :2], dmax=10.0),
+#     position[:, :2],
+#     return_radius=True
+# )
+
+# comm_range = np.ceil(Rmin / 5.0) * 5.0
+comm_range = 15.0
 print('Communication range: {}'.format(comm_range))
 adjacency_matrix = adjacency_from_positions(position, comm_range)
 print(
@@ -734,9 +738,9 @@ index_map = {robots[i].node_id: i for i in range(n)}
 # print('Index map: {}'.format(index_map))
 
 targets = Targets(
-    n=100,
+    n=150,
     side_length=100.0,
-    height=45.0,
+    height=50.0,
     coverage=5.0
 )
 
