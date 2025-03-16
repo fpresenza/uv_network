@@ -46,7 +46,7 @@ k_e = int(np.argmin(np.abs(t - arg.end))) + 1
 
 t = t[k_i:k_e:arg.jump]
 
-x = data.read_csv(
+p = data.read_csv(
     'data/position.csv',
     rows=(k_i, k_e),
     jump=arg.jump,
@@ -54,7 +54,7 @@ x = data.read_csv(
     shape=(-1, 3),
     asarray=True
 )
-n = len(x[0])
+n = len(p[0])
 nodes = np.arange(n)
 if (arg.subset == -1):
     subset = nodes
@@ -116,7 +116,7 @@ action_extents = data.read_csv(
     asarray=True
 )
 
-hatx = data.read_csv(
+hatp = data.read_csv(
     'data/est_position.csv',
     rows=(k_i, k_e),
     jump=arg.jump,
@@ -146,8 +146,8 @@ ax.tick_params(
     pad=1,
     labelsize='x-small')
 
-ax.set_xlabel('$t$ [$s$]', fontsize=8)
-ax.set_ylabel(r'$\Vert u_t \Vert$ [$m/s$]', fontsize=8)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
+ax.set_ylabel(r'$\Vert u_t \Vert \ (\mathrm{m}/\mathrm{s})$', fontsize=8)
 ax.grid(1)
 ax.plot(
     t,
@@ -169,12 +169,12 @@ ax.tick_params(
     pad=1,
     labelsize='x-small')
 
-ax.set_xlabel('$t$ [$s$]', fontsize=8)
-ax.set_ylabel(r'$\Vert u_c \Vert$ [$m/s$]', fontsize=8)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
+ax.set_ylabel(r'$\Vert u_c \Vert \ (\mathrm{m}/\mathrm{s})$', fontsize=8)
 ax.grid(1)
 ax.plot(
     t,
-    np.sqrt(u_c[:, subset, 0]**2 + u_c[:, subset, 1]**2),
+    np.sqrt(np.sum(u_c[:, subset]**2, axis=2)),
     lw=0.8, ds='steps-post'
 )
 fig.savefig('data/time/collision_control.png', format='png', dpi=360)
@@ -191,12 +191,12 @@ ax.tick_params(
     pad=1,
     labelsize='x-small')
 
-ax.set_xlabel('$t$ [$s$]', fontsize=8)
-ax.set_ylabel(r'$\Vert u_r \Vert$ [$m/s$]', fontsize=8)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
+ax.set_ylabel(r'$\Vert u_r \Vert \ (\mathrm{m}/\mathrm{s})$', fontsize=8)
 ax.grid(1)
 ax.plot(
     t,
-    np.sqrt(u_r[:, subset, 0]**2 + u_r[:, subset, 1]**2),
+    np.sqrt(np.sum(u_r[:, subset]**2, axis=2)),
     lw=0.8, ds='steps-post'
 )
 fig.savefig('data/time/rigidity_control.png', format='png', dpi=360)
@@ -214,14 +214,15 @@ ax.tick_params(
     pad=1,
     labelsize='x-small')
 
-ax.set_xlabel('$t$ [$s$]', fontsize=8)
-ax.set_ylabel(r'$\Vert u \Vert$ [$m/s$]', fontsize=8)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
+ax.set_ylabel(r'$\Vert u \Vert \ (\mathrm{m}/\mathrm{s})$', fontsize=8)
 ax.grid(1)
 ax.plot(
     t,
-    np.sqrt(u[:, subset, 0]**2 + u[:, subset, 1]**2),
+    np.sqrt(np.sum(u[:, subset]**2, axis=2)),
     lw=0.8, ds='steps-post'
 )
+fig.savefig('data/time/control.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot state extents
@@ -235,7 +236,7 @@ ax.plot(
 #     pad=1,
 #     labelsize='x-small')
 
-# ax.set_xlabel('$t$ [$s$]', fontsize=8)
+# ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
 # ax.set_ylabel('state extents', fontsize=8)
 # ax.grid(1)
 # ax.plot(t, state_extents, lw=0.8, marker='.', ds='steps-post')
@@ -254,8 +255,11 @@ ax.plot(
 #     pad=1,
 #     labelsize='x-small')
 
-# ax.set_xlabel('$t$ [$s$]', fontsize=8)
-# ax.set_ylabel(r'$\Vert e_{\mathrm{vel}} \Vert$ [$m/s$]', fontsize=8)
+# ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
+# ax.set_ylabel(
+#   r'$\Vert e_{\mathrm{vel}} \Vert \ (\mathrm{m}/\mathrm{s})$',
+#   fontsize=8
+# )
 # ax.grid(1)
 # ax.plot(
 #     t, np.nanmedian(e_vel, axis=1),
@@ -287,8 +291,11 @@ ax.plot(
 #     pad=1,
 #     labelsize='x-small')
 
-# ax.set_xlabel('$t$ [$s$]', fontsize=8)
-# ax.set_ylabel(r'$\Vert e_{\mathrm{gps}} \Vert$ [$m/s$]', fontsize=8)
+# ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
+# ax.set_ylabel(
+#     r'$\Vert e_{\mathrm{gps}} \Vert \ (\mathrm{m}/\mathrm{s})$',
+#     fontsize=8
+# )
 # ax.grid(1)
 # ax.plot(
 #     t, np.nanmedian(e_gps, axis=1),
@@ -320,7 +327,7 @@ ax.plot(
 #     pad=1,
 #     labelsize='x-small')
 
-# ax.set_xlabel('$t$ [$s$]', fontsize=8)
+# ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
 # ax.set_ylabel(r'$\Vert e_{\mathrm{range}} \Vert$ [$m$]', fontsize=8)
 # ax.grid(1)
 # ax.plot(
@@ -343,38 +350,74 @@ ax.plot(
 # ------------------------------------------------------------------
 # Plot position x
 # ------------------------------------------------------------------
-# fig, ax = plt.subplots(figsize=(2.75, 1.75))
-# fig.subplots_adjust(
-#     bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.2)
-# ax.tick_params(
-#     axis='both',       # changes apply to the x-axis
-#     which='both',      # both major and minor ticks are affected
-#     pad=1,
-#     labelsize='x-small')
-# ax.grid(1, lw=0.4)
+fig, ax = plt.subplots(figsize=(2.75, 1.75))
+fig.subplots_adjust(
+    bottom=0.215,
+    top=0.925,
+    wspace=0.33,
+    right=0.975,
+    left=0.2
+)
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='x-small'
+)
+ax.grid(1, lw=0.4)
 
-# ax.set_xlabel(r'$t$ [$s$]', fontsize=8)
-# ax.set_ylabel('position-$x$ [$m$]', fontsize=8)
-# ax.plot(t, x[:, subset, 0], lw=0.8, ds='steps-post')
-# fig.savefig('data/time/pos_x.png', format='png', dpi=360)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
+ax.set_ylabel(r'$x_i\ (\mathrm{m})$', fontsize=8)
+ax.plot(t, p[:, subset, 0], lw=0.8, ds='steps-post')
+fig.savefig('data/time/pos_x.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot position y
 # ------------------------------------------------------------------
-# fig, ax = plt.subplots(figsize=(2.75, 1.75))
-# fig.subplots_adjust(
-#     bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.2)
-# ax.tick_params(
-#     axis='both',       # changes apply to the x-axis
-#     which='both',      # both major and minor ticks are affected
-#     pad=1,
-#     labelsize='x-small')
-# ax.grid(1, lw=0.4)
+fig, ax = plt.subplots(figsize=(2.75, 1.75))
+fig.subplots_adjust(
+    bottom=0.215,
+    top=0.925,
+    wspace=0.33,
+    right=0.975,
+    left=0.2
+    )
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='x-small'
+)
+ax.grid(1, lw=0.4)
 
-# ax.set_xlabel(r'$t$ [$s$]', fontsize=8)
-# ax.set_ylabel('position-$y$ [$m$]', fontsize=8)
-# ax.plot(t, x[:, subset, 1], lw=0.8, ds='steps-post')
-# fig.savefig('data/time/pos_y.png', format='png', dpi=360)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
+ax.set_ylabel(r'$y_i\ (\mathrm{m})$', fontsize=8)
+ax.plot(t, p[:, subset, 1], lw=0.8, ds='steps-post')
+fig.savefig('data/time/pos_y.png', format='png', dpi=360)
+
+# ------------------------------------------------------------------
+# Plot position z
+# ------------------------------------------------------------------
+fig, ax = plt.subplots(figsize=(2.75, 1.75))
+fig.subplots_adjust(
+    bottom=0.215,
+    top=0.925,
+    wspace=0.33,
+    right=0.975,
+    left=0.2
+    )
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='x-small'
+)
+ax.grid(1, lw=0.4)
+
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
+ax.set_ylabel(r'$z_i\ (\mathrm{m})$', fontsize=8)
+ax.plot(t, p[:, subset, 2], lw=0.8, ds='steps-post')
+fig.savefig('data/time/pos_z.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
 # Plot eigenvalues
@@ -418,7 +461,7 @@ fig.savefig('data/time/eigenvalues.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Plot position error
 # ------------------------------------------------------------------
-err = np.sqrt(np.square(x - hatx).sum(axis=-1))
+err = np.sqrt(np.square(p - hatp).sum(axis=-1))
 fig, ax = plt.subplots(figsize=(4.0, 2.0))
 fig.subplots_adjust(
     bottom=0.215,
@@ -434,7 +477,7 @@ ax.tick_params(
     labelsize='x-small'
 )
 ax.grid(1, lw=0.4)
-ax.set_xlabel(r'$t$ [$s$]', fontsize=8)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
 ax.set_ylabel(r'$\Vert p - \hat{p} \Vert \ (\mathrm{m})$', fontsize=8)
 ax.plot(
     t,
@@ -469,7 +512,7 @@ fig.savefig('data/time/pos_error.png', format='png', dpi=360)
 #     pad=1,
 #     labelsize='x-small')
 # ax.grid(1, lw=0.4)
-# ax.set_xlabel(r'$t$ [$s$]', fontsize=8)
+# ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
 # ax.set_ylabel(
 #     r'$\mathrm{tr}(\mathrm{cov}(e_{\mathrm{pos}}))$ [$m^2$]', fontsize=8
 # )
