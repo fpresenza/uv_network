@@ -5,6 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from uvnpy.toolkit import data
+from uvnpy.network.core import geodesics
+from uvnpy.bearings.core import rigidity_eigenvalue
 
 plt.rcParams['text.usetex'] = False
 plt.rcParams['pdf.fonttype'] = 42
@@ -92,20 +94,6 @@ u_r = data.read_csv(
     jump=arg.jump,
     dtype=float,
     shape=(n, 3),
-    asarray=True
-)
-fre = data.read_csv(
-    'data/fre.csv',
-    rows=(k_i, k_e),
-    jump=arg.jump,
-    dtype=float,
-    asarray=True
-)
-re = data.read_csv(
-    'data/re.csv',
-    rows=(k_i, k_e),
-    jump=arg.jump,
-    dtype=float,
     asarray=True
 )
 action_extents = data.read_csv(
@@ -432,16 +420,10 @@ ax.tick_params(
     labelsize='x-small')
 ax.grid(1, lw=0.4)
 
-ax.set_xlabel(r'$t$ [$s$]', fontsize=8)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
 ax.set_ylabel('Autovalores \n de Rigidez', fontsize=8)
-for vertex in np.where(np.any(action_extents > 0, axis=0))[0]:
-    ax.semilogy(
-        t, re[:, vertex],
-        lw=0.8,
-        marker='.',
-        ds='steps-post',
-        label=r'$F_{{{}}}$'.format(vertex)
-    )
+
+fre = [rigidity_eigenvalue(adj, pos) for adj, pos in zip(A, p)]
 ax.semilogy(
     t, fre,
     lw=0.8,
@@ -450,6 +432,25 @@ ax.semilogy(
     ds='steps-post',
     label=r'$F$'
 )
+
+G = [geodesics(adj) for adj in A]
+for i in np.where(np.any(action_extents > 0, axis=0))[0]:
+    re = []
+    for geo, adj, pos, ext in zip(G, A, p, action_extents):
+        if ext[i] > 0:
+            Vi = geo[i] <= ext[i]
+            Ai = adj[np.ix_(Vi, Vi)]
+            qi = pos[Vi]
+            re.append(rigidity_eigenvalue(Ai, qi))
+        else:
+            re.append(np.inf)
+    ax.semilogy(
+        t, re,
+        lw=0.8,
+        marker='.',
+        ds='steps-post',
+        label=r'$F_{{{}}}$'.format(i)
+    )
 ax.set_ylim(bottom=1e-4, top=3)
 ax.set_ylim(bottom=1e-4)
 ax.legend(

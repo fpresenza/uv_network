@@ -14,11 +14,9 @@ from uvnpy.routing.token_passing import TokenPassing
 from uvnpy.dynamics.linear_models import Integrator
 # from uvnpy.toolkit.functions import logistic_saturation
 from uvnpy.network.disk_graph import adjacency_from_positions
-# from uvnpy.distances.core import minimum_rigidity_radius
 from uvnpy.bearings.core import (
     is_inf_rigid,
     minimum_rigidity_extents,
-    rigidity_eigenvalue
 )
 from uvnpy.distances.control import CollisionAvoidanceVanishing
 from uvnpy.bearings.control import RigidityMaintenance
@@ -354,27 +352,6 @@ class World(object):
             self.positions(), self.comm_range
         ).astype(bool)
 
-    def framework_rigidity_eigenvalue(self):
-        return rigidity_eigenvalue(
-            self.adjacency_matrix, self.positions()
-        )
-
-    def subframeworks_rigidity_eigenvalue(self, robots):
-        geodesics = core.geodesics_dict(self.adjacency_matrix)
-        eigs = []
-        for robot in robots:
-            if robot.action_extent > 0:
-                g_i = geodesics[robot.node_id]
-                h_i = robot.action_extent
-                subset = [j for j, g_ij in g_i.items() if g_ij <= h_i]
-                A = self.adjacency_matrix[np.ix_(subset, subset)]
-                p = self.positions(subset)
-                eigs.append(rigidity_eigenvalue(A, p))
-            else:
-                eigs.append(np.inf)
-
-        return eigs
-
     def velocity_measurement(self, node_index):
         if len(self.robot_dynamics[node_index].derivatives) > 0:
             vel = self.robot_dynamics[node_index].derivatives[0]
@@ -507,8 +484,6 @@ def initialize_robots(simu_counter):
         logs.vel_meas_err.append(world.collect_vel_meas_err())
         logs.gps_meas_err.append(world.collect_gps_meas_err())
         logs.bearing_meas_err.append(world.collect_bearing_meas_err())
-        logs.fre.append(world.framework_rigidity_eigenvalue())
-        logs.re.append(world.subframeworks_rigidity_eigenvalue(robots))
         logs.adjacency.append(world.adjacency_matrix.ravel())
         logs.action_extents.append(robots.collect_action_extents())
         logs.state_extents.append(robots.collect_state_extents())
@@ -586,8 +561,6 @@ def run_mission(simu_counter, end_counter):
         logs.vel_meas_err.append(world.collect_vel_meas_err())
         logs.gps_meas_err.append(world.collect_gps_meas_err())
         logs.bearing_meas_err.append(world.collect_bearing_meas_err())
-        logs.fre.append(world.framework_rigidity_eigenvalue())
-        logs.re.append(world.subframeworks_rigidity_eigenvalue(robots))
         logs.adjacency.append(world.adjacency_matrix.ravel())
         logs.action_extents.append(robots.collect_action_extents())
         logs.state_extents.append(robots.collect_state_extents())
