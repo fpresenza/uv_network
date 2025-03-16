@@ -43,8 +43,6 @@ Logs = collections.namedtuple(
     vel_meas_err, \
     gps_meas_err, \
     bearing_meas_err, \
-    fre, \
-    re, \
     adjacency, \
     action_extents, \
     state_extents, \
@@ -732,8 +730,6 @@ logs = Logs(
     vel_meas_err=[],
     gps_meas_err=[],
     bearing_meas_err=[],
-    fre=[],
-    re=[],
     adjacency=[],
     action_extents=[],
     state_extents=[],
@@ -772,8 +768,6 @@ np.savetxt('data/rigidity_action.csv', logs.rigidity_action, delimiter=',')
 np.savetxt('data/vel_meas_err.csv', logs.vel_meas_err, delimiter=',')
 np.savetxt('data/gps_meas_err.csv', logs.gps_meas_err, delimiter=',')
 np.savetxt('data/bearing_meas_err.csv', logs.bearing_meas_err, delimiter=',')
-np.savetxt('data/fre.csv', logs.fre, delimiter=',')
-np.savetxt('data/re.csv', logs.re, delimiter=',')
 np.savetxt('data/adjacency.csv', logs.adjacency, delimiter=',')
 np.savetxt('data/action_extents.csv', logs.action_extents, delimiter=',')
 np.savetxt('data/state_extents.csv', logs.state_extents, delimiter=',')
