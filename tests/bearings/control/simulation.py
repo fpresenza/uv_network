@@ -107,8 +107,9 @@ class Robot(object):
         self.in_balls = self.self_centered_ball
         self.maintenance = RigidityMaintenance(
             dim=3,
-            dmax=0.95 * comm_range,
-            steepness=100.0 / comm_range,
+            dmax=0.92 * comm_range,
+            steepness=10.0,
+            threshold=1e-4,
             eigenvalues='all',
             functional='log'
         )
@@ -184,9 +185,9 @@ class Robot(object):
             # go to allocated target
             r = self.loc.position() - target
             d = np.sqrt(np.square(r).sum())
-            tracking_radius = 50.0    # radius
-            forget_radius = 100.0     # radius
-            v_collect_max = 2.0
+            tracking_radius = 20.0    # radius
+            forget_radius = 30.0     # radius
+            v_collect_max = 2.5
             if d < tracking_radius:
                 v_collect = v_collect_max
             elif d < forget_radius:
@@ -207,7 +208,7 @@ class Robot(object):
                 self.loc.position(), obstacles_pos
             )
             # collision control gain
-            self.u_collision *= 0.5
+            self.u_collision *= 0.75
         else:
             self.u_collision = np.zeros(self.dim, dtype=float)
 
@@ -641,28 +642,27 @@ print(
 
 n = 20
 position = np.array([
-    [8.9178, 6.44445, 0.],
-    [16.84845, 11.41755, 0.],
-    [31.46955, 8.91525, 0.],
-    [18.83955, 35.3469, 0.],
-    [23.77485, 32.5233, 0.],
-    [35.2578, 28.15365, 0.],
-    [37.29, 16.94325, 0.],
-    [2.65755, 10.97985, 0.],
-    [5.71335, 15.6558, 0.],
-    [4.9233, 22.65435, 0.],
-    [10.3059, 22.2087, 0.],
-    [11.63925, 13.98885, 0.],
-    [19.68645, 28.14735, 0.],
-    [12.50655, 34.656, 0.],
-    [32.337, 1.82595, 0.],
-    [27.7536, 25.51935, 0.],
-    [1.13385, 26.6376, 0.],
-    [23.3337, 10.46505, 0.],
-    [22.5147, 22.07775, 0.],
-    [16.57635, 19.4982, 0.]])
-
-
+    [8.8073523063, 6.3042370627, 0.],
+    [17.1029732669, 11.0046986205, 0.],
+    [31.186538034, 8.9747394789, 0.],
+    [18.7144623157, 35.2741964133, 0.],
+    [24.0062670026, 32.5964895071, 0.],
+    [35.0546596323, 28.2255372366, 0.],
+    [37.480498427, 16.9108985815, 0.],
+    [2.5700695761, 10.8970998756, 0.],
+    [5.5603965902, 15.6577290526, 0.],
+    [4.7723726409, 22.9948840075, 0.],
+    [10.2448254248, 22.3585615506, 0.],
+    [11.6161346706, 13.955768194, 0.],
+    [19.3209996703, 28.0969737243, 0.],
+    [11.8278550027, 34.442105737, 0.],
+    [32.3836034169, 1.741932494, 0.],
+    [27.763696182, 25.6107016014, 0.],
+    [1.0308446707, 27.2387302286, 0.],
+    [23.4271927906, 10.6842377268, 0.],
+    [22.6177090084, 22.1869906253, 0.],
+    [16.5353740973, 19.6605780599, 0.]
+])
 print(position)
 # adjacency_matrix, Rmin = minimum_rigidity_radius(
 #     adjacency_from_positions(position[:, :2], dmax=10.0),
@@ -711,7 +711,7 @@ index_map = {robots[i].node_id: i for i in range(n)}
 # print('Index map: {}'.format(index_map))
 
 targets = Targets(
-    n=150,
+    n=100,
     side_length=100.0,
     height=50.0,
     coverage=5.0
