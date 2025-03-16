@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from uvnpy.toolkit import data
 from uvnpy.network.core import geodesics
 from uvnpy.bearings.core import rigidity_eigenvalue
+from uvnpy.distances.core import distance_matrix
 
 plt.rcParams['text.usetex'] = False
 plt.rcParams['pdf.fonttype'] = 42
@@ -68,10 +69,10 @@ A = data.read_csv(
     'data/adjacency.csv',
     rows=(k_i, k_e), jump=arg.jump, dtype=float, shape=(n, n), asarray=True
 )
-# targets = data.read_csv(
-#     'data/targets.csv',
-#     rows=(k_i, k_e), jump=arg.jump, dtype=float, shape=(-1, 4), asarray=True
-# )
+targets = data.read_csv(
+    'data/targets.csv',
+    rows=(k_i, k_e), jump=arg.jump, dtype=float, shape=(-1, 4), asarray=True
+)
 u_t = data.read_csv(
     'data/target_action.csv',
     rows=(k_i, k_e),
@@ -460,46 +461,45 @@ ax.legend(
 fig.savefig('data/time/eigenvalues.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
-# Plot position error
+# Plot minimum distance between agents
 # ------------------------------------------------------------------
-err = np.sqrt(np.square(p - hatp).sum(axis=-1))
-fig, ax = plt.subplots(figsize=(4.0, 2.0))
-fig.subplots_adjust(
-    bottom=0.215,
-    top=0.925,
-    wspace=0.33,
-    right=0.975,
-    left=0.18
-)
+dist = distance_matrix(p)
+dist[..., np.eye(20).astype(bool)] = np.nan
+mindist = np.nanmin(dist, axis=1)
+
+fig, ax = plt.subplots(figsize=(2.5, 1.5))
+fig.tight_layout()
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
-    labelsize='x-small'
+    labelsize='xx-small'
 )
 ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
-ax.set_ylabel(r'$\Vert p - \hat{p} \Vert \ (\mathrm{m})$', fontsize=8)
+ax.set_ylabel(r'$\ell_{ij} \ (\mathrm{m})$', fontsize=8, labelpad=-2.0)
 ax.plot(
     t,
-    np.median(err, axis=1),
-    lw=0.8,
-    label='median',
+    mindist,
+    lw=0.5,
+    color='C0',
     ds='steps-post'
 )
-ax.fill_between(t, np.min(err, axis=1), np.max(err, axis=1), alpha=0.3)
+ax.fill_between(t, np.min(mindist, axis=1), np.max(mindist, axis=1), alpha=0.3)
 # ax.set_ylim(bottom=0.0)
-ax.legend(
-    fontsize=8,
-    handlelength=1,
-    labelspacing=0.4,
-    borderpad=0.2,
-    handletextpad=0.2,
-    framealpha=1.,
-    ncol=2,
-    columnspacing=1
-)
-fig.savefig('data/time/pos_error.png', format='png', dpi=360)
+# ax.legend(
+#     fontsize=8,
+#     handlelength=1,
+#     labelspacing=0.4,
+#     borderpad=0.2,
+#     handletextpad=0.2,
+#     framealpha=1.,
+#     ncol=2,
+#     columnspacing=1
+# )
+ax.hlines(1.0, xmin=0.0, xmax=200.0, ls='--', lw=0.8, color='k')
+ax.set_yticks([0.0, 5.0, 10.0, 15.0])
+fig.savefig('data/time/min_dist.png', format='png', dpi=400)
 
 # ------------------------------------------------------------------
 # Plot covariance
@@ -537,6 +537,43 @@ fig.savefig('data/time/pos_error.png', format='png', dpi=360)
 #     fontsize=8, handlelength=1, labelspacing=0.4,
 #     borderpad=0.2, handletextpad=0.2, framealpha=1.,
 #     ncol=2, columnspacing=1)
-# fig.savefig('data/time/pos_cov.png', format='png', dpi=360)
+# fig.savefig('data/time/pos_cov.png', format='png', dpi=400)
+
+# ------------------------------------------------------------------
+# Plot target collection
+# ------------------------------------------------------------------
+fig, ax = plt.subplots(figsize=(2.5, 1.5))
+fig.tight_layout()
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='xx-small'
+)
+ax.grid(1, lw=0.4)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
+# ax.set_ylabel(r'$\ell_{ij} \ (\mathrm{m})$', fontsize=8, labelpad=-2.0)
+ax.plot(
+    t,
+    np.sum(targets[0, :, 3]) - np.sum(targets[:, :, 3], axis=1),
+    lw=0.5,
+    color='C0',
+    # label='median',
+    ds='steps-post'
+)
+# ax.set_ylim(bottom=0.0)
+# ax.legend(
+#     fontsize=8,
+#     handlelength=1,
+#     labelspacing=0.4,
+#     borderpad=0.2,
+#     handletextpad=0.2,
+#     framealpha=1.,
+#     ncol=2,
+#     columnspacing=1
+# )
+# ax.hlines(1.0, xmin=0.0, xmax=200.0, ls='--', lw=0.8, color='k')
+ax.set_yticks([0.0, 50.0, 100.0])
+fig.savefig('data/time/targets.png', format='png', dpi=400)
 
 plt.show()
