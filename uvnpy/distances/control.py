@@ -154,6 +154,6 @@ class CollisionAvoidanceVanishing(object):
         e = self.power
         dm = d - self.dmin
         dM = d - self.dmax
-        deriv = dM / dm**(e + 1) * (2*dm - e * dM)
+        deriv = dM * (2*dm - e * dM) / dm**(e + 1)
         neg_grad = - deriv * (r / d)
         return neg_grad.sum(axis=0)
