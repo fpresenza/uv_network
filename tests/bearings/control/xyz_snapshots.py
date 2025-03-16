@@ -87,7 +87,7 @@ bar = progressbar.ProgressBar(maxval=N).start()
 
 for k in range(N):
     tk = t[k_i + k]
-    fig = plt.figure()
+    fig = plt.figure(figsize=(5, 5))
     ax = fig.add_subplot(projection="3d")
     fig.subplots_adjust(right=0.5)
     # fig.set_size_inches(10, 8)  # Width = 10, Height = 8
@@ -113,7 +113,7 @@ for k in range(N):
     # ax.set_xticklabels([])
     # ax.set_yticklabels([])
     # ax.set_zticklabels([])
-    ax.view_init(elev=10.0, azim=-50.0)
+    ax.view_init(elev=20.0, azim=-50.0)
 
     plot.nodes(
         ax, x[k],
@@ -180,7 +180,7 @@ for k in range(N):
     ax.set_box_aspect(None, zoom=0.85)
 
     fig.savefig(
-        'data/snapshots/{}.png'.format(k),
+        'data/snapshots/frame{}.png'.format(str(k).zfill(3)),
         format='png',
         dpi=360,
         bbox_inches="tight",
