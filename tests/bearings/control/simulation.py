@@ -184,7 +184,7 @@ class Robot(object):
             r = self.loc.position() - target
             d = np.sqrt(np.square(r).sum())
             tracking_radius = 20.0    # radius
-            forget_radius = 30.0     # radius
+            forget_radius = 100.0     # radius
             v_collect_max = 2.5
             if d < tracking_radius:
                 v_collect = v_collect_max
@@ -240,7 +240,7 @@ class Robot(object):
                 self.u_rigidity += self.maintenance.update(p)[0]
 
         # rigidity control gain
-        self.u_rigidity *= 0.125
+        self.u_rigidity *= 0.15
 
     def compose_actions(self):
         # compose control actions from different objectives and
