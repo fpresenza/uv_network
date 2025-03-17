@@ -229,7 +229,7 @@ fig.savefig('data/time/control.png', format='png', dpi=360)
 # ax.set_ylabel('state extents', fontsize=8)
 # ax.grid(1)
 # ax.plot(t, state_extents, lw=0.8, marker='.', ds='steps-post')
-# fig.savefig('data/time/state_extents.png', format='png', dpi=360)
+# fig.savefig('data/time/state_extents.png', format='png', dpi=400)
 
 # ------------------------------------------------------------------
 # Plot velocity measurement error
@@ -265,7 +265,7 @@ fig.savefig('data/time/control.png', format='png', dpi=360)
 #     fontsize=8, handlelength=1, labelspacing=0.4,
 #     borderpad=0.2, handletextpad=0.2, framealpha=1.,
 #     ncol=2, columnspacing=1)
-# fig.savefig('data/time/vel_meas_err.png', format='png', dpi=360)
+# fig.savefig('data/time/vel_meas_err.png', format='png', dpi=400)
 
 # ------------------------------------------------------------------
 # Plot gps measurement error
@@ -301,7 +301,7 @@ fig.savefig('data/time/control.png', format='png', dpi=360)
 #     fontsize=8, handlelength=1, labelspacing=0.4,
 #     borderpad=0.2, handletextpad=0.2, framealpha=1.,
 #     ncol=2, columnspacing=1)
-# fig.savefig('data/time/gps_meas_err.png', format='png', dpi=360)
+# fig.savefig('data/time/gps_meas_err.png', format='png', dpi=400)
 
 # ------------------------------------------------------------------
 # Plot range measurement error
@@ -334,7 +334,7 @@ fig.savefig('data/time/control.png', format='png', dpi=360)
 #     fontsize=8, handlelength=1, labelspacing=0.4,
 #     borderpad=0.2, handletextpad=0.2, framealpha=1.,
 #     ncol=2, columnspacing=1)
-# fig.savefig('data/time/range_meas_err.png', format='png', dpi=360)
+# fig.savefig('data/time/range_meas_err.png', format='png', dpi=400)
 
 # ------------------------------------------------------------------
 # Plot position x
@@ -422,7 +422,6 @@ ax.tick_params(
 ax.grid(1, lw=0.4)
 
 ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
-ax.set_ylabel('Autovalores \n de Rigidez', fontsize=8)
 
 fre = [rigidity_eigenvalue(adj, pos) for adj, pos in zip(A, p)]
 ax.semilogy(
@@ -431,34 +430,34 @@ ax.semilogy(
     ls='--',
     color='k',
     ds='steps-post',
-    label=r'$F$'
+    # label=r'$F$'
 )
 
 G = [geodesics(adj) for adj in A]
-for i in np.where(np.any(action_extents > 0, axis=0))[0]:
-    re = []
-    for geo, adj, pos, ext in zip(G, A, p, action_extents):
-        if ext[i] > 0:
-            Vi = geo[i] <= ext[i]
-            Ai = adj[np.ix_(Vi, Vi)]
-            qi = pos[Vi]
-            re.append(rigidity_eigenvalue(Ai, qi))
-        else:
-            re.append(np.inf)
-    ax.semilogy(
-        t, re,
-        lw=0.8,
-        marker='.',
-        ds='steps-post',
-        label=r'$F_{{{}}}$'.format(i)
-    )
-ax.set_ylim(bottom=1e-4, top=3)
-ax.set_ylim(bottom=1e-4)
-ax.legend(
-    fontsize=8, handlelength=1, labelspacing=0.4,
-    borderpad=0.2, handletextpad=0.2, framealpha=1.,
-    ncol=4, columnspacing=1)
-fig.savefig('data/time/eigenvalues.png', format='png', dpi=360)
+
+re = np.empty((len(t), n))
+for k, (geo, adj, pos, ext) in enumerate(zip(G, A, p, action_extents)):
+    for i in nodes:
+        Vi = geo[i] <= ext[i]
+        Ai = adj[np.ix_(Vi, Vi)]
+        qi = pos[Vi]
+        re[k, i] = rigidity_eigenvalue(Ai, qi)
+ax.semilogy(
+    t,
+    re,
+    lw=0.5,
+    color='C0',
+    # marker='.',
+    ds='steps-post',
+    # label=r'$F_{{{}}}$'.format(i)
+)
+ax.fill_between(t, np.min(re, axis=1), np.max(re, axis=1), alpha=0.3)
+ax.set_ylim(bottom=1e-4, top=10)
+# ax.legend(
+#     fontsize=8, handlelength=1, labelspacing=0.4,
+#     borderpad=0.2, handletextpad=0.2, framealpha=1.,
+#     ncol=4, columnspacing=1)
+fig.savefig('data/time/eigenvalues.png', format='png', dpi=400)
 
 # ------------------------------------------------------------------
 # Plot minimum distance between agents
@@ -500,6 +499,51 @@ ax.fill_between(t, np.min(mindist, axis=1), np.max(mindist, axis=1), alpha=0.3)
 ax.hlines(1.0, xmin=0.0, xmax=200.0, ls='--', lw=0.8, color='k')
 ax.set_yticks([0.0, 5.0, 10.0, 15.0])
 fig.savefig('data/time/min_dist.png', format='png', dpi=400)
+
+# ------------------------------------------------------------------
+# Plot position error
+# ------------------------------------------------------------------
+# hatp = np.empty((len(t), n, 3))
+# hatp[0] = np.random.normal(p[0], scale=1.0)
+# for k in range(len(t)):
+err = np.sqrt(np.square(p - hatp).sum(axis=-1))
+fig, ax = plt.subplots(figsize=(4.0, 2.0))
+fig.subplots_adjust(
+    bottom=0.215,
+    top=0.925,
+    wspace=0.33,
+    right=0.975,
+    left=0.18
+)
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='x-small'
+)
+ax.grid(1, lw=0.4)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
+ax.set_ylabel(r'$\Vert p - \hat{p} \Vert \ (\mathrm{m})$', fontsize=8)
+ax.plot(
+    t,
+    np.max(err, axis=1),
+    lw=0.8,
+    # label='median',
+    ds='steps-post'
+)
+# ax.fill_between(t, np.min(err, axis=1), np.max(err, axis=1), alpha=0.3)
+# ax.set_ylim(bottom=0.0)
+# ax.legend(
+#     fontsize=8,
+#     handlelength=1,
+#     labelspacing=0.4,
+#     borderpad=0.2,
+#     handletextpad=0.2,
+#     framealpha=1.,
+#     ncol=2,
+#     columnspacing=1
+# )
+fig.savefig('data/time/pos_error.png', format='png', dpi=400)
 
 # ------------------------------------------------------------------
 # Plot covariance
