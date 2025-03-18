@@ -114,6 +114,21 @@ hatp = data.read_csv(
     asarray=True
 )
 
+fre = np.empty(len(t))
+re = np.empty((len(t), n))
+fdiam = np.empty(len(t))
+diam = np.empty((len(t), n))
+for k, (adj, pos, ext) in enumerate(zip(A, p, action_extents)):
+    geo = geodesics(adj)
+    fre[k] = rigidity_eigenvalue(adj, pos)
+    fdiam[k] = np.max(geo)
+    for i in nodes:
+        Vi = geo[i] <= ext[i]
+        Ai = adj[np.ix_(Vi, Vi)]
+        qi = pos[Vi]
+        re[k, i] = rigidity_eigenvalue(Ai, qi)
+        diam[k, i] = np.max(geodesics(Ai))
+
 # tc = np.loadtxt('data/tc.csv', delimiter=',')
 # cov = np.loadtxt('data/covariance.csv', delimiter=',')
 
@@ -423,25 +438,15 @@ ax.grid(1, lw=0.4)
 
 ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
 
-fre = [rigidity_eigenvalue(adj, pos) for adj, pos in zip(A, p)]
 ax.semilogy(
-    t, fre,
+    t,
+    fre,
     lw=0.8,
     ls='--',
     color='k',
     ds='steps-post',
     # label=r'$F$'
 )
-
-G = [geodesics(adj) for adj in A]
-
-re = np.empty((len(t), n))
-for k, (geo, adj, pos, ext) in enumerate(zip(G, A, p, action_extents)):
-    for i in nodes:
-        Vi = geo[i] <= ext[i]
-        Ai = adj[np.ix_(Vi, Vi)]
-        qi = pos[Vi]
-        re[k, i] = rigidity_eigenvalue(Ai, qi)
 ax.semilogy(
     t,
     re,
@@ -619,5 +624,50 @@ ax.plot(
 # ax.hlines(1.0, xmin=0.0, xmax=200.0, ls='--', lw=0.8, color='k')
 ax.set_yticks([0.0, 50.0, 100.0])
 fig.savefig('data/time/targets.png', format='png', dpi=400)
+
+# ------------------------------------------------------------------
+# Plot communication metrics
+# ------------------------------------------------------------------
+fig, ax = plt.subplots(figsize=(2.5, 1.5))
+fig.tight_layout()
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='xx-small'
+)
+ax.grid(1, lw=0.4)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
+# ax.set_ylabel(r'$\ell_{ij} \ (\mathrm{m})$', fontsize=8, labelpad=-2.0)
+ax.plot(
+    t,
+    fdiam,
+    lw=0.8,
+    ls='--',
+    color='k',
+    # label='median',
+    ds='steps-post'
+)
+ax.plot(
+    t,
+    diam,
+    lw=0.5,
+    color='C0',
+    # label='median',
+    ds='steps-post'
+)
+ax.fill_between(t, np.min(diam, axis=1), np.max(diam, axis=1), alpha=0.3)
+# ax.set_ylim(bottom=0.0)
+# ax.legend(
+#     fontsize=8,
+#     handlelength=1,
+#     labelspacing=0.4,
+#     borderpad=0.2,
+#     handletextpad=0.2,
+#     framealpha=1.,
+#     ncol=2,
+#     columnspacing=1
+# )
+fig.savefig('data/time/diameter.png', format='png', dpi=400)
 
 plt.show()
