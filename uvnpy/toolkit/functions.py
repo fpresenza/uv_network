@@ -92,3 +92,13 @@ def logistic_saturation(x, limit=1., slope=1.):
 def ramp_saturation(x, limit=1., slope=1.):
     """Funcion de saturacion rampa"""
     return np.clip(slope * x, -limit, limit)
+
+
+@njit
+def cosine_decay(d, d_min, d_max):
+    if d < d_min:
+        return 1.0
+    elif d > d_max:
+        return 0.0
+    else:
+        return 0.5 * (1 - np.cos(np.pi * (d - d_min) / (d_max - d_min)))
