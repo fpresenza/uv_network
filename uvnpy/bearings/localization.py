@@ -45,6 +45,7 @@ class FirstOrderKalmanFilter(DecentralizedLocalization):
         self.bearing_meas_cov = bearing_meas_cov
         self.gps_meas_cov = gps_meas_cov
         self.position = self.state
+        self.eye = np.eye(position.shape[-1])
 
     def covariance(self):
         return self.P.copy()
@@ -74,7 +75,11 @@ class FirstOrderKalmanFilter(DecentralizedLocalization):
             neighbors    : neighbors positions
             neighbors    : neighbors positions covariance
         """
-        pass
+        R = bearing_meas[..., np.newaxis] * bearing_meas[..., np.newaxis, :]
+        P = self.eye - R
+        r = self.x - neighbors
+        Pr = np.matmul(r[:, np.newaxis], P)
+        self.x -= 0.15 * Pr.sum(axis=0)[0]
 
     def gps_step(self, position_meas):
         """
