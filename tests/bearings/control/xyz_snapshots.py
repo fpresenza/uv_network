@@ -41,6 +41,7 @@ arg.end = t[-1] if (arg.end == 0) else arg.end
 
 # slices
 k_i = int(np.argmin(np.abs(t - arg.init)))
+k_i_jump = int(k_i / arg.jump)
 k_e = int(np.argmin(np.abs(t - arg.end))) + 1
 
 t = t[k_i:k_e:arg.jump]
@@ -86,7 +87,7 @@ nodes = np.arange(n)
 bar = progressbar.ProgressBar(maxval=N).start()
 
 for k in range(N):
-    tk = t[k_i + k]
+    tk = t[k]
     fig = plt.figure(figsize=(5, 5))
     ax = fig.add_subplot(projection="3d")
     fig.subplots_adjust(right=0.5)
@@ -180,7 +181,7 @@ for k in range(N):
     ax.set_box_aspect(None, zoom=0.85)
 
     fig.savefig(
-        'data/snapshots/frame{}.png'.format(str(k).zfill(3)),
+        'data/snapshots/frame{}.png'.format(str(k + k_i_jump).zfill(3)),
         format='png',
         dpi=400,
         bbox_inches="tight",
