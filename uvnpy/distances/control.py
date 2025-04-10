@@ -7,7 +7,10 @@
 """
 import numpy as np
 
-from uvnpy.distances import core
+from uvnpy.distances.core import (
+    distance_matrix,
+    rigidity_laplacian_multiple_axes
+)
 from uvnpy.toolkit import functions
 
 
@@ -18,26 +21,28 @@ class RigidityMaintenance(object):
 
     args:
     -----
+        dim: realization space dimension
         dmax: maximum connectivity distance
         steepness: connectivity decrease factor
         power: positive number to exponentiate the eigenvalues
-        adjacent_only: bool to consider non-adjacent vertices relations
         eigenvalues: which ones to consider (min of all)
         functional: wich function of the einengvalues (power or logarithmic)
     """
     def __init__(
             self,
+            dim,
             dmax,
             steepness,
             power=1.0,
-            adjacent_only=False,
+            threshold=1e-5,
             eigenvalues='min',
             functional='pow'
             ):
+        self.dim = dim
         self.midpoint = dmax
         self.steepness = steepness
         self.r = abs(power)
-        self.adjacent_only = adjacent_only
+        self.threshold = threshold
 
         if eigenvalues == 'min':
             self.eig_max = lambda x: self.dof(x) + 1
@@ -64,14 +69,17 @@ class RigidityMaintenance(object):
 
     def gradient_log(self, matrix_deriv, eigenvalue, eigenvector):
         eigenvalue_deriv = eigenvector.dot(matrix_deriv).dot(eigenvector)
-        return - eigenvalue_deriv / eigenvalue
+        return - eigenvalue_deriv / (eigenvalue - self.threshold)
 
     def weighted_rigidity_matrix(self, x):
-        w = core.distance_matrix(x)
-        if self.adjacent_only:
-            w[w > self.midpoint] = 0.0
-        w[w > 0] = functions.logistic(w[w > 0], self.midpoint, self.steepness)
-        S = core.rigidity_laplacian_multiple_axes(w, x)
+        w = distance_matrix(x)
+        off_diag = np.logical_not(np.eye(x.shape[-2], dtype=bool))
+        w[..., off_diag] = functions.logistic(
+            d=w[..., off_diag],
+            midpoint=self.midpoint,
+            steepness=self.steepness
+        )
+        S = rigidity_laplacian_multiple_axes(w, x)
         return S
 
     def update(self, x):
