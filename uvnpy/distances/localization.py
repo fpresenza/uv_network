@@ -120,22 +120,22 @@ class FirstOrderGradientFilter(DecentralizedLocalization):
         m = (range_meas - d)/d
         self.x += self.stepsize * sum(r * m[:, None])
 
-    def gps_step(self, pos_meas):
+    def gps_step(self, position_meas):
         """
         GPS measurements model.
 
         args:
         -----
-            pos_meas : position measurements
+            position_meas : position measurements
         """
-        self.x += self.stepsize * (pos_meas - self.x)
+        self.x += self.stepsize * (position_meas - self.x)
 
 
 class FirstOrderKalmanFilter(DecentralizedLocalization):
     def __init__(
             self,
-            pos,
-            pos_cov,
+            position,
+            position_cov,
             vel_meas_cov,
             range_meas_cov,
             gps_meas_cov,
@@ -145,14 +145,14 @@ class FirstOrderKalmanFilter(DecentralizedLocalization):
 
         args:
         -----
-            pos            : intial position
-            pos_cov        : initial position covariance
+            position       : intial position
+            position_cov   : initial position covariance
             vel_meas_cov   : measured velocity covariance
             range_meas_cov : distance measurement variance
-            gps_meas_cov        : gps covariance
+            gps_meas_cov   : gps covariance
         """
-        super(FirstOrderKalmanFilter, self).__init__(pos, time)
-        self.P = pos_cov.copy()
+        super(FirstOrderKalmanFilter, self).__init__(position, time)
+        self.P = position_cov.copy()
         self.vel_meas_cov = vel_meas_cov
         self.range_meas_cov = range_meas_cov
         self.gps_meas_cov = gps_meas_cov
@@ -207,15 +207,15 @@ class FirstOrderKalmanFilter(DecentralizedLocalization):
         self.x += K.dot(dz)
         self.P -= K.dot(H).dot(self.P)
 
-    def gps_step(self, pos_meas):
+    def gps_step(self, position_meas):
         """
         Position measurements model.
 
         args:
         -----
-            pos_meas : position measurements
+            position_meas : position measurements
         """
-        dz = pos_meas - self.x
+        dz = position_meas - self.x
         Pz = self.P + self.gps_meas_cov
         K = self.P.dot(np.linalg.inv(Pz))
         self.x += K.dot(dz)
@@ -315,7 +315,7 @@ class SecondOrderKalmanFilter(DecentralizedLocalization):
         self.x += K.dot(dz)
         self.P -= K.dot(H).dot(self.P)
 
-    def gps_step(self, pos_meas):
+    def gps_step(self, position_meas):
         """
         Position measurements model step.
 
@@ -323,7 +323,7 @@ class SecondOrderKalmanFilter(DecentralizedLocalization):
         -----
             z : measurements
         """
-        dz = pos_meas - self.x
+        dz = position_meas - self.x
         Pz = self.P + self.gps_meas_cov
         K = self.P.dot(np.linalg.inv(Pz))
         self.x += K.dot(dz)

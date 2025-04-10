@@ -33,11 +33,11 @@ class FirstOrderKalmanFilter(DecentralizedLocalization):
 
         args:
         -----
-            position            : intial position
-            position_cov        : initial position covariance
-            vel_meas_cov   : measured velocity covariance
+            position         : intial position
+            position_cov     : initial position covariance
+            vel_meas_cov     : measured velocity covariance
             bearing_meas_cov : distance measurement variance
-            gps_meas_cov        : gps covariance
+            gps_meas_cov     : gps covariance
         """
         super(FirstOrderKalmanFilter, self).__init__(position, time)
         self.P = position_cov.copy()
