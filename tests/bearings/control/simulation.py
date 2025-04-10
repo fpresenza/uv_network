@@ -14,12 +14,12 @@ from uvnpy.routing.token_passing import TokenPassing
 from uvnpy.dynamics.linear_models import Integrator
 # from uvnpy.toolkit.functions import logistic_saturation
 from uvnpy.network.disk_graph import adjacency_from_positions
+from uvnpy.bearings.control import RigidityMaintenance
+from uvnpy.control.core import Targets, CollisionAvoidanceVanishing
 from uvnpy.bearings.core import (
     is_inf_rigid,
     minimum_rigidity_extents,
 )
-from uvnpy.distances.control import CollisionAvoidanceVanishing
-from uvnpy.bearings.control import RigidityMaintenance
 
 
 # ------------------------------------------------------------------
@@ -113,7 +113,7 @@ class Robot(object):
         )
         self.collision = CollisionAvoidanceVanishing(
             power=2.0,
-            dmin=1,
+            dmin=1.0,
             dmax=comm_range
         )
         self.u_target = np.zeros(self.dim, dtype=float)
@@ -378,57 +378,21 @@ class World(object):
             if self.adjacency_matrix[node_index, neighbor_index]:
                 noise = np.random.normal(
                         scale=self.bearing_meas_stdev, size=self.dim
-                    )
-                bearing = transformations.unit_vector(
+                )
+                noisy_bearing = transformations.unit_vector(
                     self.robot_dynamics[node_index].x -
                     self.robot_dynamics[neighbor_index].x +
                     noise
                 )
                 self.bearing_meas_err[node_index, neighbor_index] = \
                     np.dot(noise, noise)
-                self.cloud[-1][neighbor_index].append((msg, bearing))
+                self.cloud[-1][neighbor_index].append((msg, noisy_bearing))
             else:
                 self.bearing_meas_err[node_index, neighbor_index] = np.nan
 
     def download_from_cloud(self, node_index):
         return self.cloud[0][node_index].copy()
 
-
-class Targets(object):
-    def __init__(self, n, side_length, height, coverage):
-        self.data = np.empty((n, 4), dtype=object)
-        self.data[:, :2] = np.random.uniform(0.0, side_length, (n, 2))
-        self.data[:, 2] = np.random.uniform(10.0, height, n)
-        self.data[:, 3] = True
-        self.coverage = coverage
-
-    def position(self):
-        return self.data[:, :3]
-
-    def untracked(self):
-        return self.data[:, 3]
-
-    def allocation(self, p):
-        alloc = {i: None for i in range(len(p))}
-        untracked = self.data[:, 3].astype(bool)
-        if untracked.any():
-            targets = self.data[untracked, :3].astype(float)
-            r = p[:, None] - targets
-            d2 = np.square(r).sum(axis=-1)
-            for i in range(len(p)):
-                j = d2[i].argmin()
-                alloc[i] = targets[j]
-
-        return alloc
-
-    def update(self, p):
-        r = p[..., None, :] - self.data[:, :3]
-        d2 = np.square(r).sum(axis=-1)
-        c2 = (d2 < self.coverage**2).any(axis=0)
-        self.data[c2, 3] = False
-
-    def unfinished(self):
-        return self.data[:, 3].any()
 
 # ------------------------------------------------------------------
 # Función run
@@ -605,7 +569,7 @@ parser.add_argument(
 )
 parser.add_argument(
     '-q', '--queue',
-    default=1, type=int, help='largo de la cola del cloud'
+    default=1, type=int, help='communication cloud queue length'
 )
 arg = parser.parse_args()
 
@@ -637,7 +601,6 @@ print(
 
 # world parameters
 
-
 n = 20
 position = np.array([
     [8.8073523063, 6.3042370627, 0.],
@@ -662,13 +625,7 @@ position = np.array([
     [16.5353740973, 19.6605780599, 0.]
 ])
 print(position)
-# adjacency_matrix, Rmin = minimum_rigidity_radius(
-#     adjacency_from_positions(position[:, :2], dmax=10.0),
-#     position[:, :2],
-#     return_radius=True
-# )
 
-# comm_range = np.ceil(Rmin / 5.0) * 5.0
 comm_range = 15.0
 print('Communication range: {}'.format(comm_range))
 adjacency_matrix = adjacency_from_positions(position, comm_range)
@@ -710,8 +667,9 @@ index_map = {robots[i].node_id: i for i in range(n)}
 
 targets = Targets(
     n=100,
-    side_length=100.0,
-    height=50.0,
+    dim=3,
+    low_lim=(0.0, 0.0, 10.0),
+    up_lim=(100.0, 100.0, 50.0),
     coverage=5.0
 )
 
@@ -755,6 +713,14 @@ for t_break in [simu_time]:
         robot.last_control_action = np.zeros(3, dtype=float)
 
     simu_counter = initialize_robots(simu_counter)
+    print(
+        'State extents: \n' +
+        '\n'.join(
+            '\t node = {}, extent = {}'
+            .format(robot.node_id, robot.state_extent)
+            for robot in robots
+        )
+    )
     simu_counter = run_mission(simu_counter, end_counter=index_of(t_break))
 
 np.savetxt('data/t.csv', logs.time, delimiter=',')
