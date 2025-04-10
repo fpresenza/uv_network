@@ -5,6 +5,9 @@
 """
 import numpy as np
 
+from uvnpy.distances import core
+from uvnpy.toolkit import functions
+
 
 class CollisionAvoidance(object):
     """
@@ -91,3 +94,27 @@ class Targets(object):
 
     def unfinished(self):
         return self.data[:, self.dim].any()
+
+
+class CommunicationLoad(object):
+    """
+    Gradient based Communication Load minimization.
+
+    args:
+    -----
+        dmax: maximum connectivity distance
+        steepness: connectivity decrease factor
+    """
+    def __init__(self, dmax, steepness):
+        self.dmax = dmax
+        self.steepness = steepness
+
+    def load(self, x, coeff):
+        w = core.distance_matrix(x)
+        w[w > 0] = functions.logistic(w[w > 0], self.dmax, self.steepness)
+        deg = w.sum(-1)
+        return (coeff * deg).sum(-1)
+
+    def update(self, x, coeff):
+        grad = functions.gradient(self.load, x, coeff)
+        return -grad
