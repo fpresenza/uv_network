@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-""" Created on mié 29 dic 2021 16:41:13 -03
-@author: fran
-"""
 import argparse
 import collections
 import time
@@ -15,22 +12,19 @@ from uvnpy.network import core
 from uvnpy.distances.localization import FirstOrderKalmanFilter
 from uvnpy.routing.token_passing import TokenPassing
 from uvnpy.dynamics.linear_models import Integrator
-from uvnpy.toolkit.functions import logistic_saturation
+# from uvnpy.toolkit.functions import logistic_saturation
 from uvnpy.network.disk_graph import adjacency_from_positions
+from uvnpy.distances.control import RigidityMaintenance
+from uvnpy.control.core import Targets, CollisionAvoidanceVanishing
 from uvnpy.distances.core import (
     is_inf_rigid,
     rigidity_eigenvalue,
-    sufficiently_dispersed_position,
-    minimum_rigidity_radius
+    minimum_rigidity_extents,
 )
-from uvnpy.distances.control import (
-    RigidityMaintenance,
-    CollisionAvoidance
-)
-from uvnpy.network.subframeworks import (
-    valid_extents,
-    sparse_subframeworks_greedy_search_by_expansion,
-)
+# from uvnpy.network.subframeworks import (
+#     valid_extents,
+#     sparse_subframeworks_greedy_search_by_expansion,
+# )
 
 
 # ------------------------------------------------------------------
@@ -103,14 +97,14 @@ class Robot(object):
     def __init__(
             self,
             node_id,
-            pos,
+            position,
             comm_range,
             action_extent=0,
             state_extent=1,
             t=0.0
             ):
         self.node_id = node_id
-        self.dim = len(pos)
+        self.dim = len(position)
         self.action_extent = action_extent
         self.state_extent = state_extent
         self.current_time = t
@@ -118,25 +112,29 @@ class Robot(object):
         self.in_balls = self.self_centered_ball
         self.maintenance = RigidityMaintenance(
             dim=2,
-            dmax=0.95 * comm_range,
-            steepness=50.0/comm_range,
+            dmax=0.85 * comm_range,
+            steepness=2.0,
+            threshold=1e-4,
             eigenvalues='all',
             functional='log'
         )
-        self.collision = CollisionAvoidance(power=2.0)
+        self.collision = CollisionAvoidanceVanishing(
+            power=2.0,
+            dmin=1.0,
+            dmax=comm_range
+        )
         self.u_target = np.zeros(self.dim, dtype=float)
         self.u_collision = np.zeros(self.dim, dtype=float)
         self.u_rigidity = np.zeros(self.dim, dtype=float)
         self.last_control_action = np.zeros(self.dim, dtype=float)
         self.action = {}
         self.loc = FirstOrderKalmanFilter(
-            pos,
-            pos_cov=25.0 * np.eye(self.dim),
-            vel_meas_cov=0.0225 * np.eye(self.dim),
-            range_meas_cov=100.0,
-            gps_meas_cov=100.0 * np.eye(self.dim)
+            position,
+            position_cov=1.0 * np.eye(self.dim),
+            vel_meas_cov=0.0 * np.eye(self.dim),
+            range_meas_cov=1.0,
+            gps_meas_cov=1.0 * np.eye(self.dim)
         )
-        self.state = {'position': self.loc.x, 'covariance': self.loc.P}
         self.neighborhood = Neighborhood()
         self.routing = TokenPassing(self.node_id)
 
@@ -145,11 +143,14 @@ class Robot(object):
 
     def create_msg(self):
         action_tokens, state_tokens = self.routing.broadcast(
-            self.current_time,
-            copy.deepcopy(self.action),
-            copy.deepcopy(self.state),
-            self.action_extent,
-            self.state_extent
+            timestamp=self.current_time,
+            action=copy.deepcopy(self.action),
+            state={
+                'position': self.loc.state(),
+                'covariance': self.loc.covariance()
+            },
+            action_extent=self.action_extent,
+            state_extent=self.state_extent
         )
         msg = InterRobotMsg(
             node_id=self.node_id,
@@ -189,14 +190,13 @@ class Robot(object):
             # go to allocated target
             r = self.loc.position() - target
             d = np.sqrt(np.square(r).sum())
-            tracking_radius = 100.0    # radius
-            forget_radius = 800.0      # radius
+            tracking_radius = 20.0    # radius
+            forget_radius = 100.0     # radius
             v_collect_max = 2.5
             if d < tracking_radius:
                 v_collect = v_collect_max
             elif d < forget_radius:
-                fade = (d - tracking_radius)/(forget_radius - tracking_radius)
-                factor = 1.0 - fade
+                factor = (forget_radius - d)/(forget_radius - tracking_radius)
                 v_collect = v_collect_max * factor
             else:
                 v_collect = 0.0
@@ -213,7 +213,7 @@ class Robot(object):
                 self.loc.position(), obstacles_pos
             )
             # collision control gain
-            self.u_collision *= 30000.0    # entre 10k y 50k
+            self.u_collision *= 0.75
         else:
             self.u_collision = np.zeros(self.dim, dtype=float)
 
@@ -235,9 +235,13 @@ class Robot(object):
             i: ui
             for i, ui in zip(position.keys(), u_sub[1:])
         }
+        # if self.node_id == 3:
+        #     print(self.current_time, position, self.action)
 
         # compose all control actions from containing balls
         cmd = self.routing.extract_action()
+        # if self.node_id == 14:
+        #     print(self.current_time, cmd)
         self.u_rigidity = u_sub[0] + sum(cmd.values())
 
         # add action for isolated edges
@@ -247,15 +251,17 @@ class Robot(object):
                 self.u_rigidity += self.maintenance.update(p)[0]
 
         # rigidity control gain
-        self.u_rigidity *= 15.0    # entre 10 y 20
+        self.u_rigidity *= 0.5
 
     def compose_actions(self):
         # compose control actions from different objectives and
         # apply logistic saturation
-        self.last_control_action = logistic_saturation(
-            (self.u_target + self.u_collision + self.u_rigidity) * 0.85,
-            limit=3.0
-        )
+        # self.last_control_action = logistic_saturation(
+        #     (self.u_target + self.u_collision + self.u_rigidity) * 0.85,
+        #     limit=3.0
+        # )
+        self.last_control_action = \
+            (self.u_target + self.u_collision + self.u_rigidity) * 0.5
 
     def velocity_measurement_step(self, vel_meas):
         self.loc.dynamic_step(self.current_time, vel_meas)
@@ -305,6 +311,7 @@ class Robots(list):
 class World(object):
     def __init__(
             self,
+            dim,
             robot_dynamics,
             network,
             comm_range,
@@ -315,6 +322,7 @@ class World(object):
             queue=1
             ):
         """Clase para simular una red de robots"""
+        self.dim = dim
         self.robot_dynamics = robot_dynamics
         self.n = len(robot_dynamics)
         self.adjacency_matrix = network.astype(bool)
@@ -325,8 +333,8 @@ class World(object):
         self.range_meas_stdev = range_meas_stdev
         self.gps_meas_stdev = gps_meas_stdev
 
-        self.vel_meas_err = np.full((self.n, 2), np.nan)
-        self.gps_meas_err = np.full((self.n, 2), np.nan)
+        self.vel_meas_err = np.full((self.n, self.dim), np.nan)
+        self.gps_meas_err = np.full((self.n, self.dim), np.nan)
         self.range_meas_err = np.full((self.n, self.n), np.nan)
 
         self.cloud = collections.deque(maxlen=queue)
@@ -379,7 +387,7 @@ class World(object):
         if len(self.robot_dynamics[node_index].derivatives) > 0:
             vel = self.robot_dynamics[node_index].derivatives[0]
             self.vel_meas_err[node_index] = np.random.normal(
-                scale=self.vel_meas_stdev, size=2
+                scale=self.vel_meas_stdev, size=self.dim
             )
             return vel + self.vel_meas_err[node_index]
         else:
@@ -388,11 +396,11 @@ class World(object):
 
     def gps_measurement(self, node_index):
         if node_index in self.gps_available:
-            pos = self.robot_dynamics[node_index].x
+            position = self.robot_dynamics[node_index].x
             self.gps_meas_err[node_index] = np.random.normal(
-                scale=self.gps_meas_stdev, size=2
+                scale=self.gps_meas_stdev, size=self.dim
             )
-            return pos + self.gps_meas_err[node_index]
+            return position + self.gps_meas_err[node_index]
         else:
             self.gps_meas_err[node_index] = np.nan
             return None
@@ -400,63 +408,20 @@ class World(object):
     def upload_to_cloud(self, msg, node_index):
         for neighbor_index in range(self.n):
             if self.adjacency_matrix[node_index, neighbor_index]:
-                distance = np.sqrt(np.square(
-                    (self.robot_dynamics[node_index].x -
-                     self.robot_dynamics[neighbor_index].x)
-                ).sum())
-                self.range_meas_err[node_index, neighbor_index] = \
-                    np.random.normal(
+                noise = np.random.normal(
                         scale=self.range_meas_stdev, size=1
-                    )
-                self.cloud[-1][neighbor_index].append(
-                    (
-                        msg,
-                        distance +
-                        self.range_meas_err[node_index, neighbor_index]
-                    )
                 )
+                noisy_range = np.sqrt(np.square(
+                    self.robot_dynamics[node_index].x -
+                    self.robot_dynamics[neighbor_index].x
+                ).sum()) + noise
+                self.range_meas_err[node_index, neighbor_index] = noise
+                self.cloud[-1][neighbor_index].append((msg, noisy_range))
             else:
                 self.range_meas_err[node_index, neighbor_index] = np.nan
 
     def download_from_cloud(self, node_index):
         return self.cloud[0][node_index].copy()
-
-
-class Targets(object):
-    def __init__(self, density, length, coverage):
-        n = int(density * length**2)
-        self.data = np.empty((n, 3), dtype=object)
-        self.data[:, :2] = np.random.uniform(0.0, length * 1000.0, (n, 2))
-        self.data[:, 2] = True
-        self.coverage = coverage
-
-    def position(self):
-        return self.data[:, :2]
-
-    def untracked(self):
-        return self.data[:, 2]
-
-    def allocation(self, p):
-        alloc = {i: None for i in range(len(p))}
-        untracked = self.data[:, 2].astype(bool)
-        if untracked.any():
-            targets = self.data[untracked, :2].astype(float)
-            r = p[:, None] - targets
-            d2 = np.square(r).sum(axis=-1)
-            for i in range(len(p)):
-                j = d2[i].argmin()
-                alloc[i] = targets[j]
-
-        return alloc
-
-    def update(self, p):
-        r = p[..., None, :] - self.data[:, :2]
-        d2 = np.square(r).sum(axis=-1)
-        c2 = (d2 < self.coverage**2).any(axis=0)
-        self.data[c2, 2] = False
-
-    def unfinished(self):
-        return self.data[:, 2].any()
 
 
 def valid_ball(subset, adjacency, position):
@@ -670,11 +635,11 @@ parser.add_argument(
 )
 parser.add_argument(
     '-c', '--comm_skip',
-    default=1, type=int, help='communication step in milli seconds'
+    default=1, type=int, help='communication skip in number of simu_step'
 )
 parser.add_argument(
     '-q', '--queue',
-    default=1, type=int, help='largo de la cola del cloud'
+    default=1, type=int, help='communication cloud queue length'
 )
 arg = parser.parse_args()
 
@@ -686,11 +651,13 @@ arg = parser.parse_args()
 def index_of(t): return int(t / simu_step)
 
 
+# Simulation parameters
+
 np.random.seed(0)
 simu_time = arg.simu_time
 simu_step = arg.simu_step / 1000.0
 time_steps = [simu_step * k for k in range(int(simu_time / simu_step))]
-n_steps = len(time_steps)
+n_steps = int(simu_time / simu_step)
 comm_skip = arg.comm_skip
 
 print(
@@ -702,17 +669,30 @@ print(
     .format(0.0, simu_time, comm_skip * simu_step)
 )
 
-region_length = 4.0    # km
+# world parameters
 
-n = 30
-position = sufficiently_dispersed_position(n, (0.0, 500.0), (0.0, 500.0), 30.0)
-adjacency_matrix, Rmin = minimum_rigidity_radius(
-    adjacency_from_positions(position, dmax=2/np.sqrt(n)),
-    position,
-    return_radius=True
-)
+n = 15
+position = np.array([
+    [9.085, 6.11],
+    [17.441, 11.093],
+    [30.955, 9.21],
+    [18.693, 35.477],
+    [24.375, 32.719],
+    [34.906, 28.452],
+    [37.217, 16.962],
+    [2.709, 10.869],
+    [5.456, 16.051],
+    [4.466, 23.355],
+    [10.533, 22.612],
+    [11.93, 14.068],
+    [27.872, 25.36],
+    [23.436, 11.032],
+    [22.484, 21.999]
+])
 
-comm_range = np.ceil(Rmin / 5.0) * 5.0
+print(position)
+
+comm_range = 15.0
 print('Communication range: {}'.format(comm_range))
 adjacency_matrix = adjacency_from_positions(position, comm_range)
 print(
@@ -725,44 +705,24 @@ print(
 if not is_inf_rigid(adjacency_matrix, position):
     raise ValueError('Framework should be infinitesimally rigid.')
 
-geodesics_matrix = core.geodesics(adjacency_matrix)
-max_extent = 2
-valid_action_extents = valid_extents(
-    geodesics=geodesics_matrix,
-    condition=valid_ball,
-    max_extent=max_extent,
-    args=(adjacency_matrix, position)
-)
-action_extents = sparse_subframeworks_greedy_search_by_expansion(
-    valid_extents=valid_action_extents,
-    metric=decomposition_cost,
-    geodesics=geodesics_matrix,
-)
-print(
-    'Action extents: \n' +
-    '\n'.join(
-        '\t node = {}, extent = {}'.format(i, r)
-        for i, r in enumerate(action_extents) if r > 0
-    )
-)
-
 world = World(
+    dim=2,
     robot_dynamics=[Integrator(position[i]) for i in range(n)],
     network=adjacency_matrix,
     comm_range=comm_range,
     gps_available=[6, 8],
-    vel_meas_stdev=0.15,
-    range_meas_stdev=10.0,
-    gps_meas_stdev=10.0,
+    vel_meas_stdev=0.0,
+    range_meas_stdev=0.0,
+    gps_meas_stdev=0.0,
     queue=arg.queue
 )
 
 robots = Robots([
     Robot(
         node_id=i,
-        pos=np.random.normal(position[i],  5.0),
+        position=np.random.normal(position[i],  0.0),
         comm_range=comm_range,
-        action_extent=int(action_extents[i]),
+        action_extent=1,
         # state_extent=2
     )
     for i in range(n)
@@ -771,9 +731,13 @@ robots = Robots([
 index_map = {robots[i].node_id: i for i in range(n)}
 # print('Index map: {}'.format(index_map))
 
-target_density = 80.0    # targets per km2
-target_coverage = 30.0
-targets = Targets(target_density, region_length, target_coverage)
+targets = Targets(
+    n=100,
+    dim=2,
+    low_lim=(0.0, 0.0),
+    up_lim=(100.0, 100.0),
+    coverage=5.0
+)
 
 # ------------------------------------------------------------------
 # Simulación
@@ -799,33 +763,23 @@ logs = Logs(
 )
 
 simu_counter = 0
-for t_break in [200.0, 400.0, 600.0, 800.0]:
-    simu_counter = initialize_robots(simu_counter)
-    print(
-        'State extents: \n' +
-        '\n'.join(
-            '\t node = {}, extent = {}'
-            .format(robot.node_id, robot.state_extent)
-            for robot in robots
-        )
-    )
-    simu_counter = run_mission(simu_counter, end_counter=index_of(t_break))
-
+for t_break in [simu_time]:
     position = world.positions()
     adjacency_matrix = world.adjacency_matrix.copy().astype(float)
     geodesics_matrix = core.geodesics(adjacency_matrix)
-    max_extent = 2
-    valid_action_extents = valid_extents(
-        geodesics=geodesics_matrix,
-        condition=valid_ball,
-        max_extent=max_extent,
-        args=(adjacency_matrix, position)
-    )
-    action_extents = sparse_subframeworks_greedy_search_by_expansion(
-        valid_extents=valid_action_extents,
-        metric=decomposition_cost,
-        geodesics=geodesics_matrix,
-    )
+    # max_extent = 2
+    # valid_action_extents = valid_extents(
+    #     geodesics=geodesics_matrix,
+    #     condition=valid_ball,
+    #     max_extent=max_extent,
+    #     args=(adjacency_matrix, position)
+    # )
+    # action_extents = sparse_subframeworks_greedy_search_by_expansion(
+    #     valid_extents=valid_action_extents,
+    #     metric=decomposition_cost,
+    #     geodesics=geodesics_matrix,
+    # )
+    action_extents = minimum_rigidity_extents(geodesics_matrix, position)
     print(
         'Action extents: \n' +
         '\n'.join(
@@ -838,16 +792,16 @@ for t_break in [200.0, 400.0, 600.0, 800.0]:
         robot.action_extent = action_extents[node_index]
         robot.last_control_action = np.zeros(2, dtype=float)
 
-simu_counter = initialize_robots(simu_counter)
-print(
-    'State extents: \n' +
-    '\n'.join(
-        '\t node = {}, extent = {}'
-        .format(robot.node_id, robot.state_extent)
-        for robot in robots
+    simu_counter = initialize_robots(simu_counter)
+    print(
+        'State extents: \n' +
+        '\n'.join(
+            '\t node = {}, extent = {}'
+            .format(robot.node_id, robot.state_extent)
+            for robot in robots
+        )
     )
-)
-simu_counter = run_mission(simu_counter, end_counter=index_of(1000.0))
+    simu_counter = run_mission(simu_counter, end_counter=index_of(t_break))
 
 np.savetxt('data/t.csv', logs.time, delimiter=',')
 np.savetxt('data/tc.csv', logs.time_comm, delimiter=',')
