@@ -93,6 +93,10 @@ action_extents = data.read_csv(
     'data/action_extents.csv',
     rows=(k_i, k_e), jump=arg.jump, dtype=float, asarray=True
 )
+hatx = data.read_csv(
+    'data/est_position.csv',
+    rows=(k_i, k_e), jump=arg.jump, dtype=float, shape=(n, 2), asarray=True
+)
 
 
 # tc = np.loadtxt('data/tc.csv', delimiter=',')
@@ -362,13 +366,14 @@ ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$t$ [$s$]', fontsize=8)
 ax.set_ylabel('Autovalores \n de Rigidez', fontsize=8)
 for vertex in np.where(np.any(action_extents > 0, axis=0))[0]:
-    ax.semilogy(
-        t, re[:, vertex],
-        lw=0.8,
-        marker='.',
-        ds='steps-post',
-        label=r'$F_{{{}}}$'.format(vertex)
-    )
+    if vertex in subset:
+        ax.semilogy(
+            t, re[:, vertex],
+            lw=0.8,
+            marker='.',
+            ds='steps-post',
+            label=r'$F_{{{}}}$'.format(vertex)
+        )
 ax.semilogy(
     t, fre,
     lw=0.8,
