@@ -24,11 +24,11 @@ plt.rcParams['font.family'] = 'serif'
 parser = argparse.ArgumentParser(description='')
 parser.add_argument(
     '-i', '--init',
-    default=1, type=float, help='init time in milli seconds'
+    default=0.0, type=float, help='init time in milli seconds'
 )
 parser.add_argument(
     '-e', '--end',
-    default=1, type=float, help='end time in milli seconds'
+    default=0.0, type=float, help='end time in milli seconds'
 )
 parser.add_argument(
     '-j', '--jump',
@@ -40,9 +40,11 @@ arg = parser.parse_args()
 # Read simulated data
 # ------------------------------------------------------------------
 t = np.loadtxt('data/t.csv', delimiter=',')
+arg.end = t[-1] if (arg.end == 0) else arg.end
 
 # slices
 k_i = int(np.argmin(np.abs(t - arg.init)))
+k_i_jump = int(k_i / arg.jump)
 k_e = int(np.argmin(np.abs(t - arg.end)))
 
 x = data.read_csv(
@@ -74,8 +76,8 @@ nodes = np.arange(n)
 bar = progressbar.ProgressBar(maxval=N).start()
 
 for k in range(N):
-    tk = t[k_i + k]
-    lim = min(1500.0 + tk, 4000.0)
+    tk = t[k_i_jump + k * arg.jump]
+    lim = 100.0
     fig, ax = plt.subplots(figsize=(5, 5))
     ax.tick_params(
         axis='both',       # changes apply to the x-axis
@@ -103,11 +105,6 @@ for k in range(N):
             s=20,
             lw=0.2
         )
-        circle = plt.Circle(
-            x[k][i],
-            color='C{}'.format(int(action_extents[k][i])),
-            radius=30.0, alpha=0.3)
-        ax.add_artist(circle)
     plot.edges(
         ax, x[k], A[k], color='C0', lw=0.5, zorder=0
     )
