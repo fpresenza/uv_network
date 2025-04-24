@@ -12,7 +12,6 @@ from uvnpy.network import core
 from uvnpy.bearings.localization import FirstOrderKalmanFilter
 from uvnpy.routing.token_passing import TokenPassing
 from uvnpy.dynamics.linear_models import Integrator
-# from uvnpy.toolkit.functions import logistic_saturation
 from uvnpy.network.disk_graph import adjacency_from_positions
 from uvnpy.bearings.control import RigidityMaintenance
 from uvnpy.control.core import Targets, CollisionAvoidanceVanishing
@@ -244,11 +243,6 @@ class Robot(object):
 
     def compose_actions(self):
         # compose control actions from different objectives and
-        # apply logistic saturation
-        # self.last_control_action = logistic_saturation(
-        #     (self.u_target + self.u_collision + self.u_rigidity) * 0.85,
-        #     limit=3.0
-        # )
         self.last_control_action = \
             self.u_target + self.u_collision + self.u_rigidity
 
