@@ -44,39 +44,38 @@ def derivative(f):
 
 
 @njit
-def power(d, a):
+def power(x, a):
     """Power function."""
-    s = d**(-a)
+    s = x**(-a)
     return s
 
 
 @njit
-def power_derivative(d, a):
-    D = -a * d**(-a - 1)
+def power_derivative(x, a):
+    D = -a * x**(-a - 1)
     return D
 
 
 @njit
-def logistic(d, midpoint=0, steepness=1):
+def logistic(x, midpoint=0, steepness=1):
     """Logistic strength function.
 
     A logistic function or logistic curve is a common
     S-shaped curve (sigmoid curve) with equation
 
-        1 / (1 + exp(-steepness * (d - midpoint)))
+        1 / (1 + exp(-steepness * (x - midpoint)))
 
-    d: distance between peers,
     steepness: the logistic growth rate or steepness of the curve,
     midpoint: the x value of the sigmoid's midpoint.
     """
-    s = 1 / (1 + np.exp(steepness * (d - midpoint)))
+    s = 1 / (1 + np.exp(steepness * (x - midpoint)))
     return s
 
 
 @njit
-def logistic_derivative(d, midpoint=0, steepness=1):
+def logistic_derivative(x, midpoint=0, steepness=1):
     """Derivative  of the logistic function respect to distance."""
-    D = - 0.5 * steepness / (1 + np.cosh(steepness * (d - midpoint)))
+    D = - 0.5 * steepness / (1 + np.cosh(steepness * (x - midpoint)))
     return D
 
 
@@ -95,10 +94,10 @@ def ramp_saturation(x, limit=1., slope=1.):
 
 
 @njit
-def cosine_decay(d, d_min, d_max):
-    if d < d_min:
+def cosine_decay(x, x_min, x_max):
+    if x < x_min:
         return 1.0
-    elif d > d_max:
+    elif x > x_max:
         return 0.0
     else:
-        return 0.5 * (1 - np.cos(np.pi * (d - d_min) / (d_max - d_min)))
+        return 0.5 * (1 - np.cos(np.pi * (x - x_min) / (x_max - x_min)))
