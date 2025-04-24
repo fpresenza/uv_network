@@ -192,7 +192,7 @@ class Robot(object):
             d = np.sqrt(np.square(r).sum())
             tracking_radius = 20.0    # radius
             forget_radius = 100.0     # radius
-            v_collect_max = 2.0
+            v_collect_max = 1.25
             if d < tracking_radius:
                 v_collect = v_collect_max
             elif d < forget_radius:
@@ -213,7 +213,7 @@ class Robot(object):
                 self.loc.position(), obstacles_pos
             )
             # collision control gain
-            self.u_collision *= 0.5
+            self.u_collision *= 0.25
         else:
             self.u_collision = np.zeros(self.dim, dtype=float)
 
@@ -235,8 +235,6 @@ class Robot(object):
             i: ui
             for i, ui in zip(position.keys(), u_sub[1:])
         }
-        # if self.node_id == 3:
-        #     print(self.current_time, position, self.action)
 
         # compose all control actions from containing balls
         cmd = self.routing.extract_action()
@@ -251,7 +249,7 @@ class Robot(object):
                 self.u_rigidity += self.maintenance.update(p)[0]
 
         # rigidity control gain
-        self.u_rigidity *= 0.75
+        self.u_rigidity *= 0.375
 
     def compose_actions(self):
         # compose control actions from different objectives and
@@ -261,7 +259,7 @@ class Robot(object):
         #     limit=3.0
         # )
         self.last_control_action = \
-            (self.u_target + self.u_collision + self.u_rigidity) * 0.5
+            self.u_target + self.u_collision + self.u_rigidity
 
     def velocity_measurement_step(self, vel_meas):
         self.loc.dynamic_step(self.current_time, vel_meas)
@@ -653,7 +651,7 @@ def index_of(t): return int(t / simu_step)
 
 # Simulation parameters
 
-np.random.seed(0)
+np.random.seed(1)
 simu_time = arg.simu_time
 simu_step = arg.simu_step / 1000.0
 time_steps = [simu_step * k for k in range(int(simu_time / simu_step))]
@@ -671,19 +669,14 @@ print(
 
 # world parameters
 
-n = 15
+n = 10
 position = np.array([
     [9.085, 6.11],
     [17.441, 11.093],
     [30.955, 9.21],
     [18.693, 35.477],
     [24.375, 32.719],
-    [34.906, 28.452],
     [37.217, 16.962],
-    [2.709, 10.869],
-    [5.456, 16.051],
-    [4.466, 23.355],
-    [10.533, 22.612],
     [11.93, 14.068],
     [27.872, 25.36],
     [23.436, 11.032],
@@ -732,7 +725,7 @@ index_map = {robots[i].node_id: i for i in range(n)}
 # print('Index map: {}'.format(index_map))
 
 targets = Targets(
-    n=100,
+    n=30,
     dim=2,
     low_lim=(0.0, 0.0),
     up_lim=(100.0, 100.0),
