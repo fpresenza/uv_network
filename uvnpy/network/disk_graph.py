@@ -8,6 +8,15 @@
 import numpy as np
 
 
+def edges_from_positions(p, dmax=np.inf):
+    dmax = np.reshape(dmax, (-1, 1))
+    r = p[:, np.newaxis] - p
+    d2 = np.square(r).sum(axis=-1)
+    A = d2 <= dmax**2
+    A[np.eye(len(p), dtype=bool)] = 0.0
+    return np.argwhere(A)
+
+
 def adjacency_from_positions(p, dmax=np.inf):
     """
     Disk proximity matrix.
