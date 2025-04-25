@@ -69,7 +69,7 @@ class RigidityMaintenance(object):
         w = distance_matrix(x)
         off_diag = np.logical_not(np.eye(x.shape[-2], dtype=bool))
         w[..., off_diag] = functions.logistic(
-            d=w[..., off_diag],
+            x=w[..., off_diag],
             midpoint=self.midpoint,
             steepness=self.steepness
         )
