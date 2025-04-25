@@ -22,8 +22,8 @@ class DecentralizedLocalization(object):
 class FirstOrderKalmanFilter(DecentralizedLocalization):
     def __init__(
             self,
-            position,
-            position_cov,
+            pose,
+            pose_cov,
             vel_meas_cov,
             bearing_meas_cov,
             gps_meas_cov,
@@ -33,19 +33,19 @@ class FirstOrderKalmanFilter(DecentralizedLocalization):
 
         args:
         -----
-            position         : intial position
-            position_cov     : initial position covariance
+            pose             : intial pose
+            pose_cov         : initial pose covariance
             vel_meas_cov     : measured velocity covariance
             bearing_meas_cov : distance measurement variance
             gps_meas_cov     : gps covariance
         """
-        super(FirstOrderKalmanFilter, self).__init__(position, time)
-        self.P = position_cov.copy()
+        super(FirstOrderKalmanFilter, self).__init__(pose, time)
+        self.P = pose_cov.copy()
         self.vel_meas_cov = vel_meas_cov
         self.bearing_meas_cov = bearing_meas_cov
         self.gps_meas_cov = gps_meas_cov
-        self.position = self.state
-        self.eye = np.eye(position.shape[-1])
+        self.pose = self.state
+        self.eye = np.eye(3)
 
     def covariance(self):
         return self.P.copy()
@@ -64,29 +64,29 @@ class FirstOrderKalmanFilter(DecentralizedLocalization):
     def bearing_step(
             self,
             bearing_meas,
-            neighbors,
+            neighbors_pose,
             neighbors_cov):
         """
         Bearing measurements model.
 
         args:
         -----
-            bearing_meas : bearing measurements
-            neighbors    : neighbors positions
-            neighbors    : neighbors positions covariance
+            bearing_meas   : bearing measurements
+            neighbors_pose : neighbors poses
+            neighbors_cov  : neighbors poses covariance
         """
         R = bearing_meas[..., np.newaxis] * bearing_meas[..., np.newaxis, :]
         P = self.eye - R
-        r = self.x - neighbors
+        r = self.x[:3] - neighbors_pose[:, :3]
         Pr = np.matmul(r[:, np.newaxis], P)
-        self.x -= 0.15 * Pr.sum(axis=0)[0]
+        self.x[:3] -= 0.15 * Pr.sum(axis=0)[0]
 
-    def gps_step(self, position_meas):
+    def gps_step(self, pose_meas):
         """
-        Position measurements model.
+        Pose measurements model.
 
         args:
         -----
-            position_meas : position measurements
+            pose_meas : pose measurements
         """
-        self.x = position_meas
+        self.x = pose_meas

@@ -8,14 +8,61 @@
 import numpy as np
 
 
-def adjacency_matrix(positions, cones_axes, dmax=np.inf, fov=-1.0):
+class ConeGraph(object):
+    def __init__(self, dmax, fov=-1.0):
+        """
+        Class representing a cone-line state dependant graph.
+
+        args:
+        -----
+            dmax : max conextion range
+            fov  : cosine of cone's half angle
+        """
+        self.dmax = np.reshape(dmax, (-1, 1))
+        self.fov = np.reshape(fov, (-1, 1))
+        self._adj = None
+
+    def adjacency_matrix(self):
+        return self._adj.copy()
+
+    def edge_set(self):
+        return np.argwhere(self._adj)
+
+    def is_edge(self, vertex_i, vertex_j):
+        return self._adj[vertex_i, vertex_j]
+
+    def out_neighbors(self, vertex):
+        return np.where(self._adj[vertex])[0]
+
+    def in_neighbors(self, vertex):
+        return np.where(self._adj[:, vertex])[0]
+
+    def update_adjacency_matrix(self, positions, axes):
+        """
+        Cone graph adjacency matrix.
+
+        args:
+        -----
+            positions : (n, d) vector array
+            axes      : (n, d) unit vector array
+        """
+        r = positions - positions[:, np.newaxis]
+        d = np.sqrt(np.square(r).sum(axis=-1))
+        bearings = r / d[:, :, np.newaxis]
+        cos = np.matmul(bearings, axes[:, :, np.newaxis]).squeeze()
+        self._adj = np.logical_and(d <= self.dmax, cos >= self.fov)
+        self._adj[np.eye(len(positions), dtype=bool)] = 0.0
+        return self._adj.copy()
+
+
+def adjacency_matrix(positions, axes, dmax=np.inf, fov=-1.0):
     """
     Cone graph adjacency matrix.
 
     args:
     -----
         positions  : (n, d) vector array
-        cones_axes : (n, d) unit vector array
+        axes : (n, d) unit vector array
         dmax       : max conextion range
         fov        : cosine of cone's half angle
     """
@@ -23,7 +70,7 @@ def adjacency_matrix(positions, cones_axes, dmax=np.inf, fov=-1.0):
     r = positions - positions[:, np.newaxis]
     d = np.sqrt(np.square(r).sum(axis=-1))
     bearings = r / d[:, :, np.newaxis]
-    cos = np.matmul(bearings, cones_axes[:, :, np.newaxis]).squeeze()
+    cos = np.matmul(bearings, axes[:, :, np.newaxis]).squeeze()
     A = np.logical_and(d <= dmax, cos >= fov)
     A[np.eye(len(positions), dtype=bool)] = 0.0
     return A

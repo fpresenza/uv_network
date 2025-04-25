@@ -72,12 +72,12 @@ class TokenPassing(object):
         }
         return cmd
 
-    def extract_state(self, key, hops):
+    def extract_state(self, key, hops, wrapper=lambda x: x):
         """ Extrae los datos asociados a key encontrados en los token de
         estado que hayan atravesado una cantidad de enlaces menor o igual
         a hops"""
         p = {
-            token.center: token.data[key]
+            token.center: wrapper(token.data[key])
             for token in self.state.values()
             if token.hops_travelled <= hops
         }

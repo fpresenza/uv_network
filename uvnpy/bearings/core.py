@@ -6,7 +6,6 @@
 @date mar feb 14 11:23:21 -03 2025
 """
 import numpy as np
-# from transformations import unit_vector
 from numba import njit
 
 
