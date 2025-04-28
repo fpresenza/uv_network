@@ -15,10 +15,7 @@ from uvnpy.dynamics.linear_models import Integrator
 from uvnpy.network.cone_graph import ConeGraph
 from uvnpy.bearings.control import RigidityMaintenance
 from uvnpy.control.core import Targets, CollisionAvoidanceVanishing
-from uvnpy.bearings.core import (
-    is_inf_rigid,
-    minimum_rigidity_extents
-)
+from uvnpy.bearings.core import is_inf_rigid, minimum_rigidity_extents
 
 
 # ------------------------------------------------------------------
@@ -420,14 +417,14 @@ def initialize_robots(simu_counter):
         if (simu_counter % comm_skip == 0):
             comm_events += 1
             logs.time_comm.append(t)
-            mulrobnet.cloud.append([[] for _ in robots])
+            robnet.cloud.append([[] for _ in robots])
             for robot in robots:
                 msg = robot.create_msg()
                 node_index = index_map[robot.node_id]
-                mulrobnet.upload_to_cloud(msg, node_index)
+                robnet.upload_to_cloud(msg, node_index)
             for robot in robots:
                 node_index = index_map[robot.node_id]
-                msgs = mulrobnet.download_from_cloud(node_index)
+                msgs = robnet.download_from_cloud(node_index)
                 robot.handle_received_msgs(msgs)
                 robot.update_state_extent()
                 robot.bearing_measurement_step()
@@ -437,35 +434,35 @@ def initialize_robots(simu_counter):
         for robot in robots:
             node_index = index_map[robot.node_id]
 
-            gps_meas = mulrobnet.gps_measurement(node_index)
+            gps_meas = robnet.gps_measurement(node_index)
             if (gps_meas is not None):
                 robot.gps_measurement_step(gps_meas)
 
-            vel_meas = mulrobnet.velocity_measurement(node_index)
+            vel_meas = robnet.velocity_measurement(node_index)
             if (vel_meas is not None):
                 robot.velocity_measurement_step(vel_meas)
 
         # log data
         logs.time.append(t)
-        logs.pose.append(mulrobnet.collect_poses())
+        logs.pose.append(robnet.collect_poses())
         logs.estimated_pose.append(robots.collect_estimated_poses())
         logs.covariance.append(robots.collect_covariances())
         logs.target_action.append(robots.collect_target_actions())
         logs.collision_action.append(robots.collect_collision_actions())
         logs.rigidity_action.append(robots.collect_rigidity_actions())
-        logs.vel_meas_err.append(mulrobnet.collect_vel_meas_err())
-        logs.gps_meas_err.append(mulrobnet.collect_gps_meas_err())
-        logs.bearing_meas_err.append(mulrobnet.collect_bearing_meas_err())
-        logs.adjacency.append(mulrobnet.graph.adjacency_matrix().ravel())
+        logs.vel_meas_err.append(robnet.collect_vel_meas_err())
+        logs.gps_meas_err.append(robnet.collect_gps_meas_err())
+        logs.bearing_meas_err.append(robnet.collect_bearing_meas_err())
+        logs.adjacency.append(robnet.graph.adjacency_matrix().ravel())
         logs.action_extents.append(robots.collect_action_extents())
         logs.state_extents.append(robots.collect_state_extents())
         logs.targets.append(targets.data.ravel().copy())
 
         for robot in robots:
             node_index = index_map[robot.node_id]
-            mulrobnet.robot_dynamics[node_index].step(t, robot.control_action)
-        mulrobnet.update_graph()
-        targets.update(mulrobnet.positions())
+            robnet.robot_dynamics[node_index].step(t, robot.control_action)
+        robnet.update_graph()
+        targets.update(robnet.positions())
 
         simu_counter += 1
 
@@ -491,21 +488,21 @@ def run_mission(simu_counter, end_counter):
         # communication step
         if (simu_counter % comm_skip == 0):
             logs.time_comm.append(t)
-            mulrobnet.cloud.append([[] for _ in robots])
+            robnet.cloud.append([[] for _ in robots])
             for robot in robots:
                 msg = robot.create_msg()
                 node_index = index_map[robot.node_id]
-                mulrobnet.upload_to_cloud(msg, node_index)
+                robnet.upload_to_cloud(msg, node_index)
             for robot in robots:
                 node_index = index_map[robot.node_id]
-                msgs = mulrobnet.download_from_cloud(node_index)
+                msgs = robnet.download_from_cloud(node_index)
                 robot.handle_received_msgs(msgs)
                 robot.bearing_measurement_step()
                 # robot.rigidity_maintenance_control_action()
 
         # localization and control step
         # TODO: should be est poses
-        alloc = targets.allocation(mulrobnet.positions())
+        alloc = targets.allocation(robnet.positions())
 
         for robot in robots:
             node_index = index_map[robot.node_id]
@@ -514,35 +511,35 @@ def run_mission(simu_counter, end_counter):
             robot.collision_avoidance_control_action()
             robot.compose_actions()
 
-            gps_meas = mulrobnet.gps_measurement(node_index)
+            gps_meas = robnet.gps_measurement(node_index)
             if (gps_meas is not None):
                 robot.gps_measurement_step(gps_meas)
 
-            vel_meas = mulrobnet.velocity_measurement(node_index)
+            vel_meas = robnet.velocity_measurement(node_index)
             if (vel_meas is not None):
                 robot.velocity_measurement_step(vel_meas)
 
         # log data
         logs.time.append(t)
-        logs.pose.append(mulrobnet.collect_poses())
+        logs.pose.append(robnet.collect_poses())
         logs.estimated_pose.append(robots.collect_estimated_poses())
         logs.covariance.append(robots.collect_covariances())
         logs.target_action.append(robots.collect_target_actions())
         logs.collision_action.append(robots.collect_collision_actions())
         logs.rigidity_action.append(robots.collect_rigidity_actions())
-        logs.vel_meas_err.append(mulrobnet.collect_vel_meas_err())
-        logs.gps_meas_err.append(mulrobnet.collect_gps_meas_err())
-        logs.bearing_meas_err.append(mulrobnet.collect_bearing_meas_err())
-        logs.adjacency.append(mulrobnet.graph.adjacency_matrix().ravel())
+        logs.vel_meas_err.append(robnet.collect_vel_meas_err())
+        logs.gps_meas_err.append(robnet.collect_gps_meas_err())
+        logs.bearing_meas_err.append(robnet.collect_bearing_meas_err())
+        logs.adjacency.append(robnet.graph.adjacency_matrix().ravel())
         logs.action_extents.append(robots.collect_action_extents())
         logs.state_extents.append(robots.collect_state_extents())
         logs.targets.append(targets.data.ravel().copy())
 
         for robot in robots:
             node_index = index_map[robot.node_id]
-            mulrobnet.robot_dynamics[node_index].step(t, robot.control_action)
-        mulrobnet.update_graph()
-        targets.update(mulrobnet.positions())
+            robnet.robot_dynamics[node_index].step(t, robot.control_action)
+        robnet.update_graph()
+        targets.update(robnet.positions())
 
         simu_counter += 1
 
@@ -608,7 +605,7 @@ print(
     .format(0.0, simu_time, comm_skip * simu_step)
 )
 
-# mulrobnet parameters
+# robnet parameters
 n = 20
 positions = np.empty((n, 3))
 positions[:, 0] = np.random.uniform(0.0, 40.0, n)
@@ -631,17 +628,14 @@ print(
         for key, val in core.adjacency_dict(directed_adjacency_matrix).items()
     )
 )
-adjacency_matrix = np.logical_or(
-    directed_adjacency_matrix,
-    directed_adjacency_matrix.T
-)
+adjacency_matrix = core.as_undirected(directed_adjacency_matrix)
 if not is_inf_rigid(adjacency_matrix, positions):
     raise ValueError('Framework should be infinitesimally rigid.')
 else:
     print('Yay! Framework is infinitesimally rigid.')
     poses = np.hstack([positions, angles])
 
-mulrobnet = MultiRobotNetwork(
+robnet = MultiRobotNetwork(
     dim=4,
     robot_dynamics=[Integrator(poses[i]) for i in range(n)],
     graph=graph,
@@ -697,12 +691,8 @@ logs = Logs(
 
 simu_counter = 0
 for t_break in [simu_time]:
-    directed_adjacency_matrix = mulrobnet.graph.adjacency_matrix()
-    adjacency_matrix = np.logical_or(
-        directed_adjacency_matrix,
-        directed_adjacency_matrix.T
-    )
-    positions = mulrobnet.positions()
+    adjacency_matrix = core.as_undirected(robnet.graph.adjacency_matrix())
+    positions = robnet.positions()
     geodesics_matrix = core.geodesics(adjacency_matrix.astype(float))
     action_extents = minimum_rigidity_extents(geodesics_matrix, positions)
     print(
