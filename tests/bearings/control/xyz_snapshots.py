@@ -118,6 +118,12 @@ for k in range(N):
     # ax.set_zticklabels([])
     ax.view_init(elev=30.0, azim=-70.0)
 
+    ax.text(
+        0.05, 0.05, 0.05, r't = {:.3f}s'.format(tk),
+        verticalalignment='bottom', horizontalalignment='left',
+        transform=ax.transAxes, color='g', fontsize=8
+    )
+
     p = x[k][:, :3]
     th = x[k][:, 3]
     for i in range(n):
