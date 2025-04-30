@@ -7,7 +7,6 @@
 """
 import numpy as np
 
-from uvnpy.distances.core import distance_matrix
 from uvnpy.bearings.core import rigidity_laplacian_multiple_axes
 from uvnpy.toolkit import functions
 
@@ -19,34 +18,34 @@ class RigidityMaintenance(object):
 
     args:
     -----
-        dim: realization space dimension
-        dmax: maximum connectivity distance
-        steepness: connectivity decrease factor
-        power: positive number to exponentiate the eigenvalues
-        eigenvalues: which ones to consider (min of all)
-        functional: wich function of the einengvalues (power or logarithmic)
+        dim         : dimension of the realization space
+        range_lims  : range low and high limits
+        cos_lims    : cosine low and high limits
+        power       : positive number to exponentiate the eigenvalues
+        eigenvalues : which ones to consider (min of all)
+        functional  : wich function of the einengvalues (power or logarithmic)
     """
     def __init__(
             self,
             dim,
-            dmax,
-            steepness,
+            range_lims,
+            cos_lims,
             power=1.0,
             threshold=1e-5,
             eigenvalues='min',
             functional='pow'
             ):
         self.dim = dim
-        self.midpoint = dmax
-        self.steepness = steepness
-        self.r = abs(power)
+        self.d_low, self.d_high = range_lims
+        self.c_low, self.c_high = cos_lims
+        self.r = power
         self.threshold = threshold
         self.dof = dim + 1
 
         if eigenvalues == 'min':
             self.eig_max = lambda x: self.dof + 1
         elif eigenvalues == 'all':
-            self.eig_max = lambda x: x.size
+            self.eig_max = lambda x: len(x) * self.dim
         else:
             ValueError('Invalid selection of eigenvalues.')
 
@@ -66,14 +65,54 @@ class RigidityMaintenance(object):
         return - eigenvalue_deriv / (eigenvalue - self.threshold)
 
     def weighted_rigidity_matrix(self, x):
-        w = distance_matrix(x)
-        off_diag = np.logical_not(np.eye(x.shape[-2], dtype=bool))
-        w[..., off_diag] = functions.logistic(
-            x=w[..., off_diag],
-            midpoint=self.midpoint,
-            steepness=self.steepness
+        p = x[..., :3]
+        a = x[..., 3]
+        axes = np.empty(a.shape + (3,))
+        axes[..., 0] = np.cos(a)
+        axes[..., 1] = np.sin(a)
+        axes[..., 2] = 0.0
+
+        r = p[..., np.newaxis, :, :] - p[..., np.newaxis, :]
+        d = np.sqrt(np.square(r).sum(axis=-1))
+        b = r / d[..., np.newaxis]
+        c = np.matmul(b, axes[..., np.newaxis]).squeeze()
+
+        wd = 1 - functions.cosine_activation(
+            x=d,
+            x_low=self.d_low,
+            x_high=self.d_high,
         )
-        S = rigidity_laplacian_multiple_axes(w, x)
+        wc = functions.cosine_activation(
+            x=c,
+            x_low=self.c_low,
+            x_high=self.c_high,
+        )
+
+        w = wd * (wc + wc.swapaxes(-2, -1))
+        diag = np.eye(x.shape[-2], dtype=bool)
+        w[..., diag] = 0.0
+
+        r = p[..., np.newaxis, :, :] - p[..., np.newaxis, :]
+        d = np.sqrt(np.square(r).sum(axis=-1))
+        b = r / d[..., np.newaxis]
+        c = np.matmul(b, axes[..., np.newaxis]).squeeze()
+
+        wd = 1 - functions.cosine_activation(
+            x=d,
+            x_low=self.d_low,
+            x_high=self.d_high,
+        )
+        wc = functions.cosine_activation(
+            x=c,
+            x_low=self.c_low,
+            x_high=self.c_high,
+        )
+
+        w = wd * (wc + wc.swapaxes(-2, -1))
+        diag = np.eye(x.shape[-2], dtype=bool)
+        w[..., diag] = 0.0
+
+        S = rigidity_laplacian_multiple_axes(w, p)
         return S
 
     def update(self, x):

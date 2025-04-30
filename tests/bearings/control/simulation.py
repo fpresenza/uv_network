@@ -88,6 +88,7 @@ class Robot(object):
             node_id,
             pose,
             comm_range,
+            fov,
             action_extent=0,
             state_extent=1,
             t=0.0
@@ -101,8 +102,8 @@ class Robot(object):
         self.in_balls = self.self_centered_ball
         self.maintenance = RigidityMaintenance(
             dim=3,
-            dmax=0.92 * comm_range,
-            steepness=10.0,
+            range_lims=comm_range * np.array([0.8, 1.0]),
+            cos_lims=np.cos(np.deg2rad(fov / 2)) * np.array([1.0, 1.8]),
             threshold=1e-4,
             eigenvalues='all',
             functional='log'
@@ -136,7 +137,7 @@ class Robot(object):
             action=copy.deepcopy(self.action),
             state={
                 'pose': self.loc.pose(),
-                'covariance': self.loc.covariance()
+                'covariance': None
             },
             action_extent=self.action_extent,
             state_extent=self.state_extent
@@ -215,11 +216,11 @@ class Robot(object):
         pose = self.routing.extract_state('pose', self.action_extent)
         n_sub = len(pose)
         if n_sub > 0:
-            p = np.empty((n_sub + 1, self.dim), dtype=float)
-            p[0] = self.loc.pose()
-            p[1:] = list(pose.values())
+            x = np.empty((n_sub + 1, self.dim), dtype=float)
+            x[0] = self.loc.pose()
+            x[1:] = list(pose.values())
             # get rigidity maintenance control action
-            u_sub = self.maintenance.update(p)
+            u_sub = self.maintenance.update(x)
         else:
             u_sub = np.zeros((1, self.dim), dtype=float)
 
@@ -381,7 +382,7 @@ class MultiRobotNetwork(object):
 
     def upload_to_cloud(self, msg, node_index):
         for neighbor_index in range(self.n):
-            if self.graph.is_edge(node_index, neighbor_index):
+            if self.graph.share_edge(node_index, neighbor_index):
                 noise = np.random.normal(
                         scale=self.bearing_meas_stdev, size=self.dim - 1
                 )
@@ -498,17 +499,20 @@ def run_mission(simu_counter, end_counter):
                 msgs = robnet.download_from_cloud(node_index)
                 robot.handle_received_msgs(msgs)
                 robot.bearing_measurement_step()
-                # robot.rigidity_maintenance_control_action()
+                #    why not apply control action at each time step
+                #    (with latest positions)
+                #    downside: computational load
+                robot.rigidity_maintenance_control_action()
 
         # localization and control step
         # TODO: should be est poses
-        alloc = targets.allocation(robnet.positions())
+        # alloc = targets.allocation(robnet.positions())
 
         for robot in robots:
             node_index = index_map[robot.node_id]
 
-            robot.target_collection_control_action(alloc[node_index])
-            robot.collision_avoidance_control_action()
+            # robot.target_collection_control_action(alloc[node_index])
+            # robot.collision_avoidance_control_action()
             robot.compose_actions()
 
             gps_meas = robnet.gps_measurement(node_index)
@@ -653,6 +657,7 @@ robots = Robots([
         node_id=i,
         pose=np.random.normal(poses[i],  0.0),
         comm_range=comm_range,
+        fov=fov,
         action_extent=1,
         # state_extent=2
     )
