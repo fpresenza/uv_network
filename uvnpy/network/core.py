@@ -35,7 +35,7 @@ def geodesics_dict(adjacency_matrix):
 
 def as_undirected(adjacency_matrix):
     """Removes the direction of the edges"""
-    return np.logical_or(adjacency_matrix, adjacency_matrix.T)
+    return np.logical_or(adjacency_matrix, adjacency_matrix.swapaxes(-2, -1))
 
 
 def complete_edges(n, directed=False):
