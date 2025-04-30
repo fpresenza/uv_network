@@ -31,6 +31,9 @@ class ConeGraph(object):
     def is_edge(self, vertex_i, vertex_j):
         return self._adj[vertex_i, vertex_j]
 
+    def share_edge(self, vertex_i, vertex_j):
+        return self._adj[vertex_i, vertex_j] or self._adj[vertex_j, vertex_i]
+
     def out_neighbors(self, vertex):
         return np.where(self._adj[vertex])[0]
 
