@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from uvnpy.toolkit import data
-from uvnpy.network.core import geodesics
+from uvnpy.network.core import geodesics, as_undirected
 from uvnpy.bearings.core import rigidity_eigenvalue
 from uvnpy.distances.core import distance_matrix
 
@@ -50,11 +50,11 @@ k_e = int(np.argmin(np.abs(t - arg.end))) + 1
 t = t[k_i:k_e:arg.jump]
 
 p = data.read_csv(
-    'data/position.csv',
+    'data/pose.csv',
     rows=(k_i, k_e),
     jump=arg.jump,
     dtype=float,
-    shape=(-1, 3),
+    shape=(-1, 4),
     asarray=True
 )
 n = len(p[0])
@@ -65,20 +65,28 @@ else:
     subset = arg.subset
 
 
-A = data.read_csv(
+D = data.read_csv(
     'data/adjacency.csv',
-    rows=(k_i, k_e), jump=arg.jump, dtype=float, shape=(n, n), asarray=True
+    rows=(k_i, k_e),
+    jump=arg.jump,
+    dtype=float,
+    shape=(n, n),
+    asarray=True
 )
 targets = data.read_csv(
     'data/targets.csv',
-    rows=(k_i, k_e), jump=arg.jump, dtype=float, shape=(-1, 4), asarray=True
+    rows=(k_i, k_e),
+    jump=arg.jump,
+    dtype=float,
+    shape=(-1, 4),
+    asarray=True
 )
 u_t = data.read_csv(
     'data/target_action.csv',
     rows=(k_i, k_e),
     jump=arg.jump,
     dtype=float,
-    shape=(n, 3),
+    shape=(n, 4),
     asarray=True
 )
 u_c = data.read_csv(
@@ -86,7 +94,7 @@ u_c = data.read_csv(
     rows=(k_i, k_e),
     jump=arg.jump,
     dtype=float,
-    shape=(n, 3),
+    shape=(n, 4),
     asarray=True
 )
 u_r = data.read_csv(
@@ -94,7 +102,7 @@ u_r = data.read_csv(
     rows=(k_i, k_e),
     jump=arg.jump,
     dtype=float,
-    shape=(n, 3),
+    shape=(n, 4),
     asarray=True
 )
 action_extents = data.read_csv(
@@ -110,10 +118,12 @@ hatp = data.read_csv(
     rows=(k_i, k_e),
     jump=arg.jump,
     dtype=float,
-    shape=(-1, 3),
+    shape=(-1, 4),
     asarray=True
 )
 
+
+A = as_undirected(D).astype(float)
 fre = np.empty(len(t))
 re = np.empty((len(t), n))
 fdiam = np.empty(len(t))
