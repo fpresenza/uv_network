@@ -9,17 +9,17 @@ import numpy as np
 
 
 class ConeGraph(object):
-    def __init__(self, dmax, fov=-1.0):
+    def __init__(self, dmax, cmin=-1.0):
         """
         Class representing a cone-line state dependant graph.
 
         args:
         -----
             dmax : max conextion range
-            fov  : cosine of cone's half angle
+            cmin  : cosine of cone's half angle
         """
         self.dmax = np.reshape(dmax, (-1, 1))
-        self.fov = np.reshape(fov, (-1, 1))
+        self.cmin = np.reshape(cmin, (-1, 1))
         self._adj = None
 
     def adjacency_matrix(self):
@@ -50,27 +50,27 @@ class ConeGraph(object):
         d = np.sqrt(np.square(r).sum(axis=-1))
         bearings = r / d[:, :, np.newaxis]
         cos = np.matmul(bearings, axes[:, :, np.newaxis]).squeeze()
-        self._adj = np.logical_and(d <= self.dmax, cos >= self.fov)
+        self._adj = np.logical_and(d <= self.dmax, cos >= self.cmin)
         self._adj[np.eye(len(positions), dtype=bool)] = 0.0
         return self._adj.copy()
 
 
-def adjacency_matrix(positions, axes, dmax=np.inf, fov=-1.0):
+def adjacency_matrix(positions, axes, dmax=np.inf, cmin=-1.0):
     """
     Cone graph adjacency matrix.
 
     args:
     -----
         positions  : (n, d) vector array
-        axes : (n, d) unit vector array
+        axes       : (n, d) unit vector array
         dmax       : max conextion range
-        fov        : cosine of cone's half angle
+        cmin       : cosine of cone's half angle
     """
     dmax = np.reshape(dmax, (-1, 1))
     r = positions - positions[:, np.newaxis]
     d = np.sqrt(np.square(r).sum(axis=-1))
     bearings = r / d[:, :, np.newaxis]
     cos = np.matmul(bearings, axes[:, :, np.newaxis]).squeeze()
-    A = np.logical_and(d <= dmax, cos >= fov)
+    A = np.logical_and(d <= dmax, cos >= cmin)
     A[np.eye(len(positions), dtype=bool)] = 0.0
     return A

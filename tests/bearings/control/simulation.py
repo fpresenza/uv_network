@@ -618,8 +618,10 @@ angles = np.arctan2(axes[:, 1], axes[:, 0]).reshape(-1, 1)
 print(angles)
 
 comm_range = 15.0
+fov = 120.0
 print('Communication range: {}'.format(comm_range))
-graph = ConeGraph(dmax=comm_range, fov=0.0)
+print('Camera\'s fov: {} degrees'.format(fov))
+graph = ConeGraph(dmax=comm_range, cmin=np.cos(np.deg2rad(fov / 2)))
 directed_adjacency_matrix = graph.update_adjacency_matrix(positions, axes)
 print(
     'Adjacency list: \n' +
