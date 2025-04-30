@@ -721,7 +721,7 @@ for t_break in [simu_time]:
 np.savetxt('data/t.csv', logs.time, delimiter=',')
 np.savetxt('data/tc.csv', logs.time_comm, delimiter=',')
 np.savetxt('data/pose.csv', logs.pose, delimiter=',')
-np.savetxt('data/est_position.csv', logs.estimated_pose, delimiter=',')
+np.savetxt('data/est_pose.csv', logs.estimated_pose, delimiter=',')
 np.savetxt('data/covariance.csv', logs.covariance, delimiter=',')
 np.savetxt('data/target_action.csv', logs.target_action, delimiter=',')
 np.savetxt('data/collision_action.csv', logs.collision_action, delimiter=',')
