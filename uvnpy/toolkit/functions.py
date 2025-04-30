@@ -94,10 +94,18 @@ def ramp_saturation(x, limit=1., slope=1.):
 
 
 @njit
-def cosine_decay(x, x_min, x_max):
-    if x < x_min:
-        return 1.0
-    elif x > x_max:
-        return 0.0
-    else:
-        return 0.5 * (1 - np.cos(np.pi * (x - x_min) / (x_max - x_min)))
+def cosine_activation(x, x_low, x_high):
+    s = x.shape
+    x = x.ravel()    # required for njit
+
+    leq = x <= x_low
+    geq = x >= x_high
+    bet = ~(leq | geq)
+
+    c = np.empty(x.shape, dtype=float)
+    c[leq] = 0.0
+    c[bet] = 0.5 * (1 - np.cos(np.pi * (x[bet] - x_low) / (x_high - x_low)))
+    c[geq] = 1.0
+    c = c.reshape(s)
+
+    return c
