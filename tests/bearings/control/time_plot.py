@@ -114,7 +114,7 @@ action_extents = data.read_csv(
 )
 
 hatp = data.read_csv(
-    'data/est_position.csv',
+    'data/est_pose.csv',
     rows=(k_i, k_e),
     jump=arg.jump,
     dtype=float,
