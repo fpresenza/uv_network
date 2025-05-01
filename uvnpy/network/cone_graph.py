@@ -11,7 +11,7 @@ import numpy as np
 class ConeGraph(object):
     def __init__(self, dmax, cmin=-1.0):
         """
-        Class representing a cone-line state dependant graph.
+        Class representing a cone-like state dependant graph.
 
         args:
         -----
@@ -54,7 +54,7 @@ class ConeGraph(object):
         bearings = r / d[:, :, np.newaxis]
         cos = np.matmul(bearings, axes[:, :, np.newaxis]).squeeze()
         self._adj = np.logical_and(d <= self.dmax, cos >= self.cmin)
-        self._adj[np.eye(len(positions), dtype=bool)] = 0.0
+        self._adj[np.eye(len(positions), dtype=bool)] = False
         return self._adj.copy()
 
 
