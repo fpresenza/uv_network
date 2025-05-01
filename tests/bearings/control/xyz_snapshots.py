@@ -58,7 +58,7 @@ x = data.read_csv(
 n = len(x[0])
 
 A = data.read_csv(
-    'data/adjacency.csv',
+    'data/sens_adjacency.csv',
     rows=(k_i, k_e),
     jump=arg.jump,
     dtype=float,
@@ -119,7 +119,7 @@ for k in range(N):
     ax.view_init(elev=30.0, azim=-70.0)
 
     ax.text(
-        0.05, 0.05, 0.05, r't = {:.3f}s'.format(tk),
+        1.0, 1.0, 1.0, r't = {:.3f}s'.format(tk),
         verticalalignment='bottom', horizontalalignment='left',
         transform=ax.transAxes, color='g', fontsize=8
     )
@@ -199,7 +199,7 @@ for k in range(N):
     fig.savefig(
         'data/snapshots/frame{}.png'.format(str(k + k_i_jump).zfill(3)),
         format='png',
-        dpi=400,
+        dpi=200,
         bbox_inches="tight",
         # transparent=True
     )

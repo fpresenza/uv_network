@@ -67,7 +67,7 @@ else:
 
 
 D = data.read_csv(
-    'data/adjacency.csv',
+    'data/sens_adjacency.csv',
     rows=(k_i, k_e),
     jump=arg.jump,
     dtype=float,
