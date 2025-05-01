@@ -8,14 +8,15 @@ import numpy as np
 import copy
 import transformations
 
-from uvnpy.network import core
-from uvnpy.bearings.localization import FirstOrderKalmanFilter
-from uvnpy.routing.token_passing import TokenPassing
+import uvnpy.network.core as network
+import uvnpy.distances.core as distances
+import uvnpy.bearings.core as bearings
 from uvnpy.dynamics.linear_models import Integrator
 from uvnpy.network.cone_graph import ConeGraph
-from uvnpy.bearings.control import RigidityMaintenance
 from uvnpy.control.core import Targets, CollisionAvoidanceVanishing
-from uvnpy.bearings.core import is_inf_rigid, minimum_rigidity_extents
+from uvnpy.routing.token_passing import TokenPassing
+from uvnpy.bearings.localization import FirstOrderKalmanFilter
+from uvnpy.bearings.control import RigidityMaintenance
 
 
 # ------------------------------------------------------------------
@@ -60,6 +61,14 @@ NeigborhoodData = collections.namedtuple(
     covariance, \
     bearing, \
     is_isolated_edge')
+
+
+def camera_axis(angle):
+    axis = np.empty((len(angle), 3))
+    axis[:, 0] = np.cos(angle)
+    axis[:, 1] = np.sin(angle)
+    axis[:, 2] = 0.0
+    return axis
 
 
 class Neighborhood(dict):
@@ -213,12 +222,12 @@ class Robot(object):
 
     def rigidity_maintenance_control_action(self):
         # get actions for ball subframework
-        pose = self.routing.extract_state('pose', self.action_extent)
-        n_sub = len(pose)
+        subframework = self.routing.extract_state('pose', self.action_extent)
+        n_sub = len(subframework)
         if n_sub > 0:
             x = np.empty((n_sub + 1, self.dim), dtype=float)
             x[0] = self.loc.pose()
-            x[1:] = list(pose.values())
+            x[1:] = list(subframework.values())
             # get rigidity maintenance control action
             u_sub = self.maintenance.update(x)
         else:
@@ -227,7 +236,7 @@ class Robot(object):
         # pack control action for other robots within ball
         self.action = {
             i: ui
-            for i, ui in zip(pose.keys(), u_sub[1:])
+            for i, ui in zip(subframework.keys(), u_sub[1:])
         }
 
         # compose all control actions from containing balls
@@ -351,11 +360,7 @@ class MultiRobotNetwork(object):
 
     def update_graph(self):
         positions = self.positions()
-        angles = self.angles()
-        axes = np.empty((n, 3))
-        axes[:, 0] = np.cos(angles)
-        axes[:, 1] = np.sin(angles)
-        axes[:, 2] = 0.0
+        axes = camera_axis(self.angles())
         self.graph.update_adjacency_matrix(positions, axes)
 
     def velocity_measurement(self, node_index):
@@ -512,7 +517,7 @@ def run_mission(simu_counter, end_counter):
             node_index = index_map[robot.node_id]
 
             # robot.target_collection_control_action(alloc[node_index])
-            # robot.collision_avoidance_control_action()
+            robot.collision_avoidance_control_action()
             robot.compose_actions()
 
             gps_meas = robnet.gps_measurement(node_index)
@@ -610,36 +615,77 @@ print(
 )
 
 # robnet parameters
-n = 20
-positions = np.empty((n, 3))
-positions[:, 0] = np.random.uniform(0.0, 40.0, n)
-positions[:, 1] = np.random.uniform(0.0, 40.0, n)
-positions[:, 2] = 0.0
-print(positions)
-baricenter = np.mean(positions, axis=0)
-axes = transformations.unit_vector(baricenter - positions, axis=1)
-angles = np.arctan2(axes[:, 1], axes[:, 0]).reshape(-1, 1)
-print(angles)
+n = 15
+# positions = np.empty((n, 3))
+# positions[:, 0] = np.random.uniform(0.0, 30.0, n)
+# positions[:, 1] = np.random.uniform(0.0, 30.0, n)
+# positions[:, 2] = 0.0
+# print(positions)
+# baricenter = np.mean(positions, axis=0)
+# axes = transformations.unit_vector(baricenter - positions, axis=1)
+# angles = np.arctan2(axes[:, 1], axes[:, 0]).reshape(-1, 1)
+# print(angles)
+positions = np.array([
+    [16.74078127, 17.81264269, 0.],
+    [21.25975608, 0.69126902, 0.],
+    [8.70918232, 16.86743894, 0.],
+    [15.72910327, 7.29325366, 0.],
+    [26.76951052, 12.45178603, 0.],
+    [26.88085721, 8.51942828, 0.],
+    [3.87041333, 20.71506161, 0.],
+    [5.73659268, 13.41440628, 0.],
+    [1.56361411, 4.71457492, 0.],
+    [13.14526584, 16.30023222, 0.],
+    [0.7899329, 23.50186915, 0.],
+    [13.19130069, 9.65597745, 0.],
+    [19.62000619, 6.64034072, 0.],
+    [8.68470161, 11.32315226, 0.],
+    [20.28081445, 28.08292935, 0.]
+])
+
+angles = np.array([
+    [-2.18071183],
+    [2.03226461],
+    [-0.6434728],
+    [1.93774261],
+    [3.13080092],
+    [2.81615886],
+    [-0.68535938],
+    [0.04544866],
+    [0.61925688],
+    [-1.50800027],
+    [-0.67965017],
+    [1.62060603],
+    [2.32684369],
+    [0.23441121],
+    [-1.9967138]
+])
 
 comm_range = 15.0
 fov = 120.0
 print('Communication range: {}'.format(comm_range))
 print('Camera\'s fov: {} degrees'.format(fov))
 graph = ConeGraph(dmax=comm_range, cmin=np.cos(np.deg2rad(fov / 2)))
-directed_adjacency_matrix = graph.update_adjacency_matrix(positions, axes)
+directed_adj_matrix = graph.update_adjacency_matrix(
+    positions, camera_axis(angles.ravel())
+)
 print(
     'Adjacency list: \n' +
     '\n'.join(
         '\t {}: {}'.format(key, val)
-        for key, val in core.adjacency_dict(directed_adjacency_matrix).items()
+        for key, val in network.adjacency_dict(directed_adj_matrix).items()
     )
 )
-adjacency_matrix = core.as_undirected(directed_adjacency_matrix)
-if not is_inf_rigid(adjacency_matrix, positions):
-    raise ValueError('Framework should be infinitesimally rigid.')
+adjacency_matrix = network.as_undirected(directed_adj_matrix)
+if distances.minimum_distance(positions) > 2.0:
+    print('Yay! Robots\' positions are sufficiently separated.')
 else:
+    raise ValueError('Robots\' are too close.')
+if bearings.is_inf_rigid(adjacency_matrix, positions):
     print('Yay! Framework is infinitesimally rigid.')
     poses = np.hstack([positions, angles])
+else:
+    raise ValueError('Framework should be infinitesimally rigid.')
 
 robnet = MultiRobotNetwork(
     dim=4,
@@ -698,10 +744,12 @@ logs = Logs(
 
 simu_counter = 0
 for t_break in [simu_time]:
-    adjacency_matrix = core.as_undirected(robnet.graph.adjacency_matrix())
+    adjacency_matrix = network.as_undirected(robnet.graph.adjacency_matrix())
     positions = robnet.positions()
-    geodesics_matrix = core.geodesics(adjacency_matrix.astype(float))
-    action_extents = minimum_rigidity_extents(geodesics_matrix, positions)
+    geodesics_matrix = network.geodesics(adjacency_matrix.astype(float))
+    action_extents = bearings.minimum_rigidity_extents(
+        geodesics_matrix, positions
+    )
     print(
         'Action extents: \n' +
         '\n'.join(
