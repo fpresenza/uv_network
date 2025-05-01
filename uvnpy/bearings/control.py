@@ -67,7 +67,7 @@ class RigidityMaintenance(object):
     def weighted_rigidity_matrix(self, x):
         p = x[..., :3]
         a = x[..., 3]
-        axes = np.empty(a.shape + (3,))
+        axes = np.empty(a.shape + (3,), dtype=float)
         axes[..., 0] = np.cos(a)
         axes[..., 1] = np.sin(a)
         axes[..., 2] = 0.0
@@ -89,28 +89,7 @@ class RigidityMaintenance(object):
         )
 
         w = wd * (wc + wc.swapaxes(-2, -1))
-        diag = np.eye(x.shape[-2], dtype=bool)
-        w[..., diag] = 0.0
-
-        r = p[..., np.newaxis, :, :] - p[..., np.newaxis, :]
-        d = np.sqrt(np.square(r).sum(axis=-1))
-        b = r / d[..., np.newaxis]
-        c = np.matmul(b, axes[..., np.newaxis]).squeeze()
-
-        wd = 1 - functions.cosine_activation(
-            x=d,
-            x_low=self.d_low,
-            x_high=self.d_high,
-        )
-        wc = functions.cosine_activation(
-            x=c,
-            x_low=self.c_low,
-            x_high=self.c_high,
-        )
-
-        w = wd * (wc + wc.swapaxes(-2, -1))
-        diag = np.eye(x.shape[-2], dtype=bool)
-        w[..., diag] = 0.0
+        w[..., np.eye(x.shape[-2], dtype=bool)] = 0.0
 
         S = rigidity_laplacian_multiple_axes(w, p)
         return S
