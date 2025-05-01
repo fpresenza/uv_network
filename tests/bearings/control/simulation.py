@@ -2,16 +2,18 @@
 # -*- coding: utf-8 -*-
 import argparse
 import collections
+from dataclasses import dataclass
 import time
 import progressbar
 import numpy as np
 import copy
 import transformations
 
-import uvnpy.network.core as network
 import uvnpy.distances.core as distances
 import uvnpy.bearings.core as bearings
+from uvnpy.network.core import geodesics, as_undirected
 from uvnpy.dynamics.linear_models import Integrator
+from uvnpy.network.disk_graph import DiskGraph
 from uvnpy.network.cone_graph import ConeGraph
 from uvnpy.control.core import Targets, CollisionAvoidanceVanishing
 from uvnpy.routing.token_passing import TokenPassing
@@ -50,17 +52,19 @@ InterRobotMsg = collections.namedtuple(
     'node_id, \
     timestamp, \
     in_balls, \
+    bearing, \
     action_tokens, \
     state_tokens')
 
-NeigborhoodData = collections.namedtuple(
-    'NeigborhoodData',
-    'node_id, \
-    timestamp, \
-    pose, \
-    covariance, \
-    bearing, \
-    is_isolated_edge')
+
+@dataclass
+class NeighborData(object):
+    node_id: int
+    timestamp: float = None
+    pose: np.ndarray = None
+    covariance: np.ndarray = None
+    bearing: np.ndarray = None
+    is_isolated_edge: bool = None
 
 
 def camera_axis(angle):
@@ -71,31 +75,12 @@ def camera_axis(angle):
     return axis
 
 
-class Neighborhood(dict):
-    def update(
-            self,
-            node_id,
-            timestamp,
-            pose,
-            covariance,
-            bearing_measurement,
-            is_isolated_edge
-            ):
-        self[node_id] = NeigborhoodData(
-            node_id=node_id,
-            timestamp=timestamp,
-            pose=pose,
-            covariance=covariance,
-            bearing=bearing_measurement,
-            is_isolated_edge=is_isolated_edge
-        )
-
-
 class Robot(object):
     def __init__(
             self,
             node_id,
             pose,
+            sens_range,
             comm_range,
             fov,
             action_extent=0,
@@ -111,7 +96,7 @@ class Robot(object):
         self.in_balls = self.self_centered_ball
         self.maintenance = RigidityMaintenance(
             dim=3,
-            range_lims=comm_range * np.array([0.8, 1.0]),
+            range_lims=sens_range * np.array([0.8, 1.0]),
             cos_lims=np.cos(np.deg2rad(fov / 2)) * np.array([1.0, 1.8]),
             threshold=1e-4,
             eigenvalues='all',
@@ -134,13 +119,13 @@ class Robot(object):
             bearing_meas_cov=0.0 * np.eye(self.dim),
             gps_meas_cov=0.0 * np.eye(self.dim)
         )
-        self.neighborhood = Neighborhood()
+        self.neighbors = {}
         self.routing = TokenPassing(self.node_id)
 
     def update_clock(self, t):
         self.current_time = t
 
-    def create_msg(self):
+    def create_msg(self, bearings):
         action_tokens, state_tokens = self.routing.broadcast(
             timestamp=self.current_time,
             action=copy.deepcopy(self.action),
@@ -155,28 +140,60 @@ class Robot(object):
             node_id=self.node_id,
             timestamp=self.current_time,
             in_balls=self.in_balls.copy(),
+            bearing=bearings,
             action_tokens=action_tokens,
             state_tokens=state_tokens
         )
+        self.neighbors.clear()
+        for node_id, bearing in bearings.items():
+            self.neighbors[node_id] = NeighborData(
+                node_id=node_id,
+                timestamp=self.current_time,
+                bearing=bearing
+            )
         return msg
 
     def handle_received_msgs(self, msgs):
-        self.neighborhood.clear()
-        for (msg, bearing_measurement) in msgs:
-            self.neighborhood.update(
-                node_id=msg.node_id,
-                timestamp=msg.timestamp,
-                pose=msg.state_tokens[msg.node_id].data['pose'],
-                covariance=msg.state_tokens[msg.node_id].data['covariance'],
-                bearing_measurement=bearing_measurement,
-                is_isolated_edge=self.in_balls.isdisjoint(msg.in_balls)
-            )
-            self.routing.update_action(msg.action_tokens.values())
-            self.routing.update_state(msg.state_tokens.values())
+        # self.neighbors.clear()
+        for msg in msgs:
+            if self.node_id in msg.bearing:
+                self.neighbors[msg.node_id] = NeighborData(
+                    node_id=msg.node_id,
+                    timestamp=msg.timestamp,
+                    pose=msg.state_tokens[msg.node_id].data['pose'],
+                    covariance=msg.state_tokens[msg.node_id].data[
+                        'covariance'],
+                    bearing=msg.bearing[self.node_id],
+                    is_isolated_edge=self.in_balls.isdisjoint(msg.in_balls)
+                )
+                self.routing.update_action(msg.action_tokens.values())
+                self.routing.update_state(msg.state_tokens.values())
 
-        self.in_balls = self.self_centered_ball.union(
-            self.routing.action_centers()
-        )
+                self.in_balls = self.self_centered_ball.union(
+                    self.routing.action_centers()
+                )
+            elif msg.node_id in self.neighbors:
+                self.neighbors[msg.node_id].timestamp = msg.timestamp
+                self.neighbors[msg.node_id].pose = \
+                    msg.state_tokens[msg.node_id].data['pose']
+                self.neighbors[msg.node_id].covariance = \
+                    msg.state_tokens[msg.node_id].data['covariance']
+                self.neighbors[msg.node_id].is_isolated_edge = \
+                    self.in_balls.isdisjoint(msg.in_balls)
+
+                self.routing.update_action(msg.action_tokens.values())
+                self.routing.update_state(msg.state_tokens.values())
+
+                self.in_balls = self.self_centered_ball.union(
+                    self.routing.action_centers()
+                )
+            else:
+                self.neighbors[msg.node_id] = NeighborData(
+                    node_id=msg.node_id,
+                    timestamp=msg.timestamp,
+                    pose=msg.state_tokens[msg.node_id].data['pose'],
+                    covariance=msg.state_tokens[msg.node_id].data['covariance']
+                )
 
     def update_state_extent(self):
         self.state_extent = max(1, self.routing.max_action_extent())
@@ -205,15 +222,18 @@ class Robot(object):
 
     def collision_avoidance_control_action(self):
         # get obstacles (other robots poses)
-        obstacles = self.routing.extract_state(
-            'pose',
-            1,
-            wrapper=lambda x: np.take(x, range(3))
-        )
+        # obstacles = self.routing.extract_state(
+        #     'pose',
+        #     1,
+        #     wrapper=lambda x: np.take(x, range(3))
+        # )
+        obstacles = np.array([
+            neighbor.pose[:3] for neighbor in self.neighbors.values()
+        ])
         if len(obstacles) > 0:
-            obstacles_position = list(obstacles.values())
+            # obstacles_position = list(obstacles.values())
             u_collision = self.collision.update(
-                self.loc.pose()[:3], obstacles_position
+                self.loc.pose()[:3], obstacles
             ) * 0.5
             # collision control gain
             self.u_collision = np.append(u_collision, 0.0)
@@ -244,7 +264,7 @@ class Robot(object):
         self.u_rigidity = u_sub[0] + sum(cmd.values())
 
         # add action for isolated edges
-        for neighbor in self.neighborhood.values():
+        for neighbor in self.neighbors.values():
             if neighbor.is_isolated_edge:
                 x = np.vstack([self.loc.pose(), neighbor.pose])
                 self.u_rigidity += self.maintenance.update(x)[0]
@@ -264,16 +284,21 @@ class Robot(object):
         self.loc.dynamic_step(self.current_time, vel_meas)
 
     def bearing_measurement_step(self):
-        if len(self.neighborhood) > 0:
-            neighbors_data = self.neighborhood.values()
+        if len(self.neighbors) > 0:
             z = np.array([
-                neighbor.bearing for neighbor in neighbors_data
+                neighbor.bearing
+                for neighbor in self.neighbors.values()
+                if neighbor.bearing is not None
             ])
             xj = np.array([
-                neighbor.pose for neighbor in neighbors_data
+                neighbor.pose
+                for neighbor in self.neighbors.values()
+                if neighbor.bearing is not None
             ])
             Pj = np.array([
-                neighbor.covariance for neighbor in neighbors_data
+                neighbor.covariance
+                for neighbor in self.neighbors.values()
+                if neighbor.bearing is not None
             ])
             self.loc.bearing_step(z, xj, Pj)
 
@@ -310,7 +335,8 @@ class MultiRobotNetwork(object):
             self,
             dim,
             robot_dynamics,
-            graph,
+            sens_graph,
+            comm_graph,
             gps_available,
             vel_meas_stdev,
             bearing_meas_stdev,
@@ -323,7 +349,8 @@ class MultiRobotNetwork(object):
         self.dim = dim
         self.robot_dynamics = robot_dynamics
         self.n = len(robot_dynamics)
-        self.graph = graph
+        self.sens_graph = sens_graph
+        self.comm_graph = comm_graph
         self.gps_available = gps_available
 
         self.vel_meas_stdev = vel_meas_stdev
@@ -358,10 +385,11 @@ class MultiRobotNetwork(object):
     def collect_bearing_meas_err(self):
         return self.bearing_meas_err.copy().ravel()
 
-    def update_graph(self):
+    def update_graphs(self):
         positions = self.positions()
         axes = camera_axis(self.angles())
-        self.graph.update_adjacency_matrix(positions, axes)
+        self.sens_graph.update_adjacency_matrix(positions, axes)
+        self.comm_graph.update_adjacency_matrix(positions)
 
     def velocity_measurement(self, node_index):
         if len(self.robot_dynamics[node_index].derivatives) > 0:
@@ -385,9 +413,10 @@ class MultiRobotNetwork(object):
             self.gps_meas_err[node_index] = np.nan
             return None
 
-    def upload_to_cloud(self, msg, node_index):
+    def bearing_measurement(self, node_index):
+        bearings = {}
         for neighbor_index in range(self.n):
-            if self.graph.share_edge(node_index, neighbor_index):
+            if self.sens_graph.is_edge(node_index, neighbor_index):
                 noise = np.random.normal(
                         scale=self.bearing_meas_stdev, size=self.dim - 1
                 )
@@ -398,9 +427,14 @@ class MultiRobotNetwork(object):
                 )
                 self.bearing_meas_err[node_index, neighbor_index] = \
                     np.dot(noise, noise)
-                self.cloud[-1][neighbor_index].append((msg, noisy_bearing))
+                bearings[neighbor_index] = noisy_bearing
             else:
                 self.bearing_meas_err[node_index, neighbor_index] = np.nan
+        return bearings
+
+    def upload_to_cloud(self, msg, sender_index):
+        for receiver_index in self.comm_graph.out_neighbors(sender_index):
+            self.cloud[-1][receiver_index].append(msg)
 
     def download_from_cloud(self, node_index):
         return self.cloud[0][node_index].copy()
@@ -425,8 +459,9 @@ def initialize_robots(simu_counter):
             logs.time_comm.append(t)
             robnet.cloud.append([[] for _ in robots])
             for robot in robots:
-                msg = robot.create_msg()
                 node_index = index_map[robot.node_id]
+                bearings = robnet.bearing_measurement(node_index)
+                msg = robot.create_msg(bearings)
                 robnet.upload_to_cloud(msg, node_index)
             for robot in robots:
                 node_index = index_map[robot.node_id]
@@ -459,7 +494,7 @@ def initialize_robots(simu_counter):
         logs.vel_meas_err.append(robnet.collect_vel_meas_err())
         logs.gps_meas_err.append(robnet.collect_gps_meas_err())
         logs.bearing_meas_err.append(robnet.collect_bearing_meas_err())
-        logs.adjacency.append(robnet.graph.adjacency_matrix().ravel())
+        logs.adjacency.append(robnet.sens_graph.adjacency_matrix().ravel())
         logs.action_extents.append(robots.collect_action_extents())
         logs.state_extents.append(robots.collect_state_extents())
         logs.targets.append(targets.data.ravel().copy())
@@ -467,7 +502,7 @@ def initialize_robots(simu_counter):
         for robot in robots:
             node_index = index_map[robot.node_id]
             robnet.robot_dynamics[node_index].step(t, robot.control_action)
-        robnet.update_graph()
+        robnet.update_graphs()
         targets.update(robnet.positions())
 
         simu_counter += 1
@@ -496,8 +531,9 @@ def run_mission(simu_counter, end_counter):
             logs.time_comm.append(t)
             robnet.cloud.append([[] for _ in robots])
             for robot in robots:
-                msg = robot.create_msg()
                 node_index = index_map[robot.node_id]
+                bearings = robnet.bearing_measurement(node_index)
+                msg = robot.create_msg(bearings)
                 robnet.upload_to_cloud(msg, node_index)
             for robot in robots:
                 node_index = index_map[robot.node_id]
@@ -518,7 +554,7 @@ def run_mission(simu_counter, end_counter):
 
             robot.target_collection_control_action(alloc[node_index])
             robot.collision_avoidance_control_action()
-            robot.compose_actions()
+            # robot.compose_actions()
 
             gps_meas = robnet.gps_measurement(node_index)
             if (gps_meas is not None):
@@ -539,7 +575,7 @@ def run_mission(simu_counter, end_counter):
         logs.vel_meas_err.append(robnet.collect_vel_meas_err())
         logs.gps_meas_err.append(robnet.collect_gps_meas_err())
         logs.bearing_meas_err.append(robnet.collect_bearing_meas_err())
-        logs.adjacency.append(robnet.graph.adjacency_matrix().ravel())
+        logs.adjacency.append(robnet.sens_graph.adjacency_matrix().ravel())
         logs.action_extents.append(robots.collect_action_extents())
         logs.state_extents.append(robots.collect_state_extents())
         logs.targets.append(targets.data.ravel().copy())
@@ -547,7 +583,7 @@ def run_mission(simu_counter, end_counter):
         for robot in robots:
             node_index = index_map[robot.node_id]
             robnet.robot_dynamics[node_index].step(t, robot.control_action)
-        robnet.update_graph()
+        robnet.update_graphs()
         targets.update(robnet.positions())
 
         simu_counter += 1
@@ -661,36 +697,48 @@ angles = np.array([
     [-1.9967138]
 ])
 
-comm_range = 15.0
+
+if distances.minimum_distance(positions) > 2.0:
+    print('Yay! Robots\' positions are sufficiently separated.')
+else:
+    raise ValueError('Robots\' are too close.')
+
+sens_range = 15.0
 fov = 120.0
-print('Communication range: {}'.format(comm_range))
+print('Camera\'s range: {}'.format(sens_range))
 print('Camera\'s fov: {} degrees'.format(fov))
-graph = ConeGraph(dmax=comm_range, cmin=np.cos(np.deg2rad(fov / 2)))
-directed_adj_matrix = graph.update_adjacency_matrix(
-    positions, camera_axis(angles.ravel())
+sens_graph = ConeGraph(
+    positions,
+    camera_axis(angles.ravel()),
+    dmax=sens_range,
+    cmin=np.cos(np.deg2rad(fov / 2))
 )
 print(
     'Adjacency list: \n' +
     '\n'.join(
         '\t {}: {}'.format(key, val)
-        for key, val in network.adjacency_dict(directed_adj_matrix).items()
+        for key, val in sens_graph.adjacency_dict().items()
     )
 )
-adjacency_matrix = network.as_undirected(directed_adj_matrix)
-if distances.minimum_distance(positions) > 2.0:
-    print('Yay! Robots\' positions are sufficiently separated.')
-else:
-    raise ValueError('Robots\' are too close.')
+adjacency_matrix = as_undirected(sens_graph.adjacency_matrix())
 if bearings.is_inf_rigid(adjacency_matrix, positions):
-    print('Yay! Framework is infinitesimally rigid.')
+    print('Yay! Sensing framework is infinitesimally rigid.')
     poses = np.hstack([positions, angles])
 else:
-    raise ValueError('Framework should be infinitesimally rigid.')
+    raise ValueError('Sensing framework should be infinitesimally rigid.')
+
+comm_range = 15.0
+print('Communication range: {}'.format(comm_range))
+comm_graph = DiskGraph(
+    positions,
+    dmax=comm_range,
+)
 
 robnet = MultiRobotNetwork(
     dim=4,
     robot_dynamics=[Integrator(poses[i]) for i in range(n)],
-    graph=graph,
+    sens_graph=sens_graph,
+    comm_graph=comm_graph,
     gps_available=range(n),
     vel_meas_stdev=0.0,
     bearing_meas_stdev=0.0,
@@ -702,6 +750,7 @@ robots = Robots([
     Robot(
         node_id=i,
         pose=np.random.normal(poses[i],  0.0),
+        sens_range=sens_range,
         comm_range=comm_range,
         fov=fov,
         action_extent=1,
@@ -744,9 +793,9 @@ logs = Logs(
 
 simu_counter = 0
 for t_break in [simu_time]:
-    adjacency_matrix = network.as_undirected(robnet.graph.adjacency_matrix())
+    adjacency_matrix = as_undirected(robnet.sens_graph.adjacency_matrix())
     positions = robnet.positions()
-    geodesics_matrix = network.geodesics(adjacency_matrix.astype(float))
+    geodesics_matrix = geodesics(adjacency_matrix.astype(float))
     action_extents = bearings.minimum_rigidity_extents(
         geodesics_matrix, positions
     )
