@@ -37,6 +37,13 @@ def distance_matrix_from_adjacency(A, p):
     return dist[dist > 0]
 
 
+def minimum_distance(p, axis=None):
+    r = p[..., None, :] - p[..., None, :, :]
+    d = np.sqrt(np.square(r).sum(axis=-1))
+    d[..., np.eye(p.shape[-2], dtype=bool)] = np.nan
+    return np.nanmin(d, axis=axis)
+
+
 def sufficiently_dispersed_position(n, xlim, ylim, max_dist):
     """
     Generates a set of nodes positions where each node is away from
