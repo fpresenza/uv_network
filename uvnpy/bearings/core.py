@@ -13,6 +13,17 @@ THRESHOLD_EIG = 1e-6
 THRESHOLD_SV = 1e-3
 
 
+def bearing_matrix(x):
+    """Matrix whose entries are bearings.
+
+    args:
+        x: (..., n, d) position array
+    """
+    r = x[..., np.newaxis, :, :] - x[..., np.newaxis, :]
+    d = np.sqrt(np.square(r).sum(axis=-1))
+    return r / d[..., np.newaxis]
+
+
 @njit
 def rigidity_matrix(A, p):
     n, d = p.shape
