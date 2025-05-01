@@ -549,7 +549,7 @@ def run_mission(simu_counter, end_counter):
 
             robot.target_collection_control_action(alloc[node_index])
             robot.collision_avoidance_control_action()
-            # robot.compose_actions()
+            robot.compose_actions()
 
             gps_meas = robnet.gps_measurement(node_index)
             if (gps_meas is not None):
@@ -760,7 +760,6 @@ for t_break in [simu_time]:
     action_extents = bearings.minimum_rigidity_extents(
         geodesics_matrix, positions
     )
-    action_extents[0] = 2
     print(
         'Action extents: \n' +
         '\n'.join(
