@@ -44,7 +44,7 @@ arg.end = t[-1] if (arg.end == 0) else arg.end
 # slices
 k_i = int(np.argmin(np.abs(t - arg.init)))
 k_i_jump = int(k_i / arg.jump)
-k_e = int(np.argmin(np.abs(t - arg.end))) + 1
+k_e = int(np.argmin(np.abs(t - arg.end)))
 
 t = t[k_i:k_e:arg.jump]
 
