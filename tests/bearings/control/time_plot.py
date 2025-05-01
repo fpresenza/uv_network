@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from uvnpy.toolkit import data
 from uvnpy.network.core import geodesics, as_undirected
 from uvnpy.bearings.core import rigidity_eigenvalue
-from uvnpy.distances.core import distance_matrix
+from uvnpy.distances.core import minimum_distance
 
 plt.rcParams['text.usetex'] = False
 plt.rcParams['pdf.fonttype'] = 42
@@ -477,9 +477,8 @@ fig.savefig('data/time/eigenvalues.png', format='png', dpi=400)
 # ------------------------------------------------------------------
 # Plot minimum distance between agents
 # ------------------------------------------------------------------
-dist = distance_matrix(p)
-dist[..., np.eye(20).astype(bool)] = np.nan
-mindist = np.nanmin(dist, axis=1)
+mindist = minimum_distance(p[:, :, :3], axis=1)
+print(mindist.shape)
 
 fig, ax = plt.subplots(figsize=(2.5, 1.5))
 fig.tight_layout()
@@ -511,7 +510,7 @@ ax.fill_between(t, np.min(mindist, axis=1), np.max(mindist, axis=1), alpha=0.3)
 #     ncol=2,
 #     columnspacing=1
 # )
-ax.hlines(1.0, xmin=0.0, xmax=200.0, ls='--', lw=0.8, color='k')
+ax.hlines(1.0, xmin=t.min(), xmax=t.max(), ls='--', lw=0.8, color='k')
 ax.set_yticks([0.0, 5.0, 10.0, 15.0])
 fig.savefig('data/time/min_dist.png', format='png', dpi=400)
 
