@@ -3,6 +3,7 @@
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.sparse.csgraph import shortest_path
 
 from uvnpy.toolkit import data
 from uvnpy.network.core import geodesics, as_undirected
@@ -49,7 +50,7 @@ k_e = int(np.argmin(np.abs(t - arg.end))) + 1
 
 t = t[k_i:k_e:arg.jump]
 
-p = data.read_csv(
+x = data.read_csv(
     'data/pose.csv',
     rows=(k_i, k_e),
     jump=arg.jump,
@@ -57,7 +58,7 @@ p = data.read_csv(
     shape=(-1, 4),
     asarray=True
 )
-n = len(p[0])
+n = len(x[0])
 nodes = np.arange(n)
 if (arg.subset == -1):
     subset = nodes
@@ -113,7 +114,7 @@ action_extents = data.read_csv(
     asarray=True
 )
 
-hatp = data.read_csv(
+hatx = data.read_csv(
     'data/est_pose.csv',
     rows=(k_i, k_e),
     jump=arg.jump,
@@ -122,22 +123,25 @@ hatp = data.read_csv(
     asarray=True
 )
 
-
 A = as_undirected(D).astype(float)
 fre = np.empty(len(t))
 re = np.empty((len(t), n))
 fdiam = np.empty(len(t))
 diam = np.empty((len(t), n))
-for k, (adj, pos, ext) in enumerate(zip(A, p, action_extents)):
-    geo = geodesics(adj)
+for k, (adj, pos, ext) in enumerate(zip(A, x[:, :, :3], action_extents)):
+    geo = shortest_path(adj, unweighted=True)
     fre[k] = rigidity_eigenvalue(adj, pos)
     fdiam[k] = np.max(geo)
     for i in nodes:
         Vi = geo[i] <= ext[i]
-        Ai = adj[np.ix_(Vi, Vi)]
-        qi = pos[Vi]
-        re[k, i] = rigidity_eigenvalue(Ai, qi)
-        diam[k, i] = np.max(geodesics(Ai))
+        if sum(Vi) > 1:
+            Ai = adj[np.ix_(Vi, Vi)]
+            qi = pos[Vi]
+            re[k, i] = rigidity_eigenvalue(Ai, qi)
+            diam[k, i] = np.max(geodesics(Ai))
+        else:
+            re[k, i] = 0.0
+            diam[k, i] = np.inf
 
 # tc = np.loadtxt('data/tc.csv', delimiter=',')
 # cov = np.loadtxt('data/covariance.csv', delimiter=',')
@@ -382,7 +386,7 @@ ax.grid(1, lw=0.4)
 
 ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
 ax.set_ylabel(r'$x_i\ (\mathrm{m})$', fontsize=8)
-ax.plot(t, p[:, subset, 0], lw=0.8, ds='steps-post')
+ax.plot(t, x[:, subset, 0], lw=0.8, ds='steps-post')
 fig.savefig('data/time/pos_x.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
@@ -406,7 +410,7 @@ ax.grid(1, lw=0.4)
 
 ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
 ax.set_ylabel(r'$y_i\ (\mathrm{m})$', fontsize=8)
-ax.plot(t, p[:, subset, 1], lw=0.8, ds='steps-post')
+ax.plot(t, x[:, subset, 1], lw=0.8, ds='steps-post')
 fig.savefig('data/time/pos_y.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
@@ -430,7 +434,7 @@ ax.grid(1, lw=0.4)
 
 ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
 ax.set_ylabel(r'$z_i\ (\mathrm{m})$', fontsize=8)
-ax.plot(t, p[:, subset, 2], lw=0.8, ds='steps-post')
+ax.plot(t, x[:, subset, 2], lw=0.8, ds='steps-post')
 fig.savefig('data/time/pos_z.png', format='png', dpi=360)
 
 # ------------------------------------------------------------------
@@ -477,8 +481,7 @@ fig.savefig('data/time/eigenvalues.png', format='png', dpi=400)
 # ------------------------------------------------------------------
 # Plot minimum distance between agents
 # ------------------------------------------------------------------
-mindist = minimum_distance(p[:, :, :3], axis=1)
-print(mindist.shape)
+mindist = minimum_distance(x[:, :, :3], axis=1)
 
 fig, ax = plt.subplots(figsize=(2.5, 1.5))
 fig.tight_layout()
@@ -517,10 +520,7 @@ fig.savefig('data/time/min_dist.png', format='png', dpi=400)
 # ------------------------------------------------------------------
 # Plot position error
 # ------------------------------------------------------------------
-# hatp = np.empty((len(t), n, 3))
-# hatp[0] = np.random.normal(p[0], scale=1.0)
-# for k in range(len(t)):
-err = np.sqrt(np.square(p - hatp).sum(axis=-1))
+err = np.sqrt(np.square(x - hatx).sum(axis=-1))
 fig, ax = plt.subplots(figsize=(4.0, 2.0))
 fig.subplots_adjust(
     bottom=0.215,
@@ -537,7 +537,7 @@ ax.tick_params(
 )
 ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
-ax.set_ylabel(r'$\Vert p - \hat{p} \Vert \ (\mathrm{m})$', fontsize=8)
+ax.set_ylabel(r'$\Vert x - \hat{x} \Vert \ (\mathrm{m})$', fontsize=8)
 ax.plot(
     t,
     np.max(err, axis=1),
