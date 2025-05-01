@@ -191,7 +191,7 @@ class Robot(object):
             d = np.sqrt(np.square(r).sum())
             tracking_radius = 20.0    # radius
             forget_radius = 30.0     # radius
-            v_collect_max = 2.0
+            v_collect_max = 1.0
             if d < tracking_radius:
                 v_collect = v_collect_max
             elif d < forget_radius:
@@ -214,9 +214,9 @@ class Robot(object):
             obstacles_position = list(obstacles.values())
             u_collision = self.collision.update(
                 self.loc.pose()[:3], obstacles_position
-            )
+            ) * 0.5
             # collision control gain
-            self.u_collision = 0.75 * np.append(u_collision, 0.0)
+            self.u_collision = np.append(u_collision, 0.0)
         else:
             self.u_collision = np.zeros(self.dim, dtype=float)
 
@@ -250,7 +250,7 @@ class Robot(object):
                 self.u_rigidity += self.maintenance.update(p)[0]
 
         # rigidity control gain
-        self.u_rigidity *= 0.125
+        self.u_rigidity *= 0.1
 
     def compose_actions(self):
         # compose control actions from different objectives and
@@ -511,12 +511,12 @@ def run_mission(simu_counter, end_counter):
 
         # localization and control step
         # TODO: should be est poses
-        # alloc = targets.allocation(robnet.positions())
+        alloc = targets.allocation(robnet.positions())
 
         for robot in robots:
             node_index = index_map[robot.node_id]
 
-            # robot.target_collection_control_action(alloc[node_index])
+            robot.target_collection_control_action(alloc[node_index])
             robot.collision_avoidance_control_action()
             robot.compose_actions()
 
