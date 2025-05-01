@@ -246,8 +246,8 @@ class Robot(object):
         # add action for isolated edges
         for neighbor in self.neighborhood.values():
             if neighbor.is_isolated_edge:
-                p = np.vstack([self.loc.pose(), neighbor.pose])
-                self.u_rigidity += self.maintenance.update(p)[0]
+                x = np.vstack([self.loc.pose(), neighbor.pose])
+                self.u_rigidity += self.maintenance.update(x)[0]
 
         # rigidity control gain
         self.u_rigidity *= 0.1
