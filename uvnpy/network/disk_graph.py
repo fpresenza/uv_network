@@ -7,9 +7,11 @@
 """
 import numpy as np
 
+from .core import adjacency_dict
+
 
 class DiskGraph(object):
-    def __init__(self, dmax):
+    def __init__(self, positions=None, dmax=np.inf):
         """
         Class representing a disk-like state dependant graph.
 
@@ -18,19 +20,22 @@ class DiskGraph(object):
             dmax : max conextion range
         """
         self.dmax = np.reshape(dmax, (-1, 1))
-        self._adj = None
+        if positions is None:
+            self._adj = None
+        else:
+            self.update_adjacency_matrix(positions)
 
     def adjacency_matrix(self):
         return self._adj.copy()
+
+    def adjacency_dict(self):
+        return adjacency_dict(self._adj)
 
     def edge_set(self):
         return np.argwhere(self._adj)
 
     def is_edge(self, vertex_i, vertex_j):
         return self._adj[vertex_i, vertex_j]
-
-    def share_edge(self, vertex_i, vertex_j):
-        return self._adj[vertex_i, vertex_j] or self._adj[vertex_j, vertex_i]
 
     def out_neighbors(self, vertex):
         return np.where(self._adj[vertex])[0]
@@ -50,7 +55,6 @@ class DiskGraph(object):
         d = np.sqrt(np.square(r).sum(axis=-1))
         self._adj = d <= self.dmax
         self._adj[np.eye(len(positions), dtype=bool)] = False
-        return self._adj.copy()
 
 
 def edges_from_positions(p, dmax=np.inf):

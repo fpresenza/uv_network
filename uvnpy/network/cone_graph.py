@@ -7,9 +7,11 @@
 """
 import numpy as np
 
+from .core import adjacency_dict
+
 
 class ConeGraph(object):
-    def __init__(self, dmax, cmin=-1.0):
+    def __init__(self, positions=None, axes=None, dmax=np.inf, cmin=-1.0):
         """
         Class representing a cone-like state dependant graph.
 
@@ -20,19 +22,22 @@ class ConeGraph(object):
         """
         self.dmax = np.reshape(dmax, (-1, 1))
         self.cmin = np.reshape(cmin, (-1, 1))
-        self._adj = None
+        if (positions is None) or (axes is None):
+            self._adj = None
+        else:
+            self.update_adjacency_matrix(positions, axes)
 
     def adjacency_matrix(self):
         return self._adj.copy()
+
+    def adjacency_dict(self):
+        return adjacency_dict(self._adj)
 
     def edge_set(self):
         return np.argwhere(self._adj)
 
     def is_edge(self, vertex_i, vertex_j):
         return self._adj[vertex_i, vertex_j]
-
-    def share_edge(self, vertex_i, vertex_j):
-        return self._adj[vertex_i, vertex_j] or self._adj[vertex_j, vertex_i]
 
     def out_neighbors(self, vertex):
         return np.where(self._adj[vertex])[0]
@@ -55,7 +60,6 @@ class ConeGraph(object):
         cos = np.matmul(bearings, axes[:, :, np.newaxis]).squeeze()
         self._adj = np.logical_and(d <= self.dmax, cos >= self.cmin)
         self._adj[np.eye(len(positions), dtype=bool)] = False
-        return self._adj.copy()
 
 
 def adjacency_matrix(positions, axes, dmax=np.inf, cmin=-1.0):
