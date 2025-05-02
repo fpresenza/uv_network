@@ -65,9 +65,8 @@ if (arg.subset == -1):
 else:
     subset = arg.subset
 
-
 D = data.read_csv(
-    'data/sens_adjacency.csv',
+    'data/sens_adj.csv',
     rows=(k_i, k_e),
     jump=arg.jump,
     dtype=float,

@@ -58,7 +58,7 @@ x = data.read_csv(
 n = len(x[0])
 
 A = data.read_csv(
-    'data/sens_adjacency.csv',
+    'data/sens_adj.csv',
     rows=(k_i, k_e),
     jump=arg.jump,
     dtype=float,
