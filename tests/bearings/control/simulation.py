@@ -649,8 +649,8 @@ print(
 # robnet parameters
 n = 15
 positions = np.empty((n, 3))
-positions[:, 0] = np.random.uniform(0.0, 30.0, n)
-positions[:, 1] = np.random.uniform(0.0, 30.0, n)
+positions[:, 0] = np.random.uniform(0.0, 50.0, n)
+positions[:, 1] = np.random.uniform(0.0, 50.0, n)
 positions[:, 2] = 0.0
 baricenter = np.mean(positions, axis=0)
 axes = transformations.unit_vector(baricenter - positions, axis=1)
@@ -661,7 +661,7 @@ if minimum_distance(positions) > 2.0:
 else:
     raise ValueError('Robots\' are too close.')
 
-sens_range = 15.0
+sens_range = 20.0
 fov = 120.0
 print('Camera\'s range: {}'.format(sens_range))
 print('Camera\'s fov: {} degrees'.format(fov))
@@ -686,7 +686,7 @@ if is_inf_rigid(adjacency_matrix, positions):
 else:
     raise ValueError('Sensing framework should be infinitesimally rigid.')
 
-comm_range = 15.0
+comm_range = 20.0
 print('Communication range: {}'.format(comm_range))
 comm_graph = DiskGraph(
     positions,
