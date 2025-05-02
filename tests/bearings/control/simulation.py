@@ -9,8 +9,8 @@ import numpy as np
 import copy
 import transformations
 
-import uvnpy.distances.core as distances
-import uvnpy.bearings.core as bearings
+from uvnpy.distances.core import minimum_distance
+from uvnpy.bearings.core import is_inf_rigid, minimum_rigidity_extents
 from uvnpy.network.core import geodesics, as_undirected
 from uvnpy.dynamics.linear_models import Integrator
 from uvnpy.network.disk_graph import DiskGraph
@@ -102,7 +102,7 @@ class Robot(object):
         self.maintenance = RigidityMaintenance(
             dim=3,
             range_lims=sens_range * np.array([0.8, 1.0]),
-            cos_lims=np.cos(np.deg2rad(fov / 2)) * np.array([1.0, 1.8]),
+            cos_lims=np.cos(np.deg2rad(fov / 2)) * np.array([1.0, 1.4]),
             threshold=1e-4,
             eigenvalues='all',
             functional='log'
@@ -208,7 +208,7 @@ class Robot(object):
             d = np.sqrt(np.square(r).sum())
             tracking_radius = 20.0    # radius
             forget_radius = 30.0     # radius
-            v_collect_max = 1.0
+            v_collect_max = 1.5
             if d < tracking_radius:
                 v_collect = v_collect_max
             elif d < forget_radius:
@@ -270,7 +270,7 @@ class Robot(object):
     def compose_actions(self):
         # compose control actions from different objectives and
         self.control_action = \
-            self.u_target + self.u_collision + self.u_rigidity
+            (self.u_target + self.u_collision + self.u_rigidity) * 0.5
 
     def stop_motion(self):
         self.control_action = np.zeros(self.dim, dtype=float)
@@ -652,13 +652,11 @@ positions = np.empty((n, 3))
 positions[:, 0] = np.random.uniform(0.0, 30.0, n)
 positions[:, 1] = np.random.uniform(0.0, 30.0, n)
 positions[:, 2] = 0.0
-print(positions)
 baricenter = np.mean(positions, axis=0)
 axes = transformations.unit_vector(baricenter - positions, axis=1)
 angles = np.arctan2(axes[:, 1], axes[:, 0]).reshape(-1, 1)
-print(angles)
 
-if distances.minimum_distance(positions) > 2.0:
+if minimum_distance(positions) > 2.0:
     print('Yay! Robots\' positions are sufficiently separated.')
 else:
     raise ValueError('Robots\' are too close.')
@@ -681,9 +679,10 @@ print(
     )
 )
 adjacency_matrix = as_undirected(sens_graph.adjacency_matrix())
-if bearings.is_inf_rigid(adjacency_matrix, positions):
+if is_inf_rigid(adjacency_matrix, positions):
     print('Yay! Sensing framework is infinitesimally rigid.')
     poses = np.hstack([positions, angles])
+    print(poses)
 else:
     raise ValueError('Sensing framework should be infinitesimally rigid.')
 
@@ -721,12 +720,12 @@ robots = Robots([
 
 index_map = {robots[i].node_id: i for i in range(n)}
 # print('Index map: {}'.format(index_map))
-
+np.random.seed(100)
 targets = Targets(
     n=100,
     dim=3,
-    low_lim=(0.0, 0.0, -50.0),
-    up_lim=(100.0, 100.0, 0.0),
+    low_lim=(0.0, 0.0, 10.0),
+    up_lim=(100.0, 100.0, 50.0),
     coverage=5.0
 )
 
@@ -735,16 +734,16 @@ targets = Targets(
 # ------------------------------------------------------------------
 logs = Logs(
     time=[],
-    time_comm=[],
+    # time_comm=[],
     pose=[],
-    estimated_pose=[],
-    covariance=[],
+    # estimated_pose=[],
+    # covariance=[],
     target_action=[],
     collision_action=[],
     rigidity_action=[],
-    vel_meas_err=[],
-    gps_meas_err=[],
-    bearing_meas_err=[],
+    # vel_meas_err=[],
+    # gps_meas_err=[],
+    # bearing_meas_err=[],
     sens_adj=[],
     comm_adj=[],
     action_extents=[],
@@ -757,7 +756,7 @@ for t_break in [simu_time]:
     adjacency_matrix = as_undirected(robnet.sens_graph.adjacency_matrix())
     positions = robnet.positions()
     geodesics_matrix = geodesics(adjacency_matrix.astype(float))
-    action_extents = bearings.minimum_rigidity_extents(
+    action_extents = minimum_rigidity_extents(
         geodesics_matrix, positions
     )
     print(
