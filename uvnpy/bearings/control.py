@@ -62,7 +62,7 @@ class RigidityMaintenance(object):
 
     def gradient_log(self, matrix_deriv, eigenvalue, eigenvector):
         eigenvalue_deriv = eigenvector.dot(matrix_deriv).dot(eigenvector)
-        return - eigenvalue_deriv / (eigenvalue - self.threshold)
+        return - eigenvalue_deriv / np.abs(eigenvalue - self.threshold)
 
     def weighted_rigidity_matrix(self, x):
         p = x[..., :3]
