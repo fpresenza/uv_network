@@ -265,7 +265,7 @@ class Robot(object):
                 self.u_rigidity += self.maintenance.update(x)[0]
 
         # rigidity control gain
-        self.u_rigidity *= 0.1
+        self.u_rigidity *= (0.1, 0.1, 0.1, 0.02)
 
     def compose_actions(self):
         # compose control actions from different objectives and
