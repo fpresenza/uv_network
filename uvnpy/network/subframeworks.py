@@ -10,6 +10,9 @@ from numba import njit
 import itertools
 
 
+from uvnpy.network import core
+
+
 def valid_extents(geodesics, condition, max_extent=None, args=()):
     extents = []
     for g in geodesics:
@@ -36,8 +39,27 @@ def subframework_adjacencies(geodesics, extents):
 
 
 @njit
+def subframework_diameters(geodesics, extents):
+    n = len(extents)
+    adjacency = geodesics.copy().ravel()
+    adjacency[adjacency > 1] = 0
+    adjacency = adjacency.reshape(n, n)
+    diam = []
+    for i in range(n):
+        Vi = geodesics[i] <= extents[i]
+        Ai = adjacency[Vi][:, Vi]
+        diam.append(np.max(core.geodesics(Ai)))
+    return diam
+
+
+@njit
 def superframework_extents(geodesics, extents):
     return np.array([np.max(extents[g <= extents]) for g in geodesics])
+
+
+@njit
+def superframework_geodesics(geodesics, extents):
+    return np.array([np.max(g[g <= extents]) for g in geodesics])
 
 
 @njit
