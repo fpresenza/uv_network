@@ -15,8 +15,7 @@ from uvnpy.toolkit.data import read_csv
 # ------------------------------------------------------------------
 parser = argparse.ArgumentParser(description='')
 parser.add_argument(
-    '-g', '--degree',
-    default=1.0, type=float, help='average vertex degree'
+    '-r', '--rep', type=int, help='number of repetitions'
 )
 
 arg = parser.parse_args()
@@ -24,6 +23,7 @@ arg = parser.parse_args()
 # ------------------------------------------------------------------
 # Configuración
 # ------------------------------------------------------------------
+rep = arg.rep
 
 np.set_printoptions(suppress=True, precision=4, linewidth=250)
 plt.rcParams['text.usetex'] = False
@@ -44,7 +44,6 @@ hd_count = read_csv('/tmp/hd_count.csv', rows=(0, np.inf), dtype=int)
 hb = read_csv('/tmp/hb.csv', rows=(0, np.inf), dtype=int)
 hb_count = read_csv('/tmp/hb_count.csv', rows=(0, np.inf), dtype=int)
 
-rep = hd_count[0].item() / (arg.degree + 1)
 # ------------------------------------------------------------------
 # Plotting
 # ------------------------------------------------------------------
