@@ -49,3 +49,18 @@ def one_token_for_each(geodesics, extents):
             load += n_tokens * n_broadcasters
 
     return load
+
+
+@njit
+def one_token_for_each_per_node(geodesics, extent):
+    """
+    A node emits one token for each other node in its subframework.
+    Tokens are broadcasted by layer: 1-hop, 2-hops and so on.
+    """
+    load = 0
+    for h in range(1, extent + 1):
+        n_tokens = np.sum(geodesics == h)
+        n_broadcasters = np.sum(geodesics < h)
+        load += n_tokens * n_broadcasters
+
+    return load
