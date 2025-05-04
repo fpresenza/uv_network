@@ -4,7 +4,7 @@
 @author: fran
 """
 import argparse
-import collections
+from dataclasses import dataclass
 import numpy as np
 import progressbar
 
@@ -17,10 +17,18 @@ import uvnpy.bearings.core as bearings
 # ------------------------------------------------------------------
 # Definición de variables, funciones y clases
 # ------------------------------------------------------------------
-Logs = collections.namedtuple(
-    'Logs',
-    'nodes diam diam_count hd hd_count hb hb_count'
-)
+
+
+@dataclass
+class Logs(object):
+    nodes: np.ndarray
+    diam: np.ndarray
+    diam_count: np.ndarray
+    hd: np.ndarray
+    hd_count: np.ndarray
+    hb: np.ndarray
+    hb_count: np.ndarray
+    compl: np.ndarray
 
 
 # ------------------------------------------------------------------
@@ -40,8 +48,9 @@ def run(d, nmin, nmax, degree, rep, logs):
         hd = np.array([], dtype=int)
         hb = np.array([], dtype=int)
         r = 0
+        prob = degree / (n - 1)
         while r < rep:
-            A = erdos_renyi(n, degree / (n - 1))
+            A = erdos_renyi(n, prob)
             if distances.is_inf_rigid(A, p):
                 G = geodesics(A)
                 diam = np.append(diam, np.max(G).astype(int))
