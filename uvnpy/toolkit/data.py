@@ -55,6 +55,8 @@ def read_rows_csv(
         for i, row in enumerate(reader):
             if i in rows:
                 data.append(np.array(row).astype(dtype).reshape(shape))
+            elif i > np.max(rows):
+                break
 
     if asarray:
         return np.asarray(data)
