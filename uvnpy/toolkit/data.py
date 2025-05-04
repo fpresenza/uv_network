@@ -38,3 +38,25 @@ def read_csv(
         return np.asarray(data)
     else:
         return data
+
+
+def read_rows_csv(
+        file_path,
+        rows,
+        dtype=object,
+        shape=-1,
+        asarray=False
+        ):
+    data = []
+
+    with open(file_path, mode='r') as file:
+        reader = csv.reader(file)
+
+        for i, row in enumerate(reader):
+            if i in rows:
+                data.append(np.array(row).astype(dtype).reshape(shape))
+
+    if asarray:
+        return np.asarray(data)
+    else:
+        return data
