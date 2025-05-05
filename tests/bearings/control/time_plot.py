@@ -113,14 +113,14 @@ action_extents = data.read_csv(
     asarray=True
 )
 
-hatx = data.read_csv(
-    'data/est_pose.csv',
-    rows=(k_i, k_e),
-    jump=arg.jump,
-    dtype=float,
-    shape=(-1, 4),
-    asarray=True
-)
+# hatx = data.read_csv(
+#     'data/est_pose.csv',
+#     rows=(k_i, k_e),
+#     jump=arg.jump,
+#     dtype=float,
+#     shape=(-1, 4),
+#     asarray=True
+# )
 
 A = as_undirected(D).astype(float)
 fre = np.empty(len(t))
@@ -487,7 +487,7 @@ ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
-    labelsize='xx-small'
+    labelsize='x-small'
 )
 ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
@@ -518,44 +518,44 @@ fig.savefig('data/time/min_dist.png', format='png', dpi=400)
 # ------------------------------------------------------------------
 # Plot position error
 # ------------------------------------------------------------------
-err = np.sqrt(np.square(x - hatx).sum(axis=-1))
-fig, ax = plt.subplots(figsize=(4.0, 2.0))
-fig.subplots_adjust(
-    bottom=0.215,
-    top=0.925,
-    wspace=0.33,
-    right=0.975,
-    left=0.18
-)
-ax.tick_params(
-    axis='both',       # changes apply to the x-axis
-    which='both',      # both major and minor ticks are affected
-    pad=1,
-    labelsize='x-small'
-)
-ax.grid(1, lw=0.4)
-ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
-ax.set_ylabel(r'$\Vert x - \hat{x} \Vert \ (\mathrm{m})$', fontsize=8)
-ax.plot(
-    t,
-    np.max(err, axis=1),
-    lw=0.8,
-    # label='median',
-    ds='steps-post'
-)
-# ax.fill_between(t, np.min(err, axis=1), np.max(err, axis=1), alpha=0.3)
-# ax.set_ylim(bottom=0.0)
-# ax.legend(
-#     fontsize=8,
-#     handlelength=1,
-#     labelspacing=0.4,
-#     borderpad=0.2,
-#     handletextpad=0.2,
-#     framealpha=1.,
-#     ncol=2,
-#     columnspacing=1
+# err = np.sqrt(np.square(x - hatx).sum(axis=-1))
+# fig, ax = plt.subplots(figsize=(4.0, 2.0))
+# fig.subplots_adjust(
+#     bottom=0.215,
+#     top=0.925,
+#     wspace=0.33,
+#     right=0.975,
+#     left=0.18
 # )
-fig.savefig('data/time/pos_error.png', format='png', dpi=400)
+# ax.tick_params(
+#     axis='both',       # changes apply to the x-axis
+#     which='both',      # both major and minor ticks are affected
+#     pad=1,
+#     labelsize='x-small'
+# )
+# ax.grid(1, lw=0.4)
+# ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
+# ax.set_ylabel(r'$\Vert x - \hat{x} \Vert \ (\mathrm{m})$', fontsize=8)
+# ax.plot(
+#     t,
+#     np.max(err, axis=1),
+#     lw=0.8,
+#     # label='median',
+#     ds='steps-post'
+# )
+# # ax.fill_between(t, np.min(err, axis=1), np.max(err, axis=1), alpha=0.3)
+# # ax.set_ylim(bottom=0.0)
+# # ax.legend(
+# #     fontsize=8,
+# #     handlelength=1,
+# #     labelspacing=0.4,
+# #     borderpad=0.2,
+# #     handletextpad=0.2,
+# #     framealpha=1.,
+# #     ncol=2,
+# #     columnspacing=1
+# # )
+# fig.savefig('data/time/pos_error.png', format='png', dpi=400)
 
 # ------------------------------------------------------------------
 # Plot covariance
@@ -604,7 +604,7 @@ ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
-    labelsize='xx-small'
+    labelsize='x-small'
 )
 ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
@@ -641,10 +641,11 @@ ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
-    labelsize='xx-small'
+    labelsize='x-small'
 )
 ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
+ax.set_yticks([1, 2, 3, 4, 5])
 # ax.set_ylabel(r'$\ell_{ij} \ (\mathrm{m})$', fontsize=8, labelpad=-2.0)
 ax.plot(
     t,
@@ -675,6 +676,6 @@ ax.fill_between(t, np.min(diam, axis=1), np.max(diam, axis=1), alpha=0.3)
 #     ncol=2,
 #     columnspacing=1
 # )
-fig.savefig('data/time/diameter.png', format='png', dpi=400)
+fig.savefig('data/time/diameters.png', format='png', dpi=400)
 
 plt.show()
