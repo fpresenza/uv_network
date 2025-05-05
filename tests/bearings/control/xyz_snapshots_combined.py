@@ -98,7 +98,7 @@ ax.set_zticks([0.0, 25.0, 50.0])
 ax.set_xticklabels(['0.0', '', '100.0'])
 ax.set_yticklabels(['0.0', '', '100.0'])
 ax.set_zticklabels(['0.0', '', '50.0'])
-ax.view_init(elev=10.0, azim=-80.0)
+ax.view_init(elev=5.0, azim=-80.0)
 
 for k, s in enumerate(arg.snaps):
     p = x[k][:, :3]
@@ -131,11 +131,11 @@ for k, s in enumerate(arg.snaps):
         s=8,
         # lw=1,
         zorder=2,
-        # alpha=1
+        alpha=1
     )
     for i in range(n):
         axis = np.array([np.cos(psi[i]), np.sin(psi[i]), 0.0])
-        cone = geometry.cone(p[i], axis, 3.0, np.pi/3)
+        cone = geometry.cone(p[i], axis, 3.0, np.deg2rad(50.))
         ax.add_collection3d(art3d.Poly3DCollection(cone, alpha=0.6))
     bar.update(k)
 
