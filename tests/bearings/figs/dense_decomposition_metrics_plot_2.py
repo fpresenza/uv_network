@@ -4,6 +4,7 @@
 @author: fran
 """
 import numpy as np
+import argparse
 import matplotlib.pyplot as plt
 
 from uvnpy.toolkit.data import read_csv
@@ -19,15 +20,45 @@ plt.rcParams['ps.fonttype'] = 42
 plt.rcParams['mathtext.fontset'] = 'dejavuserif'
 plt.rcParams['font.family'] = 'serif'
 
+# ------------------------------------------------------------------
+# Parse arguments
+# ------------------------------------------------------------------
+parser = argparse.ArgumentParser(description='')
+parser.add_argument(
+    '-r', '--ranges',
+    nargs='+', type=float, help='sensing ranges'
+)
+arg = parser.parse_args()
 
 # ------------------------------------------------------------------
 # Data
 # ------------------------------------------------------------------
 nodes = np.loadtxt('/tmp/nodes.csv', delimiter=',')
-diam = read_csv('/tmp/diam.csv', rows=(0, np.inf), dtype=float)
-diam_count = read_csv('/tmp/diam_count.csv', rows=(0, np.inf), dtype=int)
-compl = read_csv('/tmp/compl.csv', rows=(0, np.inf), dtype=float)
-compl_count = read_csv('/tmp/compl_count.csv', rows=(0, np.inf), dtype=int)
+diam = {}
+diam_count = {}
+compl = {}
+compl_count = {}
+for sens_range in arg.ranges:
+    diam[sens_range] = read_csv(
+        '/tmp/diam_{}.csv'.format(sens_range),
+        rows=(0, np.inf),
+        dtype=float
+    )
+    diam_count[sens_range] = read_csv(
+        '/tmp/diam_count_{}.csv'.format(sens_range),
+        rows=(0, np.inf),
+        dtype=int
+    )
+    compl[sens_range] = read_csv(
+        '/tmp/compl_{}.csv'.format(sens_range),
+        rows=(0, np.inf),
+        dtype=float
+    )
+    compl_count[sens_range] = read_csv(
+        '/tmp/compl_count_{}.csv'.format(sens_range),
+        rows=(0, np.inf),
+        dtype=int
+    )
 
 # ------------------------------------------------------------------
 # Plotting
@@ -46,14 +77,16 @@ ax.grid(lw=0.4)
 # ax.set_ylim(0.0, 100.0)
 ax.set_xlabel(r'$n$', fontsize=9)
 ax.set_ylabel(r'ratio', fontsize=9, labelpad=3)
-ax.plot(
-    nodes, [np.min(np.repeat(u, d)) for u, d in zip(diam, diam_count)],
-    label='min', lw=0.8, ds='steps-post'
-)
-ax.plot(
-    nodes, [np.mean(np.repeat(u, d)) for u, d in zip(diam, diam_count)],
-    label='mean', lw=0.8, ds='steps-post'
-)
+for sens_range in arg.ranges:
+    ax.plot(
+        nodes,
+        [
+            np.median(np.repeat(u, d))
+            for u, d in zip(diam[sens_range], diam_count[sens_range])
+        ],
+        label=r'$\ell = {}$'.format(sens_range), lw=0.8, ds='steps-post'
+    )
+# ax.set_ylim(top=1.0)
 ax.legend(
     fontsize='x-small', handlelength=1,
     labelspacing=0.3, borderpad=0.2
@@ -74,20 +107,21 @@ ax.grid(lw=0.4)
 # ax.set_ylim(0.0, 100.0)
 ax.set_xlabel(r'$n$', fontsize=9)
 ax.set_ylabel(r'ratio', fontsize=9, labelpad=3)
-ax.plot(
-    nodes, [np.min(np.repeat(u, c)) for u, c in zip(compl, compl_count)],
-    label='min', lw=0.8, ds='steps-post'
-)
-# ax.plot(
-#     nodes, [np.median(np.repeat(u, c)) for u, c in zip(compl, compl_count)],
-#     label='median', lw=0.8, ds='steps'
-# )
-ax.plot(
-    nodes, [np.mean(np.repeat(u, c)) for u, c in zip(compl, compl_count)],
-    label='mean', lw=0.8, ds='steps-post'
-)
+for sens_range in arg.ranges:
+    ax.plot(
+        nodes,
+        [
+            np.median(np.repeat(u, c))
+            for u, c in zip(compl[sens_range], compl_count[sens_range])
+        ],
+        label=r'$\ell = {}$'.format(sens_range),
+        lw=0.8,
+        ds='steps-post'
+    )
+# ax.set_ylim(bottom=1.0)
 ax.legend(
     fontsize='x-small', handlelength=1,
     labelspacing=0.3, borderpad=0.2
 )
 fig.savefig('/tmp/complexity.png', format='png', dpi=600)
+plt.show()
