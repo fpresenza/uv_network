@@ -67,61 +67,63 @@ for sens_range in arg.ranges:
 # Diameter
 # ------------------------------------------------------------------
 fig, ax = plt.subplots(figsize=(2.5, 1.5))
-fig.subplots_adjust(bottom=0.25, left=0.2)
+fig.tight_layout()
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
-    labelsize='x-small')
-ax.grid(lw=0.4)
-# ax.set_ylim(0.0, 100.0)
-ax.set_xlabel(r'$n$', fontsize=9)
-ax.set_ylabel(r'ratio', fontsize=9, labelpad=3)
-for sens_range in arg.ranges:
+    labelsize='x-small'
+)
+ax.grid(1, lw=0.4)
+ax.set_xlabel(r'$n$', fontsize=8)
+for k, sens_range in enumerate(arg.ranges):
     ax.plot(
         nodes,
         [
             np.median(np.repeat(u, d))
             for u, d in zip(diam[sens_range], diam_count[sens_range])
         ],
-        label=r'$\ell = {}$'.format(sens_range), lw=0.8, ds='steps-post'
+        label=r'$\ell = {}$'.format(sens_range),
+        lw=0.7, ds='steps-post',
+        marker=['o', 's'][k], markersize=2, markevery=10
     )
 # ax.set_ylim(top=1.0)
+ax.set_yticks([0.5, 0.75, 1.0])
 ax.legend(
-    fontsize='x-small', handlelength=1,
-    labelspacing=0.3, borderpad=0.2
+    fontsize='xx-small', handlelength=1,
+    labelspacing=0.3, borderpad=0.2, loc='center right'
 )
-fig.savefig('/tmp/diameter.png', format='png', dpi=600)
+ax.hlines(1.0, xmin=nodes.min(), xmax=nodes.max(), ls='--', lw=0.8, color='k')
+fig.savefig('/tmp/diameter.png', format='png', dpi=400)
 # ------------------------------------------------------------------
 # Complexity
 # ------------------------------------------------------------------
-fig.savefig('/tmp/complexity.png', format='png', dpi=600)
 fig, ax = plt.subplots(figsize=(2.5, 1.5))
-fig.subplots_adjust(bottom=0.25, left=0.2)
+fig.tight_layout()
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
-    labelsize='x-small')
-ax.grid(lw=0.4)
-# ax.set_ylim(0.0, 100.0)
-ax.set_xlabel(r'$n$', fontsize=9)
-ax.set_ylabel(r'ratio', fontsize=9, labelpad=3)
-for sens_range in arg.ranges:
+    labelsize='x-small'
+)
+ax.grid(1, lw=0.4)
+ax.set_xlabel(r'$n$', fontsize=8)
+for k, sens_range in enumerate(arg.ranges):
     ax.plot(
         nodes,
         [
-            np.median(np.repeat(u, c))
-            for u, c in zip(compl[sens_range], compl_count[sens_range])
+            np.median(np.repeat(u, d))
+            for u, d in zip(compl[sens_range], compl_count[sens_range])
         ],
         label=r'$\ell = {}$'.format(sens_range),
-        lw=0.8,
-        ds='steps-post'
+        lw=0.7, ds='steps-post',
+        marker=['o', 's'][k], markersize=2, markevery=10
     )
-# ax.set_ylim(bottom=1.0)
+ax.set_ylim(top=20.0)
+ax.set_yticks([1.0, 10.0, 20.0])
 ax.legend(
-    fontsize='x-small', handlelength=1,
-    labelspacing=0.3, borderpad=0.2
+    fontsize='xx-small', handlelength=1,
+    labelspacing=0.3, borderpad=0.2, loc='upper right'
 )
-fig.savefig('/tmp/complexity.png', format='png', dpi=600)
-plt.show()
+ax.hlines(1.0, xmin=nodes.min(), xmax=nodes.max(), ls='--', lw=0.8, color='k')
+fig.savefig('/tmp/complexity.png', format='png', dpi=400)
