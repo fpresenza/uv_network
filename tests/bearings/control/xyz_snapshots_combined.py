@@ -98,7 +98,7 @@ ax.set_zticks([0.0, 25.0, 50.0])
 ax.set_xticklabels(['0.0', '', '100.0'])
 ax.set_yticklabels(['0.0', '', '100.0'])
 ax.set_zticklabels(['0.0', '', '50.0'])
-ax.view_init(elev=25.0, azim=-80.0)
+ax.view_init(elev=10.0, azim=-80.0)
 
 for k, s in enumerate(arg.snaps):
     p = x[k][:, :3]
@@ -128,7 +128,7 @@ for k, s in enumerate(arg.snaps):
         facecolor='C{}'.format(k+1),
         edgecolor='none',
         marker='o',
-        s=7,
+        s=8,
         # lw=1,
         zorder=2,
         # alpha=1
@@ -138,6 +138,8 @@ for k, s in enumerate(arg.snaps):
         cone = geometry.cone(p[i], axis, 3.0, np.pi/3)
         ax.add_collection3d(art3d.Poly3DCollection(cone, alpha=0.6))
     bar.update(k)
+
+bar.finish()
 
 untracked = targets[k][:, 3].astype(bool)
 tracked = np.logical_not(untracked)
