@@ -439,9 +439,8 @@ fig.savefig('data/time/pos_z.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Plot eigenvalues
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(4.0, 2.0))
-fig.subplots_adjust(
-    bottom=0.215, top=0.925, wspace=0.33, right=0.975, left=0.18)
+fig, ax = plt.subplots(figsize=(2.5, 1.5))
+fig.tight_layout()
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
@@ -492,7 +491,6 @@ ax.tick_params(
 )
 ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
-ax.set_ylabel(r'$\ell_{ij} \ (\mathrm{m})$', fontsize=8, labelpad=-2.0)
 ax.plot(
     t,
     mindist,
@@ -513,7 +511,8 @@ ax.fill_between(t, np.min(mindist, axis=1), np.max(mindist, axis=1), alpha=0.3)
 #     columnspacing=1
 # )
 ax.hlines(1.0, xmin=t.min(), xmax=t.max(), ls='--', lw=0.8, color='k')
-ax.set_yticks([0.0, 5.0, 10.0, 15.0])
+ax.hlines(1.0, xmin=t.min(), xmax=t.max(), ls='--', lw=0.8, color='k')
+ax.set_yticks([0.0, 5.0, 10.0, 15.0, 20.0])
 fig.savefig('data/time/min_dist.png', format='png', dpi=400)
 
 # ------------------------------------------------------------------
