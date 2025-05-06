@@ -57,7 +57,7 @@ def power_derivative(x, a):
 
 
 @njit
-def logistic(x, midpoint=0, steepness=1):
+def logistic_activation(x, midpoint=0.0, steepness=1.0):
     """Logistic strength function.
 
     A logistic function or logistic curve is a common
@@ -68,7 +68,7 @@ def logistic(x, midpoint=0, steepness=1):
     steepness: the logistic growth rate or steepness of the curve,
     midpoint: the x value of the sigmoid's midpoint.
     """
-    s = 1 / (1 + np.exp(steepness * (x - midpoint)))
+    s = 1.0 / (1.0 + np.exp(steepness * (midpoint - x)))
     return s
 
 
@@ -84,7 +84,7 @@ def logistic_saturation(x, limit=1., slope=1.):
     """Funcion de saturacion logisitica"""
     K = 2 * limit
     steepness = 2 * slope / limit
-    return K * (0.5 - logistic(x, steepness=steepness))
+    return K * (logistic_activation(x, steepness=steepness) - 0.5)
 
 
 @njit
