@@ -11,7 +11,7 @@ import progressbar
 from uvnpy.network.core import geodesics
 from uvnpy.network.disk_graph import adjacency_from_positions
 from uvnpy.network.subframeworks import superframework_extents
-from uvnpy.network.load import one_token_for_all, one_token_for_each
+from uvnpy.network.load import one_token_for_all_sum, one_token_for_each_sum
 from uvnpy.distances.core import (
     distance_matrix,
     minimum_rigidity_extents,
@@ -44,9 +44,9 @@ def minimum_alpha(A, p, dist, Rmin, Rmax, threshold=1e-5):
 
 
 def network_load(geodesics, extents):
-    action_load = one_token_for_each(geodesics, extents)
+    action_load = one_token_for_each_sum(geodesics, extents)
     super_extents = superframework_extents(geodesics, extents)
-    state_load = one_token_for_all(geodesics, super_extents)
+    state_load = one_token_for_all_sum(geodesics, super_extents)
     return action_load + state_load
 
 
