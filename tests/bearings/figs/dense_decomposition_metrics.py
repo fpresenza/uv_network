@@ -28,7 +28,6 @@ class Logs(object):
     hd_count: np.ndarray
     hb: np.ndarray
     hb_count: np.ndarray
-    compl: np.ndarray
 
 
 # ------------------------------------------------------------------
