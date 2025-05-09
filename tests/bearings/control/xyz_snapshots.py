@@ -109,7 +109,7 @@ for k in range(N):
     # ax.set_xticklabels([])
     # ax.set_yticklabels([])
     # ax.set_zticklabels([])
-    ax.view_init(elev=20.0, azim=-70.0)
+    ax.view_init(elev=40.0, azim=-30.0)
 
     ax.text(
         120.0, 100.0, 150.0, r't = {:.3f}s'.format(tk),
