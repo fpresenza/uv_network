@@ -80,13 +80,19 @@ fig.tight_layout()
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
-    pad=-1,
+    pad=0,
     labelsize='xx-small'
 )
 ax.set_aspect('equal')
-ax.set_xlabel(r'$x \ (\mathrm{m})$', fontsize='xx-small', labelpad=-12.0)
-ax.set_ylabel(r'$y \ (\mathrm{m})$', fontsize='xx-small', labelpad=-15.0)
-ax.set_zlabel(r'$z \ (\mathrm{m})$', fontsize='xx-small', labelpad=-15.0)
+ax.set_xlabel(
+    r'$x \ (\mathrm{m})$', fontsize='xx-small', labelpad=-12.0
+)
+ax.set_ylabel(
+    r'$y \ (\mathrm{m})$', fontsize='xx-small', labelpad=-12.0
+)
+ax.set_zlabel(
+    r'$z \ (\mathrm{m})$', fontsize='xx-small', labelpad=-12.0
+)
 # ax.zaxis.labelpad = 0
 
 ax.set_xlim3d(0, 100.0)
@@ -98,7 +104,7 @@ ax.set_zticks([0.0, 25.0, 50.0])
 ax.set_xticklabels(['0.0', '', '100.0'])
 ax.set_yticklabels(['0.0', '', '100.0'])
 ax.set_zticklabels(['0.0', '', '50.0'])
-ax.view_init(elev=5.0, azim=-80.0)
+ax.view_init(elev=5.0, azim=-85.0)
 
 for k, s in enumerate(arg.snaps):
     p = x[k][:, :3]
@@ -108,7 +114,7 @@ for k, s in enumerate(arg.snaps):
         ax,
         p,
         core.as_undirected(As[k]).astype(int),
-        color='0.5',
+        color='0.3',
         alpha=1.0,
         lw=0.4,
         zorder=1
@@ -117,7 +123,7 @@ for k, s in enumerate(arg.snaps):
         ax,
         p,
         Ac[k] - core.as_undirected(As[k]).astype(int),
-        color='0.5',
+        color='0.3',
         alpha=1.0,
         ls='--',
         lw=0.6,
@@ -126,16 +132,16 @@ for k, s in enumerate(arg.snaps):
     plot.nodes(
         ax, p,
         facecolor='C{}'.format(k+1),
-        edgecolor='none',
+        edgecolor='k',
         marker='o',
-        s=8,
-        # lw=1,
+        s=9,
+        lw=0.2,
         zorder=2,
         alpha=1
     )
     for i in range(n):
         axis = np.array([np.cos(psi[i]), np.sin(psi[i]), 0.0])
-        cone = geometry.cone(p[i], axis, 3.0, np.deg2rad(50.))
+        cone = geometry.cone(p[i], axis, 3.5, np.deg2rad(60.))
         ax.add_collection3d(art3d.Poly3DCollection(cone, alpha=0.6))
     bar.update(k)
 
