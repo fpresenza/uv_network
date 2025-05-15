@@ -72,13 +72,14 @@ class RigidityMaintenance(object):
         return - eigenvalue_deriv / (eigenvalue - self.threshold)
 
     def weighted_rigidity_matrix(self, x):
-        w = distance_matrix(x)
-        off_diag = np.logical_not(np.eye(x.shape[-2], dtype=bool))
-        w[..., off_diag] = 1.0 - functions.logistic_activation(
-            x=w[..., off_diag],
+        d = distance_matrix(x)
+        w = 1.0 - functions.logistic_activation(
+            x=d,
             midpoint=self.midpoint,
             steepness=self.steepness
         )
+        w[..., np.eye(x.shape[-2], dtype=bool)] = 0.0
+
         S = rigidity_laplacian_multiple_axes(w, x)
         return S
 
