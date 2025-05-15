@@ -74,7 +74,7 @@ class RigidityMaintenance(object):
     def weighted_rigidity_matrix(self, x):
         w = distance_matrix(x)
         off_diag = np.logical_not(np.eye(x.shape[-2], dtype=bool))
-        w[..., off_diag] = functions.logistic(
+        w[..., off_diag] = 1.0 - functions.logistic_activation(
             x=w[..., off_diag],
             midpoint=self.midpoint,
             steepness=self.steepness

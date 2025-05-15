@@ -111,7 +111,9 @@ class CommunicationLoad(object):
 
     def load(self, x, coeff):
         w = core.distance_matrix(x)
-        w[w > 0] = functions.logistic(w[w > 0], self.dmax, self.steepness)
+        w[w > 0] = 1.0 - functions.logistic_activation(
+            w[w > 0], self.dmax, self.steepness
+        )
         deg = w.sum(-1)
         return (coeff * deg).sum(-1)
 
