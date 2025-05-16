@@ -10,15 +10,15 @@ import copy
 import transformations
 
 from uvnpy.distances.core import minimum_distance
-from uvnpy.bearings.core import is_inf_rigid, minimum_rigidity_extents
+from uvnpy.bearings.real_d.core import is_inf_rigid, minimum_rigidity_extents
+from uvnpy.bearings.real_d.localization import FirstOrderKalmanFilter
+from uvnpy.bearings.real_d.control import RigidityMaintenance
 from uvnpy.network.core import geodesics, as_undirected
 from uvnpy.dynamics.linear_models import Integrator
 from uvnpy.network.disk_graph import DiskGraph
 from uvnpy.network.cone_graph import ConeGraph
 from uvnpy.control.core import Targets, CollisionAvoidanceVanishing
 from uvnpy.routing.token_passing import TokenPassing
-from uvnpy.bearings.localization import FirstOrderKalmanFilter
-from uvnpy.bearings.control import RigidityMaintenance
 
 
 # ------------------------------------------------------------------

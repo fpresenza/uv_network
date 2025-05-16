@@ -12,7 +12,7 @@ from uvnpy.toolkit.data import write_csv
 from uvnpy.network.core import geodesics
 from uvnpy.network.random_graph import erdos_renyi
 import uvnpy.distances.core as distances
-import uvnpy.bearings.core as bearings
+import uvnpy.bearings.real_d.core as bearings
 
 # ------------------------------------------------------------------
 # Definición de variables, funciones y clases

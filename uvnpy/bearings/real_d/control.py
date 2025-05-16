@@ -7,7 +7,7 @@
 """
 import numpy as np
 
-from uvnpy.bearings.core import rigidity_laplacian_multiple_axes
+from uvnpy.bearings.real_d.core import rigidity_laplacian_multiple_axes
 from uvnpy.toolkit import functions
 
 
