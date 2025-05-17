@@ -24,6 +24,13 @@ def bearing_matrix(x):
     return r / d[..., np.newaxis]
 
 
+def bearing_function(E, x):
+    B = bearing_matrix(x)
+    b = B[..., E[:, 0], E[:, 1], :]
+    *r, s, t = b.shape
+    return b.reshape(*r, s * t, 1)
+
+
 @njit
 def rigidity_matrix(A, p):
     n, d = p.shape
