@@ -14,7 +14,15 @@ THRESHOLD_SV = 1e-3
 
 
 def bearing_matrix(x):
-    """Matrix whose entries are bearings.
+    """Matrix whose entries are bearings expressed
+    in each robot local reference frame. That is,
+    entry [i, j] contains:
+
+        R(yaw).T @ (pos[j] - pos[i]) / dist[i, j]
+
+    where
+        pos[i] = x[i, :d]
+        yaw[i] = x[i, d]
 
     args:
         x: (..., n, d + 1) position array
@@ -36,6 +44,19 @@ def bearing_matrix(x):
 
 
 def bearing_function(E, x):
+    """Column vector whose entries are bearings expressed
+    in each robot local reference frame. That is,
+    entry e = (i, j) contains:
+
+        R(yaw).T @ (pos[j] - pos[i]) / dist[i, j]
+
+    where
+        pos[i] = x[i, :d]
+        yaw[i] = x[i, d]
+
+    args:
+        x
+    """
     B = bearing_matrix(x)
     b = B[..., E[:, 0], E[:, 1], :]
     *r, s, t = b.shape
@@ -44,6 +65,11 @@ def bearing_function(E, x):
 
 @njit
 def rigidity_matrix(E, x):
+    """Rigidity Matrix (jacobian of the bearing function)
+
+    args:
+        x: (..., n, d + 1) position array
+    """
     n = x.shape[0]
     s = x.shape[1]
     d = s - 1
