@@ -100,9 +100,7 @@ def rigidity_laplacian_multiple_axes(A, p):
     S[..., In, :, :] = 0.0
     S[..., In, :, :] -= S.sum(p.ndim - 1)
     S = S.swapaxes(-3, -2)
-    s = list(S.shape)
-    s[-4:] = n * d, n * d
-    return S.reshape(s)
+    return S.reshape(S.shape[:-4] + 2*(n*d,))
 
 
 def is_inf_rigid(A, p, threshold=THRESHOLD_SV):
