@@ -85,8 +85,8 @@ def rigidity_matrix(E, x):
 
         Sb = cross_product_matrix(b)
         Sa = cross_product_matrix(a)
-        Q = np.dot(a.reshape(-1, 1), a.reshape(1, -1)) - (Ct.T - I3) @ Sa
-        N = Sb.dot(Ct).dot(Q) / np.dot(a, a)
+        Q = np.dot(a.reshape(-1, 1), a.reshape(1, -1)) - np.dot(Ct.T - I3, Sa)
+        N = np.dot(np.dot(Sb, Ct), Q) / np.dot(a, a)
 
         R[e, :, i, 0:3] = -M
         R[e, :, i, 3:6] = N
