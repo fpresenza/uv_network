@@ -13,22 +13,31 @@ THRESHOLD_EIG = 1e-10
 THRESHOLD_SV = 1e-5
 
 
-def bearing_matrix(x):
+def bearing_matrix(p):
     """Matrix whose entries are bearings.
 
     args:
-        x: (..., n, d) position array
+        p: (..., n, d) position array
     """
-    r = x[..., np.newaxis, :, :] - x[..., np.newaxis, :]
+    r = p[..., np.newaxis, :, :] - p[..., np.newaxis, :]
     d = np.sqrt(np.square(r).sum(axis=-1))
     return r / d[..., np.newaxis]
 
 
-def bearing_function(E, x):
-    B = bearing_matrix(x)
-    b = B[..., E[:, 0], E[:, 1], :]
-    *r, s, t = b.shape
-    return b.reshape(*r, s * t, 1)
+def bearing_function(E, p):
+    """Stack of vectors whose entries are bearings expressed
+    in a common reference frame. That is,
+    entry e = (i, j) contains:
+
+        (p[j] - p[i]) / dist[i, j]
+
+    args:
+        E: (m, 2) edge array
+        p: (..., n, d) position array
+    """
+    r = p[..., E[:, 0], :] - p[..., E[:, 1], :]
+    d = np.sqrt(np.square(r).sum(axis=-1))
+    return r / d[..., np.newaxis]
 
 
 @njit

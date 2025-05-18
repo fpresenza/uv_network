@@ -44,7 +44,7 @@ def bearing_matrix(x):
 
 
 def bearing_function(E, x):
-    """Column vector whose entries are bearings expressed
+    """Stack of vectors whose entries are bearings expressed
     in each robot local reference frame. That is,
     entry e = (i, j) contains:
 
@@ -57,10 +57,21 @@ def bearing_function(E, x):
     args:
         x
     """
-    B = bearing_matrix(x)
-    b = B[..., E[:, 0], E[:, 1], :]
-    *r, s, t = b.shape
-    return b.reshape(*r, s * t, 1)
+    d = x.shape[-1] - 1
+    p = x[..., :d]
+    y = x[..., E[:, 0], d]
+    R = np.zeros(y.shape + (d, d), dtype=float)
+    R[..., 0, 0] = np.cos(y)
+    R[..., 0, 1] = -np.sin(y)
+    R[..., 1, 0] = np.sin(y)
+    R[..., 1, 1] = np.cos(y)
+    R[..., 2:, 2:] = 1.0
+
+    r = p[..., E[:, 0], :] - p[..., E[:, 1], :]
+    d = np.sqrt(np.square(r).sum(axis=-1))
+    b = r / d[..., np.newaxis]
+
+    return np.matmul(b[..., np.newaxis, :], R).squeeze()
 
 
 @njit
