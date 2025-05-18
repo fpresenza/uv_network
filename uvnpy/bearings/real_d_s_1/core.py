@@ -98,3 +98,10 @@ def rigidity_matrix(E, x):
         R[de:de + d, sj:sj + d] = M
 
     return R
+
+
+def is_inf_rigid(E, x, threshold=THRESHOLD_SV):
+    n = x.shape[0]
+    s = x.shape[1]
+    R = rigidity_matrix(E, x)
+    return np.linalg.matrix_rank(R, tol=threshold) == n*s - s - 1
