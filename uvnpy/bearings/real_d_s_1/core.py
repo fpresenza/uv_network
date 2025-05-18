@@ -75,20 +75,20 @@ def rigidity_matrix(E, x):
     d = s - 1
     m = len(E)
     Id = np.eye(d)
-    C = np.zeros((d, d), dtype=float)
-    C[2:, 2:] = 1.0
-    R = np.zeros((m*d, n*s))
+    Ct = np.zeros((d, d), dtype=float)
+    Ct[2:, 2:] = 1.0
+    R = np.zeros((m*d, n*s), dtype=float)
     for e, (i, j) in enumerate(E):
         y = x[i, d]
-        C[0, 0] = np.cos(y)
-        C[0, 1] = np.sin(y)
-        C[1, 0] = -np.sin(y)
-        C[1, 1] = np.cos(y)
+        Ct[0, 0] = np.cos(y)
+        Ct[0, 1] = np.sin(y)
+        Ct[1, 0] = -np.sin(y)
+        Ct[1, 1] = np.cos(y)
         r = x[j, :d] - x[i, :d]
         q = np.sqrt(np.dot(r, r))
-        b = np.dot(C, r) / q
+        b = np.dot(Ct, r) / q
         P = Id - np.dot(b.reshape(-1, 1), b.reshape(1, -1))
-        M = np.dot(P, C) / q
+        M = np.dot(P, Ct) / q
         si = s * i
         sj = s * j
         de = d * e

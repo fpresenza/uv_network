@@ -36,7 +36,7 @@ def rigidity_matrix(A, p):
     n, d = p.shape
     m = int(A.sum() / 2)
     Id = np.eye(d)
-    R = np.zeros((m*d, n*d))
+    R = np.zeros((m*d, n*d), dtype=float)
     e = 0
     for i in range(n):
         for j in range(i+1, n):
