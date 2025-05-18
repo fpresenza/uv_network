@@ -15,8 +15,8 @@ from uvnpy.toolkit.geometry import (
 )
 
 
-THRESHOLD_EIG = 1e-6
-THRESHOLD_SV = 1e-3
+THRESHOLD_EIG = 1e-10
+THRESHOLD_SV = 1e-5
 
 
 def bearing_matrix(x):
