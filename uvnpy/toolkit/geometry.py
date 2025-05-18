@@ -30,6 +30,43 @@ def cross_product_matrix(vector):
     return S
 
 
+def rotation_matrix_from_vector(theta):
+    """Rodrigues rotation formula.
+
+
+    Parameters
+    ----------
+    theta : numqy.ndarray
+        A row stack of unit vectors
+
+    Returns
+    ----------
+        The rotation matrices asociated
+    """
+    angle = np.sqrt(np.sum(np.square(theta), axis=-1))
+    axis = theta / angle[..., np.newaxis]
+
+    x, y, z = axis[..., 0], axis[..., 1], axis[..., 2]
+    x2 = x**2
+    y2 = y**2
+    z2 = z**2
+    cos1 = 1 - np.cos(angle)
+    sin = np.sin(angle)
+
+    R = np.empty(np.shape(axis) + (3,), dtype=np.float64)
+    R[..., 0, 0] = cos1 * (-y2 - z2) + 1.0
+    R[..., 0, 1] = -z * sin + x * y * cos1
+    R[..., 0, 2] = y * sin + x * z * cos1
+    R[..., 1, 0] = z * sin + x * y * cos1
+    R[..., 1, 1] = cos1 * (-x2 - z2) + 1.0
+    R[..., 1, 2] = -x * sin + y * z * cos1
+    R[..., 2, 0] = -y * sin + x * z * cos1
+    R[..., 2, 1] = x * sin + y * z * cos1
+    R[..., 2, 2] = cos1 * (-x2 - y2) + 1.0
+
+    return R
+
+
 def cone(apex, axis, hypot, fov, resolution=36):
     """
 
