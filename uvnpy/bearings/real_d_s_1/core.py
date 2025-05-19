@@ -65,9 +65,9 @@ def bearing_function(E, x):
     R[..., 0, 1] = -np.sin(y)
     R[..., 1, 0] = np.sin(y)
     R[..., 1, 1] = np.cos(y)
-    R[..., 2:, 2:] = 1.0
+    R[..., 2:, 2:] = np.eye(d - 2, dtype=float)
 
-    r = p[..., E[:, 0], :] - p[..., E[:, 1], :]
+    r = p[..., E[:, 1], :] - p[..., E[:, 0], :]
     d = np.sqrt(np.square(r).sum(axis=-1))
     b = r / d[..., np.newaxis]
 
@@ -86,29 +86,27 @@ def rigidity_matrix(E, x):
     d = s - 1
     m = len(E)
     Id = np.eye(d)
-    Ct = np.zeros((d, d), dtype=float)
-    Ct[2:, 2:] = 1.0
-    R = np.zeros((m*d, n*s), dtype=float)
+    Ct = np.eye(d)
+    R = np.zeros((m, d, n, s), dtype=float)
     for e, (i, j) in enumerate(E):
         y = x[i, d]
         Ct[0, 0] = np.cos(y)
         Ct[0, 1] = np.sin(y)
         Ct[1, 0] = -np.sin(y)
         Ct[1, 1] = np.cos(y)
+
         r = x[j, :d] - x[i, :d]
         q = np.sqrt(np.dot(r, r))
         b = np.dot(Ct, r) / q
         P = Id - np.dot(b.reshape(-1, 1), b.reshape(1, -1))
         M = np.dot(P, Ct) / q
-        si = s * i
-        sj = s * j
-        de = d * e
-        R[de:de + d, si:si + d] = -M
-        R[de, si + d] = b[1]
-        R[de + 1, si + d] = -b[0]
-        R[de:de + d, sj:sj + d] = M
 
-    return R
+        R[e, :, i, 0:3] = -M
+        R[e, 0, i, 3] = b[1]
+        R[e, 1, i, 3] = -b[0]
+        R[e, :, j, 0:3] = M
+
+    return R.reshape(d * m, s * n)
 
 
 def is_inf_rigid(E, x, threshold=THRESHOLD_SV):

@@ -35,32 +35,27 @@ def bearing_function(E, p):
         E: (m, 2) edge array
         p: (..., n, d) position array
     """
-    r = p[..., E[:, 0], :] - p[..., E[:, 1], :]
+    r = p[..., E[:, 1], :] - p[..., E[:, 0], :]
     d = np.sqrt(np.square(r).sum(axis=-1))
     return r / d[..., np.newaxis]
 
 
 @njit
-def rigidity_matrix(A, p):
+def rigidity_matrix(E, p):
     n, d = p.shape
-    m = int(A.sum() / 2)
+    m = E.shape[0]
     Id = np.eye(d)
-    R = np.zeros((m*d, n*d), dtype=float)
-    e = 0
-    for i in range(n):
-        for j in range(i+1, n):
-            if A[i, j] == 1:
-                x = p[j] - p[i]
-                q = np.dot(x, x)
-                P = Id - np.dot(x.reshape(-1, 1), x.reshape(1, -1)) / q
-                M = P / np.sqrt(q)
-                di = d * i
-                dj = d * j
-                de = d * e
-                R[de:de + d, di:di + d] = -M
-                R[de:de + d, dj:dj + d] = M
-                e += 1
-    return R
+    R = np.zeros((m, d, n, d), dtype=float)
+    for e, (i, j) in enumerate(E):
+        x = p[j] - p[i]
+        q = np.dot(x, x)
+        P = Id - np.dot(x.reshape(-1, 1), x.reshape(1, -1)) / q
+        M = P / np.sqrt(q)
+
+        R[e, :, i] = -M
+        R[e, :, j] = M
+
+    return R.reshape(m * d, n * d)
 
 
 @njit

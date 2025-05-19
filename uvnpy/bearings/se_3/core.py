@@ -62,7 +62,7 @@ def bearing_function(E, x):
     a = x[..., E[:, 0], 3:]
     R = rotation_matrix_from_vector_multiple_axes(a)
 
-    r = p[..., E[:, 0], :] - p[..., E[:, 1], :]
+    r = p[..., E[:, 1], :] - p[..., E[:, 0], :]
     d = np.sqrt(np.square(r).sum(axis=-1))
     b = r / d[..., np.newaxis]
 
