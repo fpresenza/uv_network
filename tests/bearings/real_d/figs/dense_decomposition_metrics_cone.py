@@ -10,7 +10,9 @@ import numpy as np
 import transformations
 
 from uvnpy.toolkit.data import write_csv
-from uvnpy.network.core import geodesics, as_undirected
+from uvnpy.network.core import (
+    geodesics, as_undirected, edges_from_adjacency
+)
 from uvnpy.network.subframeworks import superframework_geodesics
 from uvnpy.bearings.real_d.core import is_inf_rigid, minimum_rigidity_extents
 from uvnpy.network import cone_graph
@@ -52,8 +54,9 @@ def run(d, nmin, nmax, sens_range, rep, logs):
             baricenter = np.mean(p, axis=0)
             axes = transformations.unit_vector(baricenter - p, axis=1)
             D = cone_graph.adjacency_matrix(p, axes, sens_range, sens_cos)
+            E = edges_from_adjacency(D, directed=True)
             A = as_undirected(D).astype(float)
-            if is_inf_rigid(A, p):
+            if is_inf_rigid(E, p):
                 G = geodesics(A)
                 h = minimum_rigidity_extents(G, p)
                 s = superframework_geodesics(G, h)

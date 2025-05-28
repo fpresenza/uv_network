@@ -8,6 +8,8 @@
 import numpy as np
 from numba import njit
 
+from uvnpy.network import core
+
 
 THRESHOLD_EIG = 1e-10
 THRESHOLD_SV = 1e-5
@@ -107,9 +109,9 @@ def rigidity_laplacian_multiple_axes(A, p):
     return S.reshape(S.shape[:-4] + 2*(n*d,))
 
 
-def is_inf_rigid(A, p, threshold=THRESHOLD_SV):
+def is_inf_rigid(E, p, threshold=THRESHOLD_SV):
     n, d = p.shape
-    R = rigidity_matrix(A, p)
+    R = rigidity_matrix(E, p)
     return np.linalg.matrix_rank(R, tol=threshold) == n*d - d - 1
 
 
@@ -127,8 +129,6 @@ def minimum_rigidity_extents(geodesics, p, threshold=THRESHOLD_SV):
         framework is rigid
     """
     n, d = p.shape
-    A = geodesics.copy()
-    A[A > 1] = 0
     extents = np.empty(n, dtype=int)
     for i in range(n):
         minimum_found = False
@@ -136,8 +136,9 @@ def minimum_rigidity_extents(geodesics, p, threshold=THRESHOLD_SV):
         while not minimum_found:
             h += 1
             subset = geodesics[i] <= h
-            Ai = A[np.ix_(subset, subset)]
+            M = geodesics[np.ix_(subset, subset)]
+            Ei = core.edges_from_adjacency(M == 1.0)
             pi = p[subset]
-            minimum_found = is_inf_rigid(Ai, pi, threshold)
+            minimum_found = is_inf_rigid(Ei, pi, threshold)
         extents[i] = h
     return extents

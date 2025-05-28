@@ -13,7 +13,9 @@ from uvnpy.distances.core import minimum_distance
 from uvnpy.bearings.real_d.core import is_inf_rigid, minimum_rigidity_extents
 from uvnpy.bearings.real_d.localization import FirstOrderKalmanFilter
 from uvnpy.bearings.real_d.control import RigidityMaintenance
-from uvnpy.network.core import geodesics, as_undirected
+from uvnpy.network.core import (
+    geodesics, as_undirected, edges_from_adjacency
+)
 from uvnpy.dynamics.linear_models import Integrator
 from uvnpy.network.disk_graph import DiskGraph
 from uvnpy.network.cone_graph import ConeGraph
@@ -678,8 +680,8 @@ print(
         for key, val in sens_graph.adjacency_dict().items()
     )
 )
-adjacency_matrix = as_undirected(sens_graph.adjacency_matrix())
-if is_inf_rigid(adjacency_matrix, positions):
+edge_list = edges_from_adjacency(sens_graph, directed=True)
+if is_inf_rigid(edge_list, positions):
     print('Yay! Sensing framework is infinitesimally rigid.')
     poses = np.hstack([positions, angles])
     print(poses)
