@@ -384,8 +384,8 @@ class MultiRobotNetwork(object):
     def update_graphs(self):
         positions = self.positions()
         axes = camera_axis(self.angles())
-        self.sens_graph.update_adjacency_matrix(positions, axes)
-        self.comm_graph.update_adjacency_matrix(positions)
+        self.sens_graph.update(positions, axes)
+        self.comm_graph.update(positions)
 
     def velocity_measurement(self, node_index):
         if len(self.robot_dynamics[node_index].derivatives) > 0:

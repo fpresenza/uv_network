@@ -6,64 +6,7 @@
 @date mar abr  6 20:52:31 -03 2021
 """
 import numpy as np
-
-from .core import adjacency_dict
-
-
-class DiskGraph(object):
-    def __init__(self, positions=None, dmax=np.inf):
-        """
-        Class representing a disk-like state dependant graph.
-
-        args:
-        -----
-            dmax : max conextion range
-        """
-        self.dmax = np.reshape(dmax, (-1, 1))
-        if positions is None:
-            self._adj = None
-        else:
-            self.update_adjacency_matrix(positions)
-
-    def adjacency_matrix(self):
-        return self._adj.copy()
-
-    def adjacency_dict(self):
-        return adjacency_dict(self._adj)
-
-    def edge_set(self):
-        return np.argwhere(self._adj)
-
-    def is_edge(self, vertex_i, vertex_j):
-        return self._adj[vertex_i, vertex_j]
-
-    def out_neighbors(self, vertex):
-        return np.where(self._adj[vertex])[0]
-
-    def in_neighbors(self, vertex):
-        return np.where(self._adj[:, vertex])[0]
-
-    def update_adjacency_matrix(self, positions):
-        """
-        Disk graph adjacency matrix.
-
-        args:
-        -----
-            positions : (n, d) vector array
-        """
-        r = positions - positions[:, np.newaxis]
-        d = np.sqrt(np.square(r).sum(axis=-1))
-        self._adj = d <= self.dmax
-        self._adj[np.eye(len(positions), dtype=bool)] = False
-
-
-def edges_from_positions(p, dmax=np.inf):
-    dmax = np.reshape(dmax, (-1, 1))
-    r = p[:, np.newaxis] - p
-    d2 = np.square(r).sum(axis=-1)
-    A = d2 <= dmax**2
-    A[np.eye(len(p), dtype=bool)] = 0.0
-    return np.argwhere(A)
+import warnings
 
 
 def adjacency_from_positions(p, dmax=np.inf):
@@ -75,6 +18,10 @@ def adjacency_from_positions(p, dmax=np.inf):
         p    : (n, d) state array
         dmax : maximum connectivity distance
     """
+    warnings.warn(
+        'This function is deprecated. Should use DiskGraph class instead.',
+        DeprecationWarning
+    )
     r = p[:, None] - p
     A = np.square(r).sum(axis=-1)
     A[A > dmax**2] = 0
