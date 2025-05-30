@@ -677,7 +677,7 @@ print(
     'Adjacency list: \n' +
     '\n'.join(
         '\t {}: {}'.format(key, val)
-        for key, val in sens_graph.adjacency_dict().items()
+        for key, val in enumerate(sens_graph.adjacency_list())
     )
 )
 edge_list = edges_from_adjacency(sens_graph, directed=True)

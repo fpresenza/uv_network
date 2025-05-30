@@ -10,7 +10,7 @@ from numba import njit
 import networkx as nx
 
 
-def adjacency_dict(adjacency_matrix):
+def adjacency_list(adjacency_matrix):
     """Transforms adjacency matrix to adjacency list
 
     Parameters
@@ -22,7 +22,7 @@ def adjacency_dict(adjacency_matrix):
     L : dict
         Adjacency list
     """
-    return {i: np.nonzero(adj)[0] for i, adj in enumerate(adjacency_matrix)}
+    return [np.nonzero(adj)[0] for adj in adjacency_matrix]
 
 
 def geodesics_dict(adjacency_matrix):
@@ -71,12 +71,25 @@ def incidence_from_edges(n, E):
     return D
 
 
-def adjacency_from_edges(n, E, w=1, directed=False):
-    A = np.zeros((n, n))
-    A[E[:, 0], E[:, 1]] = w
+def adjacency_matrix_from_edges(n, edge_set, directed=False):
+    A = np.zeros((n, n), dtype=bool)
+    A[edge_set[:, 0], edge_set[:, 1]] = True
     if not directed:
-        A[E[:, 1], E[:, 0]] = w
+        A[edge_set[:, 1], edge_set[:, 0]] = True
     return A
+
+
+def adjacency_list_from_edges(vertex_set, edge_set, directed=False):
+    if not directed:
+        return [
+            np.concatenate([
+                edge_set[edge_set[:, 0] == i, 1],
+                edge_set[edge_set[:, 1] == i, 0]
+            ])
+            for i in vertex_set
+        ]
+    else:
+        return [edge_set[edge_set[:, 0] == i, 1] for i in vertex_set]
 
 
 def laplacian_from_adjacency(A):

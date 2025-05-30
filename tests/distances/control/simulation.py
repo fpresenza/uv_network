@@ -692,7 +692,7 @@ print(
     'Adjacency list: \n' +
     '\n'.join(
         '\t {}: {}'.format(key, val)
-        for key, val in core.adjacency_dict(adjacency_matrix).items()
+        for key, val in enumerate(core.adjacency_list(adjacency_matrix))
     )
 )
 if not is_inf_rigid(adjacency_matrix, position):
