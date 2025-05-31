@@ -72,7 +72,7 @@ class Framework(Graph):
         -----
             realization : (n, d) array
         """
-        super().__init__(realization)
+        super().__init__(adjacency_matrix)
         if realization is None:
             self._real = None
         else:
