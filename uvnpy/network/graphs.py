@@ -153,47 +153,48 @@ class ConeGraph(Framework):
     """
     Class representing a cone-like state dependant graph.
     """
-    def __init__(self, realization=None, dmax=np.inf, cmin=-1.0):
+    def __init__(self, positions=None, axes=None, dmax=np.inf, cmin=-1.0):
         """
         args:
         -----
-            realization : (n, 2*d) (cone apexes in R^d, cone axes in R^d)
+            position : (n, d) cone apexes in R^d
+            axes : (n, d) cone axes in R^d)
             dmax : max connection distance
             cmin : cosine of cone's half angle
         """
         self.dmax = dmax
         self.cmin = cmin
-        if realization is not None:
-            self.update(realization)
+        if (positions is not None) and (axes is not None):
+            self.update(positions, axes)
 
-    def update(self, realization):
+    def update(self, positions, axes):
         """
         Cone graph adjacency matrix.
 
         args:
         -----
-            realization : (n, d) vector array
+            positions : (n, d) vector array
+            axes : (n, d) unit vector array
         """
-        positions = realization[:, :3]
-        axes = realization[:, 3:]
         r = positions - positions[:, np.newaxis]
         d = np.sqrt(np.square(r).sum(axis=-1))
         bearings = r / d[:, :, np.newaxis]
         cos = np.matmul(bearings, axes[:, :, np.newaxis]).squeeze()
         adj = np.logical_and(d <= self.dmax, cos >= self.cmin)
         adj[np.eye(len(positions), dtype=bool)] = False
+        realization = np.hstack([positions, axes])
         super().update(adj, realization)
 
-    def append_vertex(self, realization):
-        position = realization[:, :3]
-        axe = realization[:, 3:]
-        r = position - self._real[:, :3]
+    def append_vertex(self, position, axe):
+        s = position.size
+        r = position - self._real[:, :s]
         d = np.sqrt(np.square(r).sum(axis=-1))
         in_bearings = r / d[:, np.newaxis]
-        in_cos = np.sum(in_bearings * self._real[:, 3:], axis=-1)
+        in_cos = np.sum(in_bearings * self._real[:, s:], axis=-1)
         out_cos = - np.sum(in_bearings * axe, axis=-1)
         in_ball = d <= self.dmax
 
         in_edges = np.logical_and(in_ball, in_cos >= self.cmin)
         out_edges = np.logical_and(in_ball, out_cos >= self.cmin)
+        realization = np.hstack([position, axe])
         super().append_vertex(out_edges, in_edges, realization)
