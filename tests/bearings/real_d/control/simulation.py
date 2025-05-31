@@ -13,12 +13,9 @@ from uvnpy.distances.core import minimum_distance
 from uvnpy.bearings.real_d.core import is_inf_rigid, minimum_rigidity_extents
 from uvnpy.bearings.real_d.localization import FirstOrderKalmanFilter
 from uvnpy.bearings.real_d.control import RigidityMaintenance
-from uvnpy.network.core import (
-    geodesics, as_undirected, edges_from_adjacency
-)
+from uvnpy.network.core import geodesics, as_undirected
 from uvnpy.dynamics.linear_models import Integrator
-from uvnpy.network.disk_graph import DiskGraph
-from uvnpy.network.cone_graph import ConeGraph
+from uvnpy.network.graphs import DiskGraph, ConeGraph
 from uvnpy.control.core import Targets, CollisionAvoidanceVanishing
 from uvnpy.routing.token_passing import TokenPassing
 
@@ -75,11 +72,15 @@ class NeighborData(object):
 
 
 def camera_axis(angle):
-    axis = np.empty((len(angle), 3))
-    axis[:, 0] = np.cos(angle)
-    axis[:, 1] = np.sin(angle)
-    axis[:, 2] = 0.0
+    axis = np.empty(angle.shape + (3,))
+    axis[..., 0] = np.cos(angle)
+    axis[..., 1] = np.sin(angle)
+    axis[..., 2] = 0.0
     return axis
+
+
+def camera_angle(axis):
+    return np.arctan2(axis[..., 1], axis[..., 0])
 
 
 class Robot(object):
@@ -656,7 +657,6 @@ positions[:, 1] = np.random.uniform(0.0, 50.0, n)
 positions[:, 2] = 0.0
 baricenter = np.mean(positions, axis=0)
 axes = transformations.unit_vector(baricenter - positions, axis=1)
-angles = np.arctan2(axes[:, 1], axes[:, 0]).reshape(-1, 1)
 
 if minimum_distance(positions) > 2.0:
     print('Yay! Robots\' positions are sufficiently separated.')
@@ -669,7 +669,7 @@ print('Camera\'s range: {}'.format(sens_range))
 print('Camera\'s fov: {} degrees'.format(fov))
 sens_graph = ConeGraph(
     positions,
-    camera_axis(angles.ravel()),
+    axes,
     dmax=sens_range,
     cmin=np.cos(np.deg2rad(fov / 2))
 )
@@ -680,9 +680,9 @@ print(
         for key, val in enumerate(sens_graph.adjacency_list())
     )
 )
-edge_list = edges_from_adjacency(sens_graph, directed=True)
-if is_inf_rigid(edge_list, positions):
+if is_inf_rigid(sens_graph.edge_set(), positions):
     print('Yay! Sensing framework is infinitesimally rigid.')
+    angles = camera_angle(axes).reshape(-1, 1)
     poses = np.hstack([positions, angles])
     print(poses)
 else:
@@ -736,16 +736,16 @@ targets = Targets(
 # ------------------------------------------------------------------
 logs = Logs(
     time=[],
-    # time_comm=[],
+    time_comm=[],
     pose=[],
-    # estimated_pose=[],
-    # covariance=[],
+    estimated_pose=[],
+    covariance=[],
     target_action=[],
     collision_action=[],
     rigidity_action=[],
-    # vel_meas_err=[],
-    # gps_meas_err=[],
-    # bearing_meas_err=[],
+    vel_meas_err=[],
+    gps_meas_err=[],
+    bearing_meas_err=[],
     sens_adj=[],
     comm_adj=[],
     action_extents=[],
