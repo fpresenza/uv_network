@@ -185,16 +185,16 @@ class ConeGraph(Framework):
         realization = np.hstack([positions, axes])
         super().update(adj, realization)
 
-    def append_vertex(self, position, axe):
+    def append_vertex(self, position, axis):
         s = position.size
         r = position - self._real[:, :s]
         d = np.sqrt(np.square(r).sum(axis=-1))
         in_bearings = r / d[:, np.newaxis]
         in_cos = np.sum(in_bearings * self._real[:, s:], axis=-1)
-        out_cos = - np.sum(in_bearings * axe, axis=-1)
+        out_cos = - np.sum(in_bearings * axis, axis=-1)
         in_ball = d <= self.dmax
 
         in_edges = np.logical_and(in_ball, in_cos >= self.cmin)
         out_edges = np.logical_and(in_ball, out_cos >= self.cmin)
-        realization = np.hstack([position, axe])
+        realization = np.hstack([position, axis])
         super().append_vertex(out_edges, in_edges, realization)
