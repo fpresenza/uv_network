@@ -60,6 +60,29 @@ class Graph(object):
         self._adj = adj
 
 
+class ErdosRenyi(Graph):
+    """
+    Class representing a random graph based on the Erdos-Renyi model.
+    """
+    def __init__(self, n, p):
+        """
+        args:
+        -----
+            n : number of nodes
+            p : probability of existence of each edge
+        """
+        self.n = n
+        self.p = p
+        self.update()
+
+    def update(self):
+        adj = np.random.choice(
+            [False, True], size=(self.n, self.n), p=(1 - self.p, self.p)
+        )
+        adj[np.eye(self.n, dtype=bool)] = False
+        super().update(adj)
+
+
 class Framework(Graph):
     """
     Class representing a framework consisting of
