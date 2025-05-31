@@ -6,7 +6,8 @@
 @date mar abr  6 20:52:31 -03 2021
 """
 import numpy as np
-import warnings
+
+from .graphs import DiskGraph
 
 
 def adjacency_from_positions(p, dmax=np.inf):
@@ -18,12 +19,7 @@ def adjacency_from_positions(p, dmax=np.inf):
         p    : (n, d) state array
         dmax : maximum connectivity distance
     """
-    warnings.warn(
-        'This function is deprecated. Should use DiskGraph class instead.',
-        DeprecationWarning
+    raise DeprecationWarning(
+        'This function is deprecated. Should use DiskGraph class instead.'
     )
-    r = p[:, None] - p
-    A = np.square(r).sum(axis=-1)
-    A[A > dmax**2] = 0
-    A[A != 0] = 1
-    return A
+    return DiskGraph(realization=p, dmax=dmax).adjacency_matrix().astype(float)
