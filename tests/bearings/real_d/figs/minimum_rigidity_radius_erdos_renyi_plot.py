@@ -23,8 +23,6 @@ plt.rcParams['font.family'] = 'serif'
 # Data
 # ------------------------------------------------------------------
 nodes = np.loadtxt('/tmp/nodes.csv', delimiter=',')
-diam = read_csv('/tmp/diam.csv', rows=(0, np.inf), dtype=int)
-diam_count = read_csv('/tmp/diam_count.csv', rows=(0, np.inf), dtype=int)
 hd = read_csv('/tmp/hd.csv', rows=(0, np.inf), dtype=int)
 hd_count = read_csv('/tmp/hd_count.csv', rows=(0, np.inf), dtype=int)
 hb = read_csv('/tmp/hb.csv', rows=(0, np.inf), dtype=int)

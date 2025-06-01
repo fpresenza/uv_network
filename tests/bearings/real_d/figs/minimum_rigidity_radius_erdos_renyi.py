@@ -9,8 +9,8 @@ import numpy as np
 import progressbar
 
 from uvnpy.toolkit.data import write_csv
-from uvnpy.network.core import geodesics
-from uvnpy.network.random_graph import erdos_renyi
+from uvnpy.network.core import geodesics, as_undirected
+from uvnpy.network.graphs import ErdosRenyi
 import uvnpy.distances.core as distances
 import uvnpy.bearings.real_d.core as bearings
 
@@ -22,8 +22,6 @@ import uvnpy.bearings.real_d.core as bearings
 @dataclass
 class Logs(object):
     nodes: np.ndarray
-    diam: np.ndarray
-    diam_count: np.ndarray
     hd: np.ndarray
     hd_count: np.ndarray
     hb: np.ndarray
@@ -43,21 +41,19 @@ def run(d, nmin, nmax, degree, rep, logs):
         logs.nodes[k] = n
 
         p = np.random.uniform(0, 1, (n, d))
-        diam = np.array([], dtype=int)
         hd = np.array([], dtype=int)
         hb = np.array([], dtype=int)
         r = 0
         prob = degree / (n - 1)
         while r < rep:
-            A = erdos_renyi(n, prob)
+            graph = ErdosRenyi(n, prob, undirected=True)
+            A = as_undirected(graph.adjacency_matrix()).astype(float)
             if distances.is_inf_rigid(A, p):
                 G = geodesics(A)
-                diam = np.append(diam, np.max(G).astype(int))
                 hd = np.append(hd, distances.minimum_rigidity_extents(G, p))
                 hb = np.append(hb, bearings.minimum_rigidity_extents(G, p))
                 r += 1
 
-        logs.diam[k], logs.diam_count[k] = np.unique(diam, return_counts=True)
         logs.hd[k], logs.hd_count[k] = np.unique(hd, return_counts=True)
         logs.hb[k], logs.hb_count[k] = np.unique(hb, return_counts=True)
 
@@ -95,8 +91,6 @@ size = nmax - nmin
 rep = arg.rep
 logs = Logs(
     nodes=np.empty(size, dtype=int),
-    diam=np.empty(size, dtype=np.ndarray),
-    diam_count=np.empty(size, dtype=np.ndarray),
     hd=np.empty(size, dtype=np.ndarray),
     hd_count=np.empty(size, dtype=np.ndarray),
     hb=np.empty(size, dtype=np.ndarray),
@@ -111,8 +105,6 @@ bar = progressbar.ProgressBar(maxval=size)
 logs = run(d, nmin, nmax, degree, rep, logs)
 
 write_csv('/tmp/nodes.csv', logs.nodes, one_row=True)
-write_csv('/tmp/diam.csv', logs.diam)
-write_csv('/tmp/diam_count.csv', logs.diam_count)
 write_csv('/tmp/hd.csv', logs.hd)
 write_csv('/tmp/hd_count.csv', logs.hd_count)
 write_csv('/tmp/hb.csv', logs.hb)
