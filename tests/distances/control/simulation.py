@@ -13,9 +13,10 @@ from uvnpy.distances.localization import FirstOrderKalmanFilter
 from uvnpy.routing.token_passing import TokenPassing
 from uvnpy.dynamics.linear_models import Integrator
 # from uvnpy.toolkit.functions import logistic_saturation
-from uvnpy.network.disk_graph import adjacency_from_positions
+from uvnpy.network.graphs import DiskGraph
 from uvnpy.distances.control import RigidityMaintenance
-from uvnpy.control.core import Targets, CollisionAvoidanceVanishing
+from uvnpy.control.core import CollisionAvoidanceVanishing
+from uvnpy.control.targets import Targets, TargetTracking
 from uvnpy.distances.core import (
     is_inf_rigid,
     rigidity_eigenvalue,
@@ -110,6 +111,16 @@ class Robot(object):
         self.current_time = t
         self.self_centered_ball = {node_id} if (action_extent > 0) else set()
         self.in_balls = self.self_centered_ball
+        self.tracking = TargetTracking(
+            tracking_radius=20.0,
+            forget_radius=100.0,
+            v_max=1.25
+        )
+        self.collision = CollisionAvoidanceVanishing(
+            power=2.0,
+            dmin=1.0,
+            dmax=comm_range
+        )
         self.maintenance = RigidityMaintenance(
             dim=2,
             dmax=0.85 * comm_range,
@@ -117,11 +128,6 @@ class Robot(object):
             threshold=1e-4,
             eigenvalues='all',
             functional='log'
-        )
-        self.collision = CollisionAvoidanceVanishing(
-            power=2.0,
-            dmin=1.0,
-            dmax=comm_range
         )
         self.u_target = np.zeros(self.dim, dtype=float)
         self.u_collision = np.zeros(self.dim, dtype=float)
@@ -185,22 +191,12 @@ class Robot(object):
     def set_control_action(self, u):
         self.last_control_action = u
 
-    def target_collection_control_action(self, target):
+    def target_tracking_control_action(self, target):
         if (target is not None):
             # go to allocated target
-            r = self.loc.position() - target
-            d = np.sqrt(np.square(r).sum())
-            tracking_radius = 20.0    # radius
-            forget_radius = 100.0     # radius
-            v_collect_max = 1.25
-            if d < tracking_radius:
-                v_collect = v_collect_max
-            elif d < forget_radius:
-                factor = (forget_radius - d)/(forget_radius - tracking_radius)
-                v_collect = v_collect_max * factor
-            else:
-                v_collect = 0.0
-            self.u_target = - v_collect * r / d
+            self.u_target = self.tracking.update(
+                self.loc.position(), target
+            )
         else:
             self.u_target = np.zeros(self.dim, dtype=float)
 
@@ -311,8 +307,7 @@ class World(object):
             self,
             dim,
             robot_dynamics,
-            network,
-            comm_range,
+            graph,
             gps_available,
             vel_meas_stdev,
             range_meas_stdev,
@@ -323,8 +318,7 @@ class World(object):
         self.dim = dim
         self.robot_dynamics = robot_dynamics
         self.n = len(robot_dynamics)
-        self.adjacency_matrix = network.astype(bool)
-        self.comm_range = comm_range
+        self.graph = graph
         self.gps_available = gps_available
 
         self.vel_meas_stdev = vel_meas_stdev
@@ -355,25 +349,25 @@ class World(object):
     def collect_range_meas_err(self):
         return self.range_meas_err.copy().ravel()
 
-    def update_adjacency(self):
-        self.adjacency_matrix = adjacency_from_positions(
-            self.positions(), self.comm_range
-        ).astype(bool)
+    def update_graph(self):
+        self.graph.update(self.positions())
 
     def framework_rigidity_eigenvalue(self):
         return rigidity_eigenvalue(
-            self.adjacency_matrix, self.positions()
+            self.graph.adjacency_matrix(), self.positions()
         )
 
     def subframeworks_rigidity_eigenvalue(self, robots):
-        geodesics = core.geodesics_dict(self.adjacency_matrix)
+        geodesics = core.geodesics_dict(
+            self.graph.adjacency_matrix().astype(float)
+        )
         eigs = []
         for robot in robots:
             if robot.action_extent > 0:
                 g_i = geodesics[robot.node_id]
                 h_i = robot.action_extent
                 subset = [j for j, g_ij in g_i.items() if g_ij <= h_i]
-                A = self.adjacency_matrix[np.ix_(subset, subset)]
+                A = self.graph.adjacency_matrix()[np.ix_(subset, subset)]
                 p = self.positions(subset)
                 eigs.append(rigidity_eigenvalue(A, p))
             else:
@@ -405,7 +399,7 @@ class World(object):
 
     def upload_to_cloud(self, msg, node_index):
         for neighbor_index in range(self.n):
-            if self.adjacency_matrix[node_index, neighbor_index]:
+            if self.graph.is_edge(node_index, neighbor_index):
                 noise = np.random.normal(
                         scale=self.range_meas_stdev, size=1
                 )
@@ -513,7 +507,7 @@ def initialize_robots(simu_counter):
         logs.range_meas_err.append(world.collect_range_meas_err())
         logs.fre.append(world.framework_rigidity_eigenvalue())
         logs.re.append(world.subframeworks_rigidity_eigenvalue(robots))
-        logs.adjacency.append(world.adjacency_matrix.ravel())
+        logs.adjacency.append(world.graph.adjacency_matrix().ravel())
         logs.action_extents.append(robots.collect_action_extents())
         logs.state_extents.append(robots.collect_state_extents())
         logs.targets.append(targets.data.ravel().copy())
@@ -521,7 +515,7 @@ def initialize_robots(simu_counter):
         for robot in robots:
             node_index = index_map[robot.node_id]
             world.robot_dynamics[node_index].step(t, robot.last_control_action)
-        world.update_adjacency()
+        world.update_graph()
         targets.update(world.positions())
 
         simu_counter += 1
@@ -567,7 +561,7 @@ def run_mission(simu_counter, end_counter):
         for robot in robots:
             node_index = index_map[robot.node_id]
 
-            robot.target_collection_control_action(alloc[node_index])
+            robot.target_tracking_control_action(alloc[node_index])
             robot.collision_avoidance_control_action()
             robot.compose_actions()
 
@@ -592,7 +586,7 @@ def run_mission(simu_counter, end_counter):
         logs.range_meas_err.append(world.collect_range_meas_err())
         logs.fre.append(world.framework_rigidity_eigenvalue())
         logs.re.append(world.subframeworks_rigidity_eigenvalue(robots))
-        logs.adjacency.append(world.adjacency_matrix.ravel())
+        logs.adjacency.append(world.graph.adjacency_matrix().ravel())
         logs.action_extents.append(robots.collect_action_extents())
         logs.state_extents.append(robots.collect_state_extents())
         logs.targets.append(targets.data.ravel().copy())
@@ -600,7 +594,7 @@ def run_mission(simu_counter, end_counter):
         for robot in robots:
             node_index = index_map[robot.node_id]
             world.robot_dynamics[node_index].step(t, robot.last_control_action)
-        world.update_adjacency()
+        world.update_graph()
         targets.update(world.positions())
 
         simu_counter += 1
@@ -687,7 +681,8 @@ print(position)
 
 comm_range = 15.0
 print('Communication range: {}'.format(comm_range))
-adjacency_matrix = adjacency_from_positions(position, comm_range)
+graph = DiskGraph(realization=position, dmax=comm_range)
+adjacency_matrix = graph.adjacency_matrix().astype(float)
 print(
     'Adjacency list: \n' +
     '\n'.join(
@@ -701,8 +696,7 @@ if not is_inf_rigid(adjacency_matrix, position):
 world = World(
     dim=2,
     robot_dynamics=[Integrator(position[i]) for i in range(n)],
-    network=adjacency_matrix,
-    comm_range=comm_range,
+    graph=graph,
     gps_available=[6, 8],
     vel_meas_stdev=0.0,
     range_meas_stdev=0.0,
@@ -758,7 +752,7 @@ logs = Logs(
 simu_counter = 0
 for t_break in [simu_time]:
     position = world.positions()
-    adjacency_matrix = world.adjacency_matrix.copy().astype(float)
+    adjacency_matrix = world.graph.adjacency_matrix().astype(float)
     geodesics_matrix = core.geodesics(adjacency_matrix)
     # max_extent = 2
     # valid_action_extents = valid_extents(

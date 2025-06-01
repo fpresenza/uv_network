@@ -16,7 +16,8 @@ from uvnpy.bearings.real_d.control import RigidityMaintenance
 from uvnpy.network.core import geodesics, as_undirected
 from uvnpy.dynamics.linear_models import Integrator
 from uvnpy.network.graphs import DiskGraph, ConeGraph
-from uvnpy.control.core import Targets, CollisionAvoidanceVanishing
+from uvnpy.control.core import CollisionAvoidanceVanishing
+from uvnpy.control.targets import Targets, TargetTracking
 from uvnpy.routing.token_passing import TokenPassing
 
 
@@ -102,6 +103,16 @@ class Robot(object):
         self.current_time = t
         self.self_centered_ball = {node_id} if (action_extent > 0) else set()
         self.in_balls = self.self_centered_ball
+        self.tracking = TargetTracking(
+            tracking_radius=20.0,
+            forget_radius=30.0,
+            v_max=1.5
+        )
+        self.collision = CollisionAvoidanceVanishing(
+            power=2.0,
+            dmin=1.0,
+            dmax=comm_range
+        )
         self.maintenance = RigidityMaintenance(
             dim=3,
             range_lims=sens_range * np.array([0.8, 1.0]),
@@ -109,11 +120,6 @@ class Robot(object):
             threshold=1e-4,
             eigenvalues='all',
             functional='log'
-        )
-        self.collision = CollisionAvoidanceVanishing(
-            power=2.0,
-            dmin=1.0,
-            dmax=comm_range
         )
         self.u_target = np.zeros(self.dim, dtype=float)
         self.u_collision = np.zeros(self.dim, dtype=float)
@@ -207,19 +213,10 @@ class Robot(object):
     def target_collection_control_action(self, target):
         if (target is not None):
             # go to allocated target
-            r = self.loc.pose()[:3] - target
-            d = np.sqrt(np.square(r).sum())
-            tracking_radius = 20.0    # radius
-            forget_radius = 30.0     # radius
-            v_collect_max = 1.5
-            if d < tracking_radius:
-                v_collect = v_collect_max
-            elif d < forget_radius:
-                factor = (forget_radius - d)/(forget_radius - tracking_radius)
-                v_collect = v_collect_max * factor
-            else:
-                v_collect = 0.0
-            self.u_target = np.append(- v_collect * r / d, 0.0)
+            v_tracking = self.tracking.update(
+                self.loc.pose()[:3], target
+            )
+            self.u_target = np.append(v_tracking, 0.0)
         else:
             self.u_target = np.zeros(self.dim, dtype=float)
 
