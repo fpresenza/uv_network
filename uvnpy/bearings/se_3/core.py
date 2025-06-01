@@ -24,14 +24,14 @@ def bearing_matrix(x):
     in each robot local reference frame. That is,
     entry [i, j] contains:
 
-        R(ang).T @ (pos[j] - pos[i]) / dist[i, j]
+        R(ang[i]).T @ (pos[j] - pos[i]) / dist[i, j]
 
     where
         pos[i] = x[i, :3]
-        angl[i] = x[i, 3:]
+        ang[i] = x[i, 3:]
 
     args:
-        x: (..., n, 6) position array
+        x : (..., n, 6) pose array
     """
     p = x[..., :3]
     a = x[..., 3:]
@@ -49,14 +49,14 @@ def bearing_function(E, x):
     in each robot local reference frame. That is,
     entry e = (i, j) contains:
 
-        R(ang).T @ (pos[j] - pos[i]) / dist[i, j]
+        R(ang[i]).T @ (pos[j] - pos[i]) / dist[i, j]
 
     where
         pos[i] = x[i, :3]
-        angl[i] = x[i, 3:]
+        ang[i] = x[i, 3:]
 
     args:
-        x
+        x : (..., n, 6) pose array
     """
     p = x[..., :3]
     a = x[..., E[:, 0], 3:]
@@ -74,7 +74,7 @@ def rigidity_matrix(E, x):
     """Rigidity Matrix (jacobian of the bearing function)
 
     args:
-        x: (n, 6) pose array
+        x : (n, 6) pose array
     """
     n = x.shape[0]
     m = E.shape[0]
