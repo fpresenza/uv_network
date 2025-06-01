@@ -21,17 +21,12 @@ class Targets(object):
         return self.data[:, self.dim]
 
     def allocation(self, p):
-        alloc = {i: None for i in range(len(p))}
         untracked = self.data[:, self.dim].astype(bool)
         if untracked.any():
             targets = self.data[untracked, :self.dim].astype(float)
             r = p[:, None] - targets
             d2 = np.square(r).sum(axis=-1)
-            for i in range(len(p)):
-                j = d2[i].argmin()
-                alloc[i] = targets[j]
-
-        return alloc
+            return [targets[d2[i].argmin()] for i in range(len(p))]
 
     def update(self, p):
         r = p[..., None, :] - self.data[:, :self.dim]
