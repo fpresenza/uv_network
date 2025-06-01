@@ -7,63 +7,6 @@
 """
 import numpy as np
 
-np.set_printoptions(precision=10)
-
-
-class StatelessKalmanFilter(object):
-    def __init__(
-            self,
-            input_covariance,
-            distance_measurement_covariance,
-            position_measurement_covariance):
-        self.input_covariance = input_covariance
-        self.distance_measurement_covariance = distance_measurement_covariance
-        self.position_measurement_covariance = position_measurement_covariance
-
-    def first_order_dynamic_step(
-            self,
-            position,
-            covariance,
-            elapsed_time,
-            input):
-        position = position + input * elapsed_time
-        covariance = covariance + self.input_covariance * (elapsed_time**2)
-        return position, covariance
-
-    def asynchronous_distance_measurement_step(
-            self,
-            position,
-            covariance,
-            distance_measurement,
-            anchor_position,
-            anchor_covariance):
-        r = position - anchor_position
-        d = np.sqrt(np.square(r).sum())
-
-        H = r.reshape(1, -1) / d
-
-        PHt = covariance.dot(H.T)
-        CHt = anchor_covariance.dot(H.T)
-        Pz = H.dot(PHt + CHt) + self.distance_measurement_covariance
-        K = PHt / Pz
-
-        position = position + K.dot(distance_measurement - d)
-        covariance = covariance - K.dot(H).dot(covariance)
-
-        return position, covariance
-
-    def position_measurement_step(
-            self,
-            position,
-            covariance,
-            position_measurement):
-        Pz = covariance + self.position_measurement_covariance
-        K = covariance.dot(np.linalg.inv(Pz))
-        position = position + K.dot(position_measurement - position)
-        covariance = covariance - K.dot(covariance)
-
-        return position, covariance
-
 
 class DecentralizedLocalization(object):
     def __init__(self, state, time=0.0):
@@ -106,7 +49,7 @@ class FirstOrderGradientFilter(DecentralizedLocalization):
 
         self.x += self.input_weights.dot(vel_meas * dt)
 
-    def range_step(self, range_meas, anchors):
+    def batch_range_step(self, range_meas, anchors):
         """
         Range measurements model.
 
@@ -179,6 +122,33 @@ class FirstOrderKalmanFilter(DecentralizedLocalization):
     def range_step(
             self,
             range_meas,
+            anchor,
+            anchor_cov):
+        """
+        Range measurements model.
+
+        args:
+        -----
+            range_meas : range measurement
+            anchor     : anchor position
+            anchor_cov : anchor covariance
+        """
+        r = self.x - anchor
+        d = np.sqrt(np.square(r).sum())
+
+        H = r.reshape(1, -1) / d
+
+        PHt = self.P.dot(H.T)
+        CHt = anchor_cov.dot(H.T)
+        Pz = H.dot(PHt + CHt) + self.range_meas_cov
+        K = PHt / Pz
+
+        self.x += K.dot(range_meas - d)
+        self.P -= K.dot(H).dot(self.P)
+
+    def batch_range_step(
+            self,
+            range_meas,
             anchors,
             anchors_cov):
         """
@@ -186,9 +156,9 @@ class FirstOrderKalmanFilter(DecentralizedLocalization):
 
         args:
         -----
-            range_meas : range measurements
-            anchors    : anchors positions
-            anchors    : anchors positions covariance
+            range_meas  : range measurements
+            anchors     : anchors positions
+            anchors_cov : anchors covariance
         """
         r = self.x - anchors
         d = np.sqrt(np.square(r).sum(axis=-1, keepdims=True))

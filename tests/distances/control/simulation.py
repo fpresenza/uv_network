@@ -276,7 +276,7 @@ class Robot(object):
             Pj = np.array([
                 neighbor.covariance for neighbor in neighbors_data
             ])
-            self.loc.range_step(z, xj, Pj)
+            self.loc.batch_range_step(z, xj, Pj)
 
     def gps_measurement_step(self, gps_meas):
         self.loc.gps_step(gps_meas)

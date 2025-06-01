@@ -76,7 +76,7 @@ for k in steps[1:]:
         xj = hatx[k-1, Ni]
         ei = np.logical_or(E[:, 0] == i, E[:, 1] == i)
         zi = z[k-1, ei]
-        estimator[i].range_step(zi, xj)
+        estimator[i].batch_range_step(zi, xj)
         if i == 0 or i == 1:
             estimator[i].gps_step(y[k-1, i])
         hatx[k, i] = estimator[i].state()
@@ -138,7 +138,7 @@ for k in steps[1:]:
         Pj = hatP[k-1, Ni]
         ei = np.logical_or(E[:, 0] == i, E[:, 1] == i)
         zi = z[k-1, ei]
-        estimator[i].range_step(zi, xj, Pj)
+        estimator[i].batch_range_step(zi, xj, Pj)
         if i == 0 or i == 1:
             estimator[i].gps_step(y[k-1, i])
         hatx[k, i] = estimator[i].state()
