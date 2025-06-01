@@ -23,7 +23,9 @@ plt.rcParams['font.family'] = 'serif'
 # Data
 # ------------------------------------------------------------------
 nodes = np.loadtxt('/tmp/nodes.csv', delimiter=',')
+diam = read_csv('/tmp/diam.csv', rows=(0, np.inf), dtype=float)
 delay = read_csv('/tmp/delay.csv', rows=(0, np.inf), dtype=float)
+deg = read_csv('/tmp/deg.csv', rows=(0, np.inf), dtype=float)
 compl = read_csv('/tmp/compl.csv', rows=(0, np.inf), dtype=float)
 
 # ------------------------------------------------------------------
@@ -44,18 +46,26 @@ ax.grid(lw=0.4)
 ax.set_xlabel(r'$n$', fontsize=8)
 ax.set_ylabel(r'Delay', fontsize=8)
 ax.plot(
-    nodes, np.median(delay, axis=0),
-    label=r'$\sigma = 1$', lw=1,
-    color='C0',
+    nodes, np.median(diam, axis=0),
+    label=r'$D$', lw=1, color='C0',
     marker='o', markersize=3, markevery=10
+)
+ax.fill_between(
+    nodes,
+    np.quantile(diam, q=0.25, axis=0),
+    np.quantile(diam, q=0.75, axis=0),
+    color='C0', alpha=0.3,
+)
+ax.plot(
+    nodes, np.median(delay, axis=0),
+    label=r'$H$', lw=1, color='C1',
+    marker='x', markersize=3, markevery=10
 )
 ax.fill_between(
     nodes,
     np.quantile(delay, q=0.25, axis=0),
     np.quantile(delay, q=0.75, axis=0),
-    alpha=0.3,
-    color='C0',
-    # marker='o', markersize=3, markevery=10
+    color='C1', alpha=0.3,
 )
 ax.legend(
     fontsize='x-small', handlelength=1,
@@ -77,20 +87,27 @@ ax.tick_params(
 ax.grid(lw=0.4)
 ax.set_xlabel(r'$n$', fontsize=8)
 ax.set_ylabel(r'Complexity', fontsize=8)
-
+ax.plot(
+    nodes, np.median(deg, axis=0),
+    label=r'$N$', lw=1, color='C0',
+    marker='o', markersize=3, markevery=10
+)
+ax.fill_between(
+    nodes,
+    np.quantile(deg, q=0.25, axis=0),
+    np.quantile(deg, q=0.75, axis=0),
+    color='C0', alpha=0.3,
+)
 ax.plot(
     nodes, np.median(compl, axis=0),
-    label=r'$\sigma = 1$', lw=1,
-    color='C0',
-    marker='o', markersize=3, markevery=10
+    label=r'$C$', lw=1, color='C1',
+    marker='x', markersize=3, markevery=10
 )
 ax.fill_between(
     nodes,
     np.quantile(compl, q=0.25, axis=0),
     np.quantile(compl, q=0.75, axis=0),
-    alpha=0.3,
-    color='C0',
-    # marker='o', markersize=3, markevery=10
+    color='C1', alpha=0.3,
 )
 ax.legend(
     fontsize='x-small', handlelength=1,

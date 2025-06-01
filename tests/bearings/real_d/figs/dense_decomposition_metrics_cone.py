@@ -22,7 +22,9 @@ from uvnpy.network.graphs import ConeGraph
 @dataclass
 class Logs(object):
     nodes: np.ndarray
+    diam: np.ndarray
     delay: np.ndarray
+    deg: np.ndarray
     compl: np.ndarray
 
 
@@ -35,12 +37,11 @@ def run(nmin, nmax, size, rep, logs):
     bar.start()
 
     sens_cos = np.cos(np.deg2rad(120.0 / 2))
-    sens_range = 1.0
 
     for r in range(rep):
         for k, n in enumerate(range(nmin, nmax)):
             bar.update(size * r + k)
-            side_length = np.cbrt(n)  # side_length = np.cbrt(vol = n)
+            side_length = 1.0
             rigid_graph = False
 
             while not rigid_graph:
@@ -94,8 +95,10 @@ def run(nmin, nmax, size, rep, logs):
                         ])
                         for i in range(n)
                     ])
-                    logs.delay[r, k] = d_comm / G.max()
-                    logs.compl[r, k] = (n_state + n_action) / A.sum()
+                    logs.diam[r, k] = G.max()
+                    logs.delay[r, k] = d_comm
+                    logs.deg[r, k] = A.sum() / n
+                    logs.compl[r, k] = (n_state + n_action) / n
                 else:
                     cone_graph.remove_vertex(-1)
 
@@ -112,6 +115,10 @@ parser.add_argument(
     default=50, type=int, help='number of nodes'
 )
 parser.add_argument(
+    '-s', '--sens_range',
+    default=1.0, type=float, help='sensing range'
+)
+parser.add_argument(
     '-r', '--rep',
     default=1, type=int, help='number of repetitions'
 )
@@ -122,12 +129,15 @@ arg = parser.parse_args()
 # Configuración
 # ------------------------------------------------------------------
 nmin = 2
+sens_range = arg.sens_range
 nmax = arg.nodes + 1
 size = nmax - nmin
 rep = arg.rep
 logs = Logs(
     nodes=np.arange(nmin, nmax),
+    diam=np.empty((rep, size), dtype=np.ndarray),
     delay=np.empty((rep, size), dtype=np.ndarray),
+    deg=np.empty((rep, size), dtype=np.ndarray),
     compl=np.empty((rep, size), dtype=np.ndarray),
 )
 
@@ -139,5 +149,7 @@ bar = progressbar.ProgressBar(maxval=size * rep)
 logs = run(nmin, nmax, size, rep, logs)
 
 write_csv('/tmp/nodes.csv', logs.nodes, one_row=True)
+write_csv('/tmp/diam.csv', logs.diam)
 write_csv('/tmp/delay.csv', logs.delay)
+write_csv('/tmp/deg.csv', logs.deg)
 write_csv('/tmp/compl.csv', logs.compl)
