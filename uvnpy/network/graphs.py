@@ -171,6 +171,12 @@ class ConeGraph(Framework):
         if (positions is not None) and (axes is not None):
             self.update(positions, axes)
 
+    def positions(self, d):
+        return self._real[:, :d].copy()
+
+    def axes(self, d):
+        return self._real[:, d:].copy()
+
     def update(self, positions, axes):
         """
         Cone graph adjacency matrix.
