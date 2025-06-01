@@ -108,6 +108,10 @@ class Framework(Graph):
         super().update(adjacency_matrix)
         self._real = realization.astype(float)
 
+    def remove_vertex(self, vertex):
+        super().remove_vertex(vertex)
+        self._real = np.delete(self._real, vertex, axis=0)
+
     def append_vertex(self, out_edges, in_edges, realization):
         super().append_vertex(out_edges, in_edges)
         self._real = np.vstack([self._real, realization])
