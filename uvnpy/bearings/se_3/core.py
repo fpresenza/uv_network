@@ -74,7 +74,7 @@ def rigidity_matrix(E, x):
     """Rigidity Matrix (jacobian of the bearing function)
 
     args:
-        x: (..., n, 2*d) position array
+        x: (n, 6) pose array
     """
     n = x.shape[0]
     m = E.shape[0]
