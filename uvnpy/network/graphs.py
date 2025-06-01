@@ -64,7 +64,7 @@ class ErdosRenyi(Graph):
     """
     Class representing a random graph based on the Erdos-Renyi model.
     """
-    def __init__(self, n, p):
+    def __init__(self, n, p, undirected=False):
         """
         args:
         -----
@@ -72,7 +72,10 @@ class ErdosRenyi(Graph):
             p : probability of existence of each edge
         """
         self.n = n
-        self.p = p
+        if undirected:
+            self.p = 1 - np.sqrt(1 - p)
+        else:
+            self.p = p
         self.update()
 
     def update(self):
