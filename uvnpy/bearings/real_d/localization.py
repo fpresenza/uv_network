@@ -7,10 +7,8 @@
 """
 import numpy as np
 
-np.set_printoptions(precision=10)
 
-
-class DecentralizedLocalization(object):
+class LocalizationFilter(object):
     def __init__(self, state, time=0.0):
         self.x = state.copy()
         self.t = time
@@ -19,7 +17,7 @@ class DecentralizedLocalization(object):
         return self.x.copy()
 
 
-class FirstOrderKalmanFilter(DecentralizedLocalization):
+class BearingBasedGradientFilter(LocalizationFilter):
     def __init__(
             self,
             pose,
@@ -39,7 +37,7 @@ class FirstOrderKalmanFilter(DecentralizedLocalization):
             bearing_meas_cov : distance measurement variance
             gps_meas_cov     : gps covariance
         """
-        super(FirstOrderKalmanFilter, self).__init__(pose, time)
+        super(BearingBasedGradientFilter, self).__init__(pose, time)
         self.P = pose_cov.copy()
         self.vel_meas_cov = vel_meas_cov
         self.bearing_meas_cov = bearing_meas_cov

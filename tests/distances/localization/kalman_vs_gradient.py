@@ -8,8 +8,8 @@ from uvnpy.network.core import edges_from_adjacency, incidence_from_edges
 from uvnpy.network.disk_graph import adjacency_from_positions
 from uvnpy.distances.core import distance_matrix_from_edges, is_inf_rigid
 from uvnpy.distances.localization import (
-    FirstOrderGradientFilter,
-    FirstOrderKalmanFilter
+    DistanceBasedGradientFilter,
+    DistanceBasedKalmanFilter
 )
 
 np.set_printoptions(precision=3, suppress=True, linewidth=200)
@@ -67,7 +67,7 @@ ax.set_ylabel(r'RMS error $[meters]$', fontsize=10)
 ##################
 stepsize = 0.025
 W = np.eye(2)
-estimator = [FirstOrderGradientFilter(
+estimator = [DistanceBasedGradientFilter(
     hatx[0, i], stepsize, W, tiempo[0]) for i in nodes]
 
 for k in steps[1:]:
@@ -128,7 +128,7 @@ hatP[0] = Pi
 
 q = 0.0
 Q = q**2 * np.eye(2)
-estimator = [FirstOrderKalmanFilter(
+estimator = [DistanceBasedKalmanFilter(
     hatx[0, i], Pi, Q, R, G**2 * np.eye(2), tiempo[0]) for i in nodes]
 
 for k in steps[1:]:

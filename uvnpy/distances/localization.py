@@ -8,7 +8,7 @@
 import numpy as np
 
 
-class DecentralizedLocalization(object):
+class LocalizationFilter(object):
     def __init__(self, state, time=0.0):
         self.x = state.copy()
         self.t = time
@@ -17,7 +17,7 @@ class DecentralizedLocalization(object):
         return self.x.copy()
 
 
-class FirstOrderGradientFilter(DecentralizedLocalization):
+class DistanceBasedGradientFilter(LocalizationFilter):
     def __init__(self, position, stepsize, input_weights, time=0.0):
         """
         Gradient Descent of the cost function:
@@ -31,7 +31,7 @@ class FirstOrderGradientFilter(DecentralizedLocalization):
             input_weights : input weigth
             time          : initial time
         """
-        super(FirstOrderGradientFilter, self).__init__(position, time)
+        super(DistanceBasedGradientFilter, self).__init__(position, time)
         self.stepsize = stepsize
         self.input_weights = input_weights
 
@@ -74,7 +74,7 @@ class FirstOrderGradientFilter(DecentralizedLocalization):
         self.x += self.stepsize * (position_meas - self.x)
 
 
-class FirstOrderKalmanFilter(DecentralizedLocalization):
+class DistanceBasedKalmanFilter(LocalizationFilter):
     def __init__(
             self,
             position,
@@ -94,7 +94,7 @@ class FirstOrderKalmanFilter(DecentralizedLocalization):
             range_meas_cov : distance measurement variance
             gps_meas_cov   : gps covariance
         """
-        super(FirstOrderKalmanFilter, self).__init__(position, time)
+        super(DistanceBasedKalmanFilter, self).__init__(position, time)
         self.P = position_cov.copy()
         self.vel_meas_cov = vel_meas_cov
         self.range_meas_cov = range_meas_cov
@@ -192,7 +192,7 @@ class FirstOrderKalmanFilter(DecentralizedLocalization):
         self.P -= K.dot(self.P)
 
 
-class SecondOrderKalmanFilter(DecentralizedLocalization):
+class SecondOrderKalmanFilter(LocalizationFilter):
     def __init__(
             self,
             state,

@@ -9,7 +9,7 @@ import copy
 import numba as nb
 
 from uvnpy.network import core
-from uvnpy.distances.localization import FirstOrderKalmanFilter
+from uvnpy.distances.localization import DistanceBasedKalmanFilter
 from uvnpy.routing.token_passing import TokenPassing
 from uvnpy.dynamics.linear_models import Integrator
 # from uvnpy.toolkit.functions import logistic_saturation
@@ -133,7 +133,7 @@ class Robot(object):
         self.u_rigidity = np.zeros(self.dim, dtype=float)
         self.last_control_action = np.zeros(self.dim, dtype=float)
         self.action = {}
-        self.loc = FirstOrderKalmanFilter(
+        self.loc = DistanceBasedKalmanFilter(
             position,
             position_cov=1.0 * np.eye(self.dim),
             vel_meas_cov=0.0 * np.eye(self.dim),

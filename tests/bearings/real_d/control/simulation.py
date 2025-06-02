@@ -11,7 +11,7 @@ import transformations
 
 from uvnpy.distances.core import minimum_distance
 from uvnpy.bearings.real_d.core import is_inf_rigid, minimum_rigidity_extents
-from uvnpy.bearings.real_d.localization import FirstOrderKalmanFilter
+from uvnpy.bearings.real_d.localization import BearingBasedGradientFilter
 from uvnpy.bearings.real_d.control import RigidityMaintenance
 from uvnpy.network.core import geodesics, as_undirected
 from uvnpy.dynamics.linear_models import Integrator
@@ -126,7 +126,7 @@ class Robot(object):
         self.u_rigidity = np.zeros(self.dim, dtype=float)
         self.control_action = np.zeros(self.dim, dtype=float)
         self.action = {}
-        self.loc = FirstOrderKalmanFilter(
+        self.loc = BearingBasedGradientFilter(
             pose,
             pose_cov=0.0 * np.eye(self.dim),
             vel_meas_cov=0.0 * np.eye(self.dim),
