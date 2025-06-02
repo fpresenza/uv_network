@@ -30,7 +30,6 @@ class RigidityMaintenance(object):
     """
     def __init__(
             self,
-            dim,
             dmax,
             steepness,
             power=1.0,
@@ -38,7 +37,6 @@ class RigidityMaintenance(object):
             eigenvalues='min',
             functional='pow'
             ):
-        self.dim = dim
         self.midpoint = dmax
         self.steepness = steepness
         self.r = abs(power)
@@ -69,7 +67,7 @@ class RigidityMaintenance(object):
 
     def gradient_log(self, matrix_deriv, eigenvalue, eigenvector):
         eigenvalue_deriv = eigenvector.dot(matrix_deriv).dot(eigenvector)
-        return - eigenvalue_deriv / (eigenvalue - self.threshold)
+        return - eigenvalue_deriv / np.abs(eigenvalue - self.threshold)
 
     def weighted_rigidity_matrix(self, x):
         d = distance_matrix(x)

@@ -122,7 +122,6 @@ class Robot(object):
             dmax=comm_range
         )
         self.maintenance = RigidityMaintenance(
-            dim=2,
             dmax=0.85 * comm_range,
             steepness=2.0,
             threshold=1e-4,
