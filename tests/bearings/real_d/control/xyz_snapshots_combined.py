@@ -193,10 +193,4 @@ ax.zaxis._axinfo['grid'].update(
 ax.get_proj = lambda: np.dot(Axes3D.get_proj(ax), np.diag([1, 1, 0.55, 1]))
 ax.set_box_aspect(None, zoom=1.1)
 
-fig.savefig(
-    'data/snapshots/snapshots.png',
-    format='png',
-    dpi=400,
-    bbox_inches="tight",
-    transparent=False
-)
+fig.savefig('data/snapshots/snapshots.pdf', bbox_inches='tight')

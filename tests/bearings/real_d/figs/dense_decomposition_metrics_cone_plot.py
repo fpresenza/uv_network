@@ -71,7 +71,7 @@ ax.legend(
     fontsize='x-small', handlelength=1,
     labelspacing=0.3, borderpad=0.2, loc='lower right'
 )
-fig.savefig('/tmp/bearing_delay.png', format='png', dpi=600)
+fig.savefig('/tmp/bearing_delay.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Complexity
@@ -113,4 +113,4 @@ ax.legend(
     fontsize='x-small', handlelength=1,
     labelspacing=0.3, borderpad=0.2, loc='lower right'
 )
-fig.savefig('/tmp/bearing_complexity.png', format='png', dpi=600)
+fig.savefig('/tmp/bearing_complexity.pdf', bbox_inches='tight')

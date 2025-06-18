@@ -96,7 +96,7 @@ ax.legend(
     fontsize='x-small', handlelength=1,
     labelspacing=0.1, borderpad=0.1, loc='center right', handletextpad=0.3
 )
-fig.savefig('/tmp/distance_extents.png', format='png', dpi=600)
+fig.savefig('/tmp/distance_extents.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Bearings
@@ -164,4 +164,4 @@ ax.legend(
     fontsize='x-small', handlelength=1,
     labelspacing=0.1, borderpad=0.1, loc='center', handletextpad=0.3
 )
-fig.savefig('/tmp/bearing_extents.png', format='png', dpi=600)
+fig.savefig('/tmp/bearing_extents.pdf', bbox_inches='tight')
