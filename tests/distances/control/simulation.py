@@ -6,26 +6,17 @@ import time
 import progressbar
 import numpy as np
 import copy
-import numba as nb
 
 from uvnpy.network import core
+from uvnpy.network.graphs import DiskGraph
+from uvnpy.network.subframeworks import superframework_extents
 from uvnpy.distances.localization import DistanceBasedKalmanFilter
 from uvnpy.routing.token_passing import TokenPassing
 from uvnpy.dynamics.linear_models import Integrator
-# from uvnpy.toolkit.functions import logistic_saturation
-from uvnpy.network.graphs import DiskGraph
 from uvnpy.distances.control import RigidityMaintenance
+from uvnpy.distances.core import is_inf_rigid, minimum_rigidity_extents
 from uvnpy.control.core import CollisionAvoidanceVanishing
 from uvnpy.control.targets import Targets, TargetTracking
-from uvnpy.distances.core import (
-    is_inf_rigid,
-    rigidity_eigenvalue,
-    minimum_rigidity_extents,
-)
-# from uvnpy.network.subframeworks import (
-#     valid_extents,
-#     sparse_subframeworks_greedy_search_by_expansion,
-# )
 
 
 # ------------------------------------------------------------------
@@ -39,18 +30,11 @@ np.set_printoptions(
 Logs = collections.namedtuple(
     'Logs',
     'time, \
-    time_comm, \
     position, \
     estimated_position,  \
-    covariance, \
     target_action, \
     collision_action, \
     rigidity_action, \
-    vel_meas_err, \
-    gps_meas_err, \
-    range_meas_err, \
-    fre, \
-    re, \
     adjacency, \
     action_extents, \
     state_extents, \
@@ -60,7 +44,6 @@ InterRobotMsg = collections.namedtuple(
     'InterRobotMsg',
     'node_id, \
     timestamp, \
-    in_balls, \
     action_tokens, \
     state_tokens')
 
@@ -69,9 +52,7 @@ NeigborhoodData = collections.namedtuple(
     'node_id, \
     timestamp, \
     position, \
-    covariance, \
-    range, \
-    is_isolated_edge')
+    range')
 
 
 class Neighborhood(dict):
@@ -80,17 +61,13 @@ class Neighborhood(dict):
             node_id,
             timestamp,
             position,
-            covariance,
-            range_measurement,
-            is_isolated_edge
+            range_measurement
             ):
         self[node_id] = NeigborhoodData(
             node_id=node_id,
             timestamp=timestamp,
             position=position,
-            covariance=covariance,
             range=range_measurement,
-            is_isolated_edge=is_isolated_edge
         )
 
 
@@ -100,8 +77,8 @@ class Robot(object):
             node_id,
             position,
             comm_range,
-            action_extent=0,
-            state_extent=1,
+            action_extent=None,
+            state_extent=None,
             t=0.0
             ):
         self.node_id = node_id
@@ -109,8 +86,6 @@ class Robot(object):
         self.action_extent = action_extent
         self.state_extent = state_extent
         self.current_time = t
-        self.self_centered_ball = {node_id} if (action_extent > 0) else set()
-        self.in_balls = self.self_centered_ball
         self.tracking = TargetTracking(
             tracking_radius=20.0,
             forget_radius=100.0,
@@ -136,7 +111,7 @@ class Robot(object):
         self.loc = DistanceBasedKalmanFilter(
             position,
             position_cov=1.0 * np.eye(self.dim),
-            vel_meas_cov=0.0 * np.eye(self.dim),
+            vel_meas_cov=0.01 * np.eye(self.dim),
             range_meas_cov=1.0,
             gps_meas_cov=1.0 * np.eye(self.dim)
         )
@@ -150,17 +125,13 @@ class Robot(object):
         action_tokens, state_tokens = self.routing.broadcast(
             timestamp=self.current_time,
             action=copy.deepcopy(self.action),
-            state={
-                'position': self.loc.state(),
-                'covariance': self.loc.covariance()
-            },
+            state={'position': self.loc.position()},
             action_extent=self.action_extent,
             state_extent=self.state_extent
         )
         msg = InterRobotMsg(
             node_id=self.node_id,
             timestamp=self.current_time,
-            in_balls=self.in_balls.copy(),
             action_tokens=action_tokens,
             state_tokens=state_tokens
         )
@@ -173,16 +144,10 @@ class Robot(object):
                 node_id=msg.node_id,
                 timestamp=msg.timestamp,
                 position=msg.state_tokens[msg.node_id].data['position'],
-                covariance=msg.state_tokens[msg.node_id].data['covariance'],
-                range_measurement=range_measurement,
-                is_isolated_edge=self.in_balls.isdisjoint(msg.in_balls)
+                range_measurement=range_measurement
             )
             self.routing.update_action(msg.action_tokens.values())
             self.routing.update_state(msg.state_tokens.values())
-
-        self.in_balls = self.self_centered_ball.union(
-            self.routing.action_centers()
-        )
 
     def update_state_extent(self):
         self.state_extent = max(1, self.routing.max_action_extent())
@@ -233,26 +198,12 @@ class Robot(object):
 
         # compose all control actions from containing balls
         cmd = self.routing.extract_action()
-        # if self.node_id == 14:
-        #     print(self.current_time, cmd)
         self.u_rigidity = u_sub[0] + sum(cmd.values())
-
-        # add action for isolated edges
-        for neighbor in self.neighborhood.values():
-            if neighbor.is_isolated_edge:
-                p = np.vstack([self.loc.position(), neighbor.position])
-                self.u_rigidity += self.maintenance.update(p)[0]
 
         # rigidity control gain
         self.u_rigidity *= 0.375
 
     def compose_actions(self):
-        # compose control actions from different objectives and
-        # apply logistic saturation
-        # self.last_control_action = logistic_saturation(
-        #     (self.u_target + self.u_collision + self.u_rigidity) * 0.85,
-        #     limit=3.0
-        # )
         self.last_control_action = \
             self.u_target + self.u_collision + self.u_rigidity
 
@@ -260,18 +211,10 @@ class Robot(object):
         self.loc.dynamic_step(self.current_time, vel_meas)
 
     def range_measurement_step(self):
-        if len(self.neighborhood) > 0:
-            neighbors_data = self.neighborhood.values()
-            z = np.array([
-                neighbor.range for neighbor in neighbors_data
-            ])
-            xj = np.array([
-                neighbor.position for neighbor in neighbors_data
-            ])
-            Pj = np.array([
-                neighbor.covariance for neighbor in neighbors_data
-            ])
-            self.loc.batch_range_step(z, xj, Pj)
+        for data in self.neighborhood.values():
+            self.loc.range_step(
+                data.range, data.position, np.zeros((2, 2), dtype=float)
+            )
 
     def gps_measurement_step(self, gps_meas):
         self.loc.gps_step(gps_meas)
@@ -280,10 +223,6 @@ class Robot(object):
 class Robots(list):
     def collect_estimated_positions(self):
         return np.hstack([robot.loc.position() for robot in self])
-
-    def collect_covariances(self):
-        return np.hstack([
-            np.linalg.eigvalsh(robot.loc.covariance()) for robot in self])
 
     def collect_action_extents(self):
         return np.hstack([robot.action_extent for robot in self])
@@ -310,8 +249,7 @@ class World(object):
             gps_available,
             vel_meas_stdev,
             range_meas_stdev,
-            gps_meas_stdev,
-            queue=1
+            gps_meas_stdev
             ):
         """Clase para simular una red de robots"""
         self.dim = dim
@@ -324,11 +262,7 @@ class World(object):
         self.range_meas_stdev = range_meas_stdev
         self.gps_meas_stdev = gps_meas_stdev
 
-        self.vel_meas_err = np.full((self.n, self.dim), np.nan)
-        self.gps_meas_err = np.full((self.n, self.dim), np.nan)
-        self.range_meas_err = np.full((self.n, self.n), np.nan)
-
-        self.cloud = collections.deque(maxlen=queue)
+        self.cloud = [[] for _ in range(self.n)]
 
     def positions(self, subset=None):
         if subset is None:
@@ -339,262 +273,106 @@ class World(object):
     def collect_positions(self):
         return np.hstack([robot.x for robot in self.robot_dynamics])
 
-    def collect_vel_meas_err(self):
-        return self.vel_meas_err.copy().ravel()
-
-    def collect_gps_meas_err(self):
-        return self.gps_meas_err.copy().ravel()
-
-    def collect_range_meas_err(self):
-        return self.range_meas_err.copy().ravel()
-
     def update_graph(self):
         self.graph.update(self.positions())
-
-    def framework_rigidity_eigenvalue(self):
-        return rigidity_eigenvalue(
-            self.graph.adjacency_matrix(), self.positions()
-        )
-
-    def subframeworks_rigidity_eigenvalue(self, robots):
-        geodesics = core.geodesics_dict(
-            self.graph.adjacency_matrix().astype(float)
-        )
-        eigs = []
-        for robot in robots:
-            if robot.action_extent > 0:
-                g_i = geodesics[robot.node_id]
-                h_i = robot.action_extent
-                subset = [j for j, g_ij in g_i.items() if g_ij <= h_i]
-                A = self.graph.adjacency_matrix()[np.ix_(subset, subset)]
-                p = self.positions(subset)
-                eigs.append(rigidity_eigenvalue(A, p))
-            else:
-                eigs.append(np.inf)
-
-        return eigs
 
     def velocity_measurement(self, node_index):
         if len(self.robot_dynamics[node_index].derivatives) > 0:
             vel = self.robot_dynamics[node_index].derivatives[0]
-            self.vel_meas_err[node_index] = np.random.normal(
+            vel_meas_err = np.random.normal(
                 scale=self.vel_meas_stdev, size=self.dim
             )
-            return vel + self.vel_meas_err[node_index]
+            return vel + vel_meas_err
         else:
-            self.vel_meas_err[node_index] = np.nan
             return None
 
     def gps_measurement(self, node_index):
         if node_index in self.gps_available:
             position = self.robot_dynamics[node_index].x
-            self.gps_meas_err[node_index] = np.random.normal(
+            gps_meas_err = np.random.normal(
                 scale=self.gps_meas_stdev, size=self.dim
             )
-            return position + self.gps_meas_err[node_index]
+            return position + gps_meas_err
         else:
-            self.gps_meas_err[node_index] = np.nan
             return None
 
     def upload_to_cloud(self, msg, node_index):
-        for neighbor_index in range(self.n):
-            if self.graph.is_edge(node_index, neighbor_index):
-                noise = np.random.normal(
-                        scale=self.range_meas_stdev, size=1
-                )
-                noisy_range = np.sqrt(np.square(
-                    self.robot_dynamics[node_index].x -
-                    self.robot_dynamics[neighbor_index].x
-                ).sum()) + noise
-                self.range_meas_err[node_index, neighbor_index] = noise
-                self.cloud[-1][neighbor_index].append((msg, noisy_range))
-            else:
-                self.range_meas_err[node_index, neighbor_index] = np.nan
+        for neighbor_index in self.graph.out_neighbors(node_index):
+            dist = np.sqrt(np.square(
+                self.robot_dynamics[node_index].x -
+                self.robot_dynamics[neighbor_index].x
+            ).sum())
+            range_meas_err = np.random.normal(
+                    scale=self.range_meas_stdev, size=1
+            )
+            self.cloud[neighbor_index].append((msg, dist + range_meas_err))
 
     def download_from_cloud(self, node_index):
-        return self.cloud[0][node_index].copy()
-
-
-def valid_ball(subset, adjacency, position):
-    """
-        A ball is considered valid if:
-        it has zero radius
-            or
-        it is infinitesimally rigid
-    """
-    if sum(subset) == 1:
-        return True
-
-    A = adjacency[:, subset][subset]
-    p = position[subset]
-    if is_inf_rigid(A, p):
-        return True
-
-    return False
-
-
-@nb.njit
-def decomposition_cost(extents, geodesics):
-    """
-    Computes the set of isolated links (edges not in any subframework).
-    """
-    n = len(extents)
-    s = 0
-
-    for i in range(n):
-        for j in range(i + 1, n):
-            if geodesics[i, j] == 1:
-                in_ball = (geodesics[i] <= extents) * (geodesics[j] <= extents)
-                # 1.0 if s > 2 else 5.0
-                c = sum(in_ball)
-                s += float(c) if c != 0 else 5.0
-    return s
+        msgs = self.cloud[node_index].copy()
+        self.cloud[node_index].clear()
+        return msgs
 
 
 # ------------------------------------------------------------------
 # Función run
 # ------------------------------------------------------------------
 
-
-def initialize_robots(simu_counter):
-    comm_events = 0
-    while comm_events < 2 * np.max(action_extents):
-        # update clocks
-        t = time_steps[simu_counter]
-        for robot in robots:
-            robot.update_clock(t)
-
-        # communication step
-        if (simu_counter % comm_skip == 0):
-            comm_events += 1
-            logs.time_comm.append(t)
-            world.cloud.append([[] for _ in robots])
-            for robot in robots:
-                msg = robot.create_msg()
-                node_index = index_map[robot.node_id]
-                world.upload_to_cloud(msg, node_index)
-            for robot in robots:
-                node_index = index_map[robot.node_id]
-                msgs = world.download_from_cloud(node_index)
-                robot.handle_received_msgs(msgs)
-                robot.update_state_extent()
-                robot.range_measurement_step()
-            print('Communication event {} finished'.format(comm_events))
-
-        # localization step
-        for robot in robots:
-            node_index = index_map[robot.node_id]
-
-            gps_meas = world.gps_measurement(node_index)
-            if (gps_meas is not None):
-                robot.gps_measurement_step(gps_meas)
-
-            vel_meas = world.velocity_measurement(node_index)
-            if (vel_meas is not None):
-                robot.velocity_measurement_step(vel_meas)
-
-        # log data
-        logs.time.append(t)
-        logs.position.append(world.collect_positions())
-        logs.estimated_position.append(robots.collect_estimated_positions())
-        logs.covariance.append(robots.collect_covariances())
-        logs.target_action.append(robots.collect_target_actions())
-        logs.collision_action.append(robots.collect_collision_actions())
-        logs.rigidity_action.append(robots.collect_rigidity_actions())
-        logs.vel_meas_err.append(world.collect_vel_meas_err())
-        logs.gps_meas_err.append(world.collect_gps_meas_err())
-        logs.range_meas_err.append(world.collect_range_meas_err())
-        logs.fre.append(world.framework_rigidity_eigenvalue())
-        logs.re.append(world.subframeworks_rigidity_eigenvalue(robots))
-        logs.adjacency.append(world.graph.adjacency_matrix().ravel())
-        logs.action_extents.append(robots.collect_action_extents())
-        logs.state_extents.append(robots.collect_state_extents())
-        logs.targets.append(targets.data.ravel().copy())
-
-        for robot in robots:
-            node_index = index_map[robot.node_id]
-            world.robot_dynamics[node_index].step(t, robot.last_control_action)
-        world.update_graph()
-        targets.update(world.positions())
-
-        simu_counter += 1
-
-    print(
-        'Initialization completed after {} communication events.'
-        .format(comm_events)
-    )
-
-    return simu_counter
-
-
 def run_mission(simu_counter, end_counter):
     bar = progressbar.ProgressBar(maxval=arg.simu_time).start()
     perf_time = []
     while simu_counter < end_counter:
-        t_a = time.perf_counter()
-
-        # update clocks
         t = time_steps[simu_counter]
-        for robot in robots:
-            robot.update_clock(t)
-
-        # communication step
-        if (simu_counter % comm_skip == 0):
-            logs.time_comm.append(t)
-            world.cloud.append([[] for _ in robots])
-            for robot in robots:
-                msg = robot.create_msg()
-                node_index = index_map[robot.node_id]
-                world.upload_to_cloud(msg, node_index)
-            for robot in robots:
-                node_index = index_map[robot.node_id]
-                msgs = world.download_from_cloud(node_index)
-                robot.handle_received_msgs(msgs)
-                robot.range_measurement_step()
-                robot.rigidity_maintenance_control_action()
-
-        # localization and control step
-        # TODO: should be est position
-        alloc = targets.allocation(world.positions())
-
-        for robot in robots:
-            node_index = index_map[robot.node_id]
-
-            robot.target_tracking_control_action(alloc[node_index])
-            robot.collision_avoidance_control_action()
-            robot.compose_actions()
-
-            gps_meas = world.gps_measurement(node_index)
-            if (gps_meas is not None):
-                robot.gps_measurement_step(gps_meas)
-
-            vel_meas = world.velocity_measurement(node_index)
-            if (vel_meas is not None):
-                robot.velocity_measurement_step(vel_meas)
+        t_a = time.perf_counter()
 
         # log data
         logs.time.append(t)
         logs.position.append(world.collect_positions())
         logs.estimated_position.append(robots.collect_estimated_positions())
-        logs.covariance.append(robots.collect_covariances())
         logs.target_action.append(robots.collect_target_actions())
         logs.collision_action.append(robots.collect_collision_actions())
         logs.rigidity_action.append(robots.collect_rigidity_actions())
-        logs.vel_meas_err.append(world.collect_vel_meas_err())
-        logs.gps_meas_err.append(world.collect_gps_meas_err())
-        logs.range_meas_err.append(world.collect_range_meas_err())
-        logs.fre.append(world.framework_rigidity_eigenvalue())
-        logs.re.append(world.subframeworks_rigidity_eigenvalue(robots))
         logs.adjacency.append(world.graph.adjacency_matrix().ravel())
         logs.action_extents.append(robots.collect_action_extents())
         logs.state_extents.append(robots.collect_state_extents())
         logs.targets.append(targets.data.ravel().copy())
 
+        # update clocks
         for robot in robots:
-            node_index = index_map[robot.node_id]
-            world.robot_dynamics[node_index].step(t, robot.last_control_action)
+            robot.update_clock(t)
+
+        # control step
+        if (simu_counter % ctrl_skip == 0):
+            alloc = targets.allocation(world.positions())
+            for i, robot in enumerate(robots):
+                msg = robot.create_msg()
+                world.upload_to_cloud(msg, i)
+            for i, robot in enumerate(robots):
+                msgs = world.download_from_cloud(i)
+                robot.handle_received_msgs(msgs)
+                robot.range_measurement_step()
+                robot.target_tracking_control_action(alloc[i])
+                robot.collision_avoidance_control_action()
+                robot.rigidity_maintenance_control_action()
+                robot.compose_actions()
+
+        for i, robot in enumerate(robots):
+            world.robot_dynamics[i].step(t, robot.last_control_action)
         world.update_graph()
         targets.update(world.positions())
+
+        # odom step
+        if (simu_counter % odom_skip == 0):
+            for i, robot in enumerate(robots):
+                vel_meas = world.velocity_measurement(i)
+                if (vel_meas is not None):
+                    robot.velocity_measurement_step(vel_meas)
+
+        # gps step
+        if (simu_counter % gps_skip == 0):
+            for i, robot in enumerate(robots):
+                gps_meas = world.gps_measurement(i)
+                if (gps_meas is not None):
+                    robot.gps_measurement_step(gps_meas)
 
         simu_counter += 1
 
@@ -622,42 +400,50 @@ parser.add_argument(
 )
 parser.add_argument(
     '-t', '--simu_time',
-    default=10.0, type=float, help='total simulation time in seconds'
+    default=1.0, type=float, help='total simulation time in seconds'
 )
 parser.add_argument(
-    '-c', '--comm_skip',
-    default=1, type=int, help='communication skip in number of simu_step'
+    '-c', '--ctrl_skip',
+    default=1, type=int, help='control skip in number of simu_step'
 )
 parser.add_argument(
-    '-q', '--queue',
-    default=1, type=int, help='communication cloud queue length'
+    '-g', '--gps_skip',
+    default=1, type=int, help='gps skip in number of simu_step'
 )
+parser.add_argument(
+    '-o', '--odom_skip',
+    default=1, type=int, help='odometry skip in number of simu_step'
+)
+
 arg = parser.parse_args()
 
 # ------------------------------------------------------------------
 # Configuración
 # ------------------------------------------------------------------
-
-
-def index_of(t): return int(t / simu_step)
-
-
 # Simulation parameters
-
-np.random.seed(1)
 simu_time = arg.simu_time
 simu_step = arg.simu_step / 1000.0
-time_steps = [simu_step * k for k in range(int(simu_time / simu_step))]
 n_steps = int(simu_time / simu_step)
-comm_skip = arg.comm_skip
+time_steps = [simu_step * k for k in range(n_steps)]
+ctrl_skip = arg.ctrl_skip
+gps_skip = arg.gps_skip
+odom_skip = arg.odom_skip
 
 print(
-    'Simulation Time: begin = {}, end = {}, step = {}'
+    'Simulation Time: begin = {}, end = {}, step = {} sec'
     .format(0.0, simu_time, simu_step)
 )
 print(
-    'Communication Time: begin = {}, end = {}, step = {}'
-    .format(0.0, simu_time, comm_skip * simu_step)
+    'Control step {} sec'
+    .format(ctrl_skip * simu_step)
+)
+print(
+    'GPS step = {} sec'
+    .format(gps_skip * simu_step)
+)
+print(
+    'Odometry step = {} sec'
+    .format(odom_skip * simu_step)
 )
 
 # world parameters
@@ -699,8 +485,7 @@ world = World(
     gps_available=[6, 8],
     vel_meas_stdev=0.0,
     range_meas_stdev=0.0,
-    gps_meas_stdev=0.0,
-    queue=arg.queue
+    gps_meas_stdev=0.0
 )
 
 robots = Robots([
@@ -708,14 +493,9 @@ robots = Robots([
         node_id=i,
         position=np.random.normal(position[i],  0.0),
         comm_range=comm_range,
-        action_extent=1,
-        # state_extent=2
     )
     for i in range(n)
 ])
-
-index_map = {robots[i].node_id: i for i in range(n)}
-# print('Index map: {}'.format(index_map))
 
 targets = Targets(
     n=30,
@@ -724,84 +504,90 @@ targets = Targets(
     up_lim=(100.0, 100.0),
     coverage=5.0
 )
+targets.data[:, :2] = np.array([
+    [69.1877114, 31.5515631],
+    [68.65009277, 83.46256719],
+    [1.82882773, 75.01443149],
+    [98.88610889, 74.81656544],
+    [28.04439921, 78.92793285],
+    [10.32260066, 44.78935262],
+    [90.85955031, 29.36141484],
+    [28.77753386, 13.00285721],
+    [1.93669579, 67.88355329],
+    [21.1628116, 26.55466594],
+    [49.15731593,  5.33625451],
+    [57.41176055, 14.67285749],
+    [58.93055369, 69.975836],
+    [10.23344288, 41.40559878],
+    [69.44001577, 41.41792695],
+    [4.99534589, 53.58964059],
+    [66.37946452, 51.48891121],
+    [94.4594756, 58.65550405],
+    [90.34019153, 13.74747041],
+    [13.92763473, 80.73912887],
+    [39.7676837, 16.53541971],
+    [92.75085804, 34.77658597],
+    [75.08121031, 72.59979854],
+    [88.33060912, 62.36722071],
+    [75.0942434, 34.8898342],
+    [26.99278918, 89.58862182],
+    [42.80911899, 96.48400471],
+    [66.34414978, 62.16957202],
+    [11.4745973, 94.94892587],
+    [44.99121335, 57.83896144],
+])
 
 # ------------------------------------------------------------------
 # Simulación
 # ------------------------------------------------------------------
 logs = Logs(
     time=[],
-    time_comm=[],
     position=[],
     estimated_position=[],
-    covariance=[],
     target_action=[],
     collision_action=[],
     rigidity_action=[],
-    vel_meas_err=[],
-    gps_meas_err=[],
-    range_meas_err=[],
-    fre=[],
-    re=[],
     adjacency=[],
     action_extents=[],
     state_extents=[],
     targets=[]
 )
 
-simu_counter = 0
-for t_break in [simu_time]:
-    position = world.positions()
-    adjacency_matrix = world.graph.adjacency_matrix().astype(float)
-    geodesics_matrix = core.geodesics(adjacency_matrix)
-    # max_extent = 2
-    # valid_action_extents = valid_extents(
-    #     geodesics=geodesics_matrix,
-    #     condition=valid_ball,
-    #     max_extent=max_extent,
-    #     args=(adjacency_matrix, position)
-    # )
-    # action_extents = sparse_subframeworks_greedy_search_by_expansion(
-    #     valid_extents=valid_action_extents,
-    #     metric=decomposition_cost,
-    #     geodesics=geodesics_matrix,
-    # )
-    action_extents = minimum_rigidity_extents(geodesics_matrix, position)
-    print(
-        'Action extents: \n' +
-        '\n'.join(
-            '\t node = {}, extent = {}'.format(i, r)
-            for i, r in enumerate(action_extents) if r > 0
-        )
+position = world.positions()
+adjacency_matrix = world.graph.adjacency_matrix().astype(float)
+geodesics_matrix = core.geodesics(adjacency_matrix)
+action_extents = minimum_rigidity_extents(geodesics_matrix, position)
+state_extents = superframework_extents(geodesics_matrix, action_extents)
+print(
+    'Action extents: \n' +
+    '\n'.join(
+        '\t node = {}, extent = {}'.format(i, r)
+        for i, r in enumerate(action_extents) if r > 0
     )
-    for robot in robots:
-        node_index = index_map[robot.node_id]
-        robot.action_extent = action_extents[node_index]
-        robot.last_control_action = np.zeros(2, dtype=float)
+)
+for i, robot in enumerate(robots):
+    robot.action_extent = action_extents[i]
+    robot.state_extent = state_extents[i]
+    robot.last_control_action = np.zeros(2, dtype=float)
 
-    simu_counter = initialize_robots(simu_counter)
-    print(
-        'State extents: \n' +
-        '\n'.join(
-            '\t node = {}, extent = {}'
-            .format(robot.node_id, robot.state_extent)
-            for robot in robots
-        )
+print(
+    'State extents: \n' +
+    '\n'.join(
+        '\t node = {}, extent = {}'
+        .format(robot.node_id, robot.state_extent)
+        for robot in robots
     )
-    simu_counter = run_mission(simu_counter, end_counter=index_of(t_break))
+)
+
+simu_counter = 0
+simu_counter = run_mission(simu_counter, end_counter=n_steps)
 
 np.savetxt('data/t.csv', logs.time, delimiter=',')
-np.savetxt('data/tc.csv', logs.time_comm, delimiter=',')
 np.savetxt('data/position.csv', logs.position, delimiter=',')
 np.savetxt('data/est_position.csv', logs.estimated_position, delimiter=',')
-np.savetxt('data/covariance.csv', logs.covariance, delimiter=',')
 np.savetxt('data/target_action.csv', logs.target_action, delimiter=',')
 np.savetxt('data/collision_action.csv', logs.collision_action, delimiter=',')
 np.savetxt('data/rigidity_action.csv', logs.rigidity_action, delimiter=',')
-np.savetxt('data/vel_meas_err.csv', logs.vel_meas_err, delimiter=',')
-np.savetxt('data/gps_meas_err.csv', logs.gps_meas_err, delimiter=',')
-np.savetxt('data/range_meas_err.csv', logs.range_meas_err, delimiter=',')
-np.savetxt('data/fre.csv', logs.fre, delimiter=',')
-np.savetxt('data/re.csv', logs.re, delimiter=',')
 np.savetxt('data/adjacency.csv', logs.adjacency, delimiter=',')
 np.savetxt('data/action_extents.csv', logs.action_extents, delimiter=',')
 np.savetxt('data/state_extents.csv', logs.state_extents, delimiter=',')
