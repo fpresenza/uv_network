@@ -207,8 +207,8 @@ class Robot(object):
         self.last_control_action = \
             self.u_target + self.u_collision + self.u_rigidity
 
-    def velocity_measurement_step(self, vel_meas):
-        self.loc.dynamic_step(self.current_time, vel_meas)
+    def control_action_step(self, control_action):
+        self.loc.dynamic_step(self.current_time, control_action)
 
     def range_measurement_step(self):
         for data in self.neighborhood.values():
@@ -247,7 +247,7 @@ class World(object):
             robot_dynamics,
             graph,
             gps_available,
-            vel_meas_stdev,
+            ctrl_action_stdev,
             range_meas_stdev,
             gps_meas_stdev
             ):
@@ -258,7 +258,7 @@ class World(object):
         self.graph = graph
         self.gps_available = gps_available
 
-        self.vel_meas_stdev = vel_meas_stdev
+        self.ctrl_action_stdev = ctrl_action_stdev
         self.range_meas_stdev = range_meas_stdev
         self.gps_meas_stdev = gps_meas_stdev
 
@@ -276,15 +276,13 @@ class World(object):
     def update_graph(self):
         self.graph.update(self.positions())
 
-    def velocity_measurement(self, node_index):
-        if len(self.robot_dynamics[node_index].derivatives) > 0:
-            vel = self.robot_dynamics[node_index].derivatives[0]
-            vel_meas_err = np.random.normal(
-                scale=self.vel_meas_stdev, size=self.dim
-            )
-            return vel + vel_meas_err
-        else:
-            return None
+    def apply_control_action(self, t, node_index, control_action):
+        ctrl_action_err = np.random.normal(
+            scale=self.ctrl_action_stdev, size=self.dim
+        )
+        self.robot_dynamics[node_index].step(
+            t, control_action + ctrl_action_err
+        )
 
     def gps_measurement(self, node_index):
         if node_index in self.gps_available:
@@ -354,18 +352,12 @@ def run_mission(simu_counter, end_counter):
                 robot.collision_avoidance_control_action()
                 robot.rigidity_maintenance_control_action()
                 robot.compose_actions()
+                robot.control_action_step(robot.last_control_action)
 
         for i, robot in enumerate(robots):
-            world.robot_dynamics[i].step(t, robot.last_control_action)
+            world.apply_control_action(t, i, robot.last_control_action)
         world.update_graph()
         targets.update(world.positions())
-
-        # odom step
-        if (simu_counter % odom_skip == 0):
-            for i, robot in enumerate(robots):
-                vel_meas = world.velocity_measurement(i)
-                if (vel_meas is not None):
-                    robot.velocity_measurement_step(vel_meas)
 
         # gps step
         if (simu_counter % gps_skip == 0):
@@ -410,10 +402,6 @@ parser.add_argument(
     '-g', '--gps_skip',
     default=1, type=int, help='gps skip in number of simu_step'
 )
-parser.add_argument(
-    '-o', '--odom_skip',
-    default=1, type=int, help='odometry skip in number of simu_step'
-)
 
 arg = parser.parse_args()
 
@@ -427,7 +415,6 @@ n_steps = int(simu_time / simu_step)
 time_steps = [simu_step * k for k in range(n_steps)]
 ctrl_skip = arg.ctrl_skip
 gps_skip = arg.gps_skip
-odom_skip = arg.odom_skip
 
 print(
     'Simulation Time: begin = {}, end = {}, step = {} sec'
@@ -440,10 +427,6 @@ print(
 print(
     'GPS step = {} sec'
     .format(gps_skip * simu_step)
-)
-print(
-    'Odometry step = {} sec'
-    .format(odom_skip * simu_step)
 )
 
 # world parameters
@@ -483,7 +466,7 @@ world = World(
     robot_dynamics=[Integrator(position[i]) for i in range(n)],
     graph=graph,
     gps_available=[6, 8],
-    vel_meas_stdev=0.0,
+    ctrl_action_stdev=0.0,
     range_meas_stdev=0.0,
     gps_meas_stdev=0.0
 )
