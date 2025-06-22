@@ -31,7 +31,7 @@ Logs = collections.namedtuple(
     'Logs',
     'time, \
     position, \
-    estimated_position,  \
+    est_position,  \
     target_action, \
     collision_action, \
     rigidity_action, \
@@ -152,9 +152,6 @@ class Robot(object):
     def update_state_extent(self):
         self.state_extent = max(1, self.routing.max_action_extent())
 
-    def set_control_action(self, u):
-        self.last_control_action = u
-
     def target_tracking_control_action(self, target):
         if (target is not None):
             # go to allocated target
@@ -207,8 +204,8 @@ class Robot(object):
         self.last_control_action = \
             self.u_target + self.u_collision + self.u_rigidity
 
-    def control_action_step(self, control_action):
-        self.loc.dynamic_step(self.current_time, control_action)
+    def control_action_step(self):
+        self.loc.dynamic_step(self.current_time, self.last_control_action)
 
     def range_measurement_step(self):
         for data in self.neighborhood.values():
@@ -221,7 +218,7 @@ class Robot(object):
 
 
 class Robots(list):
-    def collect_estimated_positions(self):
+    def collect_est_positions(self):
         return np.hstack([robot.loc.position() for robot in self])
 
     def collect_action_extents(self):
@@ -323,36 +320,37 @@ def run_mission(simu_counter, end_counter):
         t_a = time.perf_counter()
 
         # log data
-        logs.time.append(t)
-        logs.position.append(world.collect_positions())
-        logs.estimated_position.append(robots.collect_estimated_positions())
-        logs.target_action.append(robots.collect_target_actions())
-        logs.collision_action.append(robots.collect_collision_actions())
-        logs.rigidity_action.append(robots.collect_rigidity_actions())
-        logs.adjacency.append(world.graph.adjacency_matrix().ravel())
-        logs.action_extents.append(robots.collect_action_extents())
-        logs.state_extents.append(robots.collect_state_extents())
-        logs.targets.append(targets.data.ravel().copy())
+        if (simu_counter % log_skip == 0):
+            logs.time.append(t)
+            logs.position.append(world.collect_positions())
+            logs.est_position.append(robots.collect_est_positions())
+            logs.target_action.append(robots.collect_target_actions())
+            logs.collision_action.append(robots.collect_collision_actions())
+            logs.rigidity_action.append(robots.collect_rigidity_actions())
+            logs.adjacency.append(world.graph.adjacency_matrix().ravel())
+            logs.action_extents.append(robots.collect_action_extents())
+            logs.state_extents.append(robots.collect_state_extents())
+            logs.targets.append(targets.data.ravel().copy())
 
         # update clocks
         for robot in robots:
             robot.update_clock(t)
 
         # control step
-        if (simu_counter % ctrl_skip == 0):
+        if (simu_counter > 0 and simu_counter % ctrl_skip == 0):
             alloc = targets.allocation(world.positions())
             for i, robot in enumerate(robots):
+                robot.control_action_step()
+                robot.target_tracking_control_action(alloc[i])
+                robot.collision_avoidance_control_action()
+                robot.rigidity_maintenance_control_action()
+                robot.compose_actions()
                 msg = robot.create_msg()
                 world.upload_to_cloud(msg, i)
             for i, robot in enumerate(robots):
                 msgs = world.download_from_cloud(i)
                 robot.handle_received_msgs(msgs)
                 robot.range_measurement_step()
-                robot.target_tracking_control_action(alloc[i])
-                robot.collision_avoidance_control_action()
-                robot.rigidity_maintenance_control_action()
-                robot.compose_actions()
-                robot.control_action_step(robot.last_control_action)
 
         for i, robot in enumerate(robots):
             world.apply_control_action(t, i, robot.last_control_action)
@@ -360,7 +358,7 @@ def run_mission(simu_counter, end_counter):
         targets.update(world.positions())
 
         # gps step
-        if (simu_counter % gps_skip == 0):
+        if (simu_counter > 0 and simu_counter % gps_skip == 0):
             for i, robot in enumerate(robots):
                 gps_meas = world.gps_measurement(i)
                 if (gps_meas is not None):
@@ -395,6 +393,10 @@ parser.add_argument(
     default=1.0, type=float, help='total simulation time in seconds'
 )
 parser.add_argument(
+    '-l', '--log_skip',
+    default=1, type=int, help='logger skip in number of simu_step'
+)
+parser.add_argument(
     '-c', '--ctrl_skip',
     default=1, type=int, help='control skip in number of simu_step'
 )
@@ -413,6 +415,7 @@ simu_time = arg.simu_time
 simu_step = arg.simu_step / 1000.0
 n_steps = int(simu_time / simu_step)
 time_steps = [simu_step * k for k in range(n_steps)]
+log_skip = arg.log_skip
 ctrl_skip = arg.ctrl_skip
 gps_skip = arg.gps_skip
 
@@ -440,7 +443,7 @@ position = np.array([
     [24.375, 32.719],
     [37.217, 16.962],
     [11.93, 14.068],
-    [27.872, 25.36],
+    [27.428, 23.927],
     [23.436, 11.032],
     [22.484, 21.999]
 ])
@@ -526,7 +529,7 @@ targets.data[:, :2] = np.array([
 logs = Logs(
     time=[],
     position=[],
-    estimated_position=[],
+    est_position=[],
     target_action=[],
     collision_action=[],
     rigidity_action=[],
@@ -567,7 +570,7 @@ simu_counter = run_mission(simu_counter, end_counter=n_steps)
 
 np.savetxt('data/t.csv', logs.time, delimiter=',')
 np.savetxt('data/position.csv', logs.position, delimiter=',')
-np.savetxt('data/est_position.csv', logs.estimated_position, delimiter=',')
+np.savetxt('data/est_position.csv', logs.est_position, delimiter=',')
 np.savetxt('data/target_action.csv', logs.target_action, delimiter=',')
 np.savetxt('data/collision_action.csv', logs.collision_action, delimiter=',')
 np.savetxt('data/rigidity_action.csv', logs.rigidity_action, delimiter=',')
