@@ -319,25 +319,19 @@ def run_mission(simu_counter, end_counter):
         t = time_steps[simu_counter]
         t_a = time.perf_counter()
 
-        # log data
-        if (simu_counter % log_skip == 0):
-            logs.time.append(t)
-            logs.position.append(world.collect_positions())
-            logs.est_position.append(robots.collect_est_positions())
-            logs.target_action.append(robots.collect_target_actions())
-            logs.collision_action.append(robots.collect_collision_actions())
-            logs.rigidity_action.append(robots.collect_rigidity_actions())
-            logs.adjacency.append(world.graph.adjacency_matrix().ravel())
-            logs.action_extents.append(robots.collect_action_extents())
-            logs.state_extents.append(robots.collect_state_extents())
-            logs.targets.append(targets.data.ravel().copy())
+        # -- World update -- #
+        for i, robot in enumerate(robots):
+            world.apply_control_action(t, i, robot.last_control_action)
+        world.update_graph()
+        targets.update(world.positions())
 
+        # -- Robot logic -- #
         # update clocks
         for robot in robots:
             robot.update_clock(t)
 
         # control step
-        if (simu_counter > 0 and simu_counter % ctrl_skip == 0):
+        if (simu_counter > 0) and (simu_counter % ctrl_skip == 0):
             alloc = targets.allocation(world.positions())
             for i, robot in enumerate(robots):
                 robot.control_action_step()
@@ -350,19 +344,27 @@ def run_mission(simu_counter, end_counter):
             for i, robot in enumerate(robots):
                 msgs = world.download_from_cloud(i)
                 robot.handle_received_msgs(msgs)
-                robot.range_measurement_step()
+                # robot.range_measurement_step()
 
-        for i, robot in enumerate(robots):
-            world.apply_control_action(t, i, robot.last_control_action)
-        world.update_graph()
-        targets.update(world.positions())
+        # # gps step
+        # if (simu_counter > 0) and (simu_counter % gps_skip == 0):
+        #     for i, robot in enumerate(robots):
+        #         gps_meas = world.gps_measurement(i)
+        #         if (gps_meas is not None):
+        #             robot.gps_measurement_step(gps_meas)
 
-        # gps step
-        if (simu_counter > 0 and simu_counter % gps_skip == 0):
-            for i, robot in enumerate(robots):
-                gps_meas = world.gps_measurement(i)
-                if (gps_meas is not None):
-                    robot.gps_measurement_step(gps_meas)
+        # -- Data log -- #
+        if (simu_counter % log_skip == 0):
+            logs.time.append(t)
+            logs.position.append(world.collect_positions())
+            logs.adjacency.append(world.graph.adjacency_matrix().ravel())
+            logs.targets.append(targets.data.ravel().copy())
+            logs.est_position.append(robots.collect_est_positions())
+            logs.target_action.append(robots.collect_target_actions())
+            logs.collision_action.append(robots.collect_collision_actions())
+            logs.rigidity_action.append(robots.collect_rigidity_actions())
+            logs.action_extents.append(robots.collect_action_extents())
+            logs.state_extents.append(robots.collect_state_extents())
 
         simu_counter += 1
 
@@ -424,7 +426,7 @@ print(
     .format(0.0, simu_time, simu_step)
 )
 print(
-    'Control step {} sec'
+    'Control step = {} sec'
     .format(ctrl_skip * simu_step)
 )
 print(
