@@ -474,11 +474,32 @@ world = World(
     gps_meas_stdev=0.0
 )
 
+adjacency_matrix = graph.adjacency_matrix().astype(float)
+geodesics_matrix = core.geodesics(adjacency_matrix)
+action_extents = minimum_rigidity_extents(geodesics_matrix, position)
+state_extents = superframework_extents(geodesics_matrix, action_extents)
+print(
+    'Action extents: \n' +
+    '\n'.join(
+        '\t node = {}, extent = {}'.format(i, r)
+        for i, r in enumerate(action_extents) if r > 0
+    )
+)
+print(
+    'State extents: \n' +
+    '\n'.join(
+        '\t node = {}, extent = {}'.format(i, r)
+        for i, r in enumerate(state_extents) if r > 0
+    )
+)
+
 robots = Robots([
     Robot(
         node_id=i,
         position=np.random.normal(position[i],  0.0),
         comm_range=comm_range,
+        action_extent=action_extents[i],
+        state_extent=state_extents[i]
     )
     for i in range(n)
 ])
@@ -537,32 +558,6 @@ logs = Logs(
     action_extents=[],
     state_extents=[],
     targets=[]
-)
-
-position = world.positions()
-adjacency_matrix = world.graph.adjacency_matrix().astype(float)
-geodesics_matrix = core.geodesics(adjacency_matrix)
-action_extents = minimum_rigidity_extents(geodesics_matrix, position)
-state_extents = superframework_extents(geodesics_matrix, action_extents)
-print(
-    'Action extents: \n' +
-    '\n'.join(
-        '\t node = {}, extent = {}'.format(i, r)
-        for i, r in enumerate(action_extents) if r > 0
-    )
-)
-for i, robot in enumerate(robots):
-    robot.action_extent = action_extents[i]
-    robot.state_extent = state_extents[i]
-    robot.last_control_action = np.zeros(2, dtype=float)
-
-print(
-    'State extents: \n' +
-    '\n'.join(
-        '\t node = {}, extent = {}'
-        .format(robot.node_id, robot.state_extent)
-        for robot in robots
-    )
 )
 
 simu_counter = 0
