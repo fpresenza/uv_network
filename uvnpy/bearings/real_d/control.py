@@ -3,7 +3,6 @@
 """
 @author Francisco Presenza
 @institute LAR - FIUBA, Universidad de Buenos Aires, Argentina
-@date jue sep 23 17:04:15 -03 2021
 """
 import numpy as np
 

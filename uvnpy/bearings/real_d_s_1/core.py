@@ -101,10 +101,10 @@ def rigidity_matrix(E, x):
         P = Id - np.dot(b.reshape(-1, 1), b.reshape(1, -1))
         M = np.dot(P, Ct) / q
 
-        R[e, :, i, 0:3] = -M
-        R[e, 0, i, 3] = b[1]
-        R[e, 1, i, 3] = -b[0]
-        R[e, :, j, 0:3] = M
+        R[e, :, i, 0:d] = -M
+        R[e, 0, i, d] = b[1]
+        R[e, 1, i, d] = -b[0]
+        R[e, :, j, 0:d] = M
 
     return R.reshape(d * m, s * n)
 
