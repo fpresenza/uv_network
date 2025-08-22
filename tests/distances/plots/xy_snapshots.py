@@ -37,7 +37,7 @@ arg = parser.parse_args()
 # ------------------------------------------------------------------
 # Read simulated data
 # ------------------------------------------------------------------
-t = np.loadtxt('data/t.csv', delimiter=',')
+t = np.loadtxt('data/log_time.csv', delimiter=',')
 arg.end = t[-1] if (arg.end == 0) else arg.end
 
 # slices
@@ -46,7 +46,7 @@ k_i_jump = int(k_i / arg.jump)
 k_e = int(np.argmin(np.abs(t - arg.end))) + 1
 
 x = data.read_csv(
-    'data/position.csv',
+    'data/robots_position.csv',
     rows=(k_i, k_e),
     jump=arg.jump,
     dtype=float,
@@ -54,25 +54,21 @@ x = data.read_csv(
 )
 n = len(x[0])
 
-A = data.read_csv(
-    'data/adjacency.csv',
+edge_list = data.read_csv(
+    'data/edge_list.csv',
     rows=(k_i, k_e),
     jump=arg.jump,
-    dtype=float,
-    shape=(n, n)
+    dtype=int,
+    shape=(-1, 2)
 )
+len(edge_list)
+
 targets = data.read_csv(
-    'data/targets.csv',
+    'data/targets_position.csv',
     rows=(k_i, k_e),
     jump=arg.jump,
     dtype=float,
     shape=(-1, 3)
-)
-action_extents = data.read_csv(
-    'data/action_extents.csv',
-    rows=(k_i, k_e),
-    jump=arg.jump,
-    dtype=float
 )
 
 N = len(x)
@@ -121,7 +117,7 @@ for k in range(N):
     plot.edges(
         ax,
         x[k],
-        A[k],
+        edge_list[k],
         color='0.0',
         alpha=0.5,
         lw=0.3,
@@ -138,7 +134,7 @@ for k in range(N):
         lw=0.2
     )
 
-    fig.savefig('data/snapshots/{}.png'.format(k), bbox_inches='tight')
+    fig.savefig('xy_snapshots/{}.png'.format(k), bbox_inches='tight', dpi=600)
     plt.close()
     bar.update(k)
 
