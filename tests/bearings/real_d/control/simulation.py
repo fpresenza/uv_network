@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
 import argparse
 import collections
 from dataclasses import dataclass
@@ -14,7 +15,7 @@ from uvnpy.bearings.real_d.core import is_inf_rigid, minimum_rigidity_extents
 from uvnpy.bearings.real_d.localization import BearingBasedGradientFilter
 from uvnpy.bearings.real_d.control import RigidityMaintenance
 from uvnpy.network.core import geodesics, as_undirected
-from uvnpy.dynamics.linear_models import Integrator
+from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.network.graphs import DiskGraph, ConeGraph
 from uvnpy.control.core import CollisionAvoidanceVanishing
 from uvnpy.control.targets import Targets, TargetTracking
@@ -40,7 +41,6 @@ class Logs(object):
     target_action: list
     collision_action: list
     rigidity_action: list
-    vel_meas_err: list
     gps_meas_err: list
     bearing_meas_err: list
     sens_adj: list
@@ -275,9 +275,6 @@ class Robot(object):
     def stop_motion(self):
         self.control_action = np.zeros(self.dim, dtype=float)
 
-    def velocity_measurement_step(self, vel_meas):
-        self.loc.dynamic_step(self.current_time, vel_meas)
-
     def bearing_measurement_step(self):
         sensing_neighbors = [
             neighbor
@@ -332,7 +329,6 @@ class MultiRobotNetwork(object):
             sens_graph,
             comm_graph,
             gps_available,
-            vel_meas_stdev,
             bearing_meas_stdev,
             gps_meas_stdev,
             queue=1
@@ -347,11 +343,9 @@ class MultiRobotNetwork(object):
         self.comm_graph = comm_graph
         self.gps_available = gps_available
 
-        self.vel_meas_stdev = vel_meas_stdev
         self.bearing_meas_stdev = bearing_meas_stdev
         self.gps_meas_stdev = gps_meas_stdev
 
-        self.vel_meas_err = np.full((self.n, self.dim), np.nan)
         self.gps_meas_err = np.full((self.n, self.dim), np.nan)
         self.bearing_meas_err = np.full((self.n, self.n), np.nan)
 
@@ -359,19 +353,16 @@ class MultiRobotNetwork(object):
 
     def positions(self):
         return np.array([
-            robot.x[:self.dim - 1] for robot in self.robot_dynamics
+            robot.x()[:self.dim - 1] for robot in self.robot_dynamics
         ])
 
     def angles(self):
         return np.array([
-            robot.x[self.dim - 1] for robot in self.robot_dynamics
+            robot.x()[self.dim - 1] for robot in self.robot_dynamics
         ])
 
     def collect_poses(self):
-        return np.hstack([robot.x for robot in self.robot_dynamics])
-
-    def collect_vel_meas_err(self):
-        return self.vel_meas_err.copy().ravel()
+        return np.hstack([robot.x() for robot in self.robot_dynamics])
 
     def collect_gps_meas_err(self):
         return self.gps_meas_err.copy().ravel()
@@ -385,20 +376,9 @@ class MultiRobotNetwork(object):
         self.sens_graph.update(positions, axes)
         self.comm_graph.update(positions)
 
-    def velocity_measurement(self, node_index):
-        if len(self.robot_dynamics[node_index].derivatives) > 0:
-            vel = self.robot_dynamics[node_index].derivatives[0]
-            self.vel_meas_err[node_index] = np.random.normal(
-                scale=self.vel_meas_stdev, size=self.dim
-            )
-            return vel + self.vel_meas_err[node_index]
-        else:
-            self.vel_meas_err[node_index] = np.nan
-            return None
-
     def gps_measurement(self, node_index):
         if node_index in self.gps_available:
-            pose = self.robot_dynamics[node_index].x
+            pose = self.robot_dynamics[node_index].x()
             self.gps_meas_err[node_index] = np.random.normal(
                 scale=self.gps_meas_stdev, size=self.dim
             )
@@ -415,8 +395,8 @@ class MultiRobotNetwork(object):
                         scale=self.bearing_meas_stdev, size=self.dim - 1
                 )
                 noisy_bearing = transformations.unit_vector(
-                    self.robot_dynamics[neighbor_index].x[:3] -
-                    self.robot_dynamics[node_index].x[:3] +
+                    self.robot_dynamics[neighbor_index].x()[:3] -
+                    self.robot_dynamics[node_index].x()[:3] +
                     noise
                 )
                 self.bearing_meas_err[node_index, neighbor_index] = \
@@ -473,10 +453,6 @@ def initialize_robots(simu_counter):
             if (gps_meas is not None):
                 robot.gps_measurement_step(gps_meas)
 
-            vel_meas = robnet.velocity_measurement(node_index)
-            if (vel_meas is not None):
-                robot.velocity_measurement_step(vel_meas)
-
         # log data
         logs.time.append(t)
         logs.pose.append(robnet.collect_poses())
@@ -485,7 +461,6 @@ def initialize_robots(simu_counter):
         logs.target_action.append(robots.collect_target_actions())
         logs.collision_action.append(robots.collect_collision_actions())
         logs.rigidity_action.append(robots.collect_rigidity_actions())
-        logs.vel_meas_err.append(robnet.collect_vel_meas_err())
         logs.gps_meas_err.append(robnet.collect_gps_meas_err())
         logs.bearing_meas_err.append(robnet.collect_bearing_meas_err())
         logs.sens_adj.append(robnet.sens_graph.adjacency_matrix().ravel())
@@ -555,10 +530,6 @@ def run_mission(simu_counter, end_counter):
             if (gps_meas is not None):
                 robot.gps_measurement_step(gps_meas)
 
-            vel_meas = robnet.velocity_measurement(node_index)
-            if (vel_meas is not None):
-                robot.velocity_measurement_step(vel_meas)
-
         # log data
         logs.time.append(t)
         logs.pose.append(robnet.collect_poses())
@@ -567,7 +538,6 @@ def run_mission(simu_counter, end_counter):
         logs.target_action.append(robots.collect_target_actions())
         logs.collision_action.append(robots.collect_collision_actions())
         logs.rigidity_action.append(robots.collect_rigidity_actions())
-        logs.vel_meas_err.append(robnet.collect_vel_meas_err())
         logs.gps_meas_err.append(robnet.collect_gps_meas_err())
         logs.bearing_meas_err.append(robnet.collect_bearing_meas_err())
         logs.sens_adj.append(robnet.sens_graph.adjacency_matrix().ravel())
@@ -694,11 +664,10 @@ comm_graph = DiskGraph(
 
 robnet = MultiRobotNetwork(
     dim=4,
-    robot_dynamics=[Integrator(poses[i]) for i in range(n)],
+    robot_dynamics=[EulerIntegrator(poses[i]) for i in range(n)],
     sens_graph=sens_graph,
     comm_graph=comm_graph,
     gps_available=range(n),
-    vel_meas_stdev=0.0,
     bearing_meas_stdev=0.0,
     gps_meas_stdev=0.0,
     queue=arg.queue
@@ -740,7 +709,6 @@ logs = Logs(
     target_action=[],
     collision_action=[],
     rigidity_action=[],
-    vel_meas_err=[],
     gps_meas_err=[],
     bearing_meas_err=[],
     sens_adj=[],
@@ -789,7 +757,6 @@ np.savetxt('data/covariance.csv', logs.covariance, delimiter=',')
 np.savetxt('data/target_action.csv', logs.target_action, delimiter=',')
 np.savetxt('data/collision_action.csv', logs.collision_action, delimiter=',')
 np.savetxt('data/rigidity_action.csv', logs.rigidity_action, delimiter=',')
-np.savetxt('data/vel_meas_err.csv', logs.vel_meas_err, delimiter=',')
 np.savetxt('data/gps_meas_err.csv', logs.gps_meas_err, delimiter=',')
 np.savetxt('data/bearing_meas_err.csv', logs.bearing_meas_err, delimiter=',')
 np.savetxt('data/sens_adj.csv', logs.sens_adj, delimiter=',')

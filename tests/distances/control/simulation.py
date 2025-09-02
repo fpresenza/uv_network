@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
 import argparse
 import collections
 import time
@@ -12,7 +13,7 @@ from uvnpy.network.graphs import DiskGraph
 from uvnpy.network.subframeworks import superframework_extents
 from uvnpy.distances.localization import DistanceBasedKalmanFilter
 from uvnpy.routing.token_passing import TokenPassing
-from uvnpy.dynamics.linear_models import Integrator
+from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.distances.control import RigidityMaintenance
 from uvnpy.distances.core import is_inf_rigid, minimum_rigidity_extents
 from uvnpy.control.core import CollisionAvoidanceVanishing
@@ -263,12 +264,12 @@ class World(object):
 
     def positions(self, subset=None):
         if subset is None:
-            return np.array([robot.x for robot in self.robot_dynamics])
+            return np.array([robot.x() for robot in self.robot_dynamics])
         else:
-            return np.array([self.robot_dynamics[i].x for i in subset])
+            return np.array([self.robot_dynamics[i].x() for i in subset])
 
     def collect_positions(self):
-        return np.hstack([robot.x for robot in self.robot_dynamics])
+        return np.hstack([robot.x() for robot in self.robot_dynamics])
 
     def update_graph(self):
         self.graph.update(self.positions())
@@ -283,7 +284,7 @@ class World(object):
 
     def gps_measurement(self, node_index):
         if node_index in self.gps_available:
-            position = self.robot_dynamics[node_index].x
+            position = self.robot_dynamics[node_index].x()
             gps_meas_err = np.random.normal(
                 scale=self.gps_meas_stdev, size=self.dim
             )
@@ -294,8 +295,8 @@ class World(object):
     def upload_to_cloud(self, msg, node_index):
         for neighbor_index in self.graph.out_neighbors(node_index):
             dist = np.sqrt(np.square(
-                self.robot_dynamics[node_index].x -
-                self.robot_dynamics[neighbor_index].x
+                self.robot_dynamics[node_index].x() -
+                self.robot_dynamics[neighbor_index].x()
             ).sum())
             range_meas_err = np.random.normal(
                     scale=self.range_meas_stdev, size=1
@@ -468,7 +469,7 @@ if not is_inf_rigid(adjacency_matrix, position):
 
 world = World(
     dim=2,
-    robot_dynamics=[Integrator(position[i]) for i in range(n)],
+    robot_dynamics=[EulerIntegrator(position[i]) for i in range(n)],
     graph=graph,
     gps_available=[6, 8],
     ctrl_action_stdev=0.0,
