@@ -9,9 +9,13 @@ import numpy as np
 
 
 class LocalizationFilter(object):
-    def __init__(self, state, time=0.0):
+    def __init__(self, state, time=0.0, dim=None):
         self.x = state.copy()
         self.t = time
+        if dim is None:
+            self.dim = len(state)
+        else:
+            self.dim = dim
 
     def state(self):
         return self.x.copy()
@@ -34,6 +38,7 @@ class DistanceBasedGradientFilter(LocalizationFilter):
         super(DistanceBasedGradientFilter, self).__init__(position, time)
         self.stepsize = stepsize
         self.input_weights = input_weights
+        self.last_vel_meas = np.zeros(position.shape, dtype=float)
 
     def dynamic_step(self, time, vel_meas, *args):
         """
@@ -100,6 +105,7 @@ class DistanceBasedKalmanFilter(LocalizationFilter):
         self.range_meas_cov = range_meas_cov
         self.gps_meas_cov = gps_meas_cov
         self.position = self.state
+        self.last_vel_meas = np.zeros(position.shape, dtype=float)
 
     def covariance(self):
         return self.P.copy()
@@ -116,8 +122,9 @@ class DistanceBasedKalmanFilter(LocalizationFilter):
         dt = time - self.t
         self.t = time
 
-        self.x += vel_meas * dt
+        self.x += self.last_vel_meas * dt
         self.P += self.vel_meas_cov * (dt**2)
+        self.last_vel_meas = vel_meas
 
     def range_step(
             self,
