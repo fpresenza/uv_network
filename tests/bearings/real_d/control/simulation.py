@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
 import argparse
 import collections
 from dataclasses import dataclass
@@ -14,7 +15,7 @@ from uvnpy.bearings.real_d.core import is_inf_rigid, minimum_rigidity_extents
 from uvnpy.bearings.real_d.localization import BearingBasedGradientFilter
 from uvnpy.bearings.real_d.control import RigidityMaintenance
 from uvnpy.network.core import geodesics, as_undirected
-from uvnpy.dynamics.linear_models import Integrator
+from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.network.graphs import DiskGraph, ConeGraph
 from uvnpy.control.core import CollisionAvoidanceVanishing
 from uvnpy.control.targets import Targets, TargetTracking
@@ -694,7 +695,7 @@ comm_graph = DiskGraph(
 
 robnet = MultiRobotNetwork(
     dim=4,
-    robot_dynamics=[Integrator(poses[i]) for i in range(n)],
+    robot_dynamics=[EulerIntegrator(poses[i]) for i in range(n)],
     sens_graph=sens_graph,
     comm_graph=comm_graph,
     gps_available=range(n),

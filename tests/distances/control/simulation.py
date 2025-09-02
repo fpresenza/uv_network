@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
 import argparse
 import collections
 import time
@@ -12,7 +13,7 @@ from uvnpy.network.graphs import DiskGraph
 from uvnpy.network.subframeworks import superframework_extents
 from uvnpy.distances.localization import DistanceBasedKalmanFilter
 from uvnpy.routing.token_passing import TokenPassing
-from uvnpy.dynamics.linear_models import Integrator
+from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.distances.control import RigidityMaintenance
 from uvnpy.distances.core import is_inf_rigid, minimum_rigidity_extents
 from uvnpy.control.core import CollisionAvoidanceVanishing
@@ -468,7 +469,7 @@ if not is_inf_rigid(adjacency_matrix, position):
 
 world = World(
     dim=2,
-    robot_dynamics=[Integrator(position[i]) for i in range(n)],
+    robot_dynamics=[EulerIntegrator(position[i]) for i in range(n)],
     graph=graph,
     gps_available=[6, 8],
     ctrl_action_stdev=0.0,
