@@ -9,8 +9,8 @@ from numba import njit
 from scipy.spatial import ConvexHull
 import matplotlib.pyplot as plt
 
-from uvnpy.network.disk_graph import adjacency_from_positions
 from uvnpy.toolkit import plot
+from uvnpy.network.graphs import DiskGraph
 from uvnpy.network.core import geodesics, edges_from_adjacency
 from uvnpy.distances.core import (
     is_inf_rigid,
@@ -90,11 +90,11 @@ if arg.seed >= 0:
 
 p = sufficiently_dispersed_position(n, (0.0, 500.0), (0.0, 500.0), 30.0)
 
-A = adjacency_from_positions(p, dmax=2/np.sqrt(n))
+A = DiskGraph(p, dmax=2/np.sqrt(n)).adjacency_matrix(float)
 A, Rmin = minimum_rigidity_radius(A, p, return_radius=True)
 
 comm_range = np.ceil(Rmin / 5.0) * 5.0
-A = adjacency_from_positions(p, dmax=comm_range)
+A = DiskGraph(p, dmax=comm_range).adjacency_matrix(float)
 
 G = geodesics(A)
 print("Graph diameter: {}".format(G.max()))

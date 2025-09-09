@@ -38,7 +38,7 @@ def as_undirected(adjacency_matrix):
     return np.logical_or(adjacency_matrix, adjacency_matrix.swapaxes(-2, -1))
 
 
-def complete_edges(n, directed=False):
+def complete_edges(n, directed=True):
     A = 1 - np.eye(n)
     if not directed:
         A = np.triu(A)
@@ -47,7 +47,7 @@ def complete_edges(n, directed=False):
 
 def complete_adjacency(n):
     A = 1 - np.eye(n)
-    return A
+    return A.astype(bool)
 
 
 def complete_laplacian(n):
@@ -55,11 +55,10 @@ def complete_laplacian(n):
     return L
 
 
-def edges_from_adjacency(A, directed=False):
-    """Devuelve array de enlaces."""
+def edges_from_adjacency(A, directed=True):
     if not directed:
-        A = np.triu(A)
-    E = np.argwhere(A > 0)
+        A = np.triu(as_undirected(A))
+    E = np.argwhere(A)
     return E
 
 
@@ -71,7 +70,7 @@ def incidence_from_edges(n, E):
     return D
 
 
-def adjacency_matrix_from_edges(n, edge_set, directed=False):
+def adjacency_matrix_from_edges(n, edge_set, directed=True):
     A = np.zeros((n, n), dtype=bool)
     A[edge_set[:, 0], edge_set[:, 1]] = True
     if not directed:
@@ -79,7 +78,7 @@ def adjacency_matrix_from_edges(n, edge_set, directed=False):
     return A
 
 
-def adjacency_list_from_edges(vertex_set, edge_set, directed=False):
+def adjacency_list_from_edges(vertex_set, edge_set, directed=True):
     if not directed:
         return [
             np.concatenate([
@@ -138,6 +137,6 @@ def diameter(geodesics):
 
 
 def adjacency_from_geodesics(geodesics):
-    A = geodesics.copy()
-    A[A > 1] = 0
+    A = np.full(geodesics.shape, False)
+    A[geodesics == 1] = True
     return A

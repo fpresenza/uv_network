@@ -4,8 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from uvnpy.toolkit import plot
+from uvnpy.network.graphs import DiskGraph
 from uvnpy.network.core import edges_from_adjacency, incidence_from_edges
-from uvnpy.network.disk_graph import adjacency_from_positions
 from uvnpy.distances.core import distance_matrix_from_edges, is_inf_rigid
 from uvnpy.distances.localization import (
     DistanceBasedGradientFilter,
@@ -32,10 +32,10 @@ nodes = np.arange(n)
 lim = 20.0
 dmax = 20.0
 x = np.random.uniform(-lim, lim, (n, 2))
-A = adjacency_from_positions(x, dmax)
+A = DiskGraph(x, dmax).adjacency_matrix(float)
 if not is_inf_rigid(A, x):
     raise ValueError('Flexible Framework.')
-E = edges_from_adjacency(A)
+E = edges_from_adjacency(A, directed=False)
 D = incidence_from_edges(n, E)
 
 # np.random.seed(10)

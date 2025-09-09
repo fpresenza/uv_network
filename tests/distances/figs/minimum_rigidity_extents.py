@@ -8,9 +8,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
-from uvnpy.network.disk_graph import adjacency_from_positions
 from uvnpy.toolkit import plot
 from uvnpy.network.core import geodesics, edges_from_adjacency
+from uvnpy.network.graphs import DiskGraph
 from uvnpy.distances.core import (
     minimum_rigidity_extents,
     minimum_rigidity_radius,
@@ -40,7 +40,7 @@ np.random.seed(arg.seed)
 while i < 10:
     # p = np.random.uniform((0, 0), (1, 0.9), (n, 2))
     p = sufficiently_dispersed_position(n, (0, 1), (0, 0.9), 0.1)
-    A0 = adjacency_from_positions(p, dmax=2/np.sqrt(n))
+    A0 = DiskGraph(p, dmax=2/np.sqrt(n)).adjacency_matrix(float)
     A, Rmin = minimum_rigidity_radius(A0, p, threshold, return_radius=True)
 
     fig, ax = plt.subplots(figsize=(2.25, 2.25))

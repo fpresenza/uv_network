@@ -130,14 +130,14 @@ def minimum_rigidity_extents(geodesics, p, threshold=THRESHOLD_SV):
     """
     n, d = p.shape
     extents = np.empty(n, dtype=int)
+    A = core.adjacency_from_geodesics(geodesics)
     for i in range(n):
         minimum_found = False
         h = 0
         while not minimum_found:
             h += 1
             subset = geodesics[i] <= h
-            M = geodesics[np.ix_(subset, subset)]
-            Ei = core.edges_from_adjacency(M == 1.0)
+            Ei = core.edges_from_adjacency(A[np.ix_(subset, subset)])
             pi = p[subset]
             minimum_found = is_inf_rigid(Ei, pi, threshold)
         extents[i] = h

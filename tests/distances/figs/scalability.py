@@ -9,7 +9,7 @@ import numpy as np
 import progressbar
 
 from uvnpy.network.core import geodesics
-from uvnpy.network.disk_graph import adjacency_from_positions
+from uvnpy.network.graphs import DiskGraph
 from uvnpy.distances.core import (
     distance_matrix,
     minimum_rigidity_radius
@@ -35,7 +35,7 @@ def run(d, side_length, nmin, nmax, logs, threshold, rep):
 
         for r in range(rep):
             p = np.random.uniform(0, side_length, (n, d))
-            A0 = adjacency_from_positions(p, dmax=2/np.sqrt(n))
+            A0 = DiskGraph(p, dmax=2/np.sqrt(n)).adjacency_matrix(float)
             dist = distance_matrix(p)
             Rmax = dist.max()
             A, Rmin = minimum_rigidity_radius(
@@ -43,7 +43,7 @@ def run(d, side_length, nmin, nmax, logs, threshold, rep):
             )
             alpha = 0.1
             R = Rmin + alpha * (Rmax - Rmin)
-            A = adjacency_from_positions(p, dmax=R)
+            A = DiskGraph(p, dmax=R).adjacency_matrix(float)
             G = geodesics(A)
 
             logs.max_dist[k, r] = R

@@ -21,8 +21,8 @@ class Graph(object):
     def vertex_set(self):
         return np.arange(len(self._adj))
 
-    def adjacency_matrix(self):
-        return self._adj.copy()
+    def adjacency_matrix(self, dtype=bool):
+        return self._adj.copy().astype(dtype)
 
     def adjacency_list(self):
         return [np.where(adj)[0] for adj in self._adj]

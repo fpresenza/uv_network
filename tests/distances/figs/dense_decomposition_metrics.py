@@ -9,7 +9,7 @@ import numpy as np
 import progressbar
 
 from uvnpy.network.core import geodesics
-from uvnpy.network.disk_graph import adjacency_from_positions
+from uvnpy.network.graphs import DiskGraph
 from uvnpy.network.subframeworks import superframework_extents
 from uvnpy.network.load import one_token_for_all_sum, one_token_for_each_sum
 from uvnpy.distances.core import (
@@ -64,7 +64,7 @@ def run(d, nmin, nmax, logs, threshold, rep):
 
         for r in range(rep):
             p = np.random.uniform(0, 1, (n, d))
-            A0 = adjacency_from_positions(p, dmax=2/np.sqrt(n))
+            A0 = DiskGraph(p, dmax=2/np.sqrt(n)).adjacency_matrix(float)
             dist = distance_matrix(p)
             Rmax = dist.max()
             A, Rmin = minimum_rigidity_radius(
@@ -83,7 +83,9 @@ def run(d, nmin, nmax, logs, threshold, rep):
             logs.load[0, k, r] = network_load(G, h)
             logs.edges[0, k, r] = np.sum(A) / 2
 
-            A = adjacency_from_positions(p, dmax=Rmin + 0.05 * (Rmax - Rmin))
+            A = DiskGraph(
+                p, dmax=Rmin + 0.05 * (Rmax - Rmin)
+            ).adjacency_matrix(float)
             G = geodesics(A)
             h = minimum_rigidity_extents(G, p, threshold)
             logs.diam[1, k, r] = np.max(G)
@@ -91,7 +93,9 @@ def run(d, nmin, nmax, logs, threshold, rep):
             logs.load[1, k, r] = network_load(G, h)
             logs.edges[1, k, r] = np.sum(A) / 2
 
-            A = adjacency_from_positions(p, dmax=Rmin + 0.1 * (Rmax - Rmin))
+            A = DiskGraph(
+                p, dmax=Rmin + 0.1 * (Rmax - Rmin)
+            ).adjacency_matrix(float)
             G = geodesics(A)
             h = minimum_rigidity_extents(G, p, threshold)
             logs.diam[2, k, r] = np.max(G)

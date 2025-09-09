@@ -7,9 +7,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
-from uvnpy.network.disk_graph import adjacency_from_positions
 from uvnpy.toolkit import plot
 from uvnpy.network.core import edges_from_adjacency
+from uvnpy.network.graphs import DiskGraph
 from uvnpy.distances.core import (
     distance_matrix,
     minimum_rigidity_extents,
@@ -35,7 +35,7 @@ np.random.seed(seed)
 
 # p = np.random.uniform((0, 0), (1, 0.9), (n, 2))
 p = sufficiently_dispersed_position(n, (0, 1), (0, 0.9), 0.1)
-A0 = adjacency_from_positions(p, dmax=2/np.sqrt(n))
+A0 = DiskGraph(p, dmax=2/np.sqrt(n)).adjacency_matrix(float)
 Rmax = distance_matrix(p).max()
 A, Rmin = minimum_rigidity_radius(A0, p, threshold, return_radius=True)
 
@@ -92,7 +92,7 @@ fig.savefig('/tmp/minimum_extents_versus_radius_1.png', format='png', dpi=360)
 fig, ax = plt.subplots(figsize=(2.25, 2.25))
 # fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.28)
 A0 = A
-A = adjacency_from_positions(p, dmax=Rmin + 0.05 * (Rmax - Rmin))
+A = DiskGraph(p, dmax=Rmin + 0.05 * (Rmax - Rmin)).adjacency_matrix(float)
 h = minimum_rigidity_extents(A, p, threshold)
 
 ax.tick_params(
@@ -145,7 +145,7 @@ fig.savefig('/tmp/minimum_extents_versus_radius_2.png', format='png', dpi=360)
 fig, ax = plt.subplots(figsize=(2.25, 2.25))
 # fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.28)
 A0 = A
-A = adjacency_from_positions(p, dmax=Rmin + 0.1 * (Rmax - Rmin))
+A = DiskGraph(p, dmax=Rmin + 0.1 * (Rmax - Rmin)).adjacency_matrix(float)
 h = minimum_rigidity_extents(A, p, threshold)
 
 ax.tick_params(

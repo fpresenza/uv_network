@@ -10,7 +10,7 @@ from numba import njit
 import progressbar
 
 from uvnpy.network.core import geodesics
-from uvnpy.network.disk_graph import adjacency_from_positions
+from uvnpy.network.graphs import DiskGraph
 from uvnpy.distances.core import (
     is_inf_rigid,
     minimum_rigidity_radius,
@@ -83,11 +83,11 @@ def run(d, nmin, nmax, logs, rep):
 
         for r in range(rep):
             p = np.random.uniform((0, 0), (1, 0.9), (n, 2))
-            A = adjacency_from_positions(p, dmax=2/np.sqrt(n))
+            A = DiskGraph(p, dmax=2/np.sqrt(n)).adjacency_matrix(float)
             A, Rmin = minimum_rigidity_radius(A, p, return_radius=True)
 
             G = geodesics(A)
-            h_valid = valid_extents(G, valid_ball, A, p, max_diam)
+            h_valid = valid_extents(G, valid_ball, args=(A, p, max_diam))
             h_sparse = sparse_subframeworks_greedy_search_by_expansion(
                 valid_extents=h_valid,
                 metric=decomposition_cost,
@@ -99,7 +99,9 @@ def run(d, nmin, nmax, logs, rep):
                 Ai = A[:, S][S]
                 pi = p[S]
                 Gi = geodesics(Ai)
-                h_valid_i = valid_extents(Gi, valid_ball, Ai, pi, max_diam)
+                h_valid_i = valid_extents(
+                    Gi, valid_ball, args=(Ai, pi, max_diam)
+                )
                 h_sparse_i = sparse_subframeworks_greedy_search_by_expansion(
                     valid_extents=h_valid_i,
                     metric=decomposition_cost,
@@ -138,7 +140,7 @@ d = 2
 nmin = d + 2
 nmax = arg.nodes + 1
 size = nmax - nmin
-max_diam = 4
+max_diam = 5
 rep = arg.rep
 
 logs = Logs(

@@ -7,8 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
-from uvnpy.network.disk_graph import adjacency_from_positions
 from uvnpy.toolkit import plot
+from uvnpy.network.graphs import DiskGraph
 from uvnpy.network.core import geodesics, edges_from_adjacency
 from uvnpy.distances.core import (
     distance_matrix,
@@ -16,7 +16,6 @@ from uvnpy.distances.core import (
     minimum_rigidity_radius,
     sufficiently_dispersed_position
 )
-from uvnpy.network.subframeworks import multihop_subsets
 
 np.set_printoptions(suppress=True, precision=4, linewidth=250)
 
@@ -39,12 +38,12 @@ np.random.seed(seed)
 p = sufficiently_dispersed_position(n, (0, 1), (0, 1), 0.1)
 midpoint = np.mean(p, axis=0)
 # print(p)
-A0 = adjacency_from_positions(p, dmax=2/np.sqrt(n))
+A0 = DiskGraph(p, dmax=2/np.sqrt(n)).adjacency_matrix(float)
 A, Rmin = minimum_rigidity_radius(A0, p, threshold, return_radius=True)
 dist = distance_matrix(p)
 Rmax = dist.max()
 
-# A = adjacency_from_positions(p, dmax=Rmin + 0.025 * (Rmax - Rmin))
+# A = DiskGraph(p, dmax=Rmin + 0.025 * (Rmax - Rmin)).adjacency_matrix(float)
 G = geodesics(A)
 h = minimum_rigidity_extents(G, p, threshold)
 node_i = np.argmin(np.linalg.norm(p - midpoint, axis=1))
@@ -151,7 +150,6 @@ fig.savefig('/tmp/subframework_based_routing_2.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 # Fig 3
 # ------------------------------------------------------------------
-sub = multihop_subsets(A, np.where(super_centers)[0], h[super_centers])
 info = np.full(n, False)
 for j in range(n):
     for c in np.where(super_centers)[0]:
