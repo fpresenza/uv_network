@@ -8,10 +8,10 @@ import collections
 import numpy as np
 import progressbar
 
-from uvnpy.network.core import geodesics
-from uvnpy.network.graphs import DiskGraph
-from uvnpy.network.subframeworks import superframework_extents
-from uvnpy.network.load import one_token_for_all_sum, one_token_for_each_sum
+from uvnpy.graphs.core import geodesics
+from uvnpy.graphs.models import DiskGraph
+from uvnpy.graphs.subframeworks import superframework_extents
+from uvnpy.graphs.load import one_token_for_all_sum, one_token_for_each_sum
 from uvnpy.distances.core import (
     distance_matrix,
     minimum_rigidity_extents,

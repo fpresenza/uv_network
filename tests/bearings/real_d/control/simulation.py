@@ -14,12 +14,12 @@ from uvnpy.distances.core import minimum_distance
 from uvnpy.bearings.real_d.core import is_inf_rigid, minimum_rigidity_extents
 from uvnpy.bearings.real_d.localization import BearingBasedGradientFilter
 from uvnpy.bearings.real_d.control import RigidityMaintenance
-from uvnpy.network.core import geodesics, as_undirected
+from uvnpy.graphs.core import geodesics, as_undirected
+from uvnpy.graphs.models import DiskGraph, ConeGraph
 from uvnpy.dynamics.core import EulerIntegrator
-from uvnpy.network.graphs import DiskGraph, ConeGraph
 from uvnpy.control.core import CollisionAvoidanceVanishing
 from uvnpy.control.targets import Targets, TargetTracking
-from uvnpy.routing.token_passing import TokenPassing
+from uvnpy.network.token_passing import TokenPassing
 
 
 # ------------------------------------------------------------------

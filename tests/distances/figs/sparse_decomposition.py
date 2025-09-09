@@ -10,14 +10,14 @@ from scipy.spatial import ConvexHull
 import matplotlib.pyplot as plt
 
 from uvnpy.toolkit import plot
-from uvnpy.network.graphs import DiskGraph
-from uvnpy.network.core import geodesics, edges_from_adjacency
+from uvnpy.graphs.models import DiskGraph
+from uvnpy.graphs.core import geodesics, edges_from_adjacency
 from uvnpy.distances.core import (
     is_inf_rigid,
     minimum_rigidity_radius,
     sufficiently_dispersed_position,
 )
-from uvnpy.network.subframeworks import (
+from uvnpy.graphs.subframeworks import (
     valid_extents,
     isolated_links,
     sparse_subframeworks_greedy_search_by_expansion,

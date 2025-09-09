@@ -8,7 +8,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import mpl_toolkits.mplot3d.art3d as art3d
 
 from uvnpy.toolkit import data, geometry, plot
-from uvnpy.network.core import edges_from_adjacency, as_undirected
+from uvnpy.graphs.core import edges_from_adjacency, as_undirected
 
 plt.rcParams['text.usetex'] = False
 plt.rcParams['pdf.fonttype'] = 42

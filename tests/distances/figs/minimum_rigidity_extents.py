@@ -9,8 +9,8 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
 from uvnpy.toolkit import plot
-from uvnpy.network.core import geodesics, edges_from_adjacency
-from uvnpy.network.graphs import DiskGraph
+from uvnpy.graphs.core import geodesics, edges_from_adjacency
+from uvnpy.graphs.models import DiskGraph
 from uvnpy.distances.core import (
     minimum_rigidity_extents,
     minimum_rigidity_radius,

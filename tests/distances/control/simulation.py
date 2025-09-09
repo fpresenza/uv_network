@@ -8,11 +8,11 @@ import progressbar
 import numpy as np
 import copy
 
-from uvnpy.network import core
-from uvnpy.network.graphs import DiskGraph
-from uvnpy.network.subframeworks import superframework_extents
+from uvnpy.graphs import core
+from uvnpy.graphs.models import DiskGraph
+from uvnpy.graphs.subframeworks import superframework_extents
 from uvnpy.distances.localization import DistanceBasedKalmanFilter
-from uvnpy.routing.token_passing import TokenPassing
+from uvnpy.network.token_passing import TokenPassing
 from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.distances.control import RigidityMaintenance
 from uvnpy.distances.core import is_inf_rigid, minimum_rigidity_extents

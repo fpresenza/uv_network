@@ -9,10 +9,10 @@ from dataclasses import dataclass
 import numpy as np
 
 from uvnpy.toolkit.data import write_csv
-from uvnpy.network.core import geodesics, as_undirected
-from uvnpy.network.subframeworks import superframework_geodesics
+from uvnpy.graphs.core import geodesics, as_undirected
+from uvnpy.graphs.subframeworks import superframework_geodesics
+from uvnpy.graphs.models import ConeGraph
 from uvnpy.bearings.real_d.core import is_inf_rigid, minimum_rigidity_extents
-from uvnpy.network.graphs import ConeGraph
 
 # ------------------------------------------------------------------
 # Definición de variables, funciones y clases

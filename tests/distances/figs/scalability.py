@@ -8,8 +8,8 @@ import collections
 import numpy as np
 import progressbar
 
-from uvnpy.network.core import geodesics
-from uvnpy.network.graphs import DiskGraph
+from uvnpy.graphs.core import geodesics
+from uvnpy.graphs.models import DiskGraph
 from uvnpy.distances.core import (
     distance_matrix,
     minimum_rigidity_radius

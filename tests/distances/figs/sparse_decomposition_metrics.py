@@ -9,13 +9,13 @@ import numpy as np
 from numba import njit
 import progressbar
 
-from uvnpy.network.core import geodesics
-from uvnpy.network.graphs import DiskGraph
+from uvnpy.graphs.core import geodesics
+from uvnpy.graphs.models import DiskGraph
 from uvnpy.distances.core import (
     is_inf_rigid,
     minimum_rigidity_radius,
 )
-from uvnpy.network.subframeworks import (
+from uvnpy.graphs.subframeworks import (
     valid_extents,
     sparse_subframeworks_greedy_search_by_expansion,
 )

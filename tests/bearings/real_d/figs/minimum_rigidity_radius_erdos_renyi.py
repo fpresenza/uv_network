@@ -9,8 +9,8 @@ import numpy as np
 import progressbar
 
 from uvnpy.toolkit.data import write_csv
-from uvnpy.network.core import geodesics, as_undirected
-from uvnpy.network.graphs import ErdosRenyi
+from uvnpy.graphs.core import geodesics, as_undirected
+from uvnpy.graphs.models import ErdosRenyi
 import uvnpy.distances.core as distances
 import uvnpy.bearings.real_d.core as bearings
 

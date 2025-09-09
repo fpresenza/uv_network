@@ -8,7 +8,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import mpl_toolkits.mplot3d.art3d as art3d
 
 from uvnpy.toolkit import data, geometry, plot
-from uvnpy.network import core
+from uvnpy.graphs import core
 
 plt.rcParams['text.usetex'] = False
 plt.rcParams['pdf.fonttype'] = 42

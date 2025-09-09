@@ -4,8 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from uvnpy.toolkit import plot
-from uvnpy.network.graphs import DiskGraph
-from uvnpy.network.core import edges_from_adjacency, incidence_from_edges
+from uvnpy.graphs.models import DiskGraph
+from uvnpy.graphs.core import edges_from_adjacency, incidence_from_edges
 from uvnpy.distances.core import distance_matrix_from_edges, is_inf_rigid
 from uvnpy.distances.localization import (
     DistanceBasedGradientFilter,

@@ -10,12 +10,12 @@ from numba import njit
 import itertools
 
 
-from uvnpy.network import core
+from uvnpy.graphs.core import geodesics
 
 
-def valid_extents(geodesics, condition, max_extent=None, args=()):
+def valid_extents(geodesics_matrix, condition, max_extent=None, args=()):
     extents = []
-    for g in geodesics:
+    for g in geodesics_matrix:
         extents.append([])
         if max_extent is None:
             max_extent = int(g.max())
@@ -27,63 +27,63 @@ def valid_extents(geodesics, condition, max_extent=None, args=()):
 
 
 @njit
-def subframework_vertices(geodesics, extents):
-    return geodesics <= extents.reshape(-1, 1)
+def subframework_vertices(geodesics_matrix, extents):
+    return geodesics_matrix <= extents.reshape(-1, 1)
 
 
-def subframework_adjacencies(geodesics, extents):
-    S = geodesics <= extents.reshape(-1, 1)
-    adjacency = geodesics.copy()
+def subframework_adjacencies(geodesics_matrix, extents):
+    S = geodesics_matrix <= extents.reshape(-1, 1)
+    adjacency = geodesics_matrix.copy()
     adjacency[adjacency > 1] = 0
     return [adjacency[:, s][s] for s in S]
 
 
 @njit
-def subframework_diameters(geodesics, extents):
+def subframework_diameters(geodesics_matrix, extents):
     n = len(extents)
-    adjacency = geodesics.copy().ravel()
+    adjacency = geodesics_matrix.copy().ravel()
     adjacency[adjacency > 1] = 0
     adjacency = adjacency.reshape(n, n)
     diam = []
     for i in range(n):
-        Vi = geodesics[i] <= extents[i]
+        Vi = geodesics_matrix[i] <= extents[i]
         Ai = adjacency[Vi][:, Vi]
-        diam.append(np.max(core.geodesics(Ai)))
+        diam.append(np.max(geodesics(Ai)))
     return diam
 
 
 @njit
-def superframework_extents(geodesics, extents):
-    return np.array([np.max(extents[g <= extents]) for g in geodesics])
+def superframework_extents(geodesics_matrix, extents):
+    return np.array([np.max(extents[g <= extents]) for g in geodesics_matrix])
 
 
 @njit
-def superframework_geodesics(geodesics, extents):
-    return np.array([np.max(g[g <= extents]) for g in geodesics])
+def superframework_geodesics(geodesics_matrix, extents):
+    return np.array([np.max(g[g <= extents]) for g in geodesics_matrix])
 
 
 @njit
-def complete_subframeworks(geodesics, extents):
+def complete_subframeworks(geodesics_matrix, extents):
     """
     Computes the framework obtained by completing all the remaining
     edges within subframeworks.
     """
     n = len(extents)
-    K = np.zeros(geodesics.shape)
+    K = np.zeros(geodesics_matrix.shape)
 
     for i in range(n):
         for j in range(i+1, n):
-            in_subframework = np.any(
-                (geodesics[i] <= extents) * (geodesics[j] <= extents)
-            )
-            K[i, j] = (geodesics[i, j] == 1) or in_subframework
+            i_in_sub = (geodesics_matrix[i] <= extents)
+            j_in_sub = (geodesics_matrix[j] <= extents)
+            in_subframework = np.any(i_in_sub * j_in_sub)
+            K[i, j] = (geodesics_matrix[i, j] == 1) or in_subframework
             K[j, i] = K[i, j]
 
     return K
 
 
 @njit
-def isolated_links(geodesics, extents):
+def isolated_links(geodesics_matrix, extents):
     """
     Computes the set of isolated links (edges not in any subframework).
     """
@@ -92,24 +92,24 @@ def isolated_links(geodesics, extents):
 
     for i in range(n):
         for j in range(i+1, n):
-            if geodesics[i, j] == 1:
-                if np.all(
-                    (geodesics[i] > extents) + (geodesics[j] > extents)
-                ):
+            if geodesics_matrix[i, j] == 1:
+                i_not_in_sub = (geodesics_matrix[i] > extents)
+                j_not_in_sub = (geodesics_matrix[j] > extents)
+                if np.all(i_not_in_sub + j_not_in_sub):
                     edges.append((i, j))
 
     return edges
 
 
 @njit
-def isolated_nodes(geodesics, extents):
+def isolated_nodes(geodesics_matrix, extents):
     """
     Computes the set of isolated nodes (those not in any subframework).
     """
     n = len(extents)
     nodes = []
     for i in range(n):
-        if extents[i] == 0 and np.sum(geodesics[i] <= extents) == 1:
+        if extents[i] == 0 and np.sum(geodesics_matrix[i] <= extents) == 1:
             nodes.append(i)
 
     return nodes
