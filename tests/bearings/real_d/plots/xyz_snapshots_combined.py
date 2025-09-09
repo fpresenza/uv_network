@@ -7,8 +7,8 @@ import progressbar
 from mpl_toolkits.mplot3d import Axes3D
 import mpl_toolkits.mplot3d.art3d as art3d
 
-from uvnpy.toolkit import data, geometry
-from uvnpy.network import core, plot
+from uvnpy.toolkit import data, geometry, plot
+from uvnpy.network.core import edges_from_adjacency, as_undirected
 
 plt.rcParams['text.usetex'] = False
 plt.rcParams['pdf.fonttype'] = 42
@@ -110,26 +110,26 @@ for k, s in enumerate(arg.snaps):
     p = x[k][:, :3]
     psi = x[k][:, 3]
 
-    plot.edges(
+    plot.arrows(
         ax,
         p,
-        core.as_undirected(As[k]).astype(int),
+        edges_from_adjacency(As[k].astype(int)),
         color='0.3',
-        alpha=1.0,
+        # alpha=1.0,
         lw=0.4,
-        zorder=1
+        # zorder=1
     )
-    plot.edges(
+    plot.bars(
         ax,
         p,
-        Ac[k] - core.as_undirected(As[k]).astype(int),
+        edges_from_adjacency(Ac[k] - as_undirected(As[k]).astype(int)),
         color='0.3',
         alpha=1.0,
         ls='--',
         lw=0.6,
         zorder=1
     )
-    plot.nodes(
+    plot.points(
         ax, p,
         facecolor='C{}'.format(k+1),
         edgecolor='k',
@@ -193,4 +193,4 @@ ax.zaxis._axinfo['grid'].update(
 ax.get_proj = lambda: np.dot(Axes3D.get_proj(ax), np.diag([1, 1, 0.55, 1]))
 ax.set_box_aspect(None, zoom=1.1)
 
-fig.savefig('data/snapshots/snapshots.pdf', bbox_inches='tight')
+fig.savefig('xyz_snapshots/xyz_snapshots_combined.pdf', bbox_inches='tight')

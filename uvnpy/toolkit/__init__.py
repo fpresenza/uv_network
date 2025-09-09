@@ -3,3 +3,4 @@
 from . import functions    # noqa
 from . import data         # noqa
 from . import geometry     # noqa
+from . import plot         # noqa

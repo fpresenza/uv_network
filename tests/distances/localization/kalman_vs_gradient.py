@@ -3,7 +3,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from uvnpy.network import plot
+from uvnpy.toolkit import plot
 from uvnpy.network.core import edges_from_adjacency, incidence_from_edges
 from uvnpy.network.disk_graph import adjacency_from_positions
 from uvnpy.distances.core import distance_matrix_from_edges, is_inf_rigid
@@ -90,7 +90,10 @@ ax.plot(
     label=r'GD $(\alpha = {})$'.format(stepsize), lw=1
 )
 
-fig2, ax2 = plot.figure(figsize=(2.5, 2.5))
+fig2, ax2 = plt.subplots(figsize=(2.5, 2.5))
+ax2.set_aspect('equal')
+ax2.set_xlabel(r'$x$')
+ax2.set_ylabel(r'$y$')
 ax2.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
@@ -101,14 +104,17 @@ ax2.tick_params(
 ax2.set_xlim(-lim, lim)
 ax2.set_ylim(-lim, lim)
 ax2.grid(lw=0.4)
-plot.nodes(ax2, x, color='0.4', marker='o', s=15, zorder=5)
-plot.edges(ax2, x, A, color='k', alpha=0.7, lw=0.7)
-plot.nodes(
+plot.points(ax2, x, color='0.4', marker='o', s=15, zorder=5)
+plot.bars(
+    ax2, x, edges_from_adjacency(A, directed=False),
+    color='k', alpha=0.7, lw=0.7
+)
+plot.points(
     ax2, hatx[0],
     marker='o', s=15, color='C0', facecolor='none', label=r'$k=0$')
-plot.nodes(
+plot.points(
     ax2, hatx[1:-1:2], marker='.', s=1, alpha=0.3, zorder=1, color='C0')
-plot.nodes(
+plot.points(
     ax2, hatx[-1],
     marker='x', s=15, color='C0', zorder=10, label=r'$k=200$')
 ax2.set_xlabel('')
@@ -153,7 +159,10 @@ ax.plot(
     label=r'KGD', lw=1
 )
 
-fig2, ax2 = plot.figure(figsize=(2.5, 2.5))
+fig2, ax2 = plt.subplots(figsize=(2.5, 2.5))
+ax2.set_aspect('equal')
+ax2.set_xlabel(r'$x$')
+ax2.set_ylabel(r'$y$')
 ax2.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
@@ -164,14 +173,17 @@ ax2.tick_params(
 ax2.set_xlim(-lim, lim)
 ax2.set_ylim(-lim, lim)
 ax2.grid(lw=0.4)
-plot.nodes(ax2, x, color='0.4', marker='o', s=15, zorder=5)
-plot.edges(ax2, x, A, color='k', alpha=0.7, lw=0.7)
-plot.nodes(
+plot.points(ax2, x, color='0.4', marker='o', s=15, zorder=5)
+plot.bars(
+    ax2, x, edges_from_adjacency(A, directed=False),
+    color='k', alpha=0.7, lw=0.7
+)
+plot.points(
     ax2, hatx[0],
     marker='o', s=15, color='C2', facecolor='none', label=r'$k=0$')
-plot.nodes(
+plot.points(
     ax2, hatx[1:-1:2], marker='.', s=1, alpha=0.3, zorder=1, color='C2')
-plot.nodes(
+plot.points(
     ax2, hatx[-1],
     marker='x', s=15, color='C2', zorder=10, label=r'$k=200$')
 ax2.set_xlabel('')

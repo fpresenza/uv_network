@@ -7,8 +7,8 @@ import progressbar
 from mpl_toolkits.mplot3d import Axes3D
 import mpl_toolkits.mplot3d.art3d as art3d
 
-from uvnpy.toolkit import data, geometry
-from uvnpy.network import core, plot
+from uvnpy.toolkit import data, geometry, plot
+from uvnpy.network import core
 
 plt.rcParams['text.usetex'] = False
 plt.rcParams['pdf.fonttype'] = 42
@@ -124,7 +124,7 @@ for k in range(N):
         cone = geometry.cone(p[i], axis, 3.0, np.pi/3)
         ax.add_collection3d(art3d.Poly3DCollection(cone, alpha=0.5))
 
-    plot.nodes(
+    plot.points(
         ax, p,
         facecolor='b',
         edgecolor='none',
@@ -134,10 +134,10 @@ for k in range(N):
         zorder=10,
         # alpha=1
     )
-    plot.edges(
+    plot.bars(
         ax,
         p,
-        core.as_undirected(A[k]),
+        core.edges_from_adjacency(A[k]),
         color='0.0',
         alpha=0.5,
         lw=0.5,
@@ -190,7 +190,7 @@ for k in range(N):
     ax.set_box_aspect(None, zoom=1.0)
 
     fig.savefig(
-        'data/snapshots/frame{}.png'.format(str(k + k_i_jump).zfill(3)),
+        'xyz_snapshots/frame{}.png'.format(str(k + k_i_jump).zfill(3)),
         format='png',
         dpi=200,
         bbox_inches="tight",

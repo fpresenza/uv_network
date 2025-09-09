@@ -9,9 +9,9 @@ from numba import njit
 from scipy.spatial import ConvexHull
 import matplotlib.pyplot as plt
 
-from uvnpy.network import plot
 from uvnpy.network.disk_graph import adjacency_from_positions
-from uvnpy.network.core import geodesics
+from uvnpy.toolkit import plot
+from uvnpy.network.core import geodesics, edges_from_adjacency
 from uvnpy.distances.core import (
     is_inf_rigid,
     minimum_rigidity_radius,
@@ -145,8 +145,8 @@ ax.set_ylim(0.0, 500.0)
 ax.set_xticklabels([])
 ax.set_yticklabels([])
 
-plot.edges(
-    ax, p, A,
+plot.bars(
+    ax, p, edges_from_adjacency(A, directed=False),
     lw=0.3, color='k', alpha=0.6, zorder=0
 )
 
@@ -210,13 +210,13 @@ for k in np.unique(h_sparsed):
     )
 
 Aiso = links_adjacency(G, h_sparsed)
-plot.edges(
-    ax, p, A - Aiso,
+plot.bars(
+    ax, p, edges_from_adjacency(A - Aiso, directed=False),
     lw=0.3, color='k', alpha=0.6, zorder=0
 )
 
-plot.edges(
-    ax, p, Aiso,
+plot.bars(
+    ax, p, edges_from_adjacency(Aiso, directed=False),
     lw=0.3, color='k', alpha=0.6, zorder=0
 )
 
@@ -276,13 +276,13 @@ for k in np.unique(h_sparsed_dece):
     )
 
 Aiso = links_adjacency(G, h_sparsed_dece)
-plot.edges(
-    ax, p, A - Aiso,
+plot.bars(
+    ax, p, edges_from_adjacency(A - Aiso, directed=False),
     lw=0.3, color='k', alpha=0.6, zorder=0
 )
 
-plot.edges(
-    ax, p, Aiso,
+plot.bars(
+    ax, p, edges_from_adjacency(Aiso, directed=False),
     lw=0.3, color='k', alpha=0.6, zorder=0
 )
 

@@ -53,6 +53,11 @@ x = data.read_csv(
 )
 n = len(x[0])
 
+# tweak #
+x = [np.hstack([xk, np.zeros((n, 1))]) for xk in x]
+#
+
+
 edge_list = data.read_csv(
     'data/edge_list.csv',
     rows=(k_i, k_e),
@@ -103,22 +108,21 @@ for k in range(N):
         verticalalignment='bottom', horizontalalignment='left',
         transform=ax.transAxes, color='r', fontsize='x-small'
     )
-
-    plot.points(
-        ax, x[k],
+    plot.triangles(
+        ax, x[k], 3.0,
         color='b',
-        marker='o',
-        s=15,
         lw=0.2
     )
-    plot.bars(
+    plot.arrows(
         ax,
-        x[k],
+        x[k][:, :2],
         edge_list[k],
         color='0.0',
-        alpha=0.5,
-        lw=0.3,
-        zorder=0
+        alpha=1.0,
+        width=0.003,
+        scale=1
+        # lw=0.1,
+        # zorder=0
     )
 
     untracked = targets[k][:, 2].astype(bool)

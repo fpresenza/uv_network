@@ -9,30 +9,12 @@ from matplotlib.patches import Polygon
 from matplotlib.collections import PatchCollection
 
 from uvnpy.dynamics.unicycle import Unicycle
+from uvnpy.toolkit.geometry import triangle
 
 
 # ------------------------------------------------------------------
 # Functions and Classes
 # ------------------------------------------------------------------
-
-def triangle_vertices(pose, scale=1.0):
-    """Return coordinates of a triangle representing the robot."""
-    # Triangle points in robot frame
-
-    x = pose[..., 0]
-    y = pose[..., 1]
-    ct = scale * np.cos(pose[..., 2])
-    st = scale * np.sin(pose[..., 2])
-
-    vertices = np.empty((len(pose), 3, 2), dtype=float)
-    vertices[..., 0, 0] = ct + x
-    vertices[..., 0, 1] = st + y
-    vertices[..., 1, 0] = 0.5 * (-ct - st) + x
-    vertices[..., 1, 1] = 0.5 * (-st + ct) + y
-    vertices[..., 2, 0] = 0.5 * (-ct + st) + x
-    vertices[..., 2, 1] = 0.5 * (-st - ct) + y
-
-    return vertices
 
 
 def feedback_linearization(u, theta, d=1.0):
@@ -122,8 +104,11 @@ ax.set_ylim(-10.0, 10.0)
 ax.set_aspect('equal')
 ax.grid()
 
+center = pose_log[::500, :2]
+heading = pose_log[::500, 2]
+
 triangles = [
-    Polygon(vert) for vert in triangle_vertices(pose_log[::1000], scale=0.5)
+    Polygon(vert) for vert in triangle(center, heading, height=0.5)
 ]
 
 ax.add_collection(

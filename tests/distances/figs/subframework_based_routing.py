@@ -7,9 +7,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
-from uvnpy.network import plot
 from uvnpy.network.disk_graph import adjacency_from_positions
-from uvnpy.network.core import geodesics
+from uvnpy.toolkit import plot
+from uvnpy.network.core import geodesics, edges_from_adjacency
 from uvnpy.distances.core import (
     distance_matrix,
     minimum_rigidity_extents,
@@ -74,8 +74,8 @@ ax.set_xticks(np.linspace(0, 1, 4, endpoint=True))
 ax.set_yticks(np.linspace(0, 1, 4, endpoint=True))
 ax.set_xticklabels([])
 ax.set_yticklabels([])
-plot.edges(
-    ax, p, A,
+plot.bars(
+    ax, p, edges_from_adjacency(A, directed=False),
     lw=0.5, color=cm.coolwarm(20), zorder=0
 )
 
@@ -124,20 +124,23 @@ ax.annotate(
     horizontalalignment='center',
     verticalalignment='center', zorder=20
 )
-plot.nodes(
+plot.points(
     ax, p[np.logical_not(super_centers)],
     marker='o', color='gray', s=11, zorder=10
 )
-plot.nodes(
+plot.points(
     ax, p[super_centers],
     marker='o', color='lightblue', s=30, zorder=10,
     label=r'$j : \; i \in \mathcal{F}_j$'
 )
-plot.nodes(
+plot.points(
     ax, p[node_i],
     marker='o', color='lightblue', s=70, zorder=10
 )
-plot.edges(ax, p, A, color='0.0', lw=0.4, alpha=0.5)
+plot.bars(
+    ax, p, edges_from_adjacency(A, directed=False),
+    color='0.0', lw=0.4, alpha=0.5
+)
 ax.legend(
     fontsize='small', handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
@@ -181,20 +184,23 @@ ax.annotate(
     horizontalalignment='center',
     verticalalignment='center', zorder=20
 )
-plot.nodes(
+plot.points(
     ax, p[np.logical_not(info)],
     marker='o', color='gray', s=11, zorder=10
 )
-plot.nodes(
+plot.points(
     ax, p[info],
     marker='o', color='mediumseagreen', s=30, zorder=10,
     label=r'$\cup \{\mathcal{F}_j : \; i \in \mathcal{F}_j\}$'
 )
-plot.nodes(
+plot.points(
     ax, p[node_i],
     marker='o', color='mediumseagreen', s=70, zorder=10
 )
-plot.edges(ax, p, A, color='0.0', lw=0.4, alpha=0.5)
+plot.bars(
+    ax, p, edges_from_adjacency(A, directed=False),
+    color='0.0', lw=0.4, alpha=0.5
+)
 ax.legend(
     fontsize='small', handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
@@ -229,22 +235,22 @@ ax.annotate(
     horizontalalignment='center',
     verticalalignment='center', zorder=20
 )
-plot.nodes(
+plot.points(
     ax, p[np.logical_not(info)],
     marker='o', color='gray', s=11, zorder=10
 )
-plot.nodes(
+plot.points(
     ax, p[info],
     marker='o', color='mediumseagreen', s=30, zorder=10,
     label=r'$\cup \{\mathcal{F}_j : \; j \in \mathcal{C}_i\}$'
 )
 centers_not_i = super_centers.copy()
 centers_not_i[node_i] = False
-plot.nodes(
+plot.points(
     ax, p[centers_not_i],
     marker='o', color='mediumseagreen', edgecolor='k', s=100, zorder=10
 )
-plot.nodes(
+plot.points(
     ax, p[node_i],
     marker='o', color='mediumseagreen', s=70, zorder=10
 )
@@ -265,7 +271,10 @@ for k, c in enumerate(np.where(super_centers)[0]):
                 headlength=5, headaxislength=4.5, linewidths=0.15,
                 edgecolor='mediumseagreen', zorder=5
             )
-plot.edges(ax, p, A, color='0.0', lw=0.4, alpha=0.5)
+plot.bars(
+    ax, p, edges_from_adjacency(A, directed=False),
+    color='0.0', lw=0.4, alpha=0.5
+)
 ax.set_xlim(0.15, 0.85)
 ax.set_ylim(0.15, 0.85)
 fig.savefig('/tmp/subframework_based_routing_4.png', format='png', dpi=360)

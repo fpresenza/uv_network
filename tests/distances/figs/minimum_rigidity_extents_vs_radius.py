@@ -7,8 +7,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
-from uvnpy.network import plot
 from uvnpy.network.disk_graph import adjacency_from_positions
+from uvnpy.toolkit import plot
+from uvnpy.network.core import edges_from_adjacency
 from uvnpy.distances.core import (
     distance_matrix,
     minimum_rigidity_extents,
@@ -64,8 +65,8 @@ ax.set_yticks(np.linspace(0, 1, 4, endpoint=True))
 ax.set_xticklabels([])
 ax.set_yticklabels([])
 
-plot.edges(
-    ax, p, A,
+plot.bars(
+    ax, p, edges_from_adjacency(A, directed=False),
     lw=0.5, color=cm.coolwarm(20), zorder=0
 )
 
@@ -113,12 +114,12 @@ ax.set_yticks(np.linspace(0, 1, 4, endpoint=True))
 ax.set_xticklabels([])
 ax.set_yticklabels([])
 
-plot.edges(
-    ax, p, A0,
+plot.bars(
+    ax, p, edges_from_adjacency(A0, directed=False),
     lw=0.5, color=cm.coolwarm(20), zorder=0
 )
-plot.edges(
-    ax, p, A - A0,
+plot.bars(
+    ax, p, edges_from_adjacency(A - A0, directed=False),
     lw=0.5, ls='--', color=cm.coolwarm(20), zorder=0
 )
 
@@ -166,12 +167,12 @@ ax.set_yticks(np.linspace(0, 1, 4, endpoint=True))
 ax.set_xticklabels([])
 ax.set_yticklabels([])
 
-plot.edges(
-    ax, p, A0,
+plot.bars(
+    ax, p, edges_from_adjacency(A0, directed=False),
     lw=0.5, color=cm.coolwarm(20), zorder=0
 )
-plot.edges(
-    ax, p, A - A0,
+plot.bars(
+    ax, p, edges_from_adjacency(A - A0, directed=False),
     lw=0.5, ls='--', color=cm.coolwarm(20), zorder=0
 )
 

@@ -8,9 +8,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
-from uvnpy.network import plot
 from uvnpy.network.disk_graph import adjacency_from_positions
-from uvnpy.network.core import geodesics
+from uvnpy.toolkit import plot
+from uvnpy.network.core import geodesics, edges_from_adjacency
 from uvnpy.distances.core import (
     minimum_rigidity_extents,
     minimum_rigidity_radius,
@@ -79,8 +79,8 @@ while i < 10:
     ax.set_xticklabels([])
     ax.set_yticklabels([])
 
-    plot.edges(
-        ax, p, A,
+    plot.bars(
+        ax, p, edges_from_adjacency(A, directed=False),
         lw=0.5, color=cm.coolwarm(20), zorder=0
     )
 

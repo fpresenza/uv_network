@@ -10,11 +10,8 @@ def cross_product_matrix(vector):
     """The matrix cross_product_matrix(vector) that converts
     the cross product into a matrix product.
 
-
-    Parameters
-    ----------
-    vector : numpy.ndarray
-        A 3d vector
+    args:
+        vector : (3, )-array
     """
     x, y, z = vector[0], vector[1], vector[2]
 
@@ -36,11 +33,8 @@ def cross_product_matrix_multiple_axes(vector):
     """The matrix cross_product_matrix(vector) that converts
     the cross product into a matrix product.
 
-
-    Parameters
-    ----------
-    vector : numpy.ndarray
-        A row stack of 3d vectors
+    args:
+        vector : (..., 3)-array
     """
     x, y, z = vector[..., 0], vector[..., 1], vector[..., 2]
 
@@ -63,13 +57,10 @@ def rotation_matrix_from_vector(theta):
     """Rodrigues rotation formula.
 
 
-    Parameters
-    ----------
-    theta : numqy.ndarray
-        A row stack of unit vectors
+    args:
+        theta : unit vector (3, )-array
 
-    Returns
-    ----------
+    returns:
         The rotation matrices asociated
     """
     angle = np.sqrt(np.sum(np.square(theta)))
@@ -99,14 +90,10 @@ def rotation_matrix_from_vector(theta):
 def rotation_matrix_from_vector_multiple_axes(theta):
     """Rodrigues rotation formula.
 
+    args:
+        theta : unit vector (.., 3)-array
 
-    Parameters
-    ----------
-    theta : numqy.ndarray
-        A row stack of unit vectors
-
-    Returns
-    ----------
+    returns:
         The rotation matrices asociated
     """
     angle = np.sqrt(np.sum(np.square(theta), axis=-1))
@@ -131,6 +118,31 @@ def rotation_matrix_from_vector_multiple_axes(theta):
     R[..., 2, 2] = cos1 * (-x2 - y2) + 1.0
 
     return R
+
+
+def triangle(center, heading, height, ratio=0.3):
+    """Compute coordinates of a triangle.
+
+    args:
+        center  : coordinates of the base center | (2, )-array
+        heading : orientation | float
+        height  : length from center to apex | float
+        ratio   : base / height | float
+    """
+    x = center[..., 0]
+    y = center[..., 1]
+    ct = height * np.cos(heading)
+    st = height * np.sin(heading)
+
+    vertices = np.empty((len(center), 3, 2), dtype=float)
+    vertices[..., 0, 0] = x + ct
+    vertices[..., 0, 1] = y + st
+    vertices[..., 1, 0] = x - ratio * st
+    vertices[..., 1, 1] = y + ratio * ct
+    vertices[..., 2, 0] = x + ratio * st
+    vertices[..., 2, 1] = y - ratio * ct
+
+    return vertices
 
 
 def cone(apex, axis, hypot, fov, resolution=36):
