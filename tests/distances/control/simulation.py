@@ -15,7 +15,9 @@ from uvnpy.distances.localization import DistanceBasedKalmanFilter
 from uvnpy.network.token_passing import TokenPassing
 from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.distances.control import RigidityMaintenance
-from uvnpy.distances.core import is_inf_rigid, minimum_rigidity_extents
+from uvnpy.distances.core import (
+    is_inf_distance_rigid, minimum_distance_rigidity_extents
+)
 from uvnpy.control.core import CollisionAvoidanceVanishing
 from uvnpy.control.targets import Targets, TargetTracking
 
@@ -456,7 +458,7 @@ print(position)
 comm_range = 15.0
 print('Communication range: {}'.format(comm_range))
 graph = DiskGraph(realization=position, dmax=comm_range)
-adjacency_matrix = graph.adjacency_matrix().astype(float)
+adjacency_matrix = graph.adjacency_matrix(float)
 print(
     'Adjacency list: \n' +
     '\n'.join(
@@ -464,7 +466,8 @@ print(
         for key, val in enumerate(core.adjacency_list(adjacency_matrix))
     )
 )
-if not is_inf_rigid(adjacency_matrix, position):
+edge_set = graph.edge_set(directed=False)
+if not is_inf_distance_rigid(edge_set, position):
     raise ValueError('Framework should be infinitesimally rigid.')
 
 world = World(
@@ -477,9 +480,9 @@ world = World(
     gps_meas_stdev=0.0
 )
 
-adjacency_matrix = graph.adjacency_matrix().astype(float)
+adjacency_matrix = graph.adjacency_matrix(float)
 geodesics_matrix = core.geodesics(adjacency_matrix)
-action_extents = minimum_rigidity_extents(geodesics_matrix, position)
+action_extents = minimum_distance_rigidity_extents(geodesics_matrix, position)
 state_extents = superframework_extents(geodesics_matrix, action_extents)
 print(
     'Action extents: \n' +
@@ -566,13 +569,17 @@ logs = Logs(
 simu_counter = 0
 simu_counter = run_mission(simu_counter, end_counter=n_steps)
 
-np.savetxt('data/t.csv', logs.time, delimiter=',')
-np.savetxt('data/position.csv', logs.position, delimiter=',')
-np.savetxt('data/est_position.csv', logs.est_position, delimiter=',')
-np.savetxt('data/target_action.csv', logs.target_action, delimiter=',')
-np.savetxt('data/collision_action.csv', logs.collision_action, delimiter=',')
-np.savetxt('data/rigidity_action.csv', logs.rigidity_action, delimiter=',')
-np.savetxt('data/adjacency.csv', logs.adjacency, delimiter=',')
-np.savetxt('data/action_extents.csv', logs.action_extents, delimiter=',')
-np.savetxt('data/state_extents.csv', logs.state_extents, delimiter=',')
-np.savetxt('data/targets.csv', logs.targets, delimiter=',')
+np.savetxt('simu_data/t.csv', logs.time, delimiter=',')
+np.savetxt('simu_data/position.csv', logs.position, delimiter=',')
+np.savetxt('simu_data/est_position.csv', logs.est_position, delimiter=',')
+np.savetxt('simu_data/target_action.csv', logs.target_action, delimiter=',')
+np.savetxt(
+    'simu_data/collision_action.csv', logs.collision_action, delimiter=','
+)
+np.savetxt(
+    'simu_data/rigidity_action.csv', logs.rigidity_action, delimiter=','
+)
+np.savetxt('simu_data/adjacency.csv', logs.adjacency, delimiter=',')
+np.savetxt('simu_data/action_extents.csv', logs.action_extents, delimiter=',')
+np.savetxt('simu_data/state_extents.csv', logs.state_extents, delimiter=',')
+np.savetxt('simu_data/targets.csv', logs.targets, delimiter=',')

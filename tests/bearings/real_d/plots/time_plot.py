@@ -7,7 +7,7 @@ from scipy.sparse.csgraph import shortest_path
 
 from uvnpy.toolkit import data
 from uvnpy.network.core import geodesics, as_undirected
-from uvnpy.bearings.core import rigidity_eigenvalue
+from uvnpy.bearings.real_d.core import bearing_rigidity_eigenvalue
 from uvnpy.distances.core import minimum_distance
 
 plt.rcParams['text.usetex'] = False
@@ -129,14 +129,14 @@ fdiam = np.empty(len(t))
 diam = np.empty((len(t), n))
 for k, (adj, pos, ext) in enumerate(zip(A, x[:, :, :3], action_extents)):
     geo = shortest_path(adj, unweighted=True)
-    fre[k] = rigidity_eigenvalue(adj, pos)
+    fre[k] = bearing_rigidity_eigenvalue(adj, pos)
     fdiam[k] = np.max(geo)
     for i in nodes:
         Vi = geo[i] <= ext[i]
         if sum(Vi) > 1:
             Ai = adj[np.ix_(Vi, Vi)]
             qi = pos[Vi]
-            re[k, i] = rigidity_eigenvalue(Ai, qi)
+            re[k, i] = bearing_rigidity_eigenvalue(Ai, qi)
             diam[k, i] = np.max(geodesics(Ai))
         else:
             re[k, i] = 0.0
@@ -172,7 +172,7 @@ ax.plot(
     lw=0.8,
     ds='steps-post'
 )
-fig.savefig('data/time/target_control.pdf', bbox_inches='tight')
+fig.savefig('time_plot/target_control.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot collision control action
@@ -194,7 +194,7 @@ ax.plot(
     np.sqrt(np.sum(u_c[:, subset]**2, axis=2)),
     lw=0.8, ds='steps-post'
 )
-fig.savefig('data/time/collision_control.pdf', bbox_inches='tight')
+fig.savefig('time_plot/collision_control.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot rigidity control action
@@ -216,7 +216,7 @@ ax.plot(
     np.sqrt(np.sum(u_r[:, subset]**2, axis=2)),
     lw=0.8, ds='steps-post'
 )
-fig.savefig('data/time/rigidity_control.pdf', bbox_inches='tight')
+fig.savefig('time_plot/rigidity_control.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot control action composition
@@ -239,7 +239,7 @@ ax.plot(
     np.sqrt(np.sum(u[:, subset]**2, axis=2)),
     lw=0.8, ds='steps-post'
 )
-fig.savefig('data/time/control.pdf', bbox_inches='tight')
+fig.savefig('time_plot/control.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot state extents
@@ -257,7 +257,7 @@ fig.savefig('data/time/control.pdf', bbox_inches='tight')
 # ax.set_ylabel('state extents', fontsize=8)
 # ax.grid(1)
 # ax.plot(t, state_extents, lw=0.8, marker='.', ds='steps-post')
-# fig.savefig('data/time/state_extents.pdf', bbox_inches='tight')
+# fig.savefig('time_plot/state_extents.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot velocity measurement error
@@ -293,7 +293,7 @@ fig.savefig('data/time/control.pdf', bbox_inches='tight')
 #     fontsize=8, handlelength=1, labelspacing=0.4,
 #     borderpad=0.2, handletextpad=0.2, framealpha=1.,
 #     ncol=2, columnspacing=1)
-# fig.savefig('data/time/vel_meas_err.pdf', bbox_inches='tight')
+# fig.savefig('time_plot/vel_meas_err.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot gps measurement error
@@ -329,7 +329,7 @@ fig.savefig('data/time/control.pdf', bbox_inches='tight')
 #     fontsize=8, handlelength=1, labelspacing=0.4,
 #     borderpad=0.2, handletextpad=0.2, framealpha=1.,
 #     ncol=2, columnspacing=1)
-# fig.savefig('data/time/gps_meas_err.pdf', bbox_inches='tight')
+# fig.savefig('time_plot/gps_meas_err.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot range measurement error
@@ -362,7 +362,7 @@ fig.savefig('data/time/control.pdf', bbox_inches='tight')
 #     fontsize=8, handlelength=1, labelspacing=0.4,
 #     borderpad=0.2, handletextpad=0.2, framealpha=1.,
 #     ncol=2, columnspacing=1)
-# fig.savefig('data/time/range_meas_err.pdf', bbox_inches='tight')
+# fig.savefig('time_plot/range_meas_err.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot position x
@@ -386,7 +386,7 @@ ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
 ax.set_ylabel(r'$x_i\ (\mathrm{m})$', fontsize=8)
 ax.plot(t, x[:, subset, 0], lw=0.8, ds='steps-post')
-fig.savefig('data/time/pos_x.pdf', bbox_inches='tight')
+fig.savefig('time_plot/pos_x.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot position y
@@ -410,7 +410,7 @@ ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
 ax.set_ylabel(r'$y_i\ (\mathrm{m})$', fontsize=8)
 ax.plot(t, x[:, subset, 1], lw=0.8, ds='steps-post')
-fig.savefig('data/time/pos_y.pdf', bbox_inches='tight')
+fig.savefig('time_plot/pos_y.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot position z
@@ -434,7 +434,7 @@ ax.grid(1, lw=0.4)
 ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
 ax.set_ylabel(r'$z_i\ (\mathrm{m})$', fontsize=8)
 ax.plot(t, x[:, subset, 2], lw=0.8, ds='steps-post')
-fig.savefig('data/time/pos_z.pdf', bbox_inches='tight')
+fig.savefig('time_plot/pos_z.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot eigenvalues
@@ -474,7 +474,7 @@ ax.set_ylim(bottom=1e-4, top=10)
 #     fontsize=8, handlelength=1, labelspacing=0.4,
 #     borderpad=0.2, handletextpad=0.2, framealpha=1.,
 #     ncol=4, columnspacing=1)
-fig.savefig('data/time/eigenvalues.pdf', bbox_inches='tight')
+fig.savefig('time_plot/eigenvalues.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot minimum distance between agents
@@ -513,7 +513,7 @@ ax.fill_between(t, np.min(mindist, axis=1), np.max(mindist, axis=1), alpha=0.3)
 ax.hlines(1.0, xmin=t.min(), xmax=t.max(), ls='--', lw=0.8, color='k')
 ax.hlines(1.0, xmin=t.min(), xmax=t.max(), ls='--', lw=0.8, color='k')
 ax.set_yticks([0.0, 5.0, 10.0, 15.0, 20.0])
-fig.savefig('data/time/min_dist.pdf', bbox_inches='tight')
+fig.savefig('time_plot/min_dist.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot position error
@@ -555,7 +555,7 @@ fig.savefig('data/time/min_dist.pdf', bbox_inches='tight')
 # #     ncol=2,
 # #     columnspacing=1
 # # )
-# fig.savefig('data/time/pos_error.pdf', bbox_inches='tight')
+# fig.savefig('time_plot/pos_error.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot covariance
@@ -593,7 +593,7 @@ fig.savefig('data/time/min_dist.pdf', bbox_inches='tight')
 #     fontsize=8, handlelength=1, labelspacing=0.4,
 #     borderpad=0.2, handletextpad=0.2, framealpha=1.,
 #     ncol=2, columnspacing=1)
-# fig.savefig('data/time/pos_cov.pdf', bbox_inches='tight')
+# fig.savefig('time_plot/pos_cov.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot target collection
@@ -630,7 +630,7 @@ ax.plot(
 # )
 # ax.hlines(1.0, xmin=0.0, xmax=200.0, ls='--', lw=0.8, color='k')
 ax.set_yticks([0.0, 50.0, 100.0])
-fig.savefig('data/time/targets.pdf', bbox_inches='tight')
+fig.savefig('time_plot/targets.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot communication metrics
@@ -676,6 +676,6 @@ ax.fill_between(t, np.min(diam, axis=1), np.max(diam, axis=1), alpha=0.3)
 #     ncol=2,
 #     columnspacing=1
 # )
-fig.savefig('data/time/diameters.pdf', bbox_inches='tight')
+fig.savefig('time_plot/diameters.pdf', bbox_inches='tight')
 
 plt.show()

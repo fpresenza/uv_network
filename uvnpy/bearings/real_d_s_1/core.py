@@ -25,7 +25,7 @@ def bearing_matrix(x):
         yaw[i] = x[i, d]
 
     args:
-        x: (..., n, d + 1) position array
+        x: positions (..., n, d + 1)-array
     """
     d = x.shape[-1] - 1
     p = x[..., :d]
@@ -55,7 +55,8 @@ def bearing_function(E, x):
         yaw[i] = x[i, d]
 
     args:
-        x
+        E: edge set (m, 2)-array
+        x: positions + angles (..., n, d + 1)-array
     """
     d = x.shape[-1] - 1
     p = x[..., :d]
@@ -75,11 +76,12 @@ def bearing_function(E, x):
 
 
 @njit
-def rigidity_matrix(E, x):
-    """Rigidity Matrix (jacobian of the bearing function)
+def bearing_rigidity_matrix(E, x):
+    """Bearing rigidity Matrix (jacobian of the bearing function)
 
     args:
-        x: (..., n, d + 1) position array
+        E: edge set (m, 2)-array
+        x: positions + angles (..., n, d + 1)-array
     """
     n = x.shape[0]
     s = x.shape[1]
@@ -109,8 +111,8 @@ def rigidity_matrix(E, x):
     return R.reshape(d * m, s * n)
 
 
-def is_inf_rigid(E, x, threshold=THRESHOLD_SV):
+def is_inf_bearing_rigid(E, x, threshold=THRESHOLD_SV):
     n = x.shape[0]
     s = x.shape[1]
-    R = rigidity_matrix(E, x)
+    R = bearing_rigidity_matrix(E, x)
     return np.linalg.matrix_rank(R, tol=threshold) == n*s - s - 1

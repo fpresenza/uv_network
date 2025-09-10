@@ -6,6 +6,8 @@
 """
 import numpy as np
 
+from .core import edges_from_adjacency
+
 
 class Graph(object):
     """
@@ -27,8 +29,8 @@ class Graph(object):
     def adjacency_list(self):
         return [np.where(adj)[0] for adj in self._adj]
 
-    def edge_set(self):
-        return np.argwhere(self._adj)
+    def edge_set(self, directed=True):
+        return edges_from_adjacency(self._adj, directed)
 
     def is_edge(self, vertex_i, vertex_j):
         return self._adj[vertex_i, vertex_j]
@@ -64,7 +66,7 @@ class ErdosRenyi(Graph):
     """
     Class representing a random graph based on the Erdos-Renyi model.
     """
-    def __init__(self, n, p, undirected=False):
+    def __init__(self, n, p, directed=False):
         """
         args:
         -----
@@ -72,10 +74,10 @@ class ErdosRenyi(Graph):
             p : probability of existence of each edge
         """
         self.n = n
-        if undirected:
-            self.p = 1 - np.sqrt(1 - p)
-        else:
+        if directed:
             self.p = p
+        else:
+            self.p = 1 - np.sqrt(1 - p)
         self.update()
 
     def update(self):

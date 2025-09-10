@@ -9,6 +9,13 @@ import numpy as np
 from transformations import unit_vector
 from numba import njit
 
+from uvnpy.graphs.core import (
+    adjacency_from_geodesics,
+    edges_from_adjacency,
+    complete_edges,
+    edge_set_diff
+)
+
 
 THRESHOLD_EIG = 1e-10
 THRESHOLD_SV = 1e-5
@@ -25,7 +32,7 @@ def distance_matrix(x):
     return dist
 
 
-def distance_matrix_from_edges(E, p):
+def distances_from_edges(E, p):
     r = p[..., E[:, 0], :] - p[..., E[:, 1], :]
     dist = np.sqrt(np.square(r).sum(axis=-1))
     return dist
@@ -64,178 +71,43 @@ def sufficiently_dispersed_position(n, xlim, ylim, max_dist):
     return p
 
 
-def classic_rigidity_matrix_from_incidence(D, p):
-    """Matriz de rigidez
+@njit
+def distance_rigidity_matrix(E, p):
+    """Distance rigidity Matrix (jacobian of the distance function)
 
     args:
-        D: matriz de incidencia (n, m)
-        p: array de posiciones (n, d)
-
-    returns
-        R: jacobiano (ne, n * d)
+        E: edge set (m, 2)-array
+        p: positions (..., n, d)-array
     """
-    n, d = p.shape[-2:]
-    Dt = D.T
-    r = np.matmul(Dt, p)
-    J = Dt[..., None] * r[..., None, :]
-    return J.reshape(-1, n*d)
-
-
-@njit
-def classic_rigidity_matrix(A, p):
     n, d = p.shape
-    num_edges = int(A.sum() / 2)
-    R = np.zeros((num_edges, n*d))
-    e = 0
-    for i in range(n):
-        for j in range(i+1, n):
-            if A[i, j] == 1:
-                dij = p[i] - p[j]
-                R[e, d*i:d*(i+1)] = dij
-                R[e, d*j:d*(j+1)] = -dij
-                e += 1
+    m = E.shape[0]
+    R = np.zeros((m, n*d), dtype=float)
+    for e, (i, j) in enumerate(E):
+        r = p[i] - p[j]
+        b = r / np.sqrt(np.square(r).sum(axis=-1))
+        R[e, d*i:d*(i+1)] = b
+        R[e, d*j:d*(j+1)] = -b
     return R
 
 
-def classic_rigidity_matrix_multiple_axes(D, p):
-    """Matriz de rigidez
-
-    args:
-        D: matriz de incidencia (n, m)
-        p: array de posiciones (n, d)
-
-    returns
-        R: jacobiano (ne, n * d)
-    """
-    n, d = p.shape[-2:]
-    m = D.shape[-1]
-    Dt = D.T
-    r = np.matmul(Dt, p)
-    J = Dt[..., None] * r[..., None, :]
-    return J.reshape(-1, m, n*d)
-
-
-def rigidity_matrix(D, p):
-    """Matriz de rigidez
-
-    args:
-        D: matriz de incidencia (n, m)
-        p: array de posiciones (n, d)
-
-    returns
-        R: jacobiano (ne, n * d)
-    """
-    n, d = p.shape[-2:]
-    Dt = D.T
-    r = unit_vector(np.matmul(Dt, p), axis=-1)
-    J = Dt[..., None] * r[..., None, :]
-    return J.reshape(-1, n*d)
-
-
-def rigidity_matrix_multiple_axes(D, p):
-    """Matriz de rigidez
-
-    args:
-        D: matriz de incidencia (n, m)
-        p: array de posiciones (n, d)
-
-    returns
-        R: jacobiano (ne, n * d)
-    """
-    n, d = p.shape[-2:]
-    m = D.shape[-1]
-    Dt = D.T
-    r = unit_vector(np.matmul(Dt, p), axis=-1)
-    J = Dt[..., None] * r[..., None, :]
-    return J.reshape(-1, m, n*d)
-
-
-@njit
-def _classic_rigidity_laplacian(A, p):
-    n, d = p.shape
-    L = np.zeros((n, n, d, d))
-    edges = np.argwhere(np.triu(A) > 0)
-    for i, j in edges:
-        dji = p[j] - p[i]
-        L[i, j] = L[j, i] = -dji.reshape(d, 1).dot(dji.reshape(1, d))
-        L[i, i] -= L[i, j]
-        L[j, j] -= L[i, j]
-
-    return L
-
-
-def classic_rigidity_laplacian(A, p):
-    L = _classic_rigidity_laplacian(A, p)
-    return L.swapaxes(1, 2).reshape(p.size, p.size)
-
-
-@njit
-def _rigidity_laplacian(A, p):
-    n, d = p.shape
-    L = np.zeros((n, n, d, d))
-    edges = np.argwhere(np.triu(A) > 0)
-    for i, j in edges:
-        dij = p[i] - p[j]
-        nij = np.square(dij).sum()
-        L[i, j] = L[j, i] = dij.reshape(d, 1).dot(dij.reshape(1, d)) / -nij
-        L[i, i] -= L[i, j]
-        L[j, j] -= L[i, j]
-
-    return L
-
-
-def rigidity_laplacian(A, p):
-    L = _rigidity_laplacian(A, p)
-    return L.swapaxes(1, 2).reshape(p.size, p.size)
-
-
-def classic_rigidity_laplacian_multiple_axes(A, p):
-    """Matriz de rigidez.
+def distance_rigidity_laplacian(A, p):
+    """Distance Laplacian / Stiffness matrix.
 
         S =  R^T W R
 
-    A[i, j] >= 0 respresenta el peso asociado a cada enlace.
-
     args:
-        A: matriz de adyacencia (..., n, n)
-        p: array de posiciones (..., n, d)
+        A: weighted adjacency matrix (..., n, n)-array
+        p: positions (..., n, d)-array
 
-    returns
-        S: laplaciano de rigidez (..., n * d, n * d)
-    """
-    n, d = p.shape[-2:]
-    ii = np.eye(n, dtype=bool)
-    r = p[..., None, :] - p[..., None, :, :]
-    r[..., ii, :] = 0
-    S = - r[..., None] * r[..., None, :]    # outer product
-    S *= A[..., None, None]                 # aplicar pesos
-    S[..., ii, :, :] -= S.sum(p.ndim - 1)
-    S = S.swapaxes(-3, -2)
-    s = list(S.shape)
-    s[-4:] = n * d, n * d
-    return S.reshape(s)
-
-
-def rigidity_laplacian_multiple_axes(A, p):
-    """Matriz normalizada de rigidez.
-
-        S =  R^T W R
-
-    A[i, j] >= 0 respresenta el peso asociado a cada enlace.
-
-    args:
-        A: matriz de adyacencia (..., n, n)
-        p: array de posiciones (..., n, d)
-
-    returns
-        S: laplaciano de rigidez (..., n * d, n * d)
+    returns:
+        S: rigidity laplacian (..., n * d, n * d)-array
     """
     n, d = p.shape[-2:]
     ii = np.eye(n, dtype=bool)
     r = unit_vector(p[..., None, :] - p[..., None, :, :], axis=-1)
     r[..., ii, :] = 0
     S = - r[..., None] * r[..., None, :]    # outer product
-    S *= A[..., None, None]                 # aplicar pesos
+    S *= A[..., None, None]                 # apply weights
     S[..., ii, :, :] -= S.sum(p.ndim - 1)
     S = S.swapaxes(-3, -2)
     s = list(S.shape)
@@ -243,80 +115,78 @@ def rigidity_laplacian_multiple_axes(A, p):
     return S.reshape(s)
 
 
-def is_inf_rigid(A, p, threshold=THRESHOLD_SV):
+def is_inf_distance_rigid(E, p, threshold=THRESHOLD_SV):
     n, d = p.shape
     f = int(d * (d + 1)/2)
-    R = classic_rigidity_matrix(A, p)
+    R = distance_rigidity_matrix(E, p)
     return np.linalg.matrix_rank(R, tol=threshold) == n*d - f
 
 
-def rigidity_eigenvalue(A, p):
+def distance_rigidity_eigenvalue(A, p):
     d = p.shape[1]
     f = int(d * (d + 1) / 2)
-    S = rigidity_laplacian(A, p)
+    S = distance_rigidity_laplacian(A, p)
     eig = np.linalg.eigvalsh(S)
     return eig[f]
 
 
-def minimum_rigidity_extents(geodesics, p, threshold=THRESHOLD_SV):
+def minimum_distance_rigidity_extents(geodesics, p, threshold=THRESHOLD_SV):
     """
-    Requires:
-    ---------
+    requires:
         framework is rigid
     """
     n, d = p.shape
-    A = geodesics.copy()
-    A[A > 1] = 0
     extents = np.empty(n, dtype=int)
+    A = adjacency_from_geodesics(geodesics)
     for i in range(n):
         minimum_found = False
         h = 0
         while not minimum_found:
             h += 1
             subset = geodesics[i] <= h
-            Ai = A[np.ix_(subset, subset)]
+            Ei = edges_from_adjacency(
+                A[np.ix_(subset, subset)], directed=False
+            )
             pi = p[subset]
-            minimum_found = is_inf_rigid(Ai, pi, threshold)
+            minimum_found = is_inf_distance_rigid(Ei, pi, threshold)
         extents[i] = h
     return extents
 
 
-def minimum_rigidity_radius(A, p, threshold=THRESHOLD_SV, return_radius=False):
+def minimum_distance_rigidity_radius(
+        E, p, threshold=THRESHOLD_SV, return_radius=False):
     """Add or delete edges to a framework until it is radius-wise minimally
     rigid."""
-    A = A.copy()
     n, d = p.shape
     f = d * (d + 1) // 2
-    dist = distance_matrix(p)
 
-    if is_inf_rigid(A, p, threshold):
-        B = A.copy()
-        dist = dist * B
-
+    if is_inf_distance_rigid(E, p, threshold):
+        dist = distances_from_edges(E, p)
+        F = E.copy()
         rigid = True
         while rigid:
-            A = B.copy()
-            i, j = np.unravel_index(np.argmax(dist), (n, n))
-            radius = dist[i, j]
-            dist[i, j] = dist[j, i] = 0
-            B[i, j] = B[j, i] = 0
-            rigid = is_inf_rigid(B, p, threshold)
+            E = F.copy()
+            e = np.argmax(dist)
+            radius = dist[e]
+            dist = np.delete(dist, e)
+            F = np.delete(F, e, axis=0)
+            rigid = is_inf_distance_rigid(F, p, threshold)
     else:
-        B = np.eye(n) + A
-        B[B == 1] = np.inf
-        dist = dist + B
+        K = complete_edges(n, directed=False)
+        notE = edge_set_diff(K, E)
+        dist = distances_from_edges(notE, p)
 
         rigid = False
         while not rigid:
-            i, j = np.unravel_index(np.argmin(dist), (n, n))
-            radius = dist[i, j]
-            dist[i, j] = dist[j, i] = np.inf
-            A[i, j] = A[j, i] = 1
-            e = A.sum() // 2
-            if e >= d*n - f:
-                rigid = is_inf_rigid(A, p, threshold)
+            e = np.argmin(dist)
+            radius = dist[e]
+            E = np.vstack([E, notE[e]])
+            dist = np.delete(dist, e)
+            notE = np.delete(notE, e, axis=0)
+            if len(E) >= d*n - f:
+                rigid = is_inf_distance_rigid(E, p, threshold)
 
     if return_radius:
-        return A, radius
+        return E, radius
     else:
-        return A
+        return E

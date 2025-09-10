@@ -70,7 +70,7 @@ def bearing_function(E, x):
 
 
 @njit
-def rigidity_matrix(E, x):
+def bearing_rigidity_matrix(E, x):
     """Rigidity Matrix (jacobian of the bearing function)
 
     args:
@@ -102,7 +102,7 @@ def rigidity_matrix(E, x):
     return R.reshape(3*m, 6*n)
 
 
-def is_inf_rigid(E, x, threshold=THRESHOLD_SV):
+def is_inf_bearing_rigid(E, x, threshold=THRESHOLD_SV):
     n = x.shape[0]
-    R = rigidity_matrix(E, x)
+    R = bearing_rigidity_matrix(E, x)
     return np.linalg.matrix_rank(R, tol=threshold) == n*6 - 7

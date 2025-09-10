@@ -46,12 +46,17 @@ def run(d, nmin, nmax, degree, rep, logs):
         r = 0
         prob = degree / (n - 1)
         while r < rep:
-            graph = ErdosRenyi(n, prob, undirected=True)
-            A = as_undirected(graph.adjacency_matrix()).astype(float)
-            if distances.is_inf_rigid(A, p):
+            graph = ErdosRenyi(n, prob, directed=False)
+            E = graph.edge_set(directed=False)
+            if distances.is_inf_distance_rigid(E, p):
+                A = as_undirected(graph.adjacency_matrix()).astype(float)
                 G = geodesics(A)
-                hd = np.append(hd, distances.minimum_rigidity_extents(G, p))
-                hb = np.append(hb, bearings.minimum_rigidity_extents(G, p))
+                hd = np.append(
+                    hd, distances.minimum_distance_rigidity_extents(G, p)
+                )
+                hb = np.append(
+                    hb, bearings.minimum_bearing_rigidity_extents(G, p)
+                )
                 r += 1
 
         logs.hd[k], logs.hd_count[k] = np.unique(hd, return_counts=True)
@@ -85,7 +90,7 @@ arg = parser.parse_args()
 # ------------------------------------------------------------------
 d = 3
 degree = arg.degree
-nmin = int(degree) + 1
+nmin = max(3, int(degree) + 1)
 nmax = arg.nodes + 1
 size = nmax - nmin
 rep = arg.rep

@@ -12,7 +12,9 @@ from uvnpy.toolkit.data import write_csv
 from uvnpy.graphs.core import geodesics, as_undirected
 from uvnpy.graphs.subframeworks import superframework_geodesics
 from uvnpy.graphs.models import ConeGraph
-from uvnpy.bearings.real_d.core import is_inf_rigid, minimum_rigidity_extents
+from uvnpy.bearings.real_d.core import (
+    is_inf_bearing_rigid, minimum_bearing_rigidity_extents
+)
 
 # ------------------------------------------------------------------
 # Definición de variables, funciones y clases
@@ -64,15 +66,15 @@ def run(nmin, nmax, size, rep, logs):
                     axis[2] = 0.0
                     cone_graph.append_vertex(position, axis)
 
-                E = cone_graph.edge_set()
+                E = cone_graph.edge_set(directed=False)
                 p = cone_graph.positions(d=3)
-                if is_inf_rigid(E, p):
+                if is_inf_bearing_rigid(E, p):
                     rigid_graph = True
                     A = as_undirected(
                         cone_graph.adjacency_matrix()
                     ).astype(float)
                     G = geodesics(A)
-                    h = minimum_rigidity_extents(G, p)
+                    h = minimum_bearing_rigidity_extents(G, p)
                     s = superframework_geodesics(G, h)
                     n_state = np.sum([
                         len([j for j in range(n) if G[i, j] < s[j]])

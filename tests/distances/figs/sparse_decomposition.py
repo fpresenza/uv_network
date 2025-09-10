@@ -11,10 +11,15 @@ import matplotlib.pyplot as plt
 
 from uvnpy.toolkit import plot
 from uvnpy.graphs.models import DiskGraph
-from uvnpy.graphs.core import geodesics, edges_from_adjacency
+from uvnpy.graphs.core import (
+    geodesics,
+    edges_from_adjacency,
+    adjacency_matrix_from_edges,
+    edge_set_diff
+)
 from uvnpy.distances.core import (
-    is_inf_rigid,
-    minimum_rigidity_radius,
+    is_inf_distance_rigid,
+    minimum_distance_rigidity_radius,
     sufficiently_dispersed_position,
 )
 from uvnpy.graphs.subframeworks import (
@@ -46,7 +51,8 @@ def valid_ball(subset, adjacency, position):
 
     A = adjacency[:, subset][subset]
     p = position[subset]
-    if is_inf_rigid(A, p):
+    E = edges_from_adjacency(A, directed=False)
+    if is_inf_distance_rigid(E, p):
         return True
 
     return False
@@ -70,13 +76,6 @@ def decomposition_cost(extents, geodesics):
     return s
 
 
-def links_adjacency(geodesics, extents):
-    A = np.zeros(geodesics.shape)
-    for i, j in isolated_links(geodesics, extents):
-        A[i, j] = A[j, i] = 1
-    return A
-
-
 parser = argparse.ArgumentParser(description='')
 parser.add_argument(
     '-s', '--seed',
@@ -90,11 +89,9 @@ if arg.seed >= 0:
 
 p = sufficiently_dispersed_position(n, (0.0, 500.0), (0.0, 500.0), 30.0)
 
-A = DiskGraph(p, dmax=2/np.sqrt(n)).adjacency_matrix(float)
-A, Rmin = minimum_rigidity_radius(A, p, return_radius=True)
-
-comm_range = np.ceil(Rmin / 5.0) * 5.0
-A = DiskGraph(p, dmax=comm_range).adjacency_matrix(float)
+E0 = DiskGraph(p, dmax=2/np.sqrt(n)).edge_set(directed=False)
+E = minimum_distance_rigidity_radius(E0, p)
+A = adjacency_matrix_from_edges(n, E, directed=False).astype(float)
 
 G = geodesics(A)
 print("Graph diameter: {}".format(G.max()))
@@ -146,7 +143,7 @@ ax.set_xticklabels([])
 ax.set_yticklabels([])
 
 plot.bars(
-    ax, p, edges_from_adjacency(A, directed=False),
+    ax, p, E,
     lw=0.3, color='k', alpha=0.6, zorder=0
 )
 
@@ -209,14 +206,15 @@ for k in np.unique(h_sparsed):
         label=r'${}$'.format(k)
     )
 
-Aiso = links_adjacency(G, h_sparsed)
+Eiso = isolated_links(G, h_sparsed)
+print(E, Eiso)
 plot.bars(
-    ax, p, edges_from_adjacency(A - Aiso, directed=False),
+    ax, p, edge_set_diff(E, Eiso) if Eiso != [] else E,
     lw=0.3, color='k', alpha=0.6, zorder=0
 )
 
 plot.bars(
-    ax, p, edges_from_adjacency(Aiso, directed=False),
+    ax, p, Eiso,
     lw=0.3, color='k', alpha=0.6, zorder=0
 )
 
@@ -275,14 +273,14 @@ for k in np.unique(h_sparsed_dece):
         label=r'${}$'.format(k)
     )
 
-Aiso = links_adjacency(G, h_sparsed_dece)
+Eiso = isolated_links(G, h_sparsed_dece)
 plot.bars(
-    ax, p, edges_from_adjacency(A - Aiso, directed=False),
+    ax, p, edge_set_diff(E, Eiso) if Eiso != [] else E,
     lw=0.3, color='k', alpha=0.6, zorder=0
 )
 
 plot.bars(
-    ax, p, edges_from_adjacency(Aiso, directed=False),
+    ax, p, Eiso,
     lw=0.3, color='k', alpha=0.6, zorder=0
 )
 

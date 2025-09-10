@@ -8,12 +8,16 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
 from uvnpy.toolkit import plot
-from uvnpy.graphs.core import edges_from_adjacency
+from uvnpy.graphs.core import (
+    geodesics,
+    adjacency_matrix_from_edges,
+    edge_set_diff
+)
 from uvnpy.graphs.models import DiskGraph
 from uvnpy.distances.core import (
     distance_matrix,
-    minimum_rigidity_extents,
-    minimum_rigidity_radius,
+    minimum_distance_rigidity_extents,
+    minimum_distance_rigidity_radius,
     sufficiently_dispersed_position
 )
 
@@ -35,16 +39,20 @@ np.random.seed(seed)
 
 # p = np.random.uniform((0, 0), (1, 0.9), (n, 2))
 p = sufficiently_dispersed_position(n, (0, 1), (0, 0.9), 0.1)
-A0 = DiskGraph(p, dmax=2/np.sqrt(n)).adjacency_matrix(float)
+E0 = DiskGraph(p, dmax=2/np.sqrt(n)).edge_set(directed=False)
 Rmax = distance_matrix(p).max()
-A, Rmin = minimum_rigidity_radius(A0, p, threshold, return_radius=True)
+E1, Rmin = minimum_distance_rigidity_radius(
+    E0, p, threshold, return_radius=True
+)
+A = adjacency_matrix_from_edges(n, E1, directed=False).astype(float)
+G = geodesics(A)
 
 # ------------------------------------------------------------------
 # Fig 1
 # ------------------------------------------------------------------
 fig, ax = plt.subplots(figsize=(2.25, 2.25))
 # fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.28)
-h = minimum_rigidity_extents(A, p, threshold)
+h = minimum_distance_rigidity_extents(G, p, threshold)
 
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
@@ -66,7 +74,7 @@ ax.set_xticklabels([])
 ax.set_yticklabels([])
 
 plot.bars(
-    ax, p, edges_from_adjacency(A, directed=False),
+    ax, p, E1,
     lw=0.5, color=cm.coolwarm(20), zorder=0
 )
 
@@ -91,9 +99,11 @@ fig.savefig('/tmp/minimum_extents_versus_radius_1.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 fig, ax = plt.subplots(figsize=(2.25, 2.25))
 # fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.28)
-A0 = A
-A = DiskGraph(p, dmax=Rmin + 0.05 * (Rmax - Rmin)).adjacency_matrix(float)
-h = minimum_rigidity_extents(A, p, threshold)
+graph = DiskGraph(p, dmax=Rmin + 0.05 * (Rmax - Rmin))
+A = graph.adjacency_matrix(float)
+E2 = graph.edge_set(directed=False)
+G = geodesics(A)
+h = minimum_distance_rigidity_extents(G, p, threshold)
 
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
@@ -115,11 +125,11 @@ ax.set_xticklabels([])
 ax.set_yticklabels([])
 
 plot.bars(
-    ax, p, edges_from_adjacency(A0, directed=False),
+    ax, p, E1,
     lw=0.5, color=cm.coolwarm(20), zorder=0
 )
 plot.bars(
-    ax, p, edges_from_adjacency(A - A0, directed=False),
+    ax, p, edge_set_diff(E2, E1),
     lw=0.5, ls='--', color=cm.coolwarm(20), zorder=0
 )
 
@@ -144,9 +154,11 @@ fig.savefig('/tmp/minimum_extents_versus_radius_2.png', format='png', dpi=360)
 # ------------------------------------------------------------------
 fig, ax = plt.subplots(figsize=(2.25, 2.25))
 # fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.28)
-A0 = A
-A = DiskGraph(p, dmax=Rmin + 0.1 * (Rmax - Rmin)).adjacency_matrix(float)
-h = minimum_rigidity_extents(A, p, threshold)
+graph = DiskGraph(p, dmax=Rmin + 0.1 * (Rmax - Rmin))
+A = graph.adjacency_matrix(float)
+E3 = graph.edge_set(directed=False)
+G = geodesics(A)
+h = minimum_distance_rigidity_extents(G, p, threshold)
 
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
@@ -168,11 +180,11 @@ ax.set_xticklabels([])
 ax.set_yticklabels([])
 
 plot.bars(
-    ax, p, edges_from_adjacency(A0, directed=False),
+    ax, p, E2,
     lw=0.5, color=cm.coolwarm(20), zorder=0
 )
 plot.bars(
-    ax, p, edges_from_adjacency(A - A0, directed=False),
+    ax, p, edge_set_diff(E3, E2),
     lw=0.5, ls='--', color=cm.coolwarm(20), zorder=0
 )
 

@@ -12,7 +12,7 @@ from uvnpy.graphs.core import geodesics
 from uvnpy.graphs.models import DiskGraph
 from uvnpy.distances.core import (
     distance_matrix,
-    minimum_rigidity_radius
+    minimum_distance_rigidity_radius
 )
 
 # ------------------------------------------------------------------
@@ -35,11 +35,11 @@ def run(d, side_length, nmin, nmax, logs, threshold, rep):
 
         for r in range(rep):
             p = np.random.uniform(0, side_length, (n, d))
-            A0 = DiskGraph(p, dmax=2/np.sqrt(n)).adjacency_matrix(float)
+            E0 = DiskGraph(p, dmax=2/np.sqrt(n)).edge_set(directed=False)
             dist = distance_matrix(p)
             Rmax = dist.max()
-            A, Rmin = minimum_rigidity_radius(
-                A0, p, threshold, return_radius=True
+            E, Rmin = minimum_distance_rigidity_radius(
+                E0, p, threshold, return_radius=True
             )
             alpha = 0.1
             R = Rmin + alpha * (Rmax - Rmin)

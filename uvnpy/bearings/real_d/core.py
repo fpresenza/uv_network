@@ -3,7 +3,6 @@
 """
 @author Francisco Presenza
 @institute LAR - FIUBA, Universidad de Buenos Aires, Argentina
-@date mar feb 14 11:23:21 -03 2025
 """
 import numpy as np
 from numba import njit
@@ -34,8 +33,8 @@ def bearing_function(E, p):
         (p[j] - p[i]) / dist[i, j]
 
     args:
-        E: (m, 2) edge array
-        p: (..., n, d) position array
+        E: edge set (m, 2)-array
+        p: positions (..., n, d)-array
     """
     r = p[..., E[:, 1], :] - p[..., E[:, 0], :]
     d = np.sqrt(np.square(r).sum(axis=-1))
@@ -43,7 +42,13 @@ def bearing_function(E, p):
 
 
 @njit
-def rigidity_matrix(E, p):
+def bearing_rigidity_matrix(E, p):
+    """Bearing rigidity Matrix (jacobian of the bearing function)
+
+    args:
+        E: edge set (m, 2)-array
+        p: positions (..., n, d)-array
+    """
     n, d = p.shape
     m = E.shape[0]
     Id = np.eye(d)
@@ -60,40 +65,17 @@ def rigidity_matrix(E, p):
     return R.reshape(m * d, n * d)
 
 
-@njit
-def _rigidity_laplacian(A, p):
-    n, d = p.shape
-    Id = np.eye(d)
-    L = np.zeros((n, n, d, d))
-    edges = np.argwhere(np.triu(A) > 0)
-    for i, j in edges:
-        r = (p[j] - p[i]).reshape(d, 1)
-        l2 = np.square(r).sum()
-        L[i, j] = L[j, i] = (r.dot(r.T) / l2 - Id)
-        L[i, i] -= L[i, j]
-        L[j, j] -= L[i, j]
-
-    return L
-
-
-def rigidity_laplacian(A, p):
-    L = _rigidity_laplacian(A, p)
-    return L.swapaxes(1, 2).reshape(p.size, p.size)
-
-
-def rigidity_laplacian_multiple_axes(A, p):
-    """Matriz normalizada de rigidez.
+def bearing_rigidity_laplacian(A, p):
+    """Bearing Laplacian / Stiffness matrix.
 
         S =  R^T W R
 
-    A[i, j] >= 0 respresenta el peso asociado a cada enlace.
-
     args:
-        A: matriz de adyacencia (..., n, n)
-        p: array de posiciones (..., n, d)
+        A: weighted adjacency matrix (..., n, n)-array
+        p: positions (..., n, d)-array
 
-    returns
-        S: laplaciano de rigidez (..., n * d, n * d)
+    returns:
+        S: rigidity laplacian (..., n * d, n * d)-array
     """
     n, d = p.shape[-2:]
     In = np.eye(n, dtype=bool)
@@ -109,23 +91,22 @@ def rigidity_laplacian_multiple_axes(A, p):
     return S.reshape(S.shape[:-4] + 2*(n*d,))
 
 
-def is_inf_rigid(E, p, threshold=THRESHOLD_SV):
+def is_inf_bearing_rigid(E, p, threshold=THRESHOLD_SV):
     n, d = p.shape
-    R = rigidity_matrix(E, p)
+    R = bearing_rigidity_matrix(E, p)
     return np.linalg.matrix_rank(R, tol=threshold) == n*d - d - 1
 
 
-def rigidity_eigenvalue(A, p):
+def bearing_rigidity_eigenvalue(A, p):
     d = p.shape[1]
-    S = rigidity_laplacian(A, p)
+    S = bearing_rigidity_laplacian(A, p)
     eig = np.linalg.eigvalsh(S)
     return eig[d + 1]
 
 
-def minimum_rigidity_extents(geodesics, p, threshold=THRESHOLD_SV):
+def minimum_bearing_rigidity_extents(geodesics, p, threshold=THRESHOLD_SV):
     """
-    Requires:
-    ---------
+    requires:
         framework is rigid
     """
     n, d = p.shape
@@ -137,8 +118,10 @@ def minimum_rigidity_extents(geodesics, p, threshold=THRESHOLD_SV):
         while not minimum_found:
             h += 1
             subset = geodesics[i] <= h
-            Ei = edges_from_adjacency(A[np.ix_(subset, subset)])
+            Ei = edges_from_adjacency(
+                A[np.ix_(subset, subset)], directed=False
+            )
             pi = p[subset]
-            minimum_found = is_inf_rigid(Ei, pi, threshold)
+            minimum_found = is_inf_bearing_rigid(Ei, pi, threshold)
         extents[i] = h
     return extents

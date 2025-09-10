@@ -38,11 +38,23 @@ def as_undirected(adjacency_matrix):
     return np.logical_or(adjacency_matrix, adjacency_matrix.swapaxes(-2, -1))
 
 
+def as_oriented(adjacency_matrix):
+    return np.triu(as_undirected(adjacency_matrix))
+
+
 def complete_edges(n, directed=True):
-    A = 1 - np.eye(n)
-    if not directed:
-        A = np.triu(A)
-    return np.argwhere(A)
+    m = int(n*(n-1) // 2)
+    edge_set = np.empty((m, 2), dtype=int)
+    i, j = np.triu_indices(n, k=1)
+    edge_set[:, 0] = i
+    edge_set[:, 1] = j
+    if directed:
+        edge_set = np.vstack([edge_set, np.flip(edge_set, axis=1)])
+    return edge_set
+
+
+def edge_set_diff(E, F):
+    return np.array([e for e in E if np.all(np.any(e != F, axis=1))])
 
 
 def complete_adjacency(n):
@@ -55,11 +67,10 @@ def complete_laplacian(n):
     return L
 
 
-def edges_from_adjacency(A, directed=True):
+def edges_from_adjacency(adjacency_matrix, directed=True):
     if not directed:
-        A = np.triu(as_undirected(A))
-    E = np.argwhere(A)
-    return E
+        adjacency_matrix = as_oriented(adjacency_matrix)
+    return np.argwhere(adjacency_matrix)
 
 
 def incidence_from_edges(n, E):

@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from uvnpy.toolkit import plot
 from uvnpy.graphs.models import DiskGraph
 from uvnpy.graphs.core import edges_from_adjacency, incidence_from_edges
-from uvnpy.distances.core import distance_matrix_from_edges, is_inf_rigid
+from uvnpy.distances.core import distances_from_edges, is_inf_distance_rigid
 from uvnpy.distances.localization import (
     DistanceBasedGradientFilter,
     DistanceBasedKalmanFilter
@@ -33,9 +33,9 @@ lim = 20.0
 dmax = 20.0
 x = np.random.uniform(-lim, lim, (n, 2))
 A = DiskGraph(x, dmax).adjacency_matrix(float)
-if not is_inf_rigid(A, x):
-    raise ValueError('Flexible Framework.')
 E = edges_from_adjacency(A, directed=False)
+if not is_inf_distance_rigid(E, x):
+    raise ValueError('Flexible Framework.')
 D = incidence_from_edges(n, E)
 
 # np.random.seed(10)
@@ -45,7 +45,7 @@ hatx[0] = np.random.normal(x, p)
 
 R = 3.0
 G = 5.0
-d = distance_matrix_from_edges(E, x)
+d = distances_from_edges(E, x)
 z = np.array([np.random.normal(d, R) for _ in tiempo])
 y = np.array([np.random.normal(x, G) for _ in tiempo])
 # d2 = d**2
@@ -81,7 +81,7 @@ for k in steps[1:]:
             estimator[i].gps_step(y[k-1, i])
         hatx[k, i] = estimator[i].state()
 
-# hatz = distance_matrix_from_edges(E, hatx)
+# hatz = distances_from_edges(E, hatx)
 
 ax.plot(
     # steps, np.abs(d - hatz).sum(axis=1) / len(E),
@@ -150,7 +150,7 @@ for k in steps[1:]:
         hatx[k, i] = estimator[i].state()
         hatP[k, i] = estimator[i].covariance()
 
-# hatz = distance_matrix_from_edges(E, hatx)
+# hatz = distances_from_edges(E, hatx)
 
 ax.plot(
     # steps, np.abs(d - hatz).sum(axis=1) / len(E),

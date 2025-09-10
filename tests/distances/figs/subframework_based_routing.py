@@ -9,11 +9,11 @@ import matplotlib.cm as cm
 
 from uvnpy.toolkit import plot
 from uvnpy.graphs.models import DiskGraph
-from uvnpy.graphs.core import geodesics, edges_from_adjacency
+from uvnpy.graphs.core import geodesics, adjacency_matrix_from_edges
 from uvnpy.distances.core import (
     distance_matrix,
-    minimum_rigidity_extents,
-    minimum_rigidity_radius,
+    minimum_distance_rigidity_extents,
+    minimum_distance_rigidity_radius,
     sufficiently_dispersed_position
 )
 
@@ -38,14 +38,14 @@ np.random.seed(seed)
 p = sufficiently_dispersed_position(n, (0, 1), (0, 1), 0.1)
 midpoint = np.mean(p, axis=0)
 # print(p)
-A0 = DiskGraph(p, dmax=2/np.sqrt(n)).adjacency_matrix(float)
-A, Rmin = minimum_rigidity_radius(A0, p, threshold, return_radius=True)
+E0 = DiskGraph(p, dmax=2/np.sqrt(n)).edge_set(directed=False)
+E = minimum_distance_rigidity_radius(E0, p, threshold)
+A = adjacency_matrix_from_edges(n, E, directed=False).astype(float)
 dist = distance_matrix(p)
 Rmax = dist.max()
 
-# A = DiskGraph(p, dmax=Rmin + 0.025 * (Rmax - Rmin)).adjacency_matrix(float)
 G = geodesics(A)
-h = minimum_rigidity_extents(G, p, threshold)
+h = minimum_distance_rigidity_extents(G, p, threshold)
 node_i = np.argmin(np.linalg.norm(p - midpoint, axis=1))
 print('i = {}'.format(node_i))
 super_centers = G[node_i] <= h
@@ -74,7 +74,7 @@ ax.set_yticks(np.linspace(0, 1, 4, endpoint=True))
 ax.set_xticklabels([])
 ax.set_yticklabels([])
 plot.bars(
-    ax, p, edges_from_adjacency(A, directed=False),
+    ax, p, E,
     lw=0.5, color=cm.coolwarm(20), zorder=0
 )
 
@@ -137,7 +137,7 @@ plot.points(
     marker='o', color='lightblue', s=70, zorder=10
 )
 plot.bars(
-    ax, p, edges_from_adjacency(A, directed=False),
+    ax, p, E,
     color='0.0', lw=0.4, alpha=0.5
 )
 ax.legend(
@@ -196,7 +196,7 @@ plot.points(
     marker='o', color='mediumseagreen', s=70, zorder=10
 )
 plot.bars(
-    ax, p, edges_from_adjacency(A, directed=False),
+    ax, p, E,
     color='0.0', lw=0.4, alpha=0.5
 )
 ax.legend(
@@ -270,7 +270,7 @@ for k, c in enumerate(np.where(super_centers)[0]):
                 edgecolor='mediumseagreen', zorder=5
             )
 plot.bars(
-    ax, p, edges_from_adjacency(A, directed=False),
+    ax, p, E,
     color='0.0', lw=0.4, alpha=0.5
 )
 ax.set_xlim(0.15, 0.85)

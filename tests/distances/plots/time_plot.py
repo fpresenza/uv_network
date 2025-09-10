@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 from uvnpy.toolkit import data
 from uvnpy.network.core import geodesics
-from uvnpy.distances.core import rigidity_eigenvalue
+from uvnpy.distances.core import distance_rigidity_eigenvalue
 
 plt.rcParams['text.usetex'] = False
 plt.rcParams['pdf.fonttype'] = 42
@@ -126,14 +126,14 @@ fdiam = np.empty(len(t))
 diam = np.empty((len(t), n))
 for k, (adj, pos, ext) in enumerate(zip(A, x, action_extents)):
     geo = geodesics(adj)
-    fre[k] = rigidity_eigenvalue(adj, pos)
+    fre[k] = distance_rigidity_eigenvalue(adj, pos)
     fdiam[k] = np.max(geo)
     for i in nodes:
         Vi = geo[i] <= ext[i]
         if sum(Vi) > 1:
             Ai = adj[np.ix_(Vi, Vi)]
             qi = pos[Vi]
-            re[k, i] = rigidity_eigenvalue(Ai, qi)
+            re[k, i] = distance_rigidity_eigenvalue(Ai, qi)
             diam[k, i] = np.max(geodesics(Ai))
         else:
             re[k, i] = 0.0

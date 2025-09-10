@@ -9,7 +9,7 @@ import numpy as np
 
 from uvnpy.distances.core import (
     distance_matrix,
-    rigidity_laplacian_multiple_axes
+    distance_rigidity_laplacian
 )
 from uvnpy.toolkit import functions
 
@@ -78,7 +78,7 @@ class RigidityMaintenance(object):
         )
         w[..., np.eye(x.shape[-2], dtype=bool)] = 0.0
 
-        S = rigidity_laplacian_multiple_axes(w, x)
+        S = distance_rigidity_laplacian(w, x)
         return S
 
     def update(self, x):

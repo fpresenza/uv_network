@@ -11,7 +11,9 @@ import copy
 import transformations
 
 from uvnpy.distances.core import minimum_distance
-from uvnpy.bearings.real_d.core import is_inf_rigid, minimum_rigidity_extents
+from uvnpy.bearings.real_d.core import (
+    is_inf_bearing_rigid, minimum_bearing_rigidity_extents
+)
 from uvnpy.bearings.real_d.localization import BearingBasedGradientFilter
 from uvnpy.bearings.real_d.control import RigidityMaintenance
 from uvnpy.graphs.core import geodesics, as_undirected
@@ -647,7 +649,7 @@ print(
         for key, val in enumerate(sens_graph.adjacency_list())
     )
 )
-if is_inf_rigid(sens_graph.edge_set(), positions):
+if is_inf_bearing_rigid(sens_graph.edge_set(directed=False), positions):
     print('Yay! Sensing framework is infinitesimally rigid.')
     angles = camera_angle(axes).reshape(-1, 1)
     poses = np.hstack([positions, angles])
@@ -723,7 +725,7 @@ for t_break in [simu_time]:
     adjacency_matrix = as_undirected(robnet.sens_graph.adjacency_matrix())
     positions = robnet.positions()
     geodesics_matrix = geodesics(adjacency_matrix.astype(float))
-    action_extents = minimum_rigidity_extents(
+    action_extents = minimum_bearing_rigidity_extents(
         geodesics_matrix, positions
     )
     print(
@@ -749,18 +751,24 @@ for t_break in [simu_time]:
     )
     simu_counter = run_mission(simu_counter, end_counter=index_of(t_break))
 
-np.savetxt('data/t.csv', logs.time, delimiter=',')
-np.savetxt('data/tc.csv', logs.time_comm, delimiter=',')
-np.savetxt('data/pose.csv', logs.pose, delimiter=',')
-np.savetxt('data/est_pose.csv', logs.estimated_pose, delimiter=',')
-np.savetxt('data/covariance.csv', logs.covariance, delimiter=',')
-np.savetxt('data/target_action.csv', logs.target_action, delimiter=',')
-np.savetxt('data/collision_action.csv', logs.collision_action, delimiter=',')
-np.savetxt('data/rigidity_action.csv', logs.rigidity_action, delimiter=',')
-np.savetxt('data/gps_meas_err.csv', logs.gps_meas_err, delimiter=',')
-np.savetxt('data/bearing_meas_err.csv', logs.bearing_meas_err, delimiter=',')
-np.savetxt('data/sens_adj.csv', logs.sens_adj, delimiter=',')
-np.savetxt('data/comm_adj.csv', logs.comm_adj, delimiter=',')
-np.savetxt('data/action_extents.csv', logs.action_extents, delimiter=',')
-np.savetxt('data/state_extents.csv', logs.state_extents, delimiter=',')
-np.savetxt('data/targets.csv', logs.targets, delimiter=',')
+np.savetxt('simu_data/t.csv', logs.time, delimiter=',')
+np.savetxt('simu_data/tc.csv', logs.time_comm, delimiter=',')
+np.savetxt('simu_data/pose.csv', logs.pose, delimiter=',')
+np.savetxt('simu_data/est_pose.csv', logs.estimated_pose, delimiter=',')
+np.savetxt('simu_data/covariance.csv', logs.covariance, delimiter=',')
+np.savetxt('simu_data/target_action.csv', logs.target_action, delimiter=',')
+np.savetxt(
+    'simu_data/collision_action.csv', logs.collision_action, delimiter=','
+)
+np.savetxt(
+    'simu_data/rigidity_action.csv', logs.rigidity_action, delimiter=','
+)
+np.savetxt('simu_data/gps_meas_err.csv', logs.gps_meas_err, delimiter=',')
+np.savetxt(
+    'simu_data/bearing_meas_err.csv', logs.bearing_meas_err, delimiter=','
+)
+np.savetxt('simu_data/sens_adj.csv', logs.sens_adj, delimiter=',')
+np.savetxt('simu_data/comm_adj.csv', logs.comm_adj, delimiter=',')
+np.savetxt('simu_data/action_extents.csv', logs.action_extents, delimiter=',')
+np.savetxt('simu_data/state_extents.csv', logs.state_extents, delimiter=',')
+np.savetxt('simu_data/targets.csv', logs.targets, delimiter=',')

@@ -6,7 +6,7 @@
 """
 import numpy as np
 
-from uvnpy.bearings.real_d.core import rigidity_laplacian_multiple_axes
+from uvnpy.bearings.real_d.core import bearing_rigidity_laplacian
 from uvnpy.toolkit import functions
 
 
@@ -90,7 +90,7 @@ class RigidityMaintenance(object):
         w = wd * (wc + wc.swapaxes(-2, -1))
         w[..., np.eye(x.shape[-2], dtype=bool)] = 0.0
 
-        S = rigidity_laplacian_multiple_axes(w, p)
+        S = bearing_rigidity_laplacian(w, p)
         return S
 
     def update(self, x):
