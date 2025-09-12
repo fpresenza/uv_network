@@ -10,7 +10,11 @@ from numba import njit
 import progressbar
 
 from uvnpy.graphs.core import (
-    geodesics, edges_from_adjacency, adjacency_matrix_from_edges
+    geodesics,
+    as_undirected,
+    as_oriented,
+    edges_from_adjacency,
+    adjacency_matrix_from_edges
 )
 from uvnpy.graphs.models import DiskGraph
 from uvnpy.distances.core import (
@@ -49,7 +53,7 @@ def valid_ball(subset, adjacency, position, max_diam):
         return False
 
     p = position[subset]
-    E = edges_from_adjacency(A, directed=False)
+    E = edges_from_adjacency(as_oriented(A))
     if not is_distance_rigid(E, p):
         return False
 
@@ -86,11 +90,11 @@ def run(d, nmin, nmax, logs, rep):
 
         for r in range(rep):
             p = np.random.uniform((0, 0), (1, 0.9), (n, 2))
-            E0 = DiskGraph(p, dmax=2/np.sqrt(n)).edge_set(directed=False)
+            E0 = DiskGraph(p, dmax=2/np.sqrt(n)).edge_set(as_oriented=True)
             E, Rmin = minimum_distance_rigidity_radius(
                 E0, p, return_radius=True
             )
-            A = adjacency_matrix_from_edges(n, E, directed=False).astype(float)
+            A = as_undirected(adjacency_matrix_from_edges(n, E)).astype(float)
 
             G = geodesics(A)
             h_valid = valid_extents(G, valid_ball, args=(A, p, max_diam))

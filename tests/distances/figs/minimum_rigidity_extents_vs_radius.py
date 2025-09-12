@@ -10,6 +10,7 @@ import matplotlib.cm as cm
 from uvnpy.toolkit import plot
 from uvnpy.graphs.core import (
     geodesics,
+    as_undirected,
     adjacency_matrix_from_edges,
     edge_set_diff
 )
@@ -39,12 +40,12 @@ np.random.seed(seed)
 
 # p = np.random.uniform((0, 0), (1, 0.9), (n, 2))
 p = sufficiently_dispersed_position(n, (0, 1), (0, 0.9), 0.1)
-E0 = DiskGraph(p, dmax=2/np.sqrt(n)).edge_set(directed=False)
+E0 = DiskGraph(p, dmax=2/np.sqrt(n)).edge_set(as_oriented=True)
 Rmax = distance_matrix(p).max()
 E1, Rmin = minimum_distance_rigidity_radius(
     E0, p, threshold, return_radius=True
 )
-A = adjacency_matrix_from_edges(n, E1, directed=False).astype(float)
+A = as_undirected(adjacency_matrix_from_edges(n, E1)).astype(float)
 G = geodesics(A)
 
 # ------------------------------------------------------------------
@@ -101,7 +102,7 @@ fig, ax = plt.subplots(figsize=(2.25, 2.25))
 # fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.28)
 graph = DiskGraph(p, dmax=Rmin + 0.05 * (Rmax - Rmin))
 A = graph.adjacency_matrix(float)
-E2 = graph.edge_set(directed=False)
+E2 = graph.edge_set(as_oriented=True)
 G = geodesics(A)
 h = minimum_distance_rigidity_extents(E2, G, p, threshold)
 
@@ -156,7 +157,7 @@ fig, ax = plt.subplots(figsize=(2.25, 2.25))
 # fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.28)
 graph = DiskGraph(p, dmax=Rmin + 0.1 * (Rmax - Rmin))
 A = graph.adjacency_matrix(float)
-E3 = graph.edge_set(directed=False)
+E3 = graph.edge_set(as_oriented=True)
 G = geodesics(A)
 h = minimum_distance_rigidity_extents(E3, G, p, threshold)
 

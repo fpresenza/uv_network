@@ -9,7 +9,11 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
 from uvnpy.toolkit import plot
-from uvnpy.graphs.core import geodesics, adjacency_matrix_from_edges
+from uvnpy.graphs.core import (
+    geodesics,
+    as_undirected,
+    adjacency_matrix_from_edges
+)
 from uvnpy.graphs.models import DiskGraph
 from uvnpy.distances.core import (
     minimum_distance_rigidity_extents,
@@ -40,11 +44,11 @@ np.random.seed(arg.seed)
 while i < 10:
     # p = np.random.uniform((0, 0), (1, 0.9), (n, 2))
     p = sufficiently_dispersed_position(n, (0, 1), (0, 0.9), 0.1)
-    E0 = DiskGraph(p, dmax=2/np.sqrt(n)).edge_set(directed=False)
+    E0 = DiskGraph(p, dmax=2/np.sqrt(n)).edge_set(as_oriented=True)
     E, Rmin = minimum_distance_rigidity_radius(
         E0, p, threshold, return_radius=True
     )
-    A = adjacency_matrix_from_edges(n, E, directed=False).astype(float)
+    A = as_undirected(adjacency_matrix_from_edges(n, E)).astype(float)
 
     fig, ax = plt.subplots(figsize=(2.25, 2.25))
     # fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.28)

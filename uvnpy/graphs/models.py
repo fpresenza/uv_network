@@ -6,7 +6,7 @@
 """
 import numpy as np
 
-from .core import edges_from_adjacency
+from . import core
 
 
 class Graph(object):
@@ -29,8 +29,11 @@ class Graph(object):
     def adjacency_list(self):
         return [np.where(adj)[0] for adj in self._adj]
 
-    def edge_set(self, directed=True):
-        return edges_from_adjacency(self._adj, directed)
+    def edge_set(self, as_oriented=False):
+        if as_oriented:
+            return core.edges_from_adjacency(core.as_oriented(self._adj))
+        else:
+            return core.edges_from_adjacency(self._adj)
 
     def is_edge(self, vertex_i, vertex_j):
         return self._adj[vertex_i, vertex_j]
@@ -66,7 +69,7 @@ class ErdosRenyi(Graph):
     """
     Class representing a random graph based on the Erdos-Renyi model.
     """
-    def __init__(self, n, p, directed=False):
+    def __init__(self, n, p, undirected=False):
         """
         args:
         -----
@@ -74,10 +77,10 @@ class ErdosRenyi(Graph):
             p : probability of existence of each edge
         """
         self.n = n
-        if directed:
-            self.p = p
-        else:
+        if undirected:
             self.p = 1 - np.sqrt(1 - p)
+        else:
+            self.p = p
         self.update()
 
     def update(self):
@@ -85,7 +88,7 @@ class ErdosRenyi(Graph):
             [False, True], size=(self.n, self.n), p=(1 - self.p, self.p)
         )
         adj[np.eye(self.n, dtype=bool)] = False
-        super().update(adj)
+        super().update(core.as_undirected(adj))
 
 
 class Framework(Graph):

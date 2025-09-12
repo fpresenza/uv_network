@@ -66,7 +66,7 @@ def run(nmin, nmax, size, rep, logs):
                     axis[2] = 0.0
                     cone_graph.append_vertex(position, axis)
 
-                E = cone_graph.edge_set(directed=False)
+                E = cone_graph.edge_set(as_oriented=True)
                 p = cone_graph.positions(d=3)
                 if is_bearing_rigid(E, p):
                     rigid_graph = True

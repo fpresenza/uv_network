@@ -46,8 +46,8 @@ def run(d, nmin, nmax, degree, rep, logs):
         r = 0
         prob = degree / (n - 1)
         while r < rep:
-            graph = ErdosRenyi(n, prob, directed=False)
-            E = graph.edge_set(directed=False)
+            graph = ErdosRenyi(n, prob, undirected=True)
+            E = graph.edge_set(as_oriented=True)
             if distances.is_distance_rigid(E, p):
                 A = as_undirected(graph.adjacency_matrix()).astype(float)
                 G = geodesics(A)

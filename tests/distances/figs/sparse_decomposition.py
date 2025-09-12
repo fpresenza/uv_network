@@ -13,6 +13,8 @@ from uvnpy.toolkit import plot
 from uvnpy.graphs.models import DiskGraph
 from uvnpy.graphs.core import (
     geodesics,
+    as_undirected,
+    as_oriented,
     edges_from_adjacency,
     adjacency_matrix_from_edges,
     edge_set_diff
@@ -51,7 +53,7 @@ def valid_ball(subset, adjacency, position):
 
     A = adjacency[:, subset][subset]
     p = position[subset]
-    E = edges_from_adjacency(A, directed=False)
+    E = edges_from_adjacency(as_oriented(A))
     if is_distance_rigid(E, p):
         return True
 
@@ -89,9 +91,9 @@ if arg.seed >= 0:
 
 p = sufficiently_dispersed_position(n, (0.0, 500.0), (0.0, 500.0), 30.0)
 
-E0 = DiskGraph(p, dmax=2/np.sqrt(n)).edge_set(directed=False)
+E0 = DiskGraph(p, dmax=2/np.sqrt(n)).edge_set(as_oriented=True)
 E = minimum_distance_rigidity_radius(E0, p)
-A = adjacency_matrix_from_edges(n, E, directed=False).astype(float)
+A = as_undirected(adjacency_matrix_from_edges(n, E)).astype(float)
 
 G = geodesics(A)
 print("Graph diameter: {}".format(G.max()))

@@ -649,7 +649,7 @@ print(
         for key, val in enumerate(sens_graph.adjacency_list())
     )
 )
-if is_bearing_rigid(sens_graph.edge_set(directed=False), positions):
+if is_bearing_rigid(sens_graph.edge_set(as_oriented=True), positions):
     print('Yay! Sensing framework is infinitesimally rigid.')
     angles = camera_angle(axes).reshape(-1, 1)
     poses = np.hstack([positions, angles])
@@ -723,7 +723,7 @@ logs = Logs(
 simu_counter = 0
 for t_break in [simu_time]:
     adjacency_matrix = as_undirected(robnet.sens_graph.adjacency_matrix())
-    edge_set = sens_graph.edge_set(directed=False)
+    edge_set = sens_graph.edge_set(as_oriented=True)
     positions = robnet.positions()
     geodesics_matrix = geodesics(adjacency_matrix.astype(float))
     action_extents = minimum_bearing_rigidity_extents(

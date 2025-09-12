@@ -35,7 +35,7 @@ def run(d, side_length, nmin, nmax, logs, threshold, rep):
 
         for r in range(rep):
             p = np.random.uniform(0, side_length, (n, d))
-            E0 = DiskGraph(p, dmax=2/np.sqrt(n)).edge_set(directed=False)
+            E0 = DiskGraph(p, dmax=2/np.sqrt(n)).edge_set(as_oriented=True)
             dist = distance_matrix(p)
             Rmax = dist.max()
             E, Rmin = minimum_distance_rigidity_radius(

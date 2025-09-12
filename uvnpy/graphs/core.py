@@ -89,9 +89,7 @@ def complete_laplacian(n):
     return L
 
 
-def edges_from_adjacency(adjacency_matrix, directed=True):
-    if not directed:
-        adjacency_matrix = as_oriented(adjacency_matrix)
+def edges_from_adjacency(adjacency_matrix):
     return np.argwhere(adjacency_matrix)
 
 
@@ -103,11 +101,9 @@ def incidence_from_edges(n, E):
     return D
 
 
-def adjacency_matrix_from_edges(n, edge_set, directed=True):
+def adjacency_matrix_from_edges(n, edge_set):
     A = np.zeros((n, n), dtype=bool)
     A[edge_set[:, 0], edge_set[:, 1]] = True
-    if not directed:
-        A[edge_set[:, 1], edge_set[:, 0]] = True
     return A
 
 

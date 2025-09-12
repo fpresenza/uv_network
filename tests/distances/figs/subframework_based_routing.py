@@ -9,7 +9,11 @@ import matplotlib.cm as cm
 
 from uvnpy.toolkit import plot
 from uvnpy.graphs.models import DiskGraph
-from uvnpy.graphs.core import geodesics, adjacency_matrix_from_edges
+from uvnpy.graphs.core import (
+    geodesics,
+    as_undirected,
+    adjacency_matrix_from_edges
+)
 from uvnpy.distances.core import (
     distance_matrix,
     minimum_distance_rigidity_extents,
@@ -38,9 +42,9 @@ np.random.seed(seed)
 p = sufficiently_dispersed_position(n, (0, 1), (0, 1), 0.1)
 midpoint = np.mean(p, axis=0)
 # print(p)
-E0 = DiskGraph(p, dmax=2/np.sqrt(n)).edge_set(directed=False)
+E0 = DiskGraph(p, dmax=2/np.sqrt(n)).edge_set(as_oriented=True)
 E = minimum_distance_rigidity_radius(E0, p, threshold)
-A = adjacency_matrix_from_edges(n, E, directed=False).astype(float)
+A = as_undirected(adjacency_matrix_from_edges(n, E)).astype(float)
 dist = distance_matrix(p)
 Rmax = dist.max()
 

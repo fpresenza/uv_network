@@ -466,7 +466,7 @@ print(
         for key, val in enumerate(core.adjacency_list(adjacency_matrix))
     )
 )
-edge_set = graph.edge_set(directed=False)
+edge_set = graph.edge_set(as_oriented=True)
 if not is_distance_rigid(edge_set, position):
     raise ValueError('Framework should be infinitesimally rigid.')
 

@@ -5,7 +5,11 @@ import matplotlib.pyplot as plt
 
 from uvnpy.toolkit import plot
 from uvnpy.graphs.models import DiskGraph
-from uvnpy.graphs.core import edges_from_adjacency, incidence_from_edges
+from uvnpy.graphs.core import (
+    as_oriented,
+    edges_from_adjacency,
+    incidence_from_edges
+)
 from uvnpy.distances.core import distances_from_edges, is_distance_rigid
 from uvnpy.distances.localization import (
     DistanceBasedGradientFilter,
@@ -32,8 +36,8 @@ nodes = np.arange(n)
 lim = 20.0
 dmax = 20.0
 x = np.random.uniform(-lim, lim, (n, 2))
-A = DiskGraph(x, dmax).adjacency_matrix(float)
-E = edges_from_adjacency(A, directed=False)
+A = DiskGraph(x, dmax).adjacency_matrix()
+E = edges_from_adjacency(as_oriented(A))
 if not is_distance_rigid(E, x):
     raise ValueError('Flexible Framework.')
 D = incidence_from_edges(n, E)
@@ -72,7 +76,7 @@ estimator = [DistanceBasedGradientFilter(
 
 for k in steps[1:]:
     for i in nodes:
-        Ni = A[i].astype(bool)
+        Ni = A[i]
         xj = hatx[k-1, Ni]
         ei = np.logical_or(E[:, 0] == i, E[:, 1] == i)
         zi = z[k-1, ei]
@@ -106,7 +110,7 @@ ax2.set_ylim(-lim, lim)
 ax2.grid(lw=0.4)
 plot.points(ax2, x, color='0.4', marker='o', s=15, zorder=5)
 plot.bars(
-    ax2, x, edges_from_adjacency(A, directed=False),
+    ax2, x, edges_from_adjacency(as_oriented(A)),
     color='k', alpha=0.7, lw=0.7
 )
 plot.points(
@@ -139,7 +143,7 @@ estimator = [DistanceBasedKalmanFilter(
 
 for k in steps[1:]:
     for i in nodes:
-        Ni = A[i].astype(bool)
+        Ni = A[i]
         xj = hatx[k-1, Ni]
         Pj = hatP[k-1, Ni]
         ei = np.logical_or(E[:, 0] == i, E[:, 1] == i)
@@ -175,7 +179,7 @@ ax2.set_ylim(-lim, lim)
 ax2.grid(lw=0.4)
 plot.points(ax2, x, color='0.4', marker='o', s=15, zorder=5)
 plot.bars(
-    ax2, x, edges_from_adjacency(A, directed=False),
+    ax2, x, edges_from_adjacency(as_oriented(A)),
     color='k', alpha=0.7, lw=0.7
 )
 plot.points(
