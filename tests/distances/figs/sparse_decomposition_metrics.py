@@ -14,7 +14,7 @@ from uvnpy.graphs.core import (
 )
 from uvnpy.graphs.models import DiskGraph
 from uvnpy.distances.core import (
-    is_inf_distance_rigid,
+    is_distance_rigid,
     minimum_distance_rigidity_radius,
 )
 from uvnpy.graphs.subframeworks import (
@@ -50,7 +50,7 @@ def valid_ball(subset, adjacency, position, max_diam):
 
     p = position[subset]
     E = edges_from_adjacency(A, directed=False)
-    if not is_inf_distance_rigid(E, p):
+    if not is_distance_rigid(E, p):
         return False
 
     return True

@@ -52,7 +52,7 @@ G = geodesics(A)
 # ------------------------------------------------------------------
 fig, ax = plt.subplots(figsize=(2.25, 2.25))
 # fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.28)
-h = minimum_distance_rigidity_extents(G, p, threshold)
+h = minimum_distance_rigidity_extents(E1, G, p, threshold)
 
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
@@ -103,7 +103,7 @@ graph = DiskGraph(p, dmax=Rmin + 0.05 * (Rmax - Rmin))
 A = graph.adjacency_matrix(float)
 E2 = graph.edge_set(directed=False)
 G = geodesics(A)
-h = minimum_distance_rigidity_extents(G, p, threshold)
+h = minimum_distance_rigidity_extents(E2, G, p, threshold)
 
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
@@ -158,7 +158,7 @@ graph = DiskGraph(p, dmax=Rmin + 0.1 * (Rmax - Rmin))
 A = graph.adjacency_matrix(float)
 E3 = graph.edge_set(directed=False)
 G = geodesics(A)
-h = minimum_distance_rigidity_extents(G, p, threshold)
+h = minimum_distance_rigidity_extents(E3, G, p, threshold)
 
 ax.tick_params(
     axis='both',       # changes apply to the x-axis

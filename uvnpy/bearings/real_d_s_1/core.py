@@ -111,7 +111,7 @@ def bearing_rigidity_matrix(E, x):
     return R.reshape(d * m, s * n)
 
 
-def is_inf_bearing_rigid(E, x, threshold=THRESHOLD_SV):
+def is_bearing_rigid(E, x, threshold=THRESHOLD_SV):
     n = x.shape[0]
     s = x.shape[1]
     R = bearing_rigidity_matrix(E, x)

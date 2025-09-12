@@ -16,7 +16,7 @@ from uvnpy.network.token_passing import TokenPassing
 from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.distances.control import RigidityMaintenance
 from uvnpy.distances.core import (
-    is_inf_distance_rigid, minimum_distance_rigidity_extents
+    is_distance_rigid, minimum_distance_rigidity_extents
 )
 from uvnpy.control.core import CollisionAvoidanceVanishing
 from uvnpy.control.targets import Targets, TargetTracking
@@ -467,7 +467,7 @@ print(
     )
 )
 edge_set = graph.edge_set(directed=False)
-if not is_inf_distance_rigid(edge_set, position):
+if not is_distance_rigid(edge_set, position):
     raise ValueError('Framework should be infinitesimally rigid.')
 
 world = World(
@@ -482,7 +482,9 @@ world = World(
 
 adjacency_matrix = graph.adjacency_matrix(float)
 geodesics_matrix = core.geodesics(adjacency_matrix)
-action_extents = minimum_distance_rigidity_extents(geodesics_matrix, position)
+action_extents = minimum_distance_rigidity_extents(
+    edge_set, geodesics_matrix, position
+)
 state_extents = superframework_extents(geodesics_matrix, action_extents)
 print(
     'Action extents: \n' +

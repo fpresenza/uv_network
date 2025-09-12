@@ -49,7 +49,7 @@ while i < 10:
     fig, ax = plt.subplots(figsize=(2.25, 2.25))
     # fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.28)
     G = geodesics(A)
-    h = minimum_distance_rigidity_extents(G, p, threshold)
+    h = minimum_distance_rigidity_extents(E, G, p, threshold)
     D = np.max(G)
 
     if np.max(h) < 4 and np.max(h) != D:

@@ -48,14 +48,14 @@ def run(d, nmin, nmax, degree, rep, logs):
         while r < rep:
             graph = ErdosRenyi(n, prob, directed=False)
             E = graph.edge_set(directed=False)
-            if distances.is_inf_distance_rigid(E, p):
+            if distances.is_distance_rigid(E, p):
                 A = as_undirected(graph.adjacency_matrix()).astype(float)
                 G = geodesics(A)
                 hd = np.append(
-                    hd, distances.minimum_distance_rigidity_extents(G, p)
+                    hd, distances.minimum_distance_rigidity_extents(E, G, p)
                 )
                 hb = np.append(
-                    hb, bearings.minimum_bearing_rigidity_extents(G, p)
+                    hb, bearings.minimum_bearing_rigidity_extents(E, G, p)
                 )
                 r += 1
 

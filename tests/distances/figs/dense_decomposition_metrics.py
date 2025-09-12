@@ -25,12 +25,12 @@ Logs = collections.namedtuple(
     'Logs', 'nodes diam hmax load edges rmin rmax alpha')
 
 
-def minimum_alpha(A, p, dist, Rmin, Rmax, threshold=1e-5):
+def minimum_alpha(E, A, p, dist, Rmin, Rmax, threshold=1e-5):
     """Calcula el alpha necesario para que todos los subframeworks
     tengan alcance unitario"""
     A = A.copy()
     G = geodesics(A)
-    h = minimum_distance_rigidity_extents(G, p, threshold)
+    h = minimum_distance_rigidity_extents(E, G, p, threshold)
     if np.all(h == 1):
         return 0.
     else:
@@ -38,7 +38,7 @@ def minimum_alpha(A, p, dist, Rmin, Rmax, threshold=1e-5):
         for R in radius:
             A[dist == R] = 1
             G = geodesics(A)
-            h = minimum_distance_rigidity_extents(G, p, threshold)
+            h = minimum_distance_rigidity_extents(E, G, p, threshold)
             if np.all(h == 1):
                 return (R - Rmin) / (Rmax - Rmin)
 
@@ -71,34 +71,38 @@ def run(d, nmin, nmax, logs, threshold, rep):
                 E0, p, threshold, return_radius=True
             )
             A = adjacency_matrix_from_edges(n, E, directed=False).astype(float)
-            Alpha = minimum_alpha(A, p, dist, Rmin, Rmax, threshold)
+            Alpha = minimum_alpha(E, A, p, dist, Rmin, Rmax, threshold)
 
             logs.rmax[k, r] = Rmax
             logs.rmin[k, r] = Rmin
             logs.alpha[k, r] = Alpha
 
             G = geodesics(A)
-            h = minimum_distance_rigidity_extents(G, p, threshold)
+            h = minimum_distance_rigidity_extents(E, G, p, threshold)
             logs.diam[0, k, r] = np.max(G)
             logs.hmax[0, k, r] = np.max(h)
             logs.load[0, k, r] = network_load(G, h)
             logs.edges[0, k, r] = np.sum(A) / 2
 
-            A = DiskGraph(
+            graph = DiskGraph(
                 p, dmax=Rmin + 0.05 * (Rmax - Rmin)
-            ).adjacency_matrix(float)
+            )
+            A = graph.adjacency_matrix(float)
+            E = graph.edge_set(directed=False)
             G = geodesics(A)
-            h = minimum_distance_rigidity_extents(G, p, threshold)
+            h = minimum_distance_rigidity_extents(E, G, p, threshold)
             logs.diam[1, k, r] = np.max(G)
             logs.hmax[1, k, r] = np.max(h)
             logs.load[1, k, r] = network_load(G, h)
             logs.edges[1, k, r] = np.sum(A) / 2
 
-            A = DiskGraph(
+            graph = DiskGraph(
                 p, dmax=Rmin + 0.1 * (Rmax - Rmin)
-            ).adjacency_matrix(float)
+            )
+            A = graph.adjacency_matrix(float)
+            E = graph.edge_set(directed=False)
             G = geodesics(A)
-            h = minimum_distance_rigidity_extents(G, p, threshold)
+            h = minimum_distance_rigidity_extents(E, G, p, threshold)
             logs.diam[2, k, r] = np.max(G)
             logs.hmax[2, k, r] = np.max(h)
             logs.load[2, k, r] = network_load(G, h)

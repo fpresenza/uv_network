@@ -12,7 +12,7 @@ import transformations
 
 from uvnpy.distances.core import minimum_distance
 from uvnpy.bearings.real_d.core import (
-    is_inf_bearing_rigid, minimum_bearing_rigidity_extents
+    is_bearing_rigid, minimum_bearing_rigidity_extents
 )
 from uvnpy.bearings.real_d.localization import BearingBasedGradientFilter
 from uvnpy.bearings.real_d.control import RigidityMaintenance
@@ -649,7 +649,7 @@ print(
         for key, val in enumerate(sens_graph.adjacency_list())
     )
 )
-if is_inf_bearing_rigid(sens_graph.edge_set(directed=False), positions):
+if is_bearing_rigid(sens_graph.edge_set(directed=False), positions):
     print('Yay! Sensing framework is infinitesimally rigid.')
     angles = camera_angle(axes).reshape(-1, 1)
     poses = np.hstack([positions, angles])
@@ -723,10 +723,11 @@ logs = Logs(
 simu_counter = 0
 for t_break in [simu_time]:
     adjacency_matrix = as_undirected(robnet.sens_graph.adjacency_matrix())
+    edge_set = sens_graph.edge_set(directed=False)
     positions = robnet.positions()
     geodesics_matrix = geodesics(adjacency_matrix.astype(float))
     action_extents = minimum_bearing_rigidity_extents(
-        geodesics_matrix, positions
+        edge_set, geodesics_matrix, positions
     )
     print(
         'Action extents: \n' +

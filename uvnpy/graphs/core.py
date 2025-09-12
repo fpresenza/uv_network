@@ -33,6 +33,28 @@ def geodesics_dict(adjacency_matrix):
     )
 
 
+@njit
+def geodesics(adjacency_matrix):
+    """Matrix of geodesic distances.
+
+    Requires:
+    ---------
+        graph is connected
+    """
+    A = adjacency_matrix
+    G = A.copy()
+    As = np.eye(len(A)) + A
+    h = 2
+    while not np.all(As):
+        Ah = np.linalg.matrix_power(A, h)
+        for i, g in enumerate(G):
+            idx = np.logical_and(Ah[i] > 0, As[i] == 0)
+            g[idx] = h
+        As += Ah
+        h += 1
+    return G
+
+
 def as_undirected(adjacency_matrix):
     """Removes the direction of the edges"""
     return np.logical_or(adjacency_matrix, adjacency_matrix.swapaxes(-2, -1))
@@ -120,27 +142,6 @@ def algebraic_connectivity(A, return_value=True):
 
 def degree(A):
     return A.sum(-1)
-
-
-@njit
-def geodesics(A):
-    """Matrix of geodesic distances.
-
-    Requires:
-    ---------
-        graph is connected
-    """
-    G = A.copy()
-    As = np.eye(len(A)) + A
-    h = 2
-    while not np.all(As):
-        Ah = np.linalg.matrix_power(A, h)
-        for i, g in enumerate(G):
-            idx = np.logical_and(Ah[i] > 0, As[i] == 0)
-            g[idx] = h
-        As += Ah
-        h += 1
-    return G
 
 
 def diameter(geodesics):

@@ -9,12 +9,7 @@ import numpy as np
 from transformations import unit_vector
 from numba import njit
 
-from uvnpy.graphs.core import (
-    adjacency_from_geodesics,
-    edges_from_adjacency,
-    complete_edges,
-    edge_set_diff
-)
+from uvnpy.graphs.core import complete_edges, edge_set_diff
 
 
 THRESHOLD_EIG = 1e-10
@@ -76,8 +71,8 @@ def distance_rigidity_matrix(E, p):
     """Distance rigidity Matrix (jacobian of the distance function)
 
     args:
-        E: edge set (m, 2)-array
-        p: positions (..., n, d)-array
+        E : edge set | (m, 2)-array
+        p : positions | (..., n, d)-array
     """
     n, d = p.shape
     m = E.shape[0]
@@ -96,11 +91,11 @@ def distance_rigidity_laplacian(A, p):
         S =  R^T W R
 
     args:
-        A: weighted adjacency matrix (..., n, n)-array
-        p: positions (..., n, d)-array
+        A : weighted adjacency matrix | (..., n, n)-array
+        p : positions | (..., n, d)-array
 
     returns:
-        S: rigidity laplacian (..., n * d, n * d)-array
+        S : rigidity laplacian | (..., n * d, n * d)-array
     """
     n, d = p.shape[-2:]
     ii = np.eye(n, dtype=bool)
@@ -115,7 +110,7 @@ def distance_rigidity_laplacian(A, p):
     return S.reshape(s)
 
 
-def is_inf_distance_rigid(E, p, threshold=THRESHOLD_SV):
+def is_distance_rigid(E, p, threshold=THRESHOLD_SV):
     n, d = p.shape
     f = int(d * (d + 1)/2)
     R = distance_rigidity_matrix(E, p)
@@ -130,25 +125,25 @@ def distance_rigidity_eigenvalue(A, p):
     return eig[f]
 
 
-def minimum_distance_rigidity_extents(geodesics, p, threshold=THRESHOLD_SV):
+def minimum_distance_rigidity_extents(E, G, p, threshold=THRESHOLD_SV):
     """
     requires:
         framework is rigid
     """
     n, d = p.shape
     extents = np.empty(n, dtype=int)
-    A = adjacency_from_geodesics(geodesics)
+    remap = np.empty(n, dtype=int)
     for i in range(n):
         minimum_found = False
         h = 0
         while not minimum_found:
             h += 1
-            subset = geodesics[i] <= h
-            Ei = edges_from_adjacency(
-                A[np.ix_(subset, subset)], directed=False
-            )
+            subset = G[i] <= h
+            Ei = E[subset[E].all(axis=1)]
             pi = p[subset]
-            minimum_found = is_inf_distance_rigid(Ei, pi, threshold)
+            remap[subset] = np.arange(sum(subset))
+            Ei = remap[Ei]
+            minimum_found = is_distance_rigid(Ei, pi, threshold)
         extents[i] = h
     return extents
 
@@ -160,7 +155,7 @@ def minimum_distance_rigidity_radius(
     n, d = p.shape
     f = d * (d + 1) // 2
 
-    if is_inf_distance_rigid(E, p, threshold):
+    if is_distance_rigid(E, p, threshold):
         dist = distances_from_edges(E, p)
         F = E.copy()
         rigid = True
@@ -170,7 +165,7 @@ def minimum_distance_rigidity_radius(
             radius = dist[e]
             dist = np.delete(dist, e)
             F = np.delete(F, e, axis=0)
-            rigid = is_inf_distance_rigid(F, p, threshold)
+            rigid = is_distance_rigid(F, p, threshold)
     else:
         K = complete_edges(n, directed=False)
         notE = edge_set_diff(K, E)
@@ -184,7 +179,7 @@ def minimum_distance_rigidity_radius(
             dist = np.delete(dist, e)
             notE = np.delete(notE, e, axis=0)
             if len(E) >= d*n - f:
-                rigid = is_inf_distance_rigid(E, p, threshold)
+                rigid = is_distance_rigid(E, p, threshold)
 
     if return_radius:
         return E, radius

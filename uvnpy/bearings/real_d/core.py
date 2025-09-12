@@ -7,8 +7,6 @@
 import numpy as np
 from numba import njit
 
-from uvnpy.graphs.core import adjacency_from_geodesics, edges_from_adjacency
-
 
 THRESHOLD_EIG = 1e-10
 THRESHOLD_SV = 1e-5
@@ -91,7 +89,7 @@ def bearing_rigidity_laplacian(A, p):
     return S.reshape(S.shape[:-4] + 2*(n*d,))
 
 
-def is_inf_bearing_rigid(E, p, threshold=THRESHOLD_SV):
+def is_bearing_rigid(E, p, threshold=THRESHOLD_SV):
     n, d = p.shape
     R = bearing_rigidity_matrix(E, p)
     return np.linalg.matrix_rank(R, tol=threshold) == n*d - d - 1
@@ -104,24 +102,24 @@ def bearing_rigidity_eigenvalue(A, p):
     return eig[d + 1]
 
 
-def minimum_bearing_rigidity_extents(geodesics, p, threshold=THRESHOLD_SV):
+def minimum_bearing_rigidity_extents(E, G, p, threshold=THRESHOLD_SV):
     """
     requires:
         framework is rigid
     """
     n, d = p.shape
     extents = np.empty(n, dtype=int)
-    A = adjacency_from_geodesics(geodesics)
+    remap = np.empty(n, dtype=int)
     for i in range(n):
         minimum_found = False
         h = 0
         while not minimum_found:
             h += 1
-            subset = geodesics[i] <= h
-            Ei = edges_from_adjacency(
-                A[np.ix_(subset, subset)], directed=False
-            )
+            subset = G[i] <= h
+            Ei = E[subset[E].all(axis=1)]
             pi = p[subset]
-            minimum_found = is_inf_bearing_rigid(Ei, pi, threshold)
+            remap[subset] = np.arange(sum(subset))
+            Ei = remap[Ei]
+            minimum_found = is_bearing_rigid(Ei, pi, threshold)
         extents[i] = h
     return extents

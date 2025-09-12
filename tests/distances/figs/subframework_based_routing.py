@@ -45,7 +45,7 @@ dist = distance_matrix(p)
 Rmax = dist.max()
 
 G = geodesics(A)
-h = minimum_distance_rigidity_extents(G, p, threshold)
+h = minimum_distance_rigidity_extents(E, G, p, threshold)
 node_i = np.argmin(np.linalg.norm(p - midpoint, axis=1))
 print('i = {}'.format(node_i))
 super_centers = G[node_i] <= h

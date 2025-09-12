@@ -18,7 +18,7 @@ from uvnpy.graphs.core import (
     edge_set_diff
 )
 from uvnpy.distances.core import (
-    is_inf_distance_rigid,
+    is_distance_rigid,
     minimum_distance_rigidity_radius,
     sufficiently_dispersed_position,
 )
@@ -52,7 +52,7 @@ def valid_ball(subset, adjacency, position):
     A = adjacency[:, subset][subset]
     p = position[subset]
     E = edges_from_adjacency(A, directed=False)
-    if is_inf_distance_rigid(E, p):
+    if is_distance_rigid(E, p):
         return True
 
     return False
