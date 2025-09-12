@@ -10,7 +10,7 @@ from uvnpy.graphs.core import (
     edges_from_adjacency,
     incidence_from_edges
 )
-from uvnpy.distances.core import distances_from_edges, is_distance_rigid
+from uvnpy.distances.core import distance_function, is_distance_rigid
 from uvnpy.distances.localization import (
     DistanceBasedGradientFilter,
     DistanceBasedKalmanFilter
@@ -49,7 +49,7 @@ hatx[0] = np.random.normal(x, p)
 
 R = 3.0
 G = 5.0
-d = distances_from_edges(E, x)
+d = distance_function(E, x)
 z = np.array([np.random.normal(d, R) for _ in tiempo])
 y = np.array([np.random.normal(x, G) for _ in tiempo])
 # d2 = d**2
@@ -85,7 +85,7 @@ for k in steps[1:]:
             estimator[i].gps_step(y[k-1, i])
         hatx[k, i] = estimator[i].state()
 
-# hatz = distances_from_edges(E, hatx)
+# hatz = distance_function(E, hatx)
 
 ax.plot(
     # steps, np.abs(d - hatz).sum(axis=1) / len(E),
@@ -154,7 +154,7 @@ for k in steps[1:]:
         hatx[k, i] = estimator[i].state()
         hatP[k, i] = estimator[i].covariance()
 
-# hatz = distances_from_edges(E, hatx)
+# hatz = distance_function(E, hatx)
 
 ax.plot(
     # steps, np.abs(d - hatz).sum(axis=1) / len(E),
