@@ -71,7 +71,7 @@ def bearing_function(E, x):
 
 @njit
 def bearing_rigidity_matrix(E, x):
-    """Rigidity Matrix (jacobian of the bearing function)
+    """Bearing Rigidity matrix (jacobian of the bearing function)
 
     args:
         x : (n, 6) pose array

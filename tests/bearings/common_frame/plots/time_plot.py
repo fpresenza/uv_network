@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 from scipy.sparse.csgraph import shortest_path
 
 from uvnpy.toolkit import data
-from uvnpy.network.core import geodesics, as_undirected
-from uvnpy.bearings.real_d.core import bearing_rigidity_eigenvalue
+from uvnpy.graphs.core import geodesics, as_undirected
+from uvnpy.bearings.common_frame.core import bearing_rigidity_eigenvalue
 from uvnpy.distances.core import minimum_distance
 
 plt.rcParams['text.usetex'] = False

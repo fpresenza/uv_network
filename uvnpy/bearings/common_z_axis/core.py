@@ -77,7 +77,7 @@ def bearing_function(E, x):
 
 @njit
 def bearing_rigidity_matrix(E, x):
-    """Bearing rigidity Matrix (jacobian of the bearing function)
+    """Bearing Rigidity matrix (jacobian of the bearing function)
 
     args:
         E: edge set (m, 2)-array

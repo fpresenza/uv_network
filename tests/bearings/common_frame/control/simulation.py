@@ -11,11 +11,11 @@ import copy
 import transformations
 
 from uvnpy.distances.core import minimum_distance
-from uvnpy.bearings.real_d.core import (
+from uvnpy.bearings.common_frame.core import (
     is_bearing_rigid, minimum_bearing_rigidity_extents
 )
-from uvnpy.bearings.real_d.localization import BearingBasedGradientFilter
-from uvnpy.bearings.real_d.control import RigidityMaintenance
+from uvnpy.bearings.common_frame.localization import BearingBasedGradientFilter
+from uvnpy.bearings.common_frame.control import RigidityMaintenance
 from uvnpy.graphs.core import geodesics, as_undirected
 from uvnpy.graphs.models import DiskGraph, ConeGraph
 from uvnpy.dynamics.core import EulerIntegrator

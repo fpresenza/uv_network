@@ -68,7 +68,7 @@ def sufficiently_dispersed_position(n, xlim, ylim, max_dist):
 
 @njit
 def distance_rigidity_matrix(E, p):
-    """Distance rigidity Matrix (jacobian of the distance function)
+    """Distance Rigidity matrix (jacobian of the distance function)
 
     args:
         E : edge set | (m, 2)-array
