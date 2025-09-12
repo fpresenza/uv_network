@@ -27,16 +27,10 @@ def distance_matrix(x):
     return dist
 
 
-def distances_from_edges(E, p):
+def distance_function(E, p):
     r = p[..., E[:, 0], :] - p[..., E[:, 1], :]
     dist = np.sqrt(np.square(r).sum(axis=-1))
     return dist
-
-
-def distance_matrix_from_adjacency(A, p):
-    r = p[..., None, :] - p[..., None, :, :]
-    dist = np.sqrt(np.square(r).sum(axis=-1)) * A
-    return dist[dist > 0]
 
 
 def minimum_distance(p, axis=None):
@@ -156,7 +150,7 @@ def minimum_distance_rigidity_radius(
     f = d * (d + 1) // 2
 
     if is_distance_rigid(E, p, threshold):
-        dist = distances_from_edges(E, p)
+        dist = distance_function(E, p)
         F = E.copy()
         rigid = True
         while rigid:
@@ -169,7 +163,7 @@ def minimum_distance_rigidity_radius(
     else:
         K = complete_edges(n, directed=False)
         notE = edge_set_diff(K, E)
-        dist = distances_from_edges(notE, p)
+        dist = distance_function(notE, p)
 
         rigid = False
         while not rigid:
