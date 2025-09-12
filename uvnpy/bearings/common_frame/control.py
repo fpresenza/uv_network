@@ -6,7 +6,7 @@
 """
 import numpy as np
 
-from uvnpy.bearings.real_d.core import bearing_rigidity_laplacian
+from uvnpy.bearings.common_frame.core import bearing_rigidity_laplacian
 from uvnpy.toolkit import functions
 
 

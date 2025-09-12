@@ -12,7 +12,7 @@ from uvnpy.toolkit.data import write_csv
 from uvnpy.graphs.core import geodesics, as_undirected
 from uvnpy.graphs.subframeworks import superframework_geodesics
 from uvnpy.graphs.models import ConeGraph
-from uvnpy.bearings.real_d.core import (
+from uvnpy.bearings.common_frame.core import (
     is_bearing_rigid, minimum_bearing_rigidity_extents
 )
 
