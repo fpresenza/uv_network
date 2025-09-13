@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from . import angles               # noqa
 from . import bearings             # noqa
 from . import control              # noqa
 from . import distances            # noqa
