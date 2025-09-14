@@ -87,16 +87,17 @@ def angle_rigidity_matrix(E, p):
         Mi = Pi / qi[..., np.newaxis, np.newaxis]
 
         x, y = np.triu_indices(s, k=1)
-        Nij = np.matmul(bi[y, np.newaxis], Mi[x]).squeeze()
-        Nik = np.matmul(bi[x, np.newaxis], Mi[y]).squeeze()
+        Nij = np.sum(bi[y, :, np.newaxis] * Mi[x], axis=1)
+        Nik = np.sum(bi[x, :, np.newaxis] * Mi[y], axis=1)
 
         ds = int(s * (s - 1) / 2)
         Ri = np.zeros(shape=(ds, n, d), dtype=float)
         Ei = E[S]
         j, k = Ei[x, 1], Ei[y, 1]
-        Ri[:, i] = - Nij - Nik
-        Ri[range(ds), j] = Nij
-        Ri[range(ds), k] = Nik
+        for a in range(ds):
+            Ri[a, i] = - Nij[a] - Nik[a]
+            Ri[a, j[a]] = Nij[a]
+            Ri[a, k[a]] = Nik[a]
         R = np.concatenate((R, Ri.reshape(ds, n*d)))
 
     return R
