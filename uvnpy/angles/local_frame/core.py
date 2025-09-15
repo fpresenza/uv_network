@@ -105,6 +105,6 @@ def angle_rigidity_matrix(E, p):
 
 def is_angle_rigid(E, p, threshold=THRESHOLD_SV):
     n, d = p.shape
-    f = int(d * (d + 1)/2)
+    t = int(d * (d + 1)/2) + 1
     R = angle_rigidity_matrix(E, p)
-    return np.linalg.matrix_rank(R, tol=threshold) == n*d - f - 1
+    return np.linalg.matrix_rank(R, tol=threshold) == n*d - t

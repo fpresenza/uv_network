@@ -91,8 +91,9 @@ def bearing_rigidity_laplacian(A, p):
 
 def is_bearing_rigid(E, p, threshold=THRESHOLD_SV):
     n, d = p.shape
+    t = d + 1
     R = bearing_rigidity_matrix(E, p)
-    return np.linalg.matrix_rank(R, tol=threshold) == n*d - d - 1
+    return np.linalg.matrix_rank(R, tol=threshold) == n*d - t
 
 
 def bearing_rigidity_eigenvalue(A, p):

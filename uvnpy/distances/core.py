@@ -106,9 +106,9 @@ def distance_rigidity_laplacian(A, p):
 
 def is_distance_rigid(E, p, threshold=THRESHOLD_SV):
     n, d = p.shape
-    f = int(d * (d + 1)/2)
+    t = int(d * (d + 1)/2)
     R = distance_rigidity_matrix(E, p)
-    return np.linalg.matrix_rank(R, tol=threshold) == n*d - f
+    return np.linalg.matrix_rank(R, tol=threshold) == n*d - t
 
 
 def distance_rigidity_eigenvalue(A, p):
