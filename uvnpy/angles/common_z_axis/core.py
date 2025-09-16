@@ -104,9 +104,9 @@ def angle_rigidity_matrix(E, p):
             Ri[a, k[a]] = Nik[a]
 
         Wij = np.empty((s, 3), dtype=float)
-        Wij[:, 0] = -bi[:, 0]*bi[:, 2] / qi
-        Wij[:, 1] = -bi[:, 1]*bi[:, 2] / qi
-        Wij[:, 2] = (1 - bi[:, 2]**2) / qi
+        Wij[:, 0] = bi[:, 0]*bi[:, 2] / qi
+        Wij[:, 1] = bi[:, 1]*bi[:, 2] / qi
+        Wij[:, 2] = (bi[:, 2]**2 - 1.0) / qi
         for m in range(s):
             Ri[ds + m, Ei[m, 0]] = Wij[m]
             Ri[ds + m, Ei[m, 1]] = -Wij[m]
