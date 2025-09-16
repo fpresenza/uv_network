@@ -60,8 +60,17 @@ def as_undirected(adjacency_matrix):
     return np.logical_or(adjacency_matrix, adjacency_matrix.swapaxes(-2, -1))
 
 
+def as_undirected_edges(edge_set):
+    _, idx = np.unique(np.sort(edge_set, axis=1), axis=0, return_index=True)
+    return edge_set[idx]
+
+
 def as_oriented(adjacency_matrix):
     return np.triu(as_undirected(adjacency_matrix))
+
+
+def as_oriented_edges(edge_set):
+    return np.unique(np.sort(edge_set, axis=1), axis=0)
 
 
 def complete_edges(n, directed=True):
