@@ -81,6 +81,7 @@ class ErdosRenyi(Graph):
             self.p = 1 - np.sqrt(1 - p)
         else:
             self.p = p
+        self.undirected = undirected
         self.update()
 
     def update(self):
@@ -88,7 +89,9 @@ class ErdosRenyi(Graph):
             [False, True], size=(self.n, self.n), p=(1 - self.p, self.p)
         )
         adj[np.eye(self.n, dtype=bool)] = False
-        super().update(core.as_undirected(adj))
+        if self.undirected:
+            adj = core.as_undirected(adj)
+        super().update(adj)
 
 
 class Framework(Graph):
