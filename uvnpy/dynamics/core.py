@@ -8,13 +8,14 @@ import numpy as np
 
 
 class EulerIntegrator(object):
-    def __init__(self, x, t=0.0, u=np.zeros(1)):
-        self.initialize(x, t, u)
+    def __init__(self, x, t=0.0):
+        self.initialize(x, t)
 
-    def initialize(self, x, t=0.0, u=np.zeros(1)):
+    def initialize(self, x, t=0.0, u=None):
         self.t = t
         self._x = x.copy()
-        self._u = u.copy()
+        if u is None:
+            self._u = np.zeros_like(x)
 
     def x(self):
         return self._x.copy()
@@ -30,14 +31,15 @@ class EulerIntegrator(object):
 
 
 class DoubleEulerIntegrator(object):
-    def __init__(self, x, dotx, t=0.0, u=np.zeros(1)):
-        self.initialize(x, dotx, t, u)
+    def __init__(self, x, dotx, t=0.0):
+        self.initialize(x, dotx, t)
 
-    def initialize(self, x, dotx, t=0.0, u=np.zeros(1)):
+    def initialize(self, x, dotx, t=0.0, u=None):
         self.t = t
         self._x = x.copy()
         self._dotx = dotx.copy()
-        self._u = u.copy()
+        if u is None:
+            self._u = np.zeros_like(x)
 
     def x(self):
         return self._x.copy()
@@ -57,13 +59,14 @@ class DoubleEulerIntegrator(object):
 
 
 class HeunIntegrator(object):
-    def __init__(self, x, t=0.0, u=2*[np.zeros(1)]):
-        self.initialize(x, t, u)
+    def __init__(self, x, t=0.0):
+        self.initialize(x, t)
 
-    def initialize(self, x, t=0.0, u=2*[np.zeros(1)]):
+    def initialize(self, x, t=0.0, u=None):
         self.t = t
         self._x = x.copy()
-        self._u = u.copy()
+        if u is None:
+            self._u = np.zeros_like(x, shape=(2,) + x.shape)
 
     def x(self):
         return self._x.copy()
@@ -73,7 +76,7 @@ class HeunIntegrator(object):
 
     def step(self, t, u):
         dt = t - self.t
-        self._x += dt * sum(self._u) * 0.5
+        self._x += dt * (self._u[0] + self._u[1]) * 0.5
         self.t = t
         self._u[0] = self._u[1]
         self._u[1] = u
