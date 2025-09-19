@@ -49,14 +49,9 @@ x = data.read_csv(
     rows=(k_i, k_e),
     jump=arg.jump,
     dtype=float,
-    shape=(-1, 2)
+    shape=(-1, 3)
 )
 n = len(x[0])
-
-# tweak #
-x = [np.hstack([xk, np.zeros((n, 1))]) for xk in x]
-#
-
 
 edge_list = data.read_csv(
     'data/edge_list.csv',
