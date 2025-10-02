@@ -45,7 +45,7 @@ k_i_jump = int(k_i / arg.jump)
 k_e = int(np.argmin(np.abs(t - arg.end))) + 1
 
 x = data.read_csv(
-    'data/robots_position.csv',
+    'data/robots_pose.csv',
     rows=(k_i, k_e),
     jump=arg.jump,
     dtype=float,
@@ -62,7 +62,7 @@ edge_list = data.read_csv(
 )
 
 targets = data.read_csv(
-    'data/targets_position.csv',
+    'data/targets_state.csv',
     rows=(k_i, k_e),
     jump=arg.jump,
     dtype=float,
@@ -130,7 +130,10 @@ for k in range(N):
         lw=0.2
     )
 
-    fig.savefig('xy_snapshots/{}.png'.format(k), bbox_inches='tight', dpi=600)
+    fig.savefig(
+        'xy_snapshots/{}.png'.format(str(k).zfill(3)),
+        bbox_inches='tight', dpi=600
+    )
     plt.close()
     bar.update(k)
 
