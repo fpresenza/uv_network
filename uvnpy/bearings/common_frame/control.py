@@ -64,12 +64,11 @@ class RigidityMaintenance(object):
         return - eigenvalue_deriv / np.abs(eigenvalue - self.threshold)
 
     def weighted_rigidity_matrix(self, x):
-        p = x[..., :3]
-        a = x[..., 3]
-        axes = np.empty(a.shape + (3,), dtype=float)
+        p = x[..., :self.dim]
+        a = x[..., self.dim]
+        axes = np.zeros(p.shape, dtype=float)
         axes[..., 0] = np.cos(a)
         axes[..., 1] = np.sin(a)
-        axes[..., 2] = 0.0
 
         r = p[..., np.newaxis, :, :] - p[..., np.newaxis, :]
         d = np.sqrt(np.square(r).sum(axis=-1))
