@@ -242,7 +242,7 @@ def sparse_subframeworks_greedy_search_by_reduction(
         ):
     """
     Given the set of valid extents of each node, starts with all subframeworks
-    at maximum valid extent and then expands, at each iteration, the individual
+    at maximum valid extent and then reduces, at each iteration, the individual
     extent that reduces the metric the most.
 
     Requires:

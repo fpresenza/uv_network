@@ -17,7 +17,7 @@ class RigidityMaintenance(object):
 
     args:
     -----
-        dim         : dimension of the realization space
+        dim         : dimension of the position vector
         range_lims  : range low and high limits
         cos_lims    : cosine low and high limits
         power       : positive number to exponentiate the eigenvalues

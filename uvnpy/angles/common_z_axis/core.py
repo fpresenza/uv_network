@@ -17,13 +17,14 @@ def angle_set(n, E):
     An angle is:
         - a triple (i, j, k) where (i, j) and (i, k)
         are directed edges.
-        - them angle between (i, j) and the z-axis
+        - the angle between (i, j) and the z-axis
 
     args:
-        E : edge set | (m, 2)-array
+        n: number of vertices | float
+        E: edge set | (m, 2)-array
 
     returns:
-        angle_set | (a, 3)-array
+        a: angle_set | (a, 3)-array
     """
     a = np.empty(shape=(0, 3), dtype=float)
     for i in range(n):
@@ -44,8 +45,8 @@ def angle_function(E, p):
     are directed edges.
 
     args:
-        E : edge_set | (m, 2)-array
-        p : positions | (..., n, d)-array
+        E: edge_set | (m, 2)-array
+        p: positions | (..., n, d)-array
 
     returns:
         angle_set | (..., a)-array

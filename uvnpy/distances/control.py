@@ -21,7 +21,7 @@ class RigidityMaintenance(object):
 
     args:
     -----
-        dim: realization space dimension
+        dim: dimension of the position vector
         dmax: maximum connectivity distance
         steepness: connectivity decrease factor
         power: positive number to exponentiate the eigenvalues
