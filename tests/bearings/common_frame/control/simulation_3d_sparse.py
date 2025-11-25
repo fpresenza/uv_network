@@ -142,7 +142,7 @@ class Robot(object):
         self.current_time = t
 
     def create_msg(self, bearings):
-        action_tokens, state_tokens = self.routing.broadcast(
+        action_tokens, state_tokens = self.routing.prepare_tokens(
             timestamp=self.current_time,
             action=copy.deepcopy(self.action),
             state={
