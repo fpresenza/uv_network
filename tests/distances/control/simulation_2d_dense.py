@@ -125,7 +125,7 @@ class Robot(object):
         self.current_time = t
 
     def create_msg(self):
-        action_tokens, state_tokens = self.routing.broadcast(
+        action_tokens, state_tokens = self.routing.set_tokens(
             timestamp=self.current_time,
             action=copy.deepcopy(self.action),
             state={'position': self.loc.position()},

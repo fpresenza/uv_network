@@ -93,14 +93,16 @@ class TokenPassing(object):
         }
         return g
 
-    def broadcast(self, timestamp, action, state, action_extent, state_extent):
+    def set_tokens(
+            self, timestamp, action, state, action_extent, state_extent):
         """Prepara las listas con los tokens que se deben enviar.
         Luego elimina todos los tokens recibidos de otros nodos"""
         # Tokens de accion de otros nodos para retransmitir
         action_tokens = {
             token.center: token
             for token in self.action.values()
-            if token.hops_travelled < token.hops_to_target}
+            if token.hops_travelled < token.hops_to_target
+        }
 
         # Token de accion propio para transmitir
         if action_extent > 0:
@@ -116,7 +118,8 @@ class TokenPassing(object):
         state_tokens = {
             token.center: token
             for token in self.state.values()
-            if token.hops_travelled < token.hops_to_target}
+            if token.hops_travelled < token.hops_to_target
+        }
 
         # Token de estado propio para transmitir
         if state_extent > 0:
