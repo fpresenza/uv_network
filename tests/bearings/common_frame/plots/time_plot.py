@@ -73,14 +73,14 @@ D = data.read_csv(
     shape=(n, n),
     asarray=True
 )
-targets = data.read_csv(
+targets = data.read_csv_numpy(
     'data/targets.csv',
-    rows=(k_i, k_e),
-    jump=arg.jump,
-    dtype=float,
-    shape=(-1, 4),
-    asarray=True
-)
+    jump=arg.jump
+).astype(bool)
+targets_positions = np.loadtxt(
+    'data/targets_positions.csv',
+    delimiter=','
+).reshape(-1, 3)
 u_t = data.read_csv(
     'data/target_action.csv',
     rows=(k_i, k_e),
@@ -611,7 +611,7 @@ ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
 # ax.set_ylabel(r'$\ell_{ij} \ (\mathrm{m})$', fontsize=8, labelpad=-2.0)
 ax.plot(
     t,
-    np.sum(targets[0, :, 3]) - np.sum(targets[:, :, 3], axis=1),
+    len(targets) - np.sum(targets, axis=1),
     lw=0.5,
     color='C0',
     # label='median',

@@ -64,13 +64,15 @@ A = data.read_csv(
     dtype=float,
     shape=(n, n)
 )
-targets = data.read_csv(
+targets = data.read_csv_numpy(
     'data/targets.csv',
-    rows=(k_i, k_e),
-    jump=arg.jump,
-    dtype=float,
-    shape=(-1, 4)
-)
+    jump=arg.jump
+).astype(bool)
+
+targets_positions = np.loadtxt(
+    'data/targets_positions.csv',
+    delimiter=','
+).reshape(-1, 3)
 
 N = len(x)
 
@@ -103,17 +105,19 @@ for k in range(N):
         ax.set_zlabel(r'$z \ (\mathrm{m})$', fontsize='small', labelpad=-8.0)
         # ax.zaxis.labelpad = 0
 
-        ax.set_xlim3d(0, 100.0)
-        ax.set_ylim3d(0, 100.0)
-        ax.set_zlim3d(0.0, 50.0)
-        ax.set_xticks([0.0, 25.0, 50.0, 75.0, 100.0])
-        ax.set_yticks([0.0, 25.0, 50.0, 75.0, 100.0])
-        ax.set_zticks([0.0, 25.0, 50.0])
+        xy_lim = 100.0
+        z_lim = xy_lim / 2
+        ax.set_xlim3d(0, xy_lim)
+        ax.set_ylim3d(0, xy_lim)
+        ax.set_zlim3d(0.0, z_lim)
+        ax.set_xticks(np.linspace(0.0, xy_lim, num=5, endpoint=True))
+        ax.set_yticks(np.linspace(0.0, xy_lim, num=5, endpoint=True))
+        ax.set_zticks(np.linspace(0.0, z_lim, num=3, endpoint=True))
 
     axes[0].view_init(elev=20.0, azim=-70.0)
     # Shorten the Z-axis (flatten effect)
     axes[0].get_proj = lambda: np.dot(
-        Axes3D.get_proj(axes[0]), np.diag([1, 1, 0.55, 1])
+        Axes3D.get_proj(axes[0]), np.diag([1, 1, 0.50, 1])
     )
     axes[0].set_box_aspect(None, zoom=1.0)
 
@@ -138,9 +142,6 @@ for k in range(N):
         axes[0].add_collection3d(art3d.Poly3DCollection(cone, alpha=0.5))
         axes[1].add_collection3d(art3d.Poly3DCollection(cone, alpha=0.5))
 
-    untracked = targets[k][:, 3].astype(bool)
-    tracked = np.logical_not(untracked)
-
     for ax in axes:
         plot.points(
             ax, p,
@@ -161,26 +162,16 @@ for k in range(N):
             lw=0.5,
             zorder=0
         )
-
+        active_targets = targets_positions[targets[k]]
         ax.scatter(
-            targets[k][untracked, 0],
-            targets[k][untracked, 1],
-            targets[k][untracked, 2],
+            active_targets[:, 0],
+            active_targets[:, 1],
+            active_targets[:, 2],
             marker='d',
             # linewidth=2,
             edgecolor='black',
             facecolor='black',
             s=6,
-        )
-        ax.scatter(
-            targets[k][tracked, 0],
-            targets[k][tracked, 1],
-            targets[k][tracked, 2],
-            marker='d',
-            linewidth=0.2,
-            edgecolor='black',
-            facecolor='none',
-            s=3,
         )
         ax.xaxis._axinfo['grid'].update(
             color='0.5',
