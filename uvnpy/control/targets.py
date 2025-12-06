@@ -7,35 +7,22 @@ import numpy as np
 
 
 class Targets(object):
-    def __init__(self, n, dim, low_lim, up_lim, coverage):
-        self.dim = dim
-        self.data = np.empty((n, dim + 1), dtype=object)
-        self.data[:, :dim] = np.random.uniform(low_lim, up_lim, (n, dim))
-        self.data[:, dim] = True
-        self.coverage = coverage
-
-    def position(self):
-        return self.data[:, :self.dim]
-
-    def untracked(self):
-        return self.data[:, self.dim]
+    def __init__(self, n, dim, low_lim, up_lim, collect_radius):
+        self.positions = np.random.uniform(low_lim, up_lim, (n, dim))
+        self.active = np.full(n, True)
+        self.collect_radius = collect_radius
 
     def allocation(self, p):
-        untracked = self.data[:, self.dim].astype(bool)
-        if untracked.any():
-            targets = self.data[untracked, :self.dim].astype(float)
-            r = p[:, None] - targets
-            d2 = np.square(r).sum(axis=-1)
-            return [targets[d2[i].argmin()] for i in range(len(p))]
+        q = self.positions[self.active]
+        r = p[:, np.newaxis] - q
+        d2 = np.square(r).sum(axis=-1)
+        return [q[d2[i].argmin()] for i in range(len(p))]
 
     def update(self, p):
-        r = p[..., None, :] - self.data[:, :self.dim]
+        r = p[:, np.newaxis] - self.positions[self.active]
         d2 = np.square(r).sum(axis=-1)
-        c2 = (d2 < self.coverage**2).any(axis=0)
-        self.data[c2, self.dim] = False
-
-    def unfinished(self):
-        return self.data[:, self.dim].any()
+        c2 = (d2 < self.collect_radius**2).any(axis=0)
+        self.active[np.where(self.active)[0][c2]] = False
 
 
 class TargetTracking(object):
