@@ -1,5 +1,6 @@
 import csv
 import numpy as np
+from itertools import islice
 
 
 def write_csv(file_path, data, one_row=False):
@@ -38,6 +39,13 @@ def read_csv(
         return np.asarray(data)
     else:
         return data
+
+
+def read_csv_numpy(file_path, start=None, stop=None, jump=1):
+    with open(file_path, mode='r') as file:
+        arr = np.loadtxt(islice(file, start, stop, jump), delimiter=",")
+
+    return arr
 
 
 def read_rows_csv(
