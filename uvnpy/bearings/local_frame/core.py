@@ -92,14 +92,12 @@ def bearing_rigidity_matrix(E, x):
 
         r = x[j, :3] - x[i, :3]
         q = np.sqrt(np.dot(r, r))
-        b = np.dot(Ct, r) / q
+        b = r / q
         P = I3 - np.dot(b.reshape(-1, 1), b.reshape(1, -1))
-        M = np.dot(P, Ct) / q
+        M = np.dot(Ct, P) / q
 
         Sb = cross_product_matrix(b)
-        Sa = cross_product_matrix(a)
-        Q = np.dot(a.reshape(-1, 1), a.reshape(1, -1)) - np.dot(Ct.T - I3, Sa)
-        N = np.dot(np.dot(Sb, Ct), Q) / np.dot(a, a)
+        N = np.dot(Ct, Sb)
 
         R[e, :, i, 0:3] = -M
         R[e, :, i, 3:6] = N
