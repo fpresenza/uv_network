@@ -56,6 +56,7 @@ def bearing_function(E, x):
         ang[i] = x[i, 3:]
 
     args:
+        E : (m, 2) edge set array
         x : (..., n, 6) pose array
     """
     p = x[..., :3]
@@ -73,7 +74,12 @@ def bearing_function(E, x):
 def bearing_rigidity_matrix(E, x):
     """Bearing Rigidity matrix (jacobian of the bearing function)
 
+    It transform an infinitesimal displacement (v_i, w_i) into an
+    infinitesimal variation in the bearing angles.
+
+
     args:
+        E : (m, 2) edge set array
         x : (n, 6) pose array
     """
     n = x.shape[0]
