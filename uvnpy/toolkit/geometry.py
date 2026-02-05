@@ -58,7 +58,7 @@ def rotation_matrix_from_vector(theta):
 
 
     args:
-        theta : unit vector (3, )-array
+        theta : nonzero vector (3, )-array
 
     returns:
         The rotation matrices asociated
@@ -91,7 +91,7 @@ def rotation_matrix_from_vector_multiple_axes(theta):
     """Rodrigues rotation formula.
 
     args:
-        theta : unit vector (.., 3)-array
+        theta : nonzero vector (.., 3)-array
 
     returns:
         The rotation matrices asociated

@@ -65,7 +65,7 @@ def arrows(ax, p, edges, **kwargs):
         lines = ax.quiver(
             x, y,
             u - x, v - y,
-            angles='xy', scale_units='xy', **kwargs
+            angles='xy', scale_units='xy', scale=1, **kwargs
         )
     elif d == 3:
         x, y, z = arrows[..., 0, 0], arrows[..., 0, 1], arrows[..., 0, 2]
