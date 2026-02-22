@@ -7,7 +7,7 @@ import progressbar
 import numpy as np
 
 from uvnpy.dynamics.core import EulerIntegrator
-from uvnpy.toolkit.geometry import rotation_matrix_from_vector
+from uvnpy.toolkit.geometry import rotation_matrix_from_quaternion
 
 
 # ------------------------------------------------------------------
@@ -31,14 +31,9 @@ def gram_schmidt(V):
     return Q
 
 
-def random_rotation_vector(norm=np.pi):
-    v_norm = np.inf
-    while v_norm > norm:
-        # random direction (uniform on sphere after normalization)
-        v = np.random.uniform(-norm, norm, (3,))
-        v_norm = np.sqrt(v.dot(v))
-
-    return v
+def random_unit_quaternion():
+    q = np.random.normal(size=4)
+    return q / np.sqrt(q.dot(q))
 
 
 def Trinh2018CCTA(Rij, Ri_hat, Rj_hat):
@@ -154,7 +149,7 @@ edge_set = np.array([
 ])
 nodes = np.unique(edge_set)
 frames = [
-    rotation_matrix_from_vector(random_rotation_vector())
+    rotation_matrix_from_quaternion(random_unit_quaternion())
     for i in nodes
 ]
 est_frames = [
