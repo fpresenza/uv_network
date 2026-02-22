@@ -12,7 +12,7 @@ THRESHOLD_SV = 1e-5
 
 
 @njit
-def angle_set(n, E):
+def angle_indices(n, E):
     """Compute the angles indices with the directed edges.
     An angle is a triple (i, j, k) where (i, j) and (i, k)
     are directed edges.
@@ -21,7 +21,7 @@ def angle_set(n, E):
         E : edge set | (m, 2)-array
 
     returns:
-        angle_set | (a, 3)-array
+        angle_indices | (a, 3)-array
     """
     a = np.empty(shape=(0, 3), dtype=float)
     for i in range(n):
@@ -44,7 +44,7 @@ def angle_function(E, p):
         p : positions | (..., n, d)-array
 
     returns:
-        angle_set | (..., a)-array
+        angles | (..., a)-array
     """
     n = p.shape[-2]
     r = p[..., E[:, 1], :] - p[..., E[:, 0], :]
