@@ -24,7 +24,6 @@ np.set_printoptions(
 class Logs(object):
     time: list
     pose: list
-    estimated_pose: list
     adjacency: list
 
 
@@ -58,7 +57,6 @@ def log_step():
     if (simu_counter % log_skip == 0):
         logs.time.append(t)
         logs.pose.append(stack_pose(pose))
-        logs.estimated_pose.append(stack_pose(estimated_pose))
 
 
 # ------------------------------------------------------------------
@@ -119,13 +117,6 @@ pose = [
     )
     for i in nodes
 ]
-estimated_pose = [
-    (
-        EulerIntegrator(p.x()),
-        EulerIntegrator(R.x())
-    )
-    for p, R in pose
-]
 
 for (p, R) in pose:
     print(p.x())
@@ -136,7 +127,6 @@ for (p, R) in pose:
 logs = Logs(
     time=[t],
     pose=[stack_pose(pose)],
-    estimated_pose=[stack_pose(estimated_pose)],
     adjacency=adjacency_matrix_from_edges(n, edge_set)
 )
 
@@ -161,4 +151,3 @@ bar.finish()
 
 np.savetxt('simu_data/t.csv', logs.time, delimiter=',')
 np.savetxt('simu_data/pose.csv', logs.pose, delimiter=',')
-np.savetxt('simu_data/estimated_pose.csv', logs.estimated_pose, delimiter=',')
