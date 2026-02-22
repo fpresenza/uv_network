@@ -87,6 +87,30 @@ def rotation_matrix_from_vector(theta):
     return R
 
 
+@njit
+def rotation_matrix_from_quaternion(q):
+    q0 = q[0]
+    qx = q[1]
+    qy = q[2]
+    qz = q[3]
+
+    R = np.empty((3, 3), dtype=np.float64)
+
+    R[0, 0] = 2 * (q0 * q0 + qx * qx) - 1
+    R[0, 1] = 2 * (qx * qy - q0 * qz)
+    R[0, 2] = 2 * (qx * qz + q0 * qy)
+
+    R[1, 0] = 2 * (qx * qy + q0 * qz)
+    R[1, 1] = 2 * (q0 * q0 + qy * qy) - 1
+    R[1, 2] = 2 * (qy * qz - q0 * qx)
+
+    R[2, 0] = 2 * (qx * qz - q0 * qy)
+    R[2, 1] = 2 * (qy * qz + q0 * qx)
+    R[2, 2] = 2 * (q0 * q0 + qz * qz) - 1
+
+    return R
+
+
 def rotation_matrix_from_vector_multiple_axes(theta):
     """Rodrigues rotation formula.
 
