@@ -126,7 +126,6 @@ parser.add_argument(
     '-l', '--log_skip',
     default=1, type=int, help='logger skip in number of simu_step_size'
 )
-
 arg = parser.parse_args()
 
 # ------------------------------------------------------------------
