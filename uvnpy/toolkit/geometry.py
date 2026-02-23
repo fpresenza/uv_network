@@ -169,7 +169,7 @@ def triangle(center, heading, height, ratio=0.3):
     return vertices
 
 
-def cone(apex, axis, hypot, fov, resolution=36):
+def draw_cone(apex, axis, hypot, fov, resolution=36):
     """
 
     args:

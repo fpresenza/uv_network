@@ -138,7 +138,7 @@ for k in range(N):
     psi = x[k][:, 3]
     for i in range(n):
         axis = np.array([np.cos(psi[i]), np.sin(psi[i]), 0.0])
-        cone = geometry.cone(p[i], axis, 3.0, np.pi/3)
+        cone = geometry.draw_cone(p[i], axis, 3.0, np.pi/3)
         axes[0].add_collection3d(art3d.Poly3DCollection(cone, alpha=0.5))
         axes[1].add_collection3d(art3d.Poly3DCollection(cone, alpha=0.5))
 
