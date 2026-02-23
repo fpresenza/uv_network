@@ -133,28 +133,26 @@ arg = parser.parse_args()
 # Configuration
 # ------------------------------------------------------------------
 # --- simulation parameters --- #
-simu_length = arg.simu_length
-simu_step_size = arg.simu_step_size
-simu_step_size_sec = simu_step_size * 1e-3
-
-if simu_length % simu_step_size != 0:
+if arg.simu_length % arg.simu_step_size != 0:
     print('\
         Simulation length is not a multiple of the step size. \
         Length will be truncated the closest multiple.\
     ')
+simu_num_steps = int(arg.simu_length / arg.simu_step_size)
 
-simu_num_steps = int(simu_length / simu_step_size)
+simu_length = arg.simu_length * 1e-3    # in seconds
+simu_step_size = arg.simu_step_size * 1e-3    # in seconds
 log_skip = arg.log_skip
 
 np.random.seed(0)
 
 print(
     'Simulation Time: begin = {} sec, end = {} sec, step = {} sec'
-    .format(0.0, simu_length * 1e-3, simu_step_size_sec)
+    .format(0.0, simu_length, simu_step_size)
 )
 print(
     'Logging Time: begin = {} sec, end = {} sec, step = {} sec'
-    .format(0.0, simu_length * 1e-3, simu_step_size_sec * log_skip)
+    .format(0.0, simu_length, simu_step_size * log_skip)
 )
 
 # --- world parameters --- #
@@ -200,10 +198,10 @@ logs = Logs(
 # ------------------------------------------------------------------
 
 simu_counter = 1
-bar = progressbar.ProgressBar(maxval=arg.simu_length).start()
+bar = progressbar.ProgressBar(maxval=simu_length).start()
 
 while simu_counter < simu_num_steps:
-    t += simu_step_size_sec
+    t += simu_step_size
 
     simu_step()
     if (simu_counter % log_skip == 0):
