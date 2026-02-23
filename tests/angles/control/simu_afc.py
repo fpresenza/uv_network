@@ -17,12 +17,9 @@ from uvnpy.angles.local_frame.core import (
 )
 
 # ------------------------------------------------------------------
-# Definición de variables globales, funciones y clases
+# Functions, Classes and Configurations
 # ------------------------------------------------------------------
-np.set_printoptions(
-    suppress=True,
-    precision=10
-)
+np.set_printoptions(suppress=True, precision=10)
 
 
 @dataclass
