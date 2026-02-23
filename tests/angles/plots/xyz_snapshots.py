@@ -3,7 +3,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import progressbar
-from mpl_toolkits.mplot3d import Axes3D
 import mpl_toolkits.mplot3d.art3d as art3d
 
 from uvnpy.toolkit.data import read_csv_numpy
@@ -62,26 +61,18 @@ for k in range(log_num_steps):
         # ax.zaxis.labelpad = 0
 
         xy_lim = 1.0
-        z_lim = xy_lim / 2
-        ax.set_xlim3d(0, xy_lim)
-        ax.set_ylim3d(0, xy_lim)
+        z_lim = xy_lim
+        ax.set_xlim3d(0.0, xy_lim)
+        ax.set_ylim3d(0.0, xy_lim)
         ax.set_zlim3d(0.0, z_lim)
         ax.set_xticks(np.linspace(0.0, xy_lim, num=5, endpoint=True))
         ax.set_yticks(np.linspace(0.0, xy_lim, num=5, endpoint=True))
         ax.set_zticks(np.linspace(0.0, z_lim, num=3, endpoint=True))
 
     axes[0].view_init(elev=20.0, azim=-70.0)
-    # Shorten the Z-axis (flatten effect)
-    axes[0].get_proj = lambda: np.dot(
-        Axes3D.get_proj(axes[0]), np.diag([1, 1, 0.50, 1])
-    )
     axes[0].set_box_aspect(None, zoom=1.0)
 
-    axes[1].view_init(elev=20.0, azim=-10.0)
-    # Shorten the Z-axis (flatten effect)
-    axes[1].get_proj = lambda: np.dot(
-        Axes3D.get_proj(axes[1]), np.diag([1, 1, 0.50, 1])
-    )
+    axes[1].view_init(elev=40.0, azim=10.0)
     axes[1].set_box_aspect(None, zoom=1.0)
 
     axes[0].text(
