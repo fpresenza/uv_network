@@ -28,6 +28,7 @@ adjacency = read_csv_numpy('data/adjacency.csv')
 edge_set = edges_from_adjacency(adjacency.reshape(n, n))
 
 desired_angles = angle_function(edge_set, desired_position.reshape(-1, 3))
+desired_angles = [desired_angles for _ in t]
 
 
 # ------------------------------------------------------------------
@@ -89,7 +90,7 @@ ax.plot(
     lw=1.0, ds='steps-post'
 )
 ax.set_prop_cycle(None)    # resets color counter
-ax.hlines(desired_angles, t[0], t[-1], lw=0.8, ls='--')
+ax.plot(t, desired_angles, lw=0.8, ls='--')
 
 fig.savefig('time_plots/angles.pdf', bbox_inches='tight')
 
@@ -119,7 +120,10 @@ ax.grid(1)
 
 ax.plot(
     t,
-    [np.abs(angle_function(edge_set, p) - desired_angles) for p in position],
+    [
+        np.abs(angle_function(edge_set, position[k]) - desired_angles[k])
+        for k in range(log_num_steps)
+    ],
     lw=1.0, ds='steps-post'
 )
 
