@@ -105,10 +105,9 @@ def simu_step():
 
 def log_step():
     """Data log"""
-    if (simu_counter % log_skip == 0):
-        logs.time.append(t)
-        logs.position.append(np.hstack(extract(p_int)))
-        logs.orientation.append(np.hstack(extract(o_int, wrapper=np.ravel)))
+    logs.time.append(t)
+    logs.position.append(np.hstack(extract(p_int)))
+    logs.orientation.append(np.hstack(extract(o_int, wrapper=np.ravel)))
 
 
 # ------------------------------------------------------------------
@@ -133,7 +132,7 @@ arg = parser.parse_args()
 # ------------------------------------------------------------------
 # Configuration
 # ------------------------------------------------------------------
-# Simulation parameters
+# --- simulation parameters --- #
 simu_length = arg.simu_length
 simu_step_size = arg.simu_step_size
 simu_step_size_sec = simu_step_size * 1e-3
@@ -144,7 +143,7 @@ if simu_length % simu_step_size != 0:
         Length will be truncated the closest multiple.\
     ')
 
-simu_step_num = int(simu_length / simu_step_size)
+simu_num_steps = int(simu_length / simu_step_size)
 log_skip = arg.log_skip
 
 np.random.seed(0)
@@ -153,8 +152,12 @@ print(
     'Simulation Time: begin = {} sec, end = {} sec, step = {} sec'
     .format(0.0, simu_length * 1e-3, simu_step_size_sec)
 )
+print(
+    'Logging Time: begin = {} sec, end = {} sec, step = {} sec'
+    .format(0.0, simu_length * 1e-3, simu_step_size_sec * log_skip)
+)
 
-# World parameters
+# --- world parameters --- #
 t = 0.0
 n = 3
 nodes = np.arange(n)
@@ -165,11 +168,12 @@ edge_set = np.array([
     [1, 2],
 ])
 angle_set = angle_indices(n, edge_set).astype(int)
-print(angle_set)
+# print(angle_set)
 
 desired_position = random_position(0.0, 1.0, (n, 3))
+# desired_position = np.array([[0.0, 0.0], [2.0, 0.0], [1.0, 0.0]])
 desired_angles = angle_function(edge_set, desired_position)
-print(desired_angles)
+# print(desired_angles)
 
 if not is_angle_rigid(edge_set, desired_position):
     raise ValueError('The desired framework is not IAR.')
@@ -200,11 +204,12 @@ logs = Logs(
 simu_counter = 1
 bar = progressbar.ProgressBar(maxval=arg.simu_length).start()
 
-while simu_counter <= simu_step_num:
+while simu_counter < simu_num_steps:
     t += simu_step_size_sec
 
     simu_step()
-    log_step()
+    if (simu_counter % log_skip == 0):
+        log_step()
 
     simu_counter += 1
 
