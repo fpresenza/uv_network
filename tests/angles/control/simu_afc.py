@@ -97,7 +97,7 @@ def simu_step():
             u[k] -= eijk * Rik.T.dot(qikj)
 
     for i in nodes:
-        p_int[i].step(t, R[i].T.dot(u[i]))
+        p_int[i].step(t, R[i].dot(u[i]))
 
 
 def log_step():
