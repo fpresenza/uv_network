@@ -144,7 +144,7 @@ simu_length = arg.simu_length * 1e-3    # in seconds
 simu_step_size = arg.simu_step_size * 1e-3    # in seconds
 log_skip = arg.log_skip
 
-np.random.seed(0)
+np.random.seed(2)
 
 print(
     'Simulation Time: begin = {} sec, end = {} sec, step = {} sec'
@@ -157,13 +157,15 @@ print(
 
 # --- world parameters --- #
 t = 0.0
-n = 3
+n = 4
 nodes = np.arange(n)
 edge_set = np.array([
     [0, 1],
     [0, 2],
     [1, 0],
     [1, 2],
+    [0, 3],
+    [1, 3]
 ])
 angle_set = angle_indices(n, edge_set).astype(int)
 # print(angle_set)
