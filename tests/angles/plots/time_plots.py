@@ -23,9 +23,12 @@ log_num_steps = len(t)
 position = read_csv_numpy('data/position.csv').reshape(log_num_steps, -1, 3)
 n = len(position[0])
 
-desired_angles = read_csv_numpy('data/desired_angles.csv')
+desired_position = read_csv_numpy('data/desired_position.csv')
 adjacency = read_csv_numpy('data/adjacency.csv')
 edge_set = edges_from_adjacency(adjacency.reshape(n, n))
+
+desired_angles = angle_function(edge_set, desired_position.reshape(-1, 3))
+
 
 # ------------------------------------------------------------------
 # Plot positions

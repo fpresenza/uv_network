@@ -28,7 +28,7 @@ class Logs(object):
     time: list
     position: list
     orientation: list
-    desired_angles: list
+    desired_position: list
     adjacency: list
 
 
@@ -190,7 +190,7 @@ logs = Logs(
     time=[t],
     position=[np.hstack(extract(p_int))],
     orientation=[np.hstack(extract(o_int, wrapper=np.ravel))],
-    desired_angles=[desired_angles],
+    desired_position=[desired_position.ravel()],
     adjacency=[adjacency_matrix_from_edges(n, edge_set).ravel()]
 )
 # print(logs.position[0])
@@ -220,5 +220,7 @@ bar.finish()
 np.savetxt('simu_data/t.csv', logs.time, delimiter=',')
 np.savetxt('simu_data/position.csv', logs.position, delimiter=',')
 np.savetxt('simu_data/orientation.csv', logs.orientation, delimiter=',')
-np.savetxt('simu_data/desired_angles.csv', logs.desired_angles, delimiter=',')
+np.savetxt(
+    'simu_data/desired_position.csv', logs.desired_position, delimiter=','
+)
 np.savetxt('simu_data/adjacency.csv', logs.adjacency, delimiter=',')
