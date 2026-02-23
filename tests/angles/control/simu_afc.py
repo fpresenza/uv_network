@@ -9,7 +9,10 @@ from transformations import unit_vector
 
 from uvnpy.graphs.core import adjacency_matrix_from_edges
 from uvnpy.dynamics.core import EulerIntegrator
-from uvnpy.toolkit.geometry import rotation_matrix_from_quaternion
+from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
+from uvnpy.toolkit.geometry import (
+    rotation_matrix_from_quaternion, cross_product_matrix
+)
 from uvnpy.angles.local_frame.core import (
     angle_indices,
     angle_set_from_indices,
@@ -59,8 +62,9 @@ def simu_step():
     """Formation control algorithm"""
     # --- data ---#
     p = extract(p_int)
-    R = extract(o_int)
+    R = extract(R_int)
     u = np.zeros((n, 3), dtype=np.float64)
+    w = np.zeros((n, 3), dtype=np.float64)
 
     for i in nodes:
         # --- measurements --- #
@@ -96,15 +100,18 @@ def simu_step():
             u[j] -= eijk * Rij.T.dot(qijk)
             u[k] -= eijk * Rik.T.dot(qikj)
 
+        w[i] = np.array([0.0, 0.0, 1.0])
+
     for i in nodes:
         p_int[i].step(t, R[i].dot(u[i]))
+        R_int[i].step(t, cross_product_matrix(w[i]))
 
 
 def log_step():
     """Data log"""
     logs.time.append(t)
     logs.position.append(np.hstack(extract(p_int)))
-    logs.orientation.append(np.hstack(extract(o_int, wrapper=np.ravel)))
+    logs.orientation.append(np.hstack(extract(R_int, wrapper=np.ravel)))
 
 
 # ------------------------------------------------------------------
@@ -140,7 +147,7 @@ simu_length = arg.simu_length * 1e-3    # in seconds
 simu_step_size = arg.simu_step_size * 1e-3    # in seconds
 log_skip = arg.log_skip
 
-np.random.seed(2)
+np.random.seed(0)
 
 print(
     'Simulation Time: begin = {} sec, end = {} sec, step = {} sec'
@@ -177,13 +184,16 @@ p_int = [
     EulerIntegrator(desired_position[i] + random_position(-0.1, 0.1, (3,)))
     for i in nodes
 ]
-o_int = [EulerIntegrator(random_rotation_matrix()) for _ in nodes]
+R_int = [
+    EulerIntegratorOrtogonalGroup(random_rotation_matrix())
+    for _ in nodes
+]
 
 # initialize logs
 logs = Logs(
     time=[t],
     position=[np.hstack(extract(p_int))],
-    orientation=[np.hstack(extract(o_int, wrapper=np.ravel))],
+    orientation=[np.hstack(extract(R_int, wrapper=np.ravel))],
     desired_position=[desired_position.ravel()],
     adjacency=[adjacency_matrix_from_edges(n, edge_set).ravel()]
 )
