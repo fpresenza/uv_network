@@ -34,6 +34,32 @@ def angle_indices(n, E):
 
 
 @njit
+def angle_set_from_indices(A, p):
+    """Compute the angles associated with the given angle indices.
+    An angle is a triple (i, j, k) where (i, j) and (i, k)
+    are directed edges.
+
+    args:
+        A : angle_indices | (m, 3)-array
+        p : positions | (..., n, d)-array
+
+    returns:
+        angles | (..., a)-array
+    """
+    a = dict()
+    for (i, j, k) in A:
+        rij = p[j] - p[i]
+        rik = p[k] - p[i]
+        dij = np.sqrt(np.sum(rij**2))
+        dik = np.sqrt(np.sum(rik**2))
+        bij = rij / dij
+        bik = rik / dik
+        aijk = np.sum(bij * bik)
+        a[(i, j, k)] = aijk
+    return a
+
+
+@njit
 def angle_function(E, p):
     """Compute the angles associated with the directed edges.
     An angle is a triple (i, j, k) where (i, j) and (i, k)
