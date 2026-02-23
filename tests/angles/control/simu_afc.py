@@ -11,7 +11,9 @@ from uvnpy.graphs.core import adjacency_matrix_from_edges
 from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.toolkit.geometry import rotation_matrix_from_quaternion
 from uvnpy.angles.local_frame.core import (
-    angle_indices, angle_function, is_angle_rigid
+    angle_indices,
+    angle_set_from_indices,
+    is_angle_rigid
 )
 
 # ------------------------------------------------------------------
@@ -46,6 +48,11 @@ def extract(integrators, wrapper=lambda x: x):
     return [wrapper(p.x()) for p in integrators]
 
 
+def complete_angle_set(out_neighbors):
+    i, j = np.triu_indices(out_neighbors.size, k=1)
+    return np.column_stack([out_neighbors[i], out_neighbors[j]])
+
+
 # ------------------------------------------------------------------
 # Simulation loop inner functions
 # ------------------------------------------------------------------
@@ -61,37 +68,30 @@ def simu_step():
     for i in nodes:
         # --- measurements --- #
         out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
-        distances = [
-            np.sqrt(np.sum((p[j] - p[i])**2)) for j in out_neighbors
-        ]
-        bearings = [
-            R[i].T.dot(unit_vector(p[j] - p[i])) for j in out_neighbors
-        ]
-        rotations = [
-            R[i].T.dot(R[j]) for j in out_neighbors
-        ]
+        distances = {
+            j: np.sqrt(np.sum((p[j] - p[i])**2)) for j in out_neighbors
+        }
+        bearings = {
+            j: R[i].T.dot(unit_vector(p[j] - p[i])) for j in out_neighbors
+        }
+        rotations = {
+            j: R[i].T.dot(R[j]) for j in out_neighbors
+        }
 
         # --- control law --- #
         # kp, kd = 1.0, 1.0
-        # for j, k in zip(*np.triu_indices(len(out_neighbors), k=1)):
-        #     bij = bearings[j]
-        #     bik = bearings[k]
-        out_angles = angle_set[:, 1:][angle_set[:, 0] == i]
-        for j, k in out_angles:
-            j_idx = np.where(out_neighbors == j)[0][0]
-            dij = distances[j_idx]
-            bij = bearings[j_idx]
+        for j, k in complete_angle_set(out_neighbors):
+            dij = distances[j]
+            bij = bearings[j]
             Pij = np.eye(3) - np.outer(bij, bij)
-            Rij = rotations[j_idx]
+            Rij = rotations[j]
 
-            k_idx = np.where(out_neighbors == k)[0][0]
-            dik = distances[k_idx]
-            bik = bearings[k_idx]
+            dik = distances[k]
+            bik = bearings[k]
             Pik = np.eye(3) - np.outer(bik, bik)
-            Rik = rotations[k_idx]
+            Rik = rotations[k]
 
-            m = np.all(angle_set == (i, j, k), axis=1)
-            eijk = bij.dot(bik) - desired_angles[m]
+            eijk = bij.dot(bik) - desired_angles[(i, j, k)]
             qijk = Pij.dot(bik) / dij
             qikj = Pik.dot(bij) / dik
 
@@ -171,8 +171,7 @@ angle_set = angle_indices(n, edge_set).astype(int)
 # print(angle_set)
 
 desired_position = random_position(0.0, 1.0, (n, 3))
-# desired_position = np.array([[0.0, 0.0], [2.0, 0.0], [1.0, 0.0]])
-desired_angles = angle_function(edge_set, desired_position)
+desired_angles = angle_set_from_indices(angle_set, desired_position)
 # print(desired_angles)
 
 if not is_angle_rigid(edge_set, desired_position):
@@ -183,7 +182,6 @@ p_int = [
     for i in nodes
 ]
 o_int = [EulerIntegrator(random_rotation_matrix()) for _ in nodes]
-
 
 # initialize logs
 logs = Logs(
