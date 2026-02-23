@@ -34,10 +34,6 @@ class Logs(object):
     adjacency: list
 
 
-def random_position(*args, **kwargs):
-    return np.random.uniform(*args, **kwargs)
-
-
 def random_rotation_matrix():
     q = np.random.normal(size=4)
     q /= np.sqrt(q.dot(q))
@@ -173,7 +169,7 @@ edge_set = np.array([
 angle_set = angle_indices(n, edge_set).astype(int)
 # print(angle_set)
 
-desired_position = random_position(0.0, 1.0, (n, 3))
+desired_position = np.random.uniform(0.0, 1.0, (n, 3))
 desired_angles = angle_set_from_indices(angle_set, desired_position)
 # print(desired_angles)
 
@@ -181,7 +177,7 @@ if not is_angle_rigid(edge_set, desired_position):
     raise ValueError('The desired framework is not IAR.')
 
 p_int = [
-    EulerIntegrator(desired_position[i] + random_position(-0.1, 0.1, (3,)))
+    EulerIntegrator(desired_position[i] + np.random.normal(size=(3,)))
     for i in nodes
 ]
 R_int = [
