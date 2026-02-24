@@ -15,7 +15,7 @@ from uvnpy.toolkit.geometry import (
 )
 from uvnpy.angles.local_frame.core import (
     angle_indices,
-    angle_set_from_indices,
+    angle_function,
     is_angle_rigid
 )
 
@@ -79,6 +79,7 @@ def simu_step():
         rotations = {
             j: R[i].T.dot(R[j]) for j in out_neighbors
         }
+        vi = R[i].T.dot(v[i])
 
         # --- control law --- #
         kp, kd = 0.2, 0.6
@@ -94,11 +95,12 @@ def simu_step():
             Pik = np.eye(3) - np.outer(bik, bik)
             Rik = rotations[k]
 
-            eijk = bij.dot(bik) - desired_angles[(i, j, k)]
+            ijk = np.all(angle_set == (i, j, k), axis=1)
+            eijk = bij.dot(bik) - desired_angles[ijk]
             qijk = Pij.dot(bik) / dij
             qikj = Pik.dot(bij) / dik
 
-            u[i] += kp * eijk * (qijk + qikj) - kd * R[i].T.dot(v[i])
+            u[i] += kp * eijk * (qijk + qikj) - kd * vi
             u[j] -= kp * eijk * Rij.T.dot(qijk)
             u[k] -= kp * eijk * Rik.T.dot(qikj)
 
@@ -176,7 +178,7 @@ angle_set = angle_indices(n, edge_set).astype(int)
 # print(angle_set)
 
 desired_position = np.random.uniform(0.0, 1.0, (n, 3))
-desired_angles = angle_set_from_indices(angle_set, desired_position)
+desired_angles = angle_function(edge_set, desired_position)
 # print(desired_angles)
 
 if not is_angle_rigid(edge_set, desired_position):
