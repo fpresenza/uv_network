@@ -17,15 +17,19 @@ plt.rcParams['font.family'] = 'serif'
 # ------------------------------------------------------------------
 # Read simulated data
 # ------------------------------------------------------------------
-t = read_csv_numpy('data/t.csv')
+t = read_csv_numpy('simu_data/t.csv')
 log_num_steps = len(t)
 
-position = read_csv_numpy('data/position.csv').reshape(log_num_steps, -1, 3)
-velocity = read_csv_numpy('data/velocity.csv').reshape(log_num_steps, -1, 3)
+position = read_csv_numpy(
+    'simu_data/position.csv'
+).reshape(log_num_steps, -1, 3)
 n = len(position[0])
+velocity = read_csv_numpy(
+    'simu_data/velocity.csv'
+).reshape(log_num_steps, -1, 3)
 
-desired_position = read_csv_numpy('data/desired_position.csv')
-adjacency = read_csv_numpy('data/adjacency.csv')
+desired_position = read_csv_numpy('simu_data/desired_position.csv')
+adjacency = read_csv_numpy('simu_data/adjacency.csv')
 edge_set = edges_from_adjacency(adjacency.reshape(n, n))
 
 desired_angles = angle_function(edge_set, desired_position.reshape(-1, 3))
