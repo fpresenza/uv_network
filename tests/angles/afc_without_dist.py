@@ -127,6 +127,6 @@ while simu_counter < simu_num_steps:
 
     simu_counter += 1
 
-    # bar.update(simu_counter)
+    bar.update(simu_counter)
 
 bar.finish()

@@ -186,7 +186,7 @@ p_int = [
     DoubleEulerIntegrator(
         np.random.normal(desired_position[i], 0.1, size=3),
         np.zeros(3, dtype=np.float64)
-        )
+    )
     for i in nodes
 ]
 R_int = [

@@ -124,7 +124,7 @@ for k in range(log_num_steps):
             alpha=0.5,
             lw=0.75,
             zorder=0,
-            length=0.95,
+            length=0.9,
             arrow_length_ratio=0.15
         )
         ax.xaxis._axinfo['grid'].update(
