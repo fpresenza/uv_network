@@ -8,7 +8,7 @@ import numpy as np
 from transformations import unit_vector
 
 from uvnpy.graphs.core import adjacency_matrix_from_edges
-from uvnpy.dynamics.core import EulerIntegrator
+from uvnpy.dynamics.core import DoubleEulerIntegrator
 from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
 from uvnpy.toolkit.geometry import (
     rotation_matrix_from_quaternion, cross_product_matrix
@@ -44,6 +44,10 @@ def extract(integrators, wrapper=lambda x: x):
     return [wrapper(p.x()) for p in integrators]
 
 
+def extract_vel(integrators, wrapper=lambda x: x):
+    return [wrapper(p.dotx()) for p in integrators]
+
+
 def complete_angle_set(out_neighbors):
     i, j = np.triu_indices(out_neighbors.size, k=1)
     return np.column_stack([out_neighbors[i], out_neighbors[j]])
@@ -58,6 +62,7 @@ def simu_step():
     """Formation control algorithm"""
     # --- data ---#
     p = extract(p_int)
+    v = extract_vel(p_int)
     R = extract(R_int)
     u = np.zeros((n, 3), dtype=np.float64)
     w = np.zeros((n, 3), dtype=np.float64)
@@ -76,7 +81,8 @@ def simu_step():
         }
 
         # --- control law --- #
-        # kp, kd = 1.0, 1.0
+        kp, kd = 0.2, 0.6
+        # kp, kd = 0.05, 0.15
         for j, k in complete_angle_set(out_neighbors):
             dij = distances[j]
             bij = bearings[j]
@@ -92,11 +98,11 @@ def simu_step():
             qijk = Pij.dot(bik) / dij
             qikj = Pik.dot(bij) / dik
 
-            u[i] += eijk * (qijk + qikj)
-            u[j] -= eijk * Rij.T.dot(qijk)
-            u[k] -= eijk * Rik.T.dot(qikj)
+            u[i] += kp * eijk * (qijk + qikj) - kd * R[i].T.dot(v[i])
+            u[j] -= kp * eijk * Rij.T.dot(qijk)
+            u[k] -= kp * eijk * Rik.T.dot(qikj)
 
-        w[i] = np.array([0.0, 0.0, 1.0])
+        w[i] = np.array([0.0, 0.0, 0.0])
 
     for i in nodes:
         p_int[i].step(t, R[i].dot(u[i]))
@@ -177,7 +183,10 @@ if not is_angle_rigid(edge_set, desired_position):
     raise ValueError('The desired framework is not IAR.')
 
 p_int = [
-    EulerIntegrator(desired_position[i] + np.random.normal(size=(3,)))
+    DoubleEulerIntegrator(
+        np.random.normal(desired_position[i], 0.1, size=3),
+        np.zeros(3, dtype=np.float64)
+        )
     for i in nodes
 ]
 R_int = [
