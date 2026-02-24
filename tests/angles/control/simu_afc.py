@@ -29,6 +29,7 @@ np.set_printoptions(suppress=True, precision=10)
 class Logs(object):
     time: list
     position: list
+    velocity: list
     orientation: list
     desired_position: list
     adjacency: list
@@ -115,6 +116,7 @@ def log_step():
     """Data log"""
     logs.time.append(t)
     logs.position.append(np.hstack(extract(p_int)))
+    logs.velocity.append(np.hstack(extract_vel(p_int)))
     logs.orientation.append(np.hstack(extract(R_int, wrapper=np.ravel)))
 
 
@@ -200,6 +202,7 @@ R_int = [
 logs = Logs(
     time=[t],
     position=[np.hstack(extract(p_int))],
+    velocity=[np.hstack(extract_vel(p_int))],
     orientation=[np.hstack(extract(R_int, wrapper=np.ravel))],
     desired_position=[desired_position.ravel()],
     adjacency=[adjacency_matrix_from_edges(n, edge_set).ravel()]
@@ -230,6 +233,7 @@ bar.finish()
 
 np.savetxt('simu_data/t.csv', logs.time, delimiter=',')
 np.savetxt('simu_data/position.csv', logs.position, delimiter=',')
+np.savetxt('simu_data/velocity.csv', logs.velocity, delimiter=',')
 np.savetxt('simu_data/orientation.csv', logs.orientation, delimiter=',')
 np.savetxt(
     'simu_data/desired_position.csv', logs.desired_position, delimiter=','
