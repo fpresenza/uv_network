@@ -84,6 +84,12 @@ def simu_step():
             u[j] -= eijk * qijk
             u[k] -= eijk * qikj
 
+        gamma = 2.0
+        d_kappa_ell = np.sum((p[kappa] - p[ell])**2)
+        scale_correction = gamma * (d_kappa_ell - measured_distance) * (p[i] - p[ell])
+        u[kappa] -= scale_correction
+        u[ell] += scale_correction
+
     for i in nodes:
         p_int[i].step(t, u[i])
 
@@ -156,6 +162,8 @@ angle_set = angle_indices(n, edge_set).astype(int)
 position = np.random.uniform(0.0, 1.0, (n, 3))
 measured_angles = angle_function(edge_set, position)
 # print(measured_angles)
+kappa, ell = edge_set[0]
+measured_distance = np.sum((position[kappa] - position[ell])**2)
 
 if not is_angle_rigid(edge_set, position):
     raise ValueError('The framework is not IAR.')

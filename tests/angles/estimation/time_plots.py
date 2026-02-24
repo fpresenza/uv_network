@@ -34,6 +34,10 @@ edge_set = edges_from_adjacency(adjacency)
 angles = angle_function(edge_set, position)
 angles = [angles for _ in t]
 
+kappa, ell = edge_set[0]
+distance = np.linalg.norm(position[kappa] - position[ell])
+distance = [distance for _ in t]
+
 # ------------------------------------------------------------------
 # Plot positions
 # ------------------------------------------------------------------
@@ -137,5 +141,46 @@ ax.plot(
     lw=1.0, ds='steps-post'
 )
 fig.savefig('time_plots/angle_errors.pdf', bbox_inches='tight')
+
+# ------------------------------------------------------------------
+# Plot distance
+# ------------------------------------------------------------------
+fig, ax = plt.subplots(figsize=(9.0, 6.0))
+fig.subplots_adjust(
+    bottom=0.215,
+    top=0.925,
+    wspace=0.33,
+    right=0.975,
+    left=0.18
+)
+
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize=9
+)
+
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+ax.set_ylabel(r'$d_{\kappa \ell}$', fontsize=10)
+ax.set_ylim(-1.0, 1.0)
+ax.grid(1)
+
+ax.plot(
+    t,
+    [np.linalg.norm(p[kappa] - p[ell]) for p in estimated_position],
+    lw=1.0, ds='steps-post'
+)
+ax.plot([], [], color='k', label='estimated')
+ax.set_prop_cycle(None)    # resets color counter
+ax.plot(t, distance, lw=0.8, ls='--')
+ax.plot([], [], color='k', ls='--', label='real')
+ax.legend(
+    fontsize=10, handlelength=1.5, labelspacing=0.4,
+    borderpad=0.2, handletextpad=0.2, framealpha=1.,
+    ncol=2, columnspacing=1
+)
+
+fig.savefig('time_plots/distance.pdf', bbox_inches='tight')
 
 plt.show()
