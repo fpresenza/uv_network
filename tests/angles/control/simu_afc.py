@@ -83,8 +83,11 @@ def simu_step():
         vi = R[i].T.dot(v[i])
 
         # --- control law --- #
-        kp, kd = 0.2, 0.6
-        # kp, kd = 0.05, 0.15
+        # kp, kd = 0.00005, 1.0
+        # kp, kd = 0.005, 0.2
+        # kp, kd = 0.03, 0.3
+        kp, kd = 0.1, 0.5
+        # kp, kd = 0.2, 0.6
         for j, k in complete_angle_set(out_neighbors):
             dij = distances[j]
             bij = bearings[j]
