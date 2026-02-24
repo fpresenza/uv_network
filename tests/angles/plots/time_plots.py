@@ -21,6 +21,7 @@ t = read_csv_numpy('data/t.csv')
 log_num_steps = len(t)
 
 position = read_csv_numpy('data/position.csv').reshape(log_num_steps, -1, 3)
+velocity = read_csv_numpy('data/velocity.csv').reshape(log_num_steps, -1, 3)
 n = len(position[0])
 
 desired_position = read_csv_numpy('data/desired_position.csv')
@@ -29,7 +30,6 @@ edge_set = edges_from_adjacency(adjacency.reshape(n, n))
 
 desired_angles = angle_function(edge_set, desired_position.reshape(-1, 3))
 desired_angles = [desired_angles for _ in t]
-
 
 # ------------------------------------------------------------------
 # Plot positions
@@ -57,6 +57,35 @@ for k, d in enumerate(['x', 'y', 'z']):
     ax[k].grid(1)
 
     ax[k].plot(t, position[:, :, k], lw=1.0, ds='steps-post')
+
+fig.savefig('time_plots/position.pdf', bbox_inches='tight')
+
+# ------------------------------------------------------------------
+# Plot velocities
+# ------------------------------------------------------------------
+fig, ax = plt.subplots(3, 1, figsize=(9.0, 6.0))
+fig.subplots_adjust(
+    bottom=0.215,
+    top=0.925,
+    wspace=0.33,
+    right=0.975,
+    left=0.18
+)
+
+for k, d in enumerate(['x', 'y', 'z']):
+    ax[k].tick_params(
+        axis='both',       # changes apply to the x-axis
+        which='both',      # both major and minor ticks are affected
+        pad=1,
+        labelsize=9
+    )
+
+    ax[k].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+    ax[k].set_ylabel(fr'$v_{{i, {d}}} \ (\rm m / s)$', fontsize=10)
+    ax[k].set_ylim(-0.5, 0.5)
+    ax[k].grid(1)
+
+    ax[k].plot(t, velocity[:, :, k], lw=1.0, ds='steps-post')
 
 fig.savefig('time_plots/position.pdf', bbox_inches='tight')
 
