@@ -87,10 +87,15 @@ ax.grid(1)
 ax.plot(
     t,
     [angle_function(edge_set, p) for p in position],
-    lw=1.0, ds='steps-post'
+    lw=1.0, ds='steps-post', label='real'
 )
 ax.set_prop_cycle(None)    # resets color counter
-ax.plot(t, desired_angles, lw=0.8, ls='--')
+ax.plot(t, desired_angles, lw=0.8, ls='--', label='desired')
+ax.legend(
+    fontsize=8, handlelength=1, labelspacing=0.4,
+    borderpad=0.2, handletextpad=0.2, framealpha=1.,
+    ncol=2, columnspacing=1
+)
 
 fig.savefig('time_plots/angles.pdf', bbox_inches='tight')
 
@@ -126,6 +131,6 @@ ax.plot(
     ],
     lw=1.0, ds='steps-post'
 )
-
 fig.savefig('time_plots/angle_errors.pdf', bbox_inches='tight')
+
 plt.show()
