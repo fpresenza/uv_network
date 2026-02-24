@@ -48,11 +48,11 @@ for k, d in enumerate(['x', 'y', 'z']):
         axis='both',       # changes apply to the x-axis
         which='both',      # both major and minor ticks are affected
         pad=1,
-        labelsize='9'
+        labelsize=9
     )
 
-    ax[k].set_xlabel(r'$t\ (\mathrm{s})$', fontsize='10')
-    ax[k].set_ylabel(fr'$p_{{i, {d}}} \ (\rm m)$', fontsize='10')
+    ax[k].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+    ax[k].set_ylabel(fr'$p_{{i, {d}}} \ (\rm m)$', fontsize=10)
     ax[k].set_ylim(-1.5, 1.5)
     ax[k].grid(1)
 
@@ -76,23 +76,25 @@ ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
-    labelsize='9'
+    labelsize=9
 )
 
-ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize='10')
-ax.set_ylabel(r'$a_{ijk}$', fontsize='10')
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+ax.set_ylabel(r'$a_{ijk}$', fontsize=10)
 ax.set_ylim(-1.0, 1.0)
 ax.grid(1)
 
 ax.plot(
     t,
     [angle_function(edge_set, p) for p in position],
-    lw=1.0, ds='steps-post', label='real'
+    lw=1.0, ds='steps-post'
 )
+ax.plot([], [], color='k', label='real')
 ax.set_prop_cycle(None)    # resets color counter
-ax.plot(t, desired_angles, lw=0.8, ls='--', label='desired')
+ax.plot(t, desired_angles, lw=0.8, ls='--')
+ax.plot([], [], color='k', ls='--', label='desired')
 ax.legend(
-    fontsize=8, handlelength=1, labelspacing=0.4,
+    fontsize=10, handlelength=1, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
     ncol=2, columnspacing=1
 )
@@ -115,11 +117,11 @@ ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
-    labelsize='9'
+    labelsize=9
 )
 
-ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize='10')
-ax.set_ylabel(r'$|a_{ijk} - a^{\star}_{ijk}|$', fontsize='10')
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+ax.set_ylabel(r'$|a_{ijk} - a^{\star}_{ijk}|$', fontsize=10)
 ax.set_ylim(0.0, None)
 ax.grid(1)
 
