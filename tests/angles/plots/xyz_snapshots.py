@@ -29,7 +29,6 @@ orientation = read_csv_numpy(
     'data/orientation.csv'
 ).reshape(log_num_steps, n, 3, 3)
 
-desired_position = read_csv_numpy('data/desired_position.csv').reshape(n, 3)
 adjacency = read_csv_numpy('data/adjacency.csv')
 edge_set = edges_from_adjacency(adjacency.reshape(n, n))
 
@@ -80,9 +79,6 @@ for k in range(log_num_steps):
         verticalalignment='bottom', horizontalalignment='left',
         transform=axes[0].transAxes, color='g', fontsize=10
     )
-
-    # --- desired position --- #
-    # q = desired_position
 
     # --- position and orientation--- #
     p = position[k]
