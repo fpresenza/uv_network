@@ -69,8 +69,9 @@ def simu_step():
     w = np.zeros((n, 3), dtype=np.float64)
 
     for i in nodes:
-        # --- measurements --- #
         out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
+
+        # --- measurements --- #
         distances = {
             j: np.sqrt(np.sum((p[j] - p[i])**2)) for j in out_neighbors
         }
