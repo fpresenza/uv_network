@@ -27,12 +27,14 @@ n = len(position[0])
 velocity = read_csv_numpy(
     'simu_data/velocity.csv'
 ).reshape(log_num_steps, -1, 3)
+desired_position = read_csv_numpy(
+    'simu_data/desired_position.csv'
+).reshape(-1, 3)
+adjacency = read_csv_numpy('simu_data/adjacency.csv').reshape(n, n)
 
-desired_position = read_csv_numpy('simu_data/desired_position.csv')
-adjacency = read_csv_numpy('simu_data/adjacency.csv')
-edge_set = edges_from_adjacency(adjacency.reshape(n, n))
+edge_set = edges_from_adjacency(adjacency)
 
-desired_angles = angle_function(edge_set, desired_position.reshape(-1, 3))
+desired_angles = angle_function(edge_set, desired_position)
 desired_angles = [desired_angles for _ in t]
 
 # ------------------------------------------------------------------
@@ -127,7 +129,7 @@ ax.set_prop_cycle(None)    # resets color counter
 ax.plot(t, desired_angles, lw=0.8, ls='--')
 ax.plot([], [], color='k', ls='--', label='desired')
 ax.legend(
-    fontsize=10, handlelength=1, labelspacing=0.4,
+    fontsize=10, handlelength=1.5, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
     ncol=2, columnspacing=1
 )
