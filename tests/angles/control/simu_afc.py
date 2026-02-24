@@ -105,10 +105,11 @@ def simu_step():
             qijk = Pij.dot(bik) / dij
             qikj = Pik.dot(bij) / dik
 
-            u[i] += kp * eijk * (qijk + qikj) - kd * vi
+            u[i] += kp * eijk * (qijk + qikj)
             u[j] -= kp * eijk * Rij.T.dot(qijk)
             u[k] -= kp * eijk * Rik.T.dot(qikj)
 
+        u[i] -= kd * vi
         w[i] = np.array([0.0, 0.0, 0.0])
 
     for i in nodes:
