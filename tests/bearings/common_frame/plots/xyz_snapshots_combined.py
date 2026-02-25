@@ -140,8 +140,12 @@ for k, s in enumerate(arg.snaps):
         alpha=1
     )
     for i in range(n):
-        axis = np.array([np.cos(psi[i]), np.sin(psi[i]), 0.0])
-        cone = geometry.draw_cone(p[i], axis, 3.5, np.deg2rad(60.))
+        rotation = np.array(
+            [np.cos(psi[i]), -np.sin(psi[i]), 0.0],
+            [np.sin(psi[i]), np.cos(psi[i]), 0.0],
+            [0.0, 0.0, 1.0],
+        )
+        cone = geometry.draw_cone(p[i], rotation, 3.0, np.pi/3)
         ax.add_collection3d(art3d.Poly3DCollection(cone, alpha=0.6))
     bar.update(k)
 

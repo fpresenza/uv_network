@@ -86,10 +86,20 @@ for k in range(log_num_steps):
 
     # --- plot --- #
     for i in range(n):
-        axis = R[i, :, 0]    # first column (x-axis)
-        cone = draw_cone(p[i], axis, xy_lim / 20, np.pi/3)
-        axes[0].add_collection3d(art3d.Poly3DCollection(cone, alpha=0.5))
-        axes[1].add_collection3d(art3d.Poly3DCollection(cone, alpha=0.5))
+        # axis = R[i, :, 0]    # first column (x-axis)
+        cone = draw_cone(p[i], R[i], xy_lim / 20, np.pi/3)
+
+        poly = art3d.Poly3DCollection(cone, alpha=0.5)
+        colors = ['C0'] * len(cone)
+        colors[0:3] = ['r'] * 3    # mark one sector
+        poly.set_facecolor(colors)
+        axes[0].add_collection3d(poly)
+
+        poly = art3d.Poly3DCollection(cone, alpha=0.5)
+        colors = ['C0'] * len(cone)
+        colors[0:3] = ['r'] * 3    # mark one sector
+        poly.set_facecolor(colors)
+        axes[1].add_collection3d(poly)
 
     for ax in axes:
         # plot.points(
