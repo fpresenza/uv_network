@@ -169,15 +169,15 @@ def triangle(center, heading, height, ratio=0.3):
     return vertices
 
 
-def draw_cone(apex, axis, hypot, fov, resolution=36):
+def draw_cone(apex, rotation, hypot, fov, resolution=36):
     """
 
     args:
     -----
        apex       : (array) cone's apex
-       axis       : (array) cone's normal axis (unit norm)
-       fov        : (float) cone's half angle in radians
+       rotation   : (array) cone's normal axis in first column
        hypot      : (float) cone's hypothenuse
+       fov        : (float) cone's half angle in radians
        resolution : (int) number of circular sections
     """
     # get points
@@ -185,22 +185,11 @@ def draw_cone(apex, axis, hypot, fov, resolution=36):
     angles = np.linspace(0, 2*np.pi, resolution)
 
     points = np.empty((resolution, 3), dtype=float)
-    points[:, 0] = r * np.cos(angles)
-    points[:, 1] = r * np.sin(angles)
-    points[:, 2] = - hypot * np.cos(fov) * np.ones(angles.size)
-
-    # get rotation matrix
-    down = np.array([0.0, 0.0, -1.0])
-    v = np.cross(down, axis)
-    Sv = cross_product_matrix(v)
-    s = np.sqrt(v.dot(v))
-    c = down.dot(axis)
-    if c == -1:
-        R = c * np.eye(3) + s * Sv + (1 - c) * np.outer(v, v)
-    else:
-        R = np.eye(3) + Sv + Sv.dot(Sv) / (1 + c)
+    points[:, 0] = hypot * np.cos(fov) * np.ones(angles.size)
+    points[:, 1] = r * np.cos(angles)
+    points[:, 2] = r * np.sin(angles)
 
     # rotate points
-    points = points.dot(R.T) + apex
+    points = points.dot(rotation.T) + apex
 
     return [np.vstack([apex, points[i-1:i+1]]) for i in range(1, resolution)]
