@@ -10,9 +10,7 @@ from transformations import unit_vector
 from uvnpy.graphs.core import adjacency_matrix_from_edges
 from uvnpy.dynamics.core import DoubleEulerIntegrator
 from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
-from uvnpy.toolkit.geometry import (
-    rotation_matrix_from_quaternion, cross_product_matrix
-)
+from uvnpy.toolkit.geometry import rotation_matrix_from_quaternion
 from uvnpy.angles.local_frame.core import (
     angle_indices,
     angle_function,
@@ -106,11 +104,11 @@ def simu_step():
             u[k] -= kp * eijk * Rik.T.dot(qikj)
 
         u[i] -= kd * vi
-        w[i] = np.array([0.0, 0.0, 0.0])
+        w[i] = np.array([0.0, 0.0, 0.1])
 
     for i in nodes:
         p_int[i].step(t, R[i].dot(u[i]))
-        R_int[i].step(t, cross_product_matrix(w[i]))
+        R_int[i].step(t, w[i])
 
     control_action[:] = np.hstack([u, w])
 

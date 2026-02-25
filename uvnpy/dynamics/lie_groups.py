@@ -27,5 +27,5 @@ class EulerIntegratorOrtogonalGroup(EulerIntegratorLieGroup):
         if np.allclose(h, 0.0):
             dx = np.eye(3)
         else:
-            dx = rotation_matrix_from_vector(h[[2, 0, 1], [1, 2, 0]])
+            dx = rotation_matrix_from_vector(h)
         return dx
