@@ -22,7 +22,6 @@ from uvnpy.angles.local_frame.core import (
 # ------------------------------------------------------------------
 # Functions, Classes and Configurations
 # ------------------------------------------------------------------
-np.set_printoptions(suppress=True, precision=10)
 
 
 @dataclass
@@ -154,8 +153,6 @@ simu_length = arg.simu_length * 1e-3    # in seconds
 simu_step_size = arg.simu_step_size * 1e-3    # in seconds
 log_skip = arg.log_skip
 
-np.random.seed(0)
-
 print(
     'Simulation Time: begin = {} sec, end = {} sec, step = {} sec'
     .format(0.0, simu_length, simu_step_size)
@@ -164,6 +161,9 @@ print(
     'Logging Time: begin = {} sec, end = {} sec, step = {} sec'
     .format(0.0, simu_length, simu_step_size * log_skip)
 )
+
+np.set_printoptions(suppress=True, precision=10, linewidth=250)
+np.random.seed(0)
 
 # --- world parameters --- #
 t = 0.0
