@@ -20,16 +20,11 @@ plt.rcParams['font.family'] = 'serif'
 t = read_csv_numpy('simu_data/t.csv')
 log_num_steps = len(t)
 
-position = read_csv_numpy(
-    'simu_data/position.csv'
-).reshape(log_num_steps, -1, 3)
-n = len(position[0])
-velocity = read_csv_numpy(
-    'simu_data/velocity.csv'
-).reshape(log_num_steps, -1, 3)
-desired_position = read_csv_numpy(
-    'simu_data/desired_position.csv'
-).reshape(-1, 3)
+position = read_csv_numpy('simu_data/position.csv').reshape(log_num_steps, -1, 3)
+n = position.shape[1]
+velocity = read_csv_numpy('simu_data/velocity.csv').reshape(log_num_steps, n, 3)
+desired_position = read_csv_numpy('simu_data/desired_position.csv').reshape(n, 3)
+control = read_csv_numpy('simu_data/control.csv').reshape(log_num_steps - 1, n, 6)
 adjacency = read_csv_numpy('simu_data/adjacency.csv').reshape(n, n)
 
 edge_set = edges_from_adjacency(adjacency)
