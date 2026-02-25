@@ -134,10 +134,6 @@ def simu_step():
         # u[i] -= kd * vi
         w[i] = np.array([0.0, 0.0, 0.0])
 
-    # print(p)
-    # print(R)
-    # print(evecs[:, 7].reshape(n, 3))
-    # print(u)
     for i in nodes:
         p_int[i].step(t, R[i].dot(u[i]))
         R_int[i].step(t, R[i].dot(w[i]))
@@ -262,7 +258,7 @@ while simu_counter < simu_num_steps:
 
     simu_counter += 1
 
-    # bar.update(np.round(t, 3))
+    bar.update(np.round(t, 3))
 
 bar.finish()
 
