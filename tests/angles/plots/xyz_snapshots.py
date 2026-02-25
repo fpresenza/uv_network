@@ -24,10 +24,8 @@ t = read_csv_numpy('data/t.csv')
 log_num_steps = len(t)
 
 position = read_csv_numpy('data/position.csv').reshape(log_num_steps, -1, 3)
-n = len(position[0])
-orientation = read_csv_numpy(
-    'data/orientation.csv'
-).reshape(log_num_steps, n, 3, 3)
+n = position.shape[1]
+orientation = read_csv_numpy('data/orientation.csv').reshape(log_num_steps, n, 3, 3)
 
 adjacency = read_csv_numpy('data/adjacency.csv')
 edge_set = edges_from_adjacency(adjacency.reshape(n, n))
@@ -71,7 +69,7 @@ for k in range(log_num_steps):
     axes[0].view_init(elev=20.0, azim=-70.0)
     axes[0].set_box_aspect(None, zoom=1.0)
 
-    axes[1].view_init(elev=40.0, azim=10.0)
+    axes[1].view_init(elev=60.0, azim=40.0)
     axes[1].set_box_aspect(None, zoom=1.0)
 
     axes[0].text(
