@@ -88,7 +88,7 @@ for k, d in enumerate(['x', 'y', 'z']):
 
     ax[k].plot(t, velocity[:, :, k], lw=1.0, ds='steps-post')
 
-fig.savefig('time_plots/position.pdf', bbox_inches='tight')
+fig.savefig('time_plots/velocity.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot angles
