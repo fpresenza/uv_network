@@ -194,13 +194,13 @@ for i in range(n):
 
         sijk = qijk.dot(v[j] - v[i]) + qikj.dot(v[k] - v[i])
 
-        Dijk = Pij.dot(np.outer(bik, bij))
-        Dijk += np.outer(bij, bik).dot(Pij)
+        Dijk = np.outer(Pij.dot(bik), bij)
+        Dijk += np.outer(bij, bik.dot(Pij))
         Dijk += bij.dot(bik) * Pij
         Dijk /= dij**2
 
-        Dikj = Pik.dot(np.outer(bij, bik))
-        Dikj += np.outer(bik, bij).dot(Pik)
+        Dikj = np.outer(Pik.dot(bij), bik)
+        Dikj += np.outer(bik, bij.dot(Pik))
         Dikj += bik.dot(bij) * Pik
         Dikj /= dik**2
 
