@@ -31,6 +31,7 @@ class Logs(object):
     velocity: list
     orientation: list
     desired_position: list
+    control: list
     adjacency: list
 
 
@@ -111,6 +112,8 @@ def simu_step():
         p_int[i].step(t, R[i].dot(u[i]))
         R_int[i].step(t, cross_product_matrix(w[i]))
 
+    control_action[:] = np.hstack([u, w])
+
 
 def log_step():
     """Data log"""
@@ -118,6 +121,7 @@ def log_step():
     logs.position.append(np.hstack(extract(p_int)))
     logs.velocity.append(np.hstack(extract_vel(p_int)))
     logs.orientation.append(np.hstack(extract(R_int, wrapper=np.ravel)))
+    logs.control.append(control_action.copy().ravel())
 
 
 # ------------------------------------------------------------------
@@ -199,6 +203,8 @@ R_int = [
     for _ in nodes
 ]
 
+control_action = np.empty((n, 6), dtype=np.float64)
+
 # initialize logs
 logs = Logs(
     time=[t],
@@ -206,6 +212,7 @@ logs = Logs(
     velocity=[np.hstack(extract_vel(p_int))],
     orientation=[np.hstack(extract(R_int, wrapper=np.ravel))],
     desired_position=[desired_position.ravel()],
+    control=[],
     adjacency=[adjacency_matrix_from_edges(n, edge_set).ravel()]
 )
 # print(logs.position[0])
@@ -239,4 +246,5 @@ np.savetxt('simu_data/orientation.csv', logs.orientation, delimiter=',')
 np.savetxt(
     'simu_data/desired_position.csv', logs.desired_position, delimiter=','
 )
+np.savetxt('simu_data/control.csv', logs.control, delimiter=',')
 np.savetxt('simu_data/adjacency.csv', logs.adjacency, delimiter=',')
