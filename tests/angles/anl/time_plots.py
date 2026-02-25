@@ -24,9 +24,7 @@ estimated_position = read_csv_numpy(
     'simu_data/estimated_position.csv'
 ).reshape(log_num_steps, -1, 3)
 n = len(estimated_position[0])
-position = read_csv_numpy(
-    'simu_data/position.csv'
-).reshape(-1, 3)
+position = read_csv_numpy('simu_data/position.csv').reshape(-1, 3)
 adjacency = read_csv_numpy('simu_data/adjacency.csv').reshape(n, n)
 
 edge_set = edges_from_adjacency(adjacency)
