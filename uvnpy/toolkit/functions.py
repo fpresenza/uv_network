@@ -109,3 +109,23 @@ def cosine_activation(x, x_low, x_high):
     c = c.reshape(s)
 
     return c
+
+
+@njit
+def cosine_activation_derivative(x, x_low, x_high):
+    s = np.shape(x)
+    x = np.ravel(x)    # required for njit
+
+    leq = x <= x_low
+    geq = x >= x_high
+    bet = ~(leq | geq)
+
+    xhl = x_high - x_low
+
+    c = np.empty(s, dtype=float)
+    c[leq] = 0.0
+    c[bet] = 0.5 * np.pi * np.sin(np.pi * (x[bet] - x_low) / xhl) / xhl
+    c[geq] = 0.0
+    c = c.reshape(s)
+
+    return c
