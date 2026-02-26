@@ -58,12 +58,12 @@ def power_derivative(x, a):
 
 @njit
 def logistic_activation(x, midpoint=0.0, steepness=1.0):
-    """Logistic strength function.
+    """Logistic activation function.
 
     A logistic function or logistic curve is a common
     S-shaped curve (sigmoid curve) with equation
 
-        1 / (1 + exp(-steepness * (x - midpoint)))
+        1 / (1 + exp(steepness * (x - midpoint)))
 
     steepness: the logistic growth rate or steepness of the curve,
     midpoint: the x value of the sigmoid's midpoint.
@@ -95,14 +95,14 @@ def ramp_saturation(x, limit=1., slope=1.):
 
 @njit
 def cosine_activation(x, x_low, x_high):
-    s = x.shape
-    x = x.ravel()    # required for njit
+    s = np.shape(x)
+    x = np.ravel(x)    # required for njit
 
     leq = x <= x_low
     geq = x >= x_high
     bet = ~(leq | geq)
 
-    c = np.empty(x.shape, dtype=float)
+    c = np.empty(s, dtype=float)
     c[leq] = 0.0
     c[bet] = 0.5 * (1 - np.cos(np.pi * (x[bet] - x_low) / (x_high - x_low)))
     c[geq] = 1.0
