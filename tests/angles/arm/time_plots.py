@@ -3,8 +3,6 @@
 import matplotlib.pyplot as plt
 
 from uvnpy.toolkit.data import read_csv_numpy
-from uvnpy.angles.local_frame.core import angle_function
-from uvnpy.graphs.core import edges_from_adjacency
 
 plt.rcParams['text.usetex'] = False
 plt.rcParams['pdf.fonttype'] = 42
@@ -24,9 +22,6 @@ n = position.shape[1]
 # velocity = read_csv_numpy('simu_data/velocity.csv').reshape(log_num_steps, n, 3)
 control = read_csv_numpy('simu_data/control.csv').reshape(log_num_steps - 1, n, 6)
 rigidity_val = read_csv_numpy('simu_data/rigidity_val.csv')
-adjacency = read_csv_numpy('simu_data/adjacency.csv').reshape(n, n)
-
-edge_set = edges_from_adjacency(adjacency)
 
 # ------------------------------------------------------------------
 # Plot positions
@@ -114,38 +109,6 @@ for k, d in enumerate(['x', 'y', 'z']):
     ax[k].plot(t[1:], control[:, :, k], lw=1.0, ds='steps-post')
 
 fig.savefig('time_plots/control.pdf', bbox_inches='tight')
-
-# ------------------------------------------------------------------
-# Plot angles
-# ------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(9.0, 6.0))
-fig.subplots_adjust(
-    bottom=0.215,
-    top=0.925,
-    wspace=0.33,
-    right=0.975,
-    left=0.18
-)
-
-ax.tick_params(
-    axis='both',       # changes apply to the x-axis
-    which='both',      # both major and minor ticks are affected
-    pad=1,
-    labelsize=9
-)
-
-ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-ax.set_ylabel(r'$a_{ijk}$', fontsize=10)
-ax.set_ylim(-1.0, 1.0)
-ax.grid(1)
-
-ax.plot(
-    t,
-    [angle_function(edge_set, p) for p in position],
-    lw=1.0, ds='steps-post'
-)
-
-fig.savefig('time_plots/angles.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot rigidity eigenvalue
