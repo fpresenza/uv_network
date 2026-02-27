@@ -147,7 +147,7 @@ def simu_step():
         R_int[i].step(t, R[i].dot(w[i]))
 
     control_action[:] = np.hstack([u, w])
-    rigidity_val[:] = val
+    rigidity_val[:] = evals[7:9]
 
 
 def log_step():
@@ -234,7 +234,7 @@ R_int = [
 ]
 
 control_action = np.empty((n, 6), dtype=np.float64)
-rigidity_val = np.empty(1, dtype=np.float64)
+rigidity_val = np.empty(2, dtype=np.float64)
 
 # initialize logs
 logs = Logs(
