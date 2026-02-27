@@ -167,11 +167,17 @@ ax.tick_params(
 )
 
 ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-ax.set_ylabel(r'$\lambda$', fontsize=10)
+# ax.set_ylabel(r'$\lambda$', fontsize=10)
 # ax.set_ylim(-1e-4, 1e-4)
 ax.grid(1)
 
-ax.plot(t[1:], rigidity_val, lw=1.0, ds='steps-post')
+ax.plot(t[1:], rigidity_val[:, 0], lw=1.0, ds='steps-post', label=r'$\lambda_8$')
+ax.plot(t[1:], rigidity_val[:, 1], lw=1.0, ds='steps-post', label=r'$\lambda_9$')
+ax.legend(
+    fontsize=10, handlelength=1.5, labelspacing=0.4,
+    borderpad=0.2, handletextpad=0.2, framealpha=1.,
+    ncol=1, columnspacing=1
+)
 
 fig.savefig('time_plots/rigidity_val.pdf', bbox_inches='tight')
 
