@@ -48,12 +48,12 @@ def baricenter_aiming(p):
     return np.dstack([a, b, c])
 
 
-def extract(integrators, wrapper=lambda x: x):
-    return [wrapper(p.x()) for p in integrators]
+def extract(integrators):
+    return np.array([p.x() for p in integrators])
 
 
-def extract_vel(integrators, wrapper=lambda x: x):
-    return [wrapper(p.dotx()) for p in integrators]
+def extract_vel(integrators):
+    return np.array([p.dotx() for p in integrators])
 
 
 def complete_angle_set(out_neighbors):
@@ -77,7 +77,7 @@ def simu_step():
 
     # --- angle rigidity eigenvalue-vector --- #
     edge_set = sensing_graph.edge_set()
-    A = angle_rigidity_matrix(edge_set, np.array(p))
+    A = angle_rigidity_matrix(edge_set, p)
     evals, evecs = np.linalg.eigh(A.T.dot(A))
     rigidity_val[:] = evals[7:9]
     vec = evecs[:, 7].reshape(n, 3)
@@ -158,17 +158,17 @@ def simu_step():
 
     control_action[:] = np.hstack([u, w])
 
-    p = np.array(extract(p_int))
-    R = np.array(extract(R_int))
+    p = extract(p_int)
+    R = extract(R_int)
     sensing_graph.update(p, R[:, :, 0])
 
 
 def log_step():
     """Data log"""
     logs.time.append(t)
-    logs.position.append(np.hstack(extract(p_int)))
+    logs.position.append(extract(p_int).ravel())
     # logs.velocity.append(np.hstack(extract_vel(p_int)))
-    logs.orientation.append(np.hstack(extract(R_int, wrapper=np.ravel)))
+    logs.orientation.append(extract(R_int).ravel())
     logs.control.append(control_action.copy().ravel())
     logs.rigidity_val.append(rigidity_val.copy())
     logs.adjacency.append(sensing_graph.adjacency_matrix().ravel())
@@ -260,9 +260,9 @@ rigidity_val = np.empty(2, dtype=np.float64)
 # initialize logs
 logs = Logs(
     time=[t],
-    position=[np.hstack(extract(p_int))],
-    # velocity=[np.hstack(extract_vel(p_int))],
-    orientation=[np.hstack(extract(R_int, wrapper=np.ravel))],
+    position=[extract(p_int).ravel()],
+    # velocity=[extract_vel(p_int).ravel()],
+    orientation=[extract(R_int).ravel()],
     control=[],
     rigidity_val=[],
     adjacency=[sensing_graph.adjacency_matrix().ravel()]
