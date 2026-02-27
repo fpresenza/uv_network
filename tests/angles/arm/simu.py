@@ -135,8 +135,8 @@ def simu_step():
         w[i] = np.array([0.0, 0.0, 0.0])
 
     for i in nodes:
-        p_int[i].step(t, R[i].dot(u[i]))
-        R_int[i].step(t, R[i].dot(w[i]))
+        p_int[i].step(t, R[i].dot(u[i] / val))
+        R_int[i].step(t, R[i].dot(w[i] / val))
 
     control_action[:] = np.hstack([u, w])
     rigidity_val[:] = val
