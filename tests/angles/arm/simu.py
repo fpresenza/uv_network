@@ -79,7 +79,7 @@ def simu_step():
     # --- angle rigidity eigenvalue-vector --- #
     A = angle_rigidity_matrix(edge_set, np.array(p))
     evals, evecs = np.linalg.eigh(A.T.dot(A))
-    val = evals[7]
+    rigidity_val[:] = evals[7:9]
     vec = evecs[:, 7].reshape(n, 3)
     vec = [Ri.T.dot(veci) for Ri, veci in zip(R, vec)]
 
@@ -99,7 +99,6 @@ def simu_step():
         # vi = R[i].T.dot(v[i])
 
         # --- control law --- #
-        kp = 0.02
         for j, k in complete_angle_set(out_neighbors):
             dij = distances[j]
             bij = bearings[j]
@@ -149,15 +148,15 @@ def simu_step():
         # u[i] -= kd * vi
         w[i] = np.array([0.0, 0.0, 0.0])
 
+    kp = 0.02
     for i in nodes:
         u[i] *= kp
-        u[i] /= val
-        w[i] /= val
+        u[i] /= evals[7]
+        w[i] /= evals[7]
         p_int[i].step(t, R[i].dot(u[i]))
         R_int[i].step(t, R[i].dot(w[i]))
 
     control_action[:] = np.hstack([u, w])
-    rigidity_val[:] = evals[7:9]
 
 
 def log_step():
@@ -223,7 +222,6 @@ initial_position = np.random.uniform(0.0, 30.0, (n, 3))
 initial_orientation = baricenter_aiming(initial_position)
 initial_orientation[2, :, 0] *= -1    # invert aiming
 initial_orientation[2, :, 1] *= -1    # invert aiming
-
 
 sensing_range = 20.0
 fov = 120.0
