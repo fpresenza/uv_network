@@ -13,7 +13,7 @@ class EulerIntegrator(object):
 
     def initialize(self, x, t=0.0, u=None):
         self.t = t
-        self._x = x.copy()
+        self._x = np.copy(x)
         if u is None:
             self._u = np.zeros_like(x)
 
@@ -36,7 +36,7 @@ class DoubleEulerIntegrator(object):
 
     def initialize(self, x, dotx, t=0.0, u=None):
         self.t = t
-        self._x = x.copy()
+        self._x = np.copy(x)
         self._dotx = dotx.copy()
         if u is None:
             self._u = np.zeros_like(x)
@@ -64,7 +64,7 @@ class HeunIntegrator(object):
 
     def initialize(self, x, t=0.0, u=None):
         self.t = t
-        self._x = x.copy()
+        self._x = np.copy(x)
         if u is None:
             self._u = np.zeros_like(x, shape=(2,) + x.shape)
 
