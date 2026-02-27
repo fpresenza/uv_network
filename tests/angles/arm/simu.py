@@ -89,7 +89,7 @@ def simu_step():
         # vi = R[i].T.dot(v[i])
 
         # --- control law --- #
-        kp = 0.01
+        kp = 0.02
         for j, k in complete_angle_set(out_neighbors):
             dij = distances[j]
             bij = bearings[j]
@@ -211,7 +211,7 @@ edge_set = np.array([
 ])
 angle_set = angle_indices(n, edge_set).astype(int)
 # print(angle_set)
-initial_position = np.random.uniform(0.0, 1.0, (n, 3))
+initial_position = np.random.uniform(0.0, 100.0, (n, 3))
 
 if not is_angle_rigid(edge_set, initial_position):
     raise ValueError('The initial framework is not IAR.')

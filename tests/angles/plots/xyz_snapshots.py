@@ -57,7 +57,7 @@ for k in range(log_num_steps):
         ax.set_zlabel(r'$z \ (\mathrm{m})$', fontsize='small', labelpad=-8.0)
         # ax.zaxis.labelpad = 0
 
-        xy_lim = 1.0
+        xy_lim = 100.0
         z_lim = xy_lim
         ax.set_xlim3d(0.0, xy_lim)
         ax.set_ylim3d(0.0, xy_lim)
@@ -73,7 +73,7 @@ for k in range(log_num_steps):
     axes[1].set_box_aspect(None, zoom=1.0)
 
     axes[0].text(
-        1.2, 1.0, 1.5, r't = {:.3f}s'.format(tk),
+        15, 1.0, 1.5, r't = {:.3f}s'.format(tk),
         verticalalignment='bottom', horizontalalignment='left',
         transform=axes[0].transAxes, color='g', fontsize=10
     )
@@ -128,7 +128,7 @@ for k in range(log_num_steps):
             alpha=0.5,
             lw=0.75,
             zorder=0,
-            length=0.9,
+            length=0.8,
             arrow_length_ratio=0.15
         )
         ax.xaxis._axinfo['grid'].update(

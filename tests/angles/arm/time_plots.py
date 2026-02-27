@@ -50,7 +50,7 @@ for k, d in enumerate(['x', 'y', 'z']):
 
     ax[k].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
     ax[k].set_ylabel(fr'$p_{{i, {d}}} \ (\rm m)$', fontsize=10)
-    ax[k].set_ylim(-1.5, 1.5)
+    ax[k].set_ylim(0.0, 100.0)
     ax[k].grid(1)
 
     ax[k].plot(t, position[:, :, k], lw=1.0, ds='steps-post')
