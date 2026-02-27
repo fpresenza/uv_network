@@ -123,20 +123,28 @@ def simu_step():
             Eijk = Pij.dot(Pik) / (dij * dik)
             Eikj = Pik.dot(Pij) / (dik * dij)
 
-            nijk_i = (Dijk - Eikj).dot(vec_j - vec_i) + (Dikj - Eijk).dot(vec_k - vec_i)
-            nijk_j = - Dijk.dot(vec_j - vec_i) + Eijk.dot(vec_k - vec_i)
-            nijk_k = Eikj.dot(vec_j - vec_i) - Dikj.dot(vec_k - vec_i)
+            sijk_i = (Dijk - Eikj).dot(vec_j - vec_i) + (Dikj - Eijk).dot(vec_k - vec_i)
+            sijk_j = - Dijk.dot(vec_j - vec_i) + Eijk.dot(vec_k - vec_i)
+            sijk_k = Eikj.dot(vec_j - vec_i) - Dikj.dot(vec_k - vec_i)
 
-            u[i] += 2 * kp * sijk * nijk_i
-            u[j] += 2 * kp * sijk * Rij.T.dot(nijk_j)
-            u[k] += 2 * kp * sijk * Rik.T.dot(nijk_k)
+            wijk = dij * dik
+            wijk_i = - dik * bij - dij * bik
+            wijk_j = dik * bij
+            wijk_k = dij * bik
+
+            u[i] += sijk * (sijk * wijk_i + 2 * wijk * sijk_i)
+            u[j] += sijk * Rij.T.dot(sijk * wijk_j + 2 * wijk * sijk_j)
+            u[k] += sijk * Rik.T.dot(sijk * wijk_k + 2 * wijk * sijk_k)
 
         # u[i] -= kd * vi
         w[i] = np.array([0.0, 0.0, 0.0])
 
     for i in nodes:
-        p_int[i].step(t, R[i].dot(u[i] / val))
-        R_int[i].step(t, R[i].dot(w[i] / val))
+        u[i] *= kp
+        u[i] /= val
+        w[i] /= val
+        p_int[i].step(t, R[i].dot(u[i]))
+        R_int[i].step(t, R[i].dot(w[i]))
 
     control_action[:] = np.hstack([u, w])
     rigidity_val[:] = val
