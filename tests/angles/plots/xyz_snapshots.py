@@ -27,8 +27,7 @@ position = read_csv_numpy('data/position.csv').reshape(log_num_steps, -1, 3)
 n = position.shape[1]
 orientation = read_csv_numpy('data/orientation.csv').reshape(log_num_steps, n, 3, 3)
 
-adjacency = read_csv_numpy('data/adjacency.csv')
-edge_set = edges_from_adjacency(adjacency.reshape(n, n))
+adjacency = read_csv_numpy('data/adjacency.csv').reshape(log_num_steps, n, n)
 
 # ------------------------------------------------------------------
 # Plot snapshots
@@ -123,7 +122,7 @@ for k in range(log_num_steps):
         plot.arrows(
             ax,
             p,
-            edge_set,
+            edges_from_adjacency(adjacency[k]),
             color='0.0',
             alpha=0.5,
             lw=0.75,
