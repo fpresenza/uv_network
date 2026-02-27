@@ -11,6 +11,7 @@ from uvnpy.graphs.core import adjacency_matrix_from_edges
 from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
 from uvnpy.toolkit.geometry import rotation_matrix_from_quaternion
+from uvnpy.graphs.models import ConeGraph
 from uvnpy.angles.local_frame.core import (
     angle_indices,
     is_angle_rigid,
@@ -37,6 +38,15 @@ def random_rotation_matrix():
     q = np.random.normal(size=4)
     q /= np.sqrt(q.dot(q))
     return rotation_matrix_from_quaternion(q)
+
+
+def baricenter_aiming(p):
+    baricenter = np.mean(p, axis=0)
+    a = unit_vector(baricenter - p, axis=1)
+    x = np.random.normal(size=3)
+    b = unit_vector(np.cross(a, x), axis=1)
+    c = np.cross(a, b)
+    return np.dstack([a, b, c])
 
 
 def extract(integrators, wrapper=lambda x: x):
@@ -203,23 +213,31 @@ print(
 )
 
 np.set_printoptions(suppress=True, precision=10)
-np.random.seed(0)
+np.random.seed(1)
 
 # --- world parameters --- #
 t = 0.0
-n = 4
+n = 3
 nodes = np.arange(n)
-edge_set = np.array([
-    [0, 1],
-    [0, 2],
-    [1, 0],
-    [1, 2],
-    [0, 3],
-    [1, 3]
-])
+initial_position = np.random.uniform(0.0, 30.0, (n, 3))
+initial_orientation = baricenter_aiming(initial_position)
+initial_orientation[2, :, 0] *= -1    # invert aiming
+initial_orientation[2, :, 1] *= -1    # invert aiming
+
+
+sensing_range = 20.0
+fov = 120.0
+sensing_graph = ConeGraph(
+    initial_position,
+    initial_orientation[:, :, 0],    # axes
+    dmax=sensing_range,
+    cmin=np.cos(np.deg2rad(fov / 2))
+)
+
+edge_set = sensing_graph.edge_set()
+print(edge_set)
 angle_set = angle_indices(n, edge_set).astype(int)
-# print(angle_set)
-initial_position = np.random.uniform(0.0, 100.0, (n, 3))
+print(angle_set)
 
 if not is_angle_rigid(edge_set, initial_position):
     raise ValueError('The initial framework is not IAR.')
@@ -229,8 +247,8 @@ p_int = [
     for i in nodes
 ]
 R_int = [
-    EulerIntegratorOrtogonalGroup(random_rotation_matrix())
-    for _ in nodes
+    EulerIntegratorOrtogonalGroup(initial_orientation[i])
+    for i in nodes
 ]
 
 control_action = np.empty((n, 6), dtype=np.float64)
