@@ -7,7 +7,6 @@ import progressbar
 import numpy as np
 from transformations import unit_vector
 
-from uvnpy.graphs.core import adjacency_matrix_from_edges
 from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
 from uvnpy.toolkit.geometry import rotation_matrix_from_quaternion
@@ -77,6 +76,7 @@ def simu_step():
     w = np.zeros((n, 3), dtype=np.float64)
 
     # --- angle rigidity eigenvalue-vector --- #
+    edge_set = sensing_graph.edge_set()
     A = angle_rigidity_matrix(edge_set, np.array(p))
     evals, evecs = np.linalg.eigh(A.T.dot(A))
     rigidity_val[:] = evals[7:9]
@@ -158,6 +158,10 @@ def simu_step():
 
     control_action[:] = np.hstack([u, w])
 
+    p = np.array(extract(p_int))
+    R = np.array(extract(R_int))
+    sensing_graph.update(p, R[:, :, 0])
+
 
 def log_step():
     """Data log"""
@@ -167,6 +171,7 @@ def log_step():
     logs.orientation.append(np.hstack(extract(R_int, wrapper=np.ravel)))
     logs.control.append(control_action.copy().ravel())
     logs.rigidity_val.append(rigidity_val.copy())
+    logs.adjacency.append(sensing_graph.adjacency_matrix().ravel())
 
 
 # ------------------------------------------------------------------
@@ -232,12 +237,12 @@ sensing_graph = ConeGraph(
     cmin=np.cos(np.deg2rad(fov / 2))
 )
 
-edge_set = sensing_graph.edge_set()
-print(edge_set)
-angle_set = angle_indices(n, edge_set).astype(int)
-print(angle_set)
+intial_edge_set = sensing_graph.edge_set()
+print(intial_edge_set)
+initial_angle_set = angle_indices(n, intial_edge_set).astype(int)
+print(initial_angle_set)
 
-if not is_angle_rigid(edge_set, initial_position):
+if not is_angle_rigid(intial_edge_set, initial_position):
     raise ValueError('The initial framework is not IAR.')
 
 p_int = [
@@ -260,7 +265,7 @@ logs = Logs(
     orientation=[np.hstack(extract(R_int, wrapper=np.ravel))],
     control=[],
     rigidity_val=[],
-    adjacency=[adjacency_matrix_from_edges(n, edge_set).ravel()]
+    adjacency=[sensing_graph.adjacency_matrix().ravel()]
 )
 # print(logs.position[0])
 # print(logs.orientation[0])
