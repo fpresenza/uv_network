@@ -10,6 +10,7 @@ from transformations import unit_vector
 from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
 from uvnpy.toolkit.geometry import rotation_matrix_from_quaternion
+from uvnpy.toolkit.functions import cosine_activation, cosine_activation_derivative
 from uvnpy.graphs.models import ConeGraph
 from uvnpy.angles.local_frame.core import (
     angle_indices,
@@ -48,6 +49,61 @@ def baricenter_aiming(p):
     return np.dstack([a, b, c])
 
 
+def s_r(x):
+    return cosine_activation(np.array([x]), 16.0, 20.0)
+
+
+def ds_r(x):
+    return cosine_activation_derivative(np.array([x]), 16.0, 20.0)
+
+
+def s_f(x):
+    return cosine_activation(np.array([x]), 0.5, 0.7)
+
+
+def ds_f(x):
+    return cosine_activation_derivative(np.array([x]), 0.5, 0.7)
+
+
+def distance_weights(edge_set, p):
+    n = len(p)
+    w = np.empty(shape=0, dtype=np.float64)
+    for i, j, k in angle_indices(n, edge_set).astype(int):
+        dij = np.sqrt(np.sum((p[j] - p[i])**2))
+        dik = np.sqrt(np.sum((p[k] - p[i])**2))
+
+        w = np.hstack([w, dij * dik])
+
+    return w
+
+
+def weights(edge_set, p, R):
+    n = len(p)
+    w = np.empty(shape=0, dtype=np.float64)
+    for i, j, k in angle_indices(n, edge_set).astype(int):
+        dij = np.sqrt(np.sum((p[j] - p[i])**2))
+        bij = unit_vector(p[j] - p[i])
+        dik = np.sqrt(np.sum((p[k] - p[i])**2))
+        bik = unit_vector(p[k] - p[i])
+
+        ei = R[i, :, 0]
+        nij = ei.dot(bij)
+        nik = ei.dot(bik)
+
+        wrij = 1 - s_r(dij)
+        wfij = s_f(nij)
+        wrik = 1 - s_r(dik)
+        wfik = s_f(nik)
+
+        print(wrij, wfij, wrik, wfik)
+
+        wijk = dij * dik * wrij * wfij * wrik * wfik
+
+        w = np.hstack([w, wijk])
+
+    return w
+
+
 def extract(integrators):
     return np.array([p.x() for p in integrators])
 
@@ -72,14 +128,23 @@ def simu_step():
     p = extract(p_int)
     # v = extract_vel(p_int)
     R = extract(R_int)
-    u = np.zeros((n, 3), dtype=np.float64)
-    w = np.zeros((n, 3), dtype=np.float64)
+    control_u = np.zeros((n, 3), dtype=np.float64)
+    control_w = np.zeros((n, 3), dtype=np.float64)
 
     # --- angle rigidity eigenvalue-vector --- #
     edge_set = sensing_graph.edge_set()
     A = angle_rigidity_matrix(edge_set, p)
-    evals, evecs = np.linalg.eigh(A.T.dot(A))
-    rigidity_val[:] = evals[7:9]
+    # --- unweighted part --- #
+    w = distance_weights(edge_set, p)
+    print(w)
+    evals = np.linalg.eigvalsh(A.T.dot(w[:, np.newaxis] * A))
+    rigidity_val[0] = evals[7]
+
+    # --- weighted part --- #
+    w = weights(edge_set, p, R)
+    print(w)
+    evals, evecs = np.linalg.eigh(A.T.dot(w[:, np.newaxis] * A))
+    rigidity_val[1:] = evals[7:9]
     vec = evecs[:, 7].reshape(n, 3)
     vec = [Ri.T.dot(veci) for Ri, veci in zip(R, vec)]
 
@@ -110,6 +175,40 @@ def simu_step():
             Pik = np.eye(3) - np.outer(bik, bik)
             Rik = rotations[k]
 
+            # --- weight part --- #
+            nij = bij[0]
+            nik = bik[0]
+
+            wrij = 1 - s_r(dij)
+            wfij = s_f(nij)
+            wrik = 1 - s_r(dik)
+            wfik = s_f(nik)
+
+            w = wrij * wfij * wrik * wfik
+            d = dij * dik
+            wr = wrij * wrik
+            wf = wfij * wfik
+
+            wijk_j = w * dik * bij
+            wijk_j -= d * wf * wrik * ds_r(dij) * bij
+            wijk_j += d * wr * wfik * ds_f(nij) * Pij[0] / dij
+
+            wijk_k = w * dij * bik
+            wijk_k -= d * wf * wrij * ds_r(dik) * bik
+            wijk_k += d * wr * wfij * ds_f(nik) * Pik[0] / dik
+
+            wijk_i = - wijk_j - wijk_k
+
+            e1_bij = np.hstack([0.0, -bij[[2, 1]]])
+            e1_bik = np.hstack([0.0, -bik[[2, 1]]])
+            wijk_Ri = 0.5 * d * wr * wfik * ds_f(nij) * e1_bij
+            # print(d, wr, wfik, ds_f(nij), e1_bij)
+            wijk_Ri += 0.5 * d * wr * wfij * ds_f(nik) * e1_bik
+            # print(wijk_Ri)
+
+            wijk = d * w
+
+            # --- rigidity matrix part --- #
             qijk = Pij.dot(bik) / dij
             qikj = Pik.dot(bij) / dik
 
@@ -136,27 +235,28 @@ def simu_step():
             sijk_j = - Dijk.dot(vec_j - vec_i) + Eijk.dot(vec_k - vec_i)
             sijk_k = Eikj.dot(vec_j - vec_i) - Dikj.dot(vec_k - vec_i)
 
-            wijk = dij * dik
-            wijk_i = - dik * bij - dij * bik
-            wijk_j = dik * bij
-            wijk_k = dij * bik
+            control_u[i] += sijk * (sijk * wijk_i + 2 * wijk * sijk_i)
+            control_u[j] += sijk * Rij.T.dot(sijk * wijk_j + 2 * wijk * sijk_j)
+            control_u[k] += sijk * Rik.T.dot(sijk * wijk_k + 2 * wijk * sijk_k)
+            # print(i, j, k, control_u[i], sijk, wijk_i, wijk, sijk_i)
 
-            u[i] += sijk * (sijk * wijk_i + 2 * wijk * sijk_i)
-            u[j] += sijk * Rij.T.dot(sijk * wijk_j + 2 * wijk * sijk_j)
-            u[k] += sijk * Rik.T.dot(sijk * wijk_k + 2 * wijk * sijk_k)
+            control_w[i] += sijk**2 * wijk_Ri
 
-        # u[i] -= kd * vi
-        w[i] = np.array([0.0, 0.0, 0.0])
+        # control_u[i] -= kd * vi
 
-    kp = 0.02
+    kp = 0.05
+    kw = 0.05
     for i in nodes:
-        u[i] *= kp
-        u[i] /= evals[7]
-        w[i] /= evals[7]
-        p_int[i].step(t, R[i].dot(u[i]))
-        R_int[i].step(t, R[i].dot(w[i]))
+        control_u[i] *= kp
+        control_w[i] *= kw
+        control_u[i] /= evals[7]
+        control_w[i] /= evals[7]
+        # if i == 0:
+        #     control_u[i] += R[0, 0]    # x-axis forward motion
+        p_int[i].step(t, R[i].dot(control_u[i]))
+        R_int[i].step(t, R[i].dot(control_w[i]))
 
-    control_action[:] = np.hstack([u, w])
+    control_action[:] = np.hstack([control_u, control_w])
 
     p = extract(p_int)
     R = extract(R_int)
@@ -255,7 +355,7 @@ R_int = [
 ]
 
 control_action = np.empty((n, 6), dtype=np.float64)
-rigidity_val = np.empty(2, dtype=np.float64)
+rigidity_val = np.empty(3, dtype=np.float64)
 
 # initialize logs
 logs = Logs(

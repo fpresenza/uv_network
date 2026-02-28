@@ -161,7 +161,12 @@ ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
 ax.grid(1)
 
 ax.plot(t[1:], rigidity_val[:, 0], lw=1.0, ds='steps-post', label=r'$\lambda_8$')
-ax.plot(t[1:], rigidity_val[:, 1], lw=1.0, ds='steps-post', label=r'$\lambda_9$')
+ax.plot(
+    t[1:], rigidity_val[:, 1], lw=1.0, ds='steps-post', label=r'$\widehat{\lambda}_8$'
+)
+ax.plot(
+    t[1:], rigidity_val[:, 2], lw=1.0, ds='steps-post', label=r'$\widehat{\lambda}_9$'
+)
 ax.legend(
     fontsize=10, handlelength=1.5, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
