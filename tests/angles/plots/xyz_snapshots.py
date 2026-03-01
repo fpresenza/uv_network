@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import progressbar
@@ -18,16 +20,32 @@ plt.rcParams['font.family'] = 'serif'
 
 
 # ------------------------------------------------------------------
+# Argument parse
+# ------------------------------------------------------------------
+parser = argparse.ArgumentParser(description='')
+parser.add_argument(
+    '-j', '--jump',
+    default=1, type=int, help='simulation step jumped'
+)
+arg = parser.parse_args()
+
+# ------------------------------------------------------------------
 # Read simulated data
 # ------------------------------------------------------------------
-t = read_csv_numpy('data/t.csv')
+t = read_csv_numpy('data/t.csv', jump=arg.jump)
 log_num_steps = len(t)
 
-position = read_csv_numpy('data/position.csv').reshape(log_num_steps, -1, 3)
+position = read_csv_numpy(
+    'data/position.csv', jump=arg.jump
+).reshape(log_num_steps, -1, 3)
 n = position.shape[1]
-orientation = read_csv_numpy('data/orientation.csv').reshape(log_num_steps, n, 3, 3)
+orientation = read_csv_numpy(
+    'data/orientation.csv', jump=arg.jump
+).reshape(log_num_steps, n, 3, 3)
 
-adjacency = read_csv_numpy('data/adjacency.csv').reshape(log_num_steps, n, n)
+adjacency = read_csv_numpy(
+    'data/adjacency.csv', jump=arg.jump
+).reshape(log_num_steps, n, n)
 
 # ------------------------------------------------------------------
 # Plot snapshots
