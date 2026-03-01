@@ -201,8 +201,8 @@ def simu_step():
 
             wijk_i = - wijk_j - wijk_k
 
-            e1_bij = np.hstack([0.0, -bij[[2, 1]]])
-            e1_bik = np.hstack([0.0, -bik[[2, 1]]])
+            e1_bij = np.hstack([0.0, -bij[2], bij[1]])
+            e1_bik = np.hstack([0.0, -bik[2], bik[1]])
             wijk_Ri = 0.5 * d * wr * (
                 wfik * ds_f(nij) * e1_bij + wfij * ds_f(nik) * e1_bik
             )
