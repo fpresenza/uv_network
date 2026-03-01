@@ -108,13 +108,13 @@ dik = np.linalg.norm(p[2] - p[0])
 bik = unit_vector(p[2] - p[0])
 Pik = np.eye(3) - np.outer(bik, bik)
 
-wrij = 1 - s_r(dij)
-wfij = s_f(ei.dot(bij))
-wrik = 1 - s_r(dik)
-wfik = s_f(ei.dot(bik))
-
 nij = ei.dot(bij)
 nik = ei.dot(bik)
+
+wrij = 1 - s_r(dij)
+wfij = s_f(nij)
+wrik = 1 - s_r(dik)
+wfik = s_f(nik)
 
 dw2[0] = wfij*wfik*(wrik*ds_r(dij) * bij + wrij*ds_r(dik) * bik)
 dw2[0] -= wrij*wrik*(wfik*ds_f(nij) * Pij/dij + wfij*ds_f(nik) * Pik/dik).dot(ei)
