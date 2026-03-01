@@ -138,17 +138,15 @@ def simu_step():
 
     # --- unweighted part --- #
     W = distance_weights(edge_set, p)
-    # print(W)
     evals = np.linalg.eigvalsh(A.T.dot(W[:, np.newaxis] * A))
     rigidity_val[0] = evals[7]
 
     # --- weighted part --- #
     W = weights(edge_set, p, R)
-    # print(W)
     evals, evecs = np.linalg.eigh(A.T.dot(W[:, np.newaxis] * A))
     rigidity_val[1:] = evals[7:9]
     vec = evecs[:, 7].reshape(n, 3)
-    vec = [Ri.T.dot(veci) for Ri, veci in zip(R, vec)]
+    vec = np.squeeze(np.matmul(vec[:, np.newaxis, :], R))
 
     for i in nodes:
         out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
@@ -201,8 +199,8 @@ def simu_step():
 
             wijk_i = - wijk_j - wijk_k
 
-            e1_bij = np.hstack([0.0, -bij[2], bij[1]])
-            e1_bik = np.hstack([0.0, -bik[2], bik[1]])
+            e1_bij = np.array([0.0, -bij[2], bij[1]])
+            e1_bik = np.array([0.0, -bik[2], bik[1]])
             wijk_Ri = 0.5 * d * wr * (
                 wfik * ds_f(nij) * e1_bij + wfij * ds_f(nik) * e1_bik
             )
@@ -247,12 +245,10 @@ def simu_step():
     kp = 3.0
     kw = 0.05
     for i in nodes:
-        control_u[i] *= kp
-        control_u[i] /= evals[7]
-        p_int[i].step(t, R[i].dot(control_u[i]))
+        control_u[i] = (kp / evals[7]) * R[i].dot(control_u[i])
+        p_int[i].step(t, control_u[i])
 
-        control_w[i] *= kw
-        control_w[i] /= evals[7]
+        control_w[i] = (kw / evals[7]) * R[i].dot(control_w[i])
         R_int[i].step(t, R[i].dot(control_w[i]))
 
     control_action[:] = np.hstack([control_u, control_w])
