@@ -50,58 +50,52 @@ def baricenter_aiming(p):
 
 
 def s_r(x):
-    return cosine_activation(np.array([x]), 16.0, 20.0)
+    return cosine_activation(np.array([x]), 16.0, 20.0).item()
 
 
 def ds_r(x):
-    return cosine_activation_derivative(np.array([x]), 16.0, 20.0)
+    return cosine_activation_derivative(np.array([x]), 16.0, 20.0).item()
 
 
 def s_f(x):
-    return cosine_activation(np.array([x]), 0.5, 0.7)
+    return cosine_activation(np.array([x]), 0.5, 0.7).item()
 
 
 def ds_f(x):
-    return cosine_activation_derivative(np.array([x]), 0.5, 0.7)
+    return cosine_activation_derivative(np.array([x]), 0.5, 0.7).item()
 
 
 def distance_weights(edge_set, p):
-    n = len(p)
-    w = np.empty(shape=0, dtype=np.float64)
-    for i, j, k in angle_indices(n, edge_set).astype(int):
-        dij = np.sqrt(np.sum((p[j] - p[i])**2))
-        dik = np.sqrt(np.sum((p[k] - p[i])**2))
+    return np.array([
+        np.sqrt(np.sum((p[j] - p[i])**2) * np.sum((p[k] - p[i])**2))
+        for i, j, k in angle_indices(n, edge_set).astype(int)
+    ])
 
-        w = np.hstack([w, dij * dik])
 
-    return w
+def weight(indices, p, R):
+    i, j, k = indices
+    dij = np.sqrt(np.sum((p[j] - p[i])**2))
+    bij = unit_vector(p[j] - p[i])
+    dik = np.sqrt(np.sum((p[k] - p[i])**2))
+    bik = unit_vector(p[k] - p[i])
+
+    ei = R[i, :, 0]
+    nij = ei.dot(bij)
+    nik = ei.dot(bik)
+
+    wrij = 1 - s_r(dij)
+    wfij = s_f(nij)
+    wrik = 1 - s_r(dik)
+    wfik = s_f(nik)
+
+    return dij * dik * wrij * wfij * wrik * wfik
 
 
 def weights(edge_set, p, R):
-    n = len(p)
-    w = np.empty(shape=0, dtype=np.float64)
-    for i, j, k in angle_indices(n, edge_set).astype(int):
-        dij = np.sqrt(np.sum((p[j] - p[i])**2))
-        bij = unit_vector(p[j] - p[i])
-        dik = np.sqrt(np.sum((p[k] - p[i])**2))
-        bik = unit_vector(p[k] - p[i])
-
-        ei = R[i, :, 0]
-        nij = ei.dot(bij)
-        nik = ei.dot(bik)
-
-        wrij = 1 - s_r(dij)
-        wfij = s_f(nij)
-        wrik = 1 - s_r(dik)
-        wfik = s_f(nik)
-
-        print(wrij, wfij, wrik, wfik)
-
-        wijk = dij * dik * wrij * wfij * wrik * wfik
-
-        w = np.hstack([w, wijk])
-
-    return w
+    return np.array([
+        weight((i, j, k), p, R)
+        for i, j, k in angle_indices(n, edge_set).astype(int)
+    ])
 
 
 def extract(integrators):
