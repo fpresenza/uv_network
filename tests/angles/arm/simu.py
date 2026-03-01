@@ -40,29 +40,36 @@ def random_rotation_matrix():
     return rotation_matrix_from_quaternion(q)
 
 
-def baricenter_aiming(p):
-    baricenter = np.mean(p, axis=0)
-    a = unit_vector(baricenter - p, axis=1)
+def aim_to_target(p, target):
+    a = unit_vector(target - p, axis=-1)
     x = np.random.normal(size=3)
-    b = unit_vector(np.cross(a, x), axis=1)
+    b = unit_vector(np.cross(a, x), axis=-1)
     c = np.cross(a, b)
     return np.dstack([a, b, c])
 
 
 def s_r(x):
-    return cosine_activation(np.array([x]), 16.0, 20.0).item()
+    return cosine_activation(
+        np.array([x]), 0.8 * sensing_range, sensing_range
+    ).item()
 
 
 def ds_r(x):
-    return cosine_activation_derivative(np.array([x]), 16.0, 20.0).item()
+    return cosine_activation_derivative(
+        np.array([x]), 0.8 * sensing_range, sensing_range
+    ).item()
 
 
 def s_f(x):
-    return cosine_activation(np.array([x]), 0.5, 0.7).item()
+    return cosine_activation(
+        np.array([x]), cos_hfov, 1.4 * cos_hfov
+    ).item()
 
 
 def ds_f(x):
-    return cosine_activation_derivative(np.array([x]), 0.5, 0.7).item()
+    return cosine_activation_derivative(
+        np.array([x]), cos_hfov, 1.4 * cos_hfov
+    ).item()
 
 
 def distance_weights(edge_set, p):
@@ -128,16 +135,17 @@ def simu_step():
     # --- angle rigidity eigenvalue-vector --- #
     edge_set = sensing_graph.edge_set()
     A = angle_rigidity_matrix(edge_set, p)
+
     # --- unweighted part --- #
-    w = distance_weights(edge_set, p)
-    print(w)
-    evals = np.linalg.eigvalsh(A.T.dot(w[:, np.newaxis] * A))
+    W = distance_weights(edge_set, p)
+    # print(W)
+    evals = np.linalg.eigvalsh(A.T.dot(W[:, np.newaxis] * A))
     rigidity_val[0] = evals[7]
 
     # --- weighted part --- #
-    w = weights(edge_set, p, R)
-    print(w)
-    evals, evecs = np.linalg.eigh(A.T.dot(w[:, np.newaxis] * A))
+    W = weights(edge_set, p, R)
+    # print(W)
+    evals, evecs = np.linalg.eigh(A.T.dot(W[:, np.newaxis] * A))
     rigidity_val[1:] = evals[7:9]
     vec = evecs[:, 7].reshape(n, 3)
     vec = [Ri.T.dot(veci) for Ri, veci in zip(R, vec)]
@@ -195,10 +203,9 @@ def simu_step():
 
             e1_bij = np.hstack([0.0, -bij[[2, 1]]])
             e1_bik = np.hstack([0.0, -bik[[2, 1]]])
-            wijk_Ri = 0.5 * d * wr * wfik * ds_f(nij) * e1_bij
-            # print(d, wr, wfik, ds_f(nij), e1_bij)
-            wijk_Ri += 0.5 * d * wr * wfij * ds_f(nik) * e1_bik
-            # print(wijk_Ri)
+            wijk_Ri = 0.5 * d * wr * (
+                wfik * ds_f(nij) * e1_bij + wfij * ds_f(nik) * e1_bik
+            )
 
             wijk = d * w
 
@@ -232,22 +239,20 @@ def simu_step():
             control_u[i] += sijk * (sijk * wijk_i + 2 * wijk * sijk_i)
             control_u[j] += sijk * Rij.T.dot(sijk * wijk_j + 2 * wijk * sijk_j)
             control_u[k] += sijk * Rik.T.dot(sijk * wijk_k + 2 * wijk * sijk_k)
-            # print(i, j, k, control_u[i], sijk, wijk_i, wijk, sijk_i)
 
             control_w[i] += sijk**2 * wijk_Ri
 
         # control_u[i] -= kd * vi
 
-    kp = 0.05
+    kp = 3.0
     kw = 0.05
     for i in nodes:
         control_u[i] *= kp
-        control_w[i] *= kw
         control_u[i] /= evals[7]
-        control_w[i] /= evals[7]
-        # if i == 0:
-        #     control_u[i] += R[0, 0]    # x-axis forward motion
         p_int[i].step(t, R[i].dot(control_u[i]))
+
+        control_w[i] *= kw
+        control_w[i] /= evals[7]
         R_int[i].step(t, R[i].dot(control_w[i]))
 
     control_action[:] = np.hstack([control_u, control_w])
@@ -311,24 +316,31 @@ print(
 )
 
 np.set_printoptions(suppress=True, precision=10)
-np.random.seed(1)
+np.random.seed(17)
 
 # --- world parameters --- #
 t = 0.0
 n = 3
 nodes = np.arange(n)
-initial_position = np.random.uniform(0.0, 30.0, (n, 3))
-initial_orientation = baricenter_aiming(initial_position)
-initial_orientation[2, :, 0] *= -1    # invert aiming
-initial_orientation[2, :, 1] *= -1    # invert aiming
+initial_position = np.array([
+    [0.,  0.,  0.],
+    [15., 15., 15.],
+    [18., 21., -3.]
+])
+initial_orientation = np.array([
+    np.eye(3),
+    aim_to_target(initial_position[1], initial_position[[0, 2]].mean(axis=0))[0],
+    random_rotation_matrix()
+])
 
-sensing_range = 20.0
+sensing_range = 30.0
 fov = 120.0
+cos_hfov = np.cos(np.deg2rad(fov / 2))
 sensing_graph = ConeGraph(
     initial_position,
     initial_orientation[:, :, 0],    # axes
     dmax=sensing_range,
-    cmin=np.cos(np.deg2rad(fov / 2))
+    cmin=cos_hfov
 )
 
 intial_edge_set = sensing_graph.edge_set()
