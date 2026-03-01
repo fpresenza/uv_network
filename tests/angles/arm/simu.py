@@ -189,14 +189,13 @@ def simu_step():
             wr = wrij * wrik
             wf = wfij * wfik
 
-            wijk_j = w * dik * bij
-            wijk_j -= d * wf * wrik * ds_r(dij) * bij
-            wijk_j += d * wr * wfik * ds_f(nij) * Pij[0] / dij
+            wijk_j = w * dik * bij + d * (
+                - wf * wrik * ds_r(dij) * bij + wr * wfik * ds_f(nij) * Pij[0] / dij
+            )
 
-            wijk_k = w * dij * bik
-            wijk_k -= d * wf * wrij * ds_r(dik) * bik
-            wijk_k += d * wr * wfij * ds_f(nik) * Pik[0] / dik
-
+            wijk_k = w * dij * bik + d * (
+                - wf * wrij * ds_r(dik) * bik + wr * wfij * ds_f(nik) * Pik[0] / dik
+            )
             wijk_i = - wijk_j - wijk_k
 
             e1_bij = np.array([0.0, -bij[2], bij[1]])
