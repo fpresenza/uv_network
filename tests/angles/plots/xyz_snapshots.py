@@ -74,7 +74,7 @@ for k in range(log_num_steps):
         ax.set_zlabel(r'$z \ (\mathrm{m})$', fontsize='small', labelpad=-8.0)
         # ax.zaxis.labelpad = 0
 
-        xy_lim = 100.0
+        xy_lim = 50.0
         z_lim = xy_lim
         ax.set_xlim3d(0.0, xy_lim)
         ax.set_ylim3d(0.0, xy_lim)
@@ -86,11 +86,11 @@ for k in range(log_num_steps):
     axes[0].view_init(elev=20.0, azim=-70.0)
     axes[0].set_box_aspect(None, zoom=1.0)
 
-    axes[1].view_init(elev=60.0, azim=40.0)
+    axes[1].view_init(elev=20.0, azim=40.0)
     axes[1].set_box_aspect(None, zoom=1.0)
 
     axes[0].text(
-        15, 1.0, 1.5, r't = {:.3f}s'.format(tk),
+        50, 50.0, 0.0, r't = {:.3f}s'.format(tk),
         verticalalignment='bottom', horizontalalignment='left',
         transform=axes[0].transAxes, color='g', fontsize=10
     )
@@ -145,8 +145,8 @@ for k in range(log_num_steps):
             alpha=0.5,
             lw=0.75,
             zorder=0,
-            length=0.8,
-            arrow_length_ratio=0.15
+            length=0.45,
+            arrow_length_ratio=0.1
         )
         ax.xaxis._axinfo['grid'].update(
             color='0.5',
@@ -171,7 +171,7 @@ for k in range(log_num_steps):
         'xyz_snapshots/frame{}.png'.format(str(k).zfill(3)),
         format='png',
         dpi=300,
-        bbox_inches="tight",
+        # bbox_inches="tight",
         # transparent=True
     )
     axes[0].clear()
