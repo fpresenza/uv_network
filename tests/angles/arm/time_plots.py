@@ -3,6 +3,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.spatial.transform import Rotation
 
 from uvnpy.toolkit.data import read_csv_numpy
 
@@ -85,6 +86,43 @@ fig.savefig('time_plots/position.pdf', bbox_inches='tight')
 #     ax[k].plot(t, velocity[:, :, k], lw=1.0, ds='steps-post')
 
 # fig.savefig('time_plots/velocity.pdf', bbox_inches='tight')
+
+# ------------------------------------------------------------------
+# Plot orientations
+# ------------------------------------------------------------------
+fig, ax = plt.subplots(3, 1, figsize=(9.0, 6.0))
+fig.subplots_adjust(
+    bottom=0.215,
+    top=0.925,
+    wspace=0.33,
+    right=0.975,
+    left=0.18
+)
+
+# obtain euler angles
+euler_angles = np.empty((log_num_steps, 3, 3), dtype=np.float64)
+for k in range(log_num_steps):
+    euler_angles[k] = Rotation.from_matrix(
+        orientation[k]
+    ).as_euler('ZYX', degrees=False)
+
+for k, d in enumerate(['yaw', 'pitch', 'roll']):
+    ax[k].tick_params(
+        axis='both',       # changes apply to the x-axis
+        which='both',      # both major and minor ticks are affected
+        pad=1,
+        labelsize=9
+    )
+
+    ax[k].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+    ax[k].set_ylabel(fr'${d} \ (\rm rad)$', fontsize=10)
+    ax[k].set_ylim(-np.pi, np.pi)
+    ax[k].grid(1)
+
+    ax[k].plot(t, euler_angles[:, :, k], lw=1.0, ds='steps-post')
+
+fig.savefig('time_plots/euler_angles.pdf', bbox_inches='tight')
+
 
 # ------------------------------------------------------------------
 # Plot control
