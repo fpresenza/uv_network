@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
+import numpy as np
 import matplotlib.pyplot as plt
 
 from uvnpy.toolkit.data import read_csv_numpy
@@ -19,6 +21,9 @@ log_num_steps = len(t)
 
 position = read_csv_numpy('simu_data/position.csv').reshape(log_num_steps, -1, 3)
 n = position.shape[1]
+orientation = read_csv_numpy(
+    'simu_data/orientation.csv'
+).reshape(log_num_steps, n, 3, 3)
 # velocity = read_csv_numpy('simu_data/velocity.csv').reshape(log_num_steps, n, 3)
 control = read_csv_numpy('simu_data/control.csv').reshape(log_num_steps - 1, n, 6)
 rigidity_val = read_csv_numpy('simu_data/rigidity_val.csv')
@@ -119,6 +124,11 @@ fig.subplots_adjust(
     left=0.18
 )
 
+# convert angular velocity to local frame
+for k in range(log_num_steps - 1):
+    w = control[k, :, 3:]
+    control[k, :, 3:] = np.squeeze(np.matmul(w[:, np.newaxis, :], orientation[k]))
+
 for k, d in enumerate(['x', 'y', 'z']):
     ax[k].tick_params(
         axis='both',       # changes apply to the x-axis
@@ -129,7 +139,7 @@ for k, d in enumerate(['x', 'y', 'z']):
 
     ax[k].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
     ax[k].set_ylabel(fr'$\omega_{{i, {d}}} \ (\rm rad / s)$', fontsize=10)
-    # ax[k].set_ylim(-1e-4, 1e-4)
+    ax[k].set_ylim(-1.5, 1.5)
     ax[k].grid(1)
 
     ax[k].plot(t[1:], control[:, :, 3 + k], lw=1.0, ds='steps-post')
