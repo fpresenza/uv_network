@@ -45,7 +45,7 @@ def aim_to_target(p, target):
     x = np.random.normal(size=3)
     b = unit_vector(np.cross(a, x), axis=-1)
     c = np.cross(a, b)
-    return np.dstack([a, b, c])
+    return np.dstack([a, b, c]).squeeze()
 
 
 def s_r(x):
@@ -324,7 +324,7 @@ initial_position = np.array([
 ])
 initial_orientation = np.array([
     np.eye(3),
-    aim_to_target(initial_position[1], initial_position[[0, 2]].mean(axis=0))[0],
+    aim_to_target(initial_position[1], initial_position[[0, 2]].mean(axis=0)),
     random_rotation_matrix()
 ])
 
