@@ -242,7 +242,7 @@ def simu_step():
         # control_u[i] -= kd * vi
 
     kp = 3.0
-    kw = 0.05
+    kw = 0.1
     for i in nodes:
         control_u[i] = (kp / evals[7]) * R[i].dot(control_u[i])
         p_int[i].step(t, control_u[i])
