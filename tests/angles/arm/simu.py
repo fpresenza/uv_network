@@ -129,19 +129,19 @@ def simu_step():
     p = extract(p_int)
     # v = extract_vel(p_int)
     R = extract(R_int)
-    control_u = np.zeros((n, 3), dtype=np.float64)
-    control_w = np.zeros((n, 3), dtype=np.float64)
+    control_u_r = np.zeros((n, 3), dtype=np.float64)
+    control_w_r = np.zeros((n, 3), dtype=np.float64)
 
     # --- angle rigidity eigenvalue-vector --- #
     edge_set = sensing_graph.edge_set()
     A = angle_rigidity_matrix(edge_set, p)
 
-    # --- unweighted part --- #
+    #    # --- unweighted part --- #
     W = distance_weights(edge_set, p)
     evals = np.linalg.eigvalsh(A.T.dot(W[:, np.newaxis] * A))
     rigidity_val[0] = evals[7]
 
-    # --- weighted part --- #
+    #    # --- weighted part --- #
     W = weights(edge_set, p, R)
     evals, evecs = np.linalg.eigh(A.T.dot(W[:, np.newaxis] * A))
     rigidity_val[1:] = evals[7:9]
@@ -233,24 +233,30 @@ def simu_step():
             sijk_j = - Dijk.dot(vec_j - vec_i) + Eijk.dot(vec_k - vec_i)
             sijk_k = Eikj.dot(vec_j - vec_i) - Dikj.dot(vec_k - vec_i)
 
-            control_u[i] += sijk * (sijk * wijk_i + 2 * wijk * sijk_i)
-            control_u[j] += sijk * Rij.T.dot(sijk * wijk_j + 2 * wijk * sijk_j)
-            control_u[k] += sijk * Rik.T.dot(sijk * wijk_k + 2 * wijk * sijk_k)
+            control_u_r[i] += sijk * (sijk * wijk_i + 2 * wijk * sijk_i)
+            control_u_r[j] += sijk * Rij.T.dot(sijk * wijk_j + 2 * wijk * sijk_j)
+            control_u_r[k] += sijk * Rik.T.dot(sijk * wijk_k + 2 * wijk * sijk_k)
 
-            control_w[i] += sijk**2 * wijk_Ri
+            control_w_r[i] += sijk**2 * wijk_Ri
 
-        # control_u[i] -= kd * vi
+        # control_u_r[i] -= kd * vi
 
-    kp = 3.0
-    kw = 0.1
+    k_u_r = 3.0
+    k_w_r = 0.1
+
     for i in nodes:
-        control_u[i] = (kp / evals[7]) * R[i].dot(control_u[i])
-        p_int[i].step(t, control_u[i])
+        control_u = R[i].dot(
+            (k_u_r / evals[7]) * control_u_r[i]
+        )
+        p_int[i].step(t, control_u)
 
-        control_w[i] = (kw / evals[7]) * R[i].dot(control_w[i])
-        R_int[i].step(t, control_w[i])
+        control_w = R[i].dot(
+            (k_w_r / evals[7]) * control_w_r[i]
+        )
+        R_int[i].step(t, control_w)
 
-    control_action[:] = np.hstack([control_u, control_w])
+        control_action[i, :3] = control_u
+        control_action[i, 3:] = control_w
 
     p = extract(p_int)
     R = extract(R_int)
