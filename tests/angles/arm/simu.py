@@ -248,7 +248,7 @@ def simu_step():
         p_int[i].step(t, control_u[i])
 
         control_w[i] = (kw / evals[7]) * R[i].dot(control_w[i])
-        R_int[i].step(t, R[i].dot(control_w[i]))
+        R_int[i].step(t, control_w[i])
 
     control_action[:] = np.hstack([control_u, control_w])
 
