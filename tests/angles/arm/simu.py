@@ -74,16 +74,16 @@ def ds_f(x):
 
 def distance_weights(edge_set, p):
     return np.array([
-        np.sqrt(np.sum((p[j] - p[i])**2) * np.sum((p[k] - p[i])**2))
+        np.sqrt(np.square(p[j] - p[i]).sum() * np.square(p[k] - p[i]).sum())
         for i, j, k in angle_indices(n, edge_set).astype(int)
     ])
 
 
 def weight(indices, p, R):
     i, j, k = indices
-    dij = np.sqrt(np.sum((p[j] - p[i])**2))
+    dij = np.sqrt(np.square(p[j] - p[i]).sum())
     bij = unit_vector(p[j] - p[i])
-    dik = np.sqrt(np.sum((p[k] - p[i])**2))
+    dik = np.sqrt(np.square(p[k] - p[i]).sum())
     bik = unit_vector(p[k] - p[i])
 
     ei = R[i, :, 0]
@@ -153,7 +153,7 @@ def simu_step():
 
         # --- measurements --- #
         distances = {
-            j: np.sqrt(np.sum((p[j] - p[i])**2)) for j in out_neighbors
+            j: np.sqrt(np.square(p[j] - p[i]).sum()) for j in out_neighbors
         }
         bearings = {
             j: R[i].T.dot(unit_vector(p[j] - p[i])) for j in out_neighbors
