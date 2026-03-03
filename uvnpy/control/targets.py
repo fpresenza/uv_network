@@ -43,3 +43,8 @@ class OmniCollectionTargetControl(object):
         else:
             v_tracking = 0.0
         return - v_tracking * r / d
+
+
+class MovingTargets(dict):
+    def position(self, t):
+        return {k: v(t) for k, v in self.items()}
