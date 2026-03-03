@@ -47,4 +47,4 @@ class OmniCollectionTargetControl(object):
 
 class MovingTargets(dict):
     def position(self, t):
-        return {k: v(t) for k, v in self.items()}
+        return np.array([v(t) for k, v in self.items()])

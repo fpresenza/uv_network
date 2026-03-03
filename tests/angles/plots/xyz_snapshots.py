@@ -48,8 +48,9 @@ adjacency = read_csv_numpy(
     'data/adjacency.csv', jump=arg.jump
 ).reshape(log_num_steps, n, n)
 
-targets = np.load('data/target_position.npy', allow_pickle=True)
-targets_position = np.array([list(tar.values()) for tar in targets[::arg.jump]])
+target_position = read_csv_numpy(
+    'data/target_position.csv', jump=arg.jump
+).reshape(log_num_steps, -1, 3)
 
 # ------------------------------------------------------------------
 # Plot snapshots
@@ -153,9 +154,9 @@ for k in range(log_num_steps):
             arrow_length_ratio=0.15
         )
         ax.scatter(
-            targets_position[k, :, 0],
-            targets_position[k, :, 1],
-            targets_position[k, :, 2],
+            target_position[k, :, 0],
+            target_position[k, :, 1],
+            target_position[k, :, 2],
             marker='d',
             # linewidth=2,
             edgecolor='black',

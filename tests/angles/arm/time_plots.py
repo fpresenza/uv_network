@@ -34,9 +34,11 @@ control = read_csv_numpy('simu_data/control.csv').reshape(log_num_steps - 1, n, 
 
 rigidity_val = read_csv_numpy('simu_data/rigidity_val.csv')
 
-targets = np.load('simu_data/target_position.npy', allow_pickle=True)
-targets_ids = list(targets[0].keys())
-targets_position = np.array([list(tar.values()) for tar in targets])
+target_id = read_csv_numpy('simu_data/target_id.csv').astype(np.int32).reshape(-1)
+
+target_position = read_csv_numpy(
+    'simu_data/target_position.csv'
+).reshape(log_num_steps, -1, 3)
 
 # ------------------------------------------------------------------
 # Plot positions
@@ -218,7 +220,7 @@ ax[0].set_ylim(0.0, 100.0)
 ax[0].grid(1)
 
 ax[0].plot(
-    t, np.sqrt(np.square(targets_position - position[:, targets_ids]).sum(axis=-1)),
+    t, np.sqrt(np.square(target_position - position[:, target_id]).sum(axis=-1)),
     lw=1.0, ds='steps-post'
 )
 
@@ -233,18 +235,18 @@ ax[1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
 ax[1].set_ylabel(r'$\eta_{i \tau_i} \ (\rm m)$', fontsize=10)
 ax[1].set_ylim(-1.0, 1.0)
 ax[1].grid(1)
-
-for k, i in enumerate(targets_ids):
-    ax[1].plot(
-        np.sum(
-            unit_vector(
-                targets_position[:, k] - position[:, i],
-                axis=-1
-            ) * orientation[:, i, :, 0],
+print(unit_vector(target_position - position[:, target_id], axis=-1).shape)
+print(orientation[:, target_id, :, 0].swapaxes(0, 1).shape)
+ax[1].plot(
+    np.sum(
+        unit_vector(
+            target_position - position[:, target_id],
             axis=-1
-        ),
-        lw=1.0, ds='steps-post'
-    )
+        ) * orientation[:, target_id, :, 0].swapaxes(0, 1),
+        axis=-1
+    ),
+    lw=1.0, ds='steps-post'
+)
 
 fig.savefig('time_plots/target_tracking.pdf', bbox_inches='tight')
 

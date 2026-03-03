@@ -34,6 +34,7 @@ class Logs(object):
     control: list
     rigidity_val: list
     adjacency: list
+    target_id: list
     target_position: list
 
 
@@ -316,7 +317,7 @@ def log_step():
     logs.control.append(control_action.copy().ravel())
     logs.rigidity_val.append(rigidity_val.copy())
     logs.adjacency.append(sensing_graph.adjacency_matrix().ravel())
-    logs.target_position.append(targets.position(t))
+    logs.target_position.append(targets.position(t).ravel())
 
 
 # ------------------------------------------------------------------
@@ -423,7 +424,8 @@ logs = Logs(
     control=[],
     rigidity_val=[],
     adjacency=[sensing_graph.adjacency_matrix().ravel()],
-    target_position=[targets.position(0.0)]
+    target_id=list(targets.keys()),
+    target_position=[targets.position(0.0).ravel()]
 )
 # print(logs.position[0])
 # print(logs.orientation[0])
@@ -456,4 +458,5 @@ np.savetxt('simu_data/orientation.csv', logs.orientation, delimiter=',')
 np.savetxt('simu_data/control.csv', logs.control, delimiter=',')
 np.savetxt('simu_data/rigidity_val.csv', logs.rigidity_val, delimiter=',')
 np.savetxt('simu_data/adjacency.csv', logs.adjacency, delimiter=',')
-np.save('simu_data/target_position.npy', logs.target_position, allow_pickle=True)
+np.savetxt('simu_data/target_id.csv', logs.target_id, delimiter=',')
+np.savetxt('simu_data/target_position.csv', logs.target_position, delimiter=',')
