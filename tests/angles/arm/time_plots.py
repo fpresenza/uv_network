@@ -3,6 +3,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+from transformations import unit_vector
 from scipy.spatial.transform import Rotation
 
 from uvnpy.toolkit.data import read_csv_numpy
@@ -32,6 +33,10 @@ orientation = read_csv_numpy(
 control = read_csv_numpy('simu_data/control.csv').reshape(log_num_steps - 1, n, 6)
 
 rigidity_val = read_csv_numpy('simu_data/rigidity_val.csv')
+
+targets = np.load('simu_data/target_position.npy', allow_pickle=True)
+targets_ids = list(targets[0].keys())
+targets_position = np.array([list(tar.values()) for tar in targets])
 
 # ------------------------------------------------------------------
 # Plot positions
@@ -187,6 +192,61 @@ for k, d in enumerate(['x', 'y', 'z']):
     ax[k].plot(t[1:], control[:, :, 3 + k], lw=1.0, ds='steps-post')
 
 fig.savefig('time_plots/control_w.pdf', bbox_inches='tight')
+
+# ------------------------------------------------------------------
+# Plot target tracking metrics
+# ------------------------------------------------------------------
+fig, ax = plt.subplots(2, 1, figsize=(9.0, 6.0))
+fig.subplots_adjust(
+    bottom=0.215,
+    top=0.925,
+    wspace=0.33,
+    right=0.975,
+    left=0.18
+)
+
+ax[0].tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize=9
+)
+
+ax[0].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+ax[0].set_ylabel(r'$d_{i \tau_i} \ (\rm m)$', fontsize=10)
+ax[0].set_ylim(0.0, 100.0)
+ax[0].grid(1)
+
+ax[0].plot(
+    t, np.sqrt(np.square(targets_position - position[:, targets_ids]).sum(axis=-1)),
+    lw=1.0, ds='steps-post'
+)
+
+ax[1].tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize=9
+)
+
+ax[1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+ax[1].set_ylabel(r'$\eta_{i \tau_i} \ (\rm m)$', fontsize=10)
+ax[1].set_ylim(-1.0, 1.0)
+ax[1].grid(1)
+
+for k, i in enumerate(targets_ids):
+    ax[1].plot(
+        np.sum(
+            unit_vector(
+                targets_position[:, k] - position[:, i],
+                axis=-1
+            ) * orientation[:, i, :, 0],
+            axis=-1
+        ),
+        lw=1.0, ds='steps-post'
+    )
+
+fig.savefig('time_plots/target_tracking.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot rigidity eigenvalue
