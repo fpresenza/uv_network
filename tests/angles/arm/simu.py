@@ -152,11 +152,14 @@ def simu_step():
         out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
 
         # --- measurements --- #
+        r = {
+            j: p[j] - p[i] for j in out_neighbors
+        }
         distances = {
-            j: np.sqrt(np.square(p[j] - p[i]).sum()) for j in out_neighbors
+            j: np.sqrt(np.square(r[j]).sum()) for j in out_neighbors
         }
         bearings = {
-            j: R[i].T.dot(unit_vector(p[j] - p[i])) for j in out_neighbors
+            j: R[i].T.dot(r[j] / distances[j]) for j in out_neighbors
         }
         rotations = {
             j: R[i].T.dot(R[j]) for j in out_neighbors
