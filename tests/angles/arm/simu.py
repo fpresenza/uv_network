@@ -17,6 +17,8 @@ from uvnpy.angles.local_frame.core import (
     is_angle_rigid,
     angle_rigidity_matrix
 )
+from uvnpy.control.targets import MovingTargets
+
 
 # ------------------------------------------------------------------
 # Functions and Classes
@@ -32,6 +34,7 @@ class Logs(object):
     control: list
     rigidity_val: list
     adjacency: list
+    target_position: list
 
 
 def random_rotation_matrix():
@@ -69,6 +72,18 @@ def sigma_r_f(x):
 def dsigma_r_f(x):
     return cosine_activation_derivative(
         np.array([x]), cos_hfov, 1.4 * cos_hfov
+    ).item()
+
+
+def dsigma_m_r(x):
+    return cosine_activation_derivative(
+        np.array([x]), 0.0, 50.0
+    ).item()
+
+
+def dsigma_m_f(x):
+    return cosine_activation_derivative(
+        np.array([x]), -1.0, 1.0
     ).item()
 
 
@@ -131,6 +146,8 @@ def simu_step():
     R = extract(R_int)
     control_u_r = np.zeros((n, 3), dtype=np.float64)
     control_w_r = np.zeros((n, 3), dtype=np.float64)
+    control_u_m = np.zeros((n, 3), dtype=np.float64)
+    control_w_m = np.zeros((n, 3), dtype=np.float64)
 
     # --- angle rigidity eigenvalue-vector --- #
     edge_set = sensing_graph.edge_set()
@@ -149,12 +166,28 @@ def simu_step():
     vec = np.squeeze(np.matmul(vec[:, np.newaxis, :], R))
 
     for i in nodes:
-        out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
+        # --- target tracking control --- #
+        k_m_r = 2.0
+        k_m_f = 1.0
+        if i in targets.keys():
+            rit = targets[i](t) - p[i]
+            dit = np.sqrt(np.square(rit).sum())
+            bit = R[i].T.dot(rit / dit)
 
-        # --- measurements --- #
-        r = {
-            j: p[j] - p[i] for j in out_neighbors
-        }
+            Pit = np.eye(3) - np.outer(bit, bit)
+
+            nit = bit[0]
+            e1_bit = np.array([0.0, -bit[2], bit[1]])
+
+            control_u_m[i] = k_m_r * dsigma_m_r(dit) * bit \
+                - k_m_f * dsigma_m_f(nit) * Pit[0] / dit
+            control_w_m[i] = k_m_f * 0.5 * dsigma_m_f(nit) * e1_bit
+
+        # --- rigidity maintenance control --- #
+        out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
+        r = {j: p[j] - p[i] for j in out_neighbors}
+
+        #   # --- measurements --- #
         distances = {
             j: np.sqrt(np.square(r[j]).sum()) for j in out_neighbors
         }
@@ -166,7 +199,7 @@ def simu_step():
         }
         # vi = R[i].T.dot(v[i])
 
-        # --- control law --- #
+        #   # --- control law --- #
         for j, k in complete_angle_set(out_neighbors):
             dij = distances[j]
             bij = bearings[j]
@@ -247,17 +280,22 @@ def simu_step():
 
         # control_u_r[i] -= kd * vi
 
-    k_u_r = 5.0
-    k_w_r = 0.2
+    # define relative weights
+    k_u_r = 1.0 / evals[7]
+    k_u_m = 20.0
+    k_w_r = 0.1 / evals[7]
+    k_w_m = 2.0
 
+    # compose and apply control action
     for i in nodes:
         control_u = R[i].dot(
-            (k_u_r / evals[7]) * control_u_r[i]
+            k_u_r * control_u_r[i] + k_u_m * control_u_m[i]
         )
         p_int[i].step(t, control_u)
 
         control_w = R[i].dot(
-            (k_w_r / evals[7]) * control_w_r[i]
+            k_w_r * control_w_r[i] + k_w_m * control_w_m[i]
+
         )
         R_int[i].step(t, control_w)
 
@@ -278,6 +316,7 @@ def log_step():
     logs.control.append(control_action.copy().ravel())
     logs.rigidity_val.append(rigidity_val.copy())
     logs.adjacency.append(sensing_graph.adjacency_matrix().ravel())
+    logs.target_position.append(targets.position(t))
 
 
 # ------------------------------------------------------------------
@@ -370,6 +409,11 @@ R_int = [
 control_action = np.empty((n, 6), dtype=np.float64)
 rigidity_val = np.empty(3, dtype=np.float64)
 
+# --- define targets --- #
+targets = MovingTargets({
+    2: lambda t: np.array([t, 0.0, 20.0])
+})
+
 # initialize logs
 logs = Logs(
     time=[t],
@@ -378,7 +422,8 @@ logs = Logs(
     orientation=[extract(R_int).ravel()],
     control=[],
     rigidity_val=[],
-    adjacency=[sensing_graph.adjacency_matrix().ravel()]
+    adjacency=[sensing_graph.adjacency_matrix().ravel()],
+    target_position=[targets.position(0.0)]
 )
 # print(logs.position[0])
 # print(logs.orientation[0])
@@ -411,3 +456,4 @@ np.savetxt('simu_data/orientation.csv', logs.orientation, delimiter=',')
 np.savetxt('simu_data/control.csv', logs.control, delimiter=',')
 np.savetxt('simu_data/rigidity_val.csv', logs.rigidity_val, delimiter=',')
 np.savetxt('simu_data/adjacency.csv', logs.adjacency, delimiter=',')
+np.save('simu_data/target_position.npy', logs.target_position, allow_pickle=True)
