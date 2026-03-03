@@ -19,7 +19,7 @@ from uvnpy.distances.core import (
     is_distance_rigid, minimum_distance_rigidity_extents
 )
 from uvnpy.control.core import CollisionAvoidanceVanishing
-from uvnpy.control.targets import Targets, TargetTracking
+from uvnpy.control.targets import OmniCollectionTargets, OmniCollectionTargetControl
 
 
 # ------------------------------------------------------------------
@@ -89,7 +89,7 @@ class Robot(object):
         self.action_extent = action_extent
         self.state_extent = state_extent
         self.current_time = t
-        self.tracking = TargetTracking(
+        self.tracking = OmniCollectionTargetControl(
             tracking_radius=20.0,
             forget_radius=100.0,
             v_max=1.25
@@ -500,7 +500,7 @@ robots = Robots([
     for i in range(n)
 ])
 
-targets = Targets(
+targets = OmniCollectionTargets(
     n=30,
     dim=2,
     low_lim=(0.0, 0.0),

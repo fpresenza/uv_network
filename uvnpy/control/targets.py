@@ -6,7 +6,7 @@
 import numpy as np
 
 
-class Targets(object):
+class OmniCollectionTargets(object):
     def __init__(self, n, dim, low_lim, up_lim, collect_radius):
         self.positions = np.random.uniform(low_lim, up_lim, (n, dim))
         self.active = np.full(n, True)
@@ -25,7 +25,7 @@ class Targets(object):
         self.active[np.where(self.active)[0][c2]] = False
 
 
-class TargetTracking(object):
+class OmniCollectionTargetControl(object):
     def __init__(self, tracking_radius, forget_radius, v_max):
         self.tracking_radius = tracking_radius
         self.forget_radius = forget_radius

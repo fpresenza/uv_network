@@ -20,7 +20,7 @@ from uvnpy.graphs.core import geodesics, as_undirected
 from uvnpy.graphs.models import DiskGraph, ConeGraph
 from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.control.core import CollisionAvoidanceVanishing
-from uvnpy.control.targets import Targets, TargetTracking
+from uvnpy.control.targets import OmniCollectionTargets, OmniCollectionTargetControl
 from uvnpy.network.token_passing import TokenPassing
 
 
@@ -103,7 +103,7 @@ class Robot(object):
         self.current_time = t
         self.self_centered_ball = {node_id} if (action_extent > 0) else set()
         self.in_balls = self.self_centered_ball
-        self.tracking = TargetTracking(
+        self.tracking = OmniCollectionTargetControl(
             tracking_radius=20.0,
             forget_radius=30.0,
             v_max=1.5
@@ -673,7 +673,7 @@ robots = Robots([
 
 index_map = {robots[i].node_id: i for i in range(n)}
 np.random.seed(100)
-targets = Targets(
+targets = OmniCollectionTargets(
     n=100,
     dim=3,
     low_lim=(0.0, 0.0, 10.0),
