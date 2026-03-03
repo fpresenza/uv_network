@@ -48,25 +48,25 @@ def aim_to_target(p, target):
     return np.dstack([a, b, c]).squeeze()
 
 
-def s_r(x):
+def sigma_r_r(x):
     return cosine_activation(
         np.array([x]), 0.8 * sensing_range, sensing_range
     ).item()
 
 
-def ds_r(x):
+def dsigma_r_r(x):
     return cosine_activation_derivative(
         np.array([x]), 0.8 * sensing_range, sensing_range
     ).item()
 
 
-def s_f(x):
+def sigma_r_f(x):
     return cosine_activation(
         np.array([x]), cos_hfov, 1.4 * cos_hfov
     ).item()
 
 
-def ds_f(x):
+def dsigma_r_f(x):
     return cosine_activation_derivative(
         np.array([x]), cos_hfov, 1.4 * cos_hfov
     ).item()
@@ -90,10 +90,10 @@ def weight(indices, p, R):
     nij = ei.dot(bij)
     nik = ei.dot(bik)
 
-    wrij = 1 - s_r(dij)
-    wfij = s_f(nij)
-    wrik = 1 - s_r(dik)
-    wfik = s_f(nik)
+    wrij = 1 - sigma_r_r(dij)
+    wfij = sigma_r_f(nij)
+    wrik = 1 - sigma_r_r(dik)
+    wfik = sigma_r_f(nik)
 
     return dij * dik * wrij * wfij * wrik * wfik
 
@@ -182,10 +182,10 @@ def simu_step():
             nij = bij[0]
             nik = bik[0]
 
-            wrij = 1 - s_r(dij)
-            wfij = s_f(nij)
-            wrik = 1 - s_r(dik)
-            wfik = s_f(nik)
+            wrij = 1 - sigma_r_r(dij)
+            wfij = sigma_r_f(nij)
+            wrik = 1 - sigma_r_r(dik)
+            wfik = sigma_r_f(nik)
 
             w = wrij * wfij * wrik * wfik
             d = dij * dik
@@ -193,18 +193,21 @@ def simu_step():
             wf = wfij * wfik
 
             wijk_j = w * dik * bij + d * (
-                - wf * wrik * ds_r(dij) * bij + wr * wfik * ds_f(nij) * Pij[0] / dij
+                - wf * wrik * dsigma_r_r(dij) * bij
+                + wr * wfik * dsigma_r_f(nij) * Pij[0] / dij
             )
 
             wijk_k = w * dij * bik + d * (
-                - wf * wrij * ds_r(dik) * bik + wr * wfij * ds_f(nik) * Pik[0] / dik
+                - wf * wrij * dsigma_r_r(dik) * bik
+                + wr * wfij * dsigma_r_f(nik) * Pik[0] / dik
             )
             wijk_i = - wijk_j - wijk_k
 
             e1_bij = np.array([0.0, -bij[2], bij[1]])
             e1_bik = np.array([0.0, -bik[2], bik[1]])
             wijk_Ri = 0.5 * d * wr * (
-                wfik * ds_f(nij) * e1_bij + wfij * ds_f(nik) * e1_bik
+                wfik * dsigma_r_f(nij) * e1_bij
+                + wfij * dsigma_r_f(nik) * e1_bik
             )
 
             wijk = d * w
