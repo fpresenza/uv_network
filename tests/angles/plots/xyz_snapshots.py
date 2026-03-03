@@ -48,6 +48,9 @@ adjacency = read_csv_numpy(
     'data/adjacency.csv', jump=arg.jump
 ).reshape(log_num_steps, n, n)
 
+targets = np.load('data/target_position.npy', allow_pickle=True)
+targets_position = np.array([list(tar.values()) for tar in targets[::arg.jump]])
+
 # ------------------------------------------------------------------
 # Plot snapshots
 # ------------------------------------------------------------------
@@ -103,7 +106,7 @@ for k in range(log_num_steps):
     # --- plot --- #
     for i in range(n):
         # axis = R[i, :, 0]    # first column (x-axis)
-        cone = draw_cone(p[i], R[i], xy_lim / 20, np.pi/3)
+        cone = draw_cone(p[i], R[i], xy_lim/15, np.pi/3)
 
         poly = art3d.Poly3DCollection(cone, alpha=0.5)
         colors = ['C0'] * len(cone)
@@ -147,7 +150,17 @@ for k in range(log_num_steps):
             lw=0.75,
             zorder=0,
             length=0.45,
-            arrow_length_ratio=0.1
+            arrow_length_ratio=0.15
+        )
+        ax.scatter(
+            targets_position[k, :, 0],
+            targets_position[k, :, 1],
+            targets_position[k, :, 2],
+            marker='d',
+            # linewidth=2,
+            edgecolor='black',
+            facecolor='black',
+            s=6,
         )
         ax.xaxis._axinfo['grid'].update(
             color='0.5',
@@ -171,7 +184,7 @@ for k in range(log_num_steps):
     fig.savefig(
         'xyz_snapshots/frame{}.png'.format(str(k).zfill(3)),
         format='png',
-        dpi=300,
+        dpi=100,
         # bbox_inches="tight",
         # transparent=True
     )
