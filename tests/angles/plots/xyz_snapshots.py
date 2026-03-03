@@ -39,6 +39,7 @@ position = read_csv_numpy(
     'data/position.csv', jump=arg.jump
 ).reshape(log_num_steps, -1, 3)
 n = position.shape[1]
+
 orientation = read_csv_numpy(
     'data/orientation.csv', jump=arg.jump
 ).reshape(log_num_steps, n, 3, 3)

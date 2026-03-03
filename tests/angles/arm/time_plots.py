@@ -22,11 +22,15 @@ log_num_steps = len(t)
 
 position = read_csv_numpy('simu_data/position.csv').reshape(log_num_steps, -1, 3)
 n = position.shape[1]
+
 orientation = read_csv_numpy(
     'simu_data/orientation.csv'
 ).reshape(log_num_steps, n, 3, 3)
+
 # velocity = read_csv_numpy('simu_data/velocity.csv').reshape(log_num_steps, n, 3)
+
 control = read_csv_numpy('simu_data/control.csv').reshape(log_num_steps - 1, n, 6)
+
 rigidity_val = read_csv_numpy('simu_data/rigidity_val.csv')
 
 # ------------------------------------------------------------------
