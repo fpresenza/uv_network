@@ -27,7 +27,8 @@ class Logs(object):
     position: list
     # velocity: list
     orientation: list
-    control: list
+    control_u: list
+    control_w: list
     rigidity_val: list
     adjacency: list
     target_id: list
@@ -117,12 +118,16 @@ def weights(edge_set, p, R):
     ])
 
 
-def extract(integrators):
+def extract_x(integrators):
     return np.array([p.x() for p in integrators])
 
 
-def extract_vel(integrators):
+def extract_dotx(integrators):
     return np.array([p.dotx() for p in integrators])
+
+
+def extract_u(integrators):
+    return np.array([p.u() for p in integrators])
 
 
 def complete_angle_set(out_neighbors):
@@ -138,9 +143,9 @@ def complete_angle_set(out_neighbors):
 def simu_step():
     """Formation control algorithm"""
     # --- data ---#
-    p = extract(p_int)
-    # v = extract_vel(p_int)
-    R = extract(R_int)
+    p = extract_x(p_int)
+    # v = extract_dotx(p_int)
+    R = extract_x(R_int)
     control_u_r = np.zeros((n, 3), dtype=np.float64)
     control_w_r = np.zeros((n, 3), dtype=np.float64)
     control_u_m = np.zeros((n, 3), dtype=np.float64)
@@ -296,21 +301,19 @@ def simu_step():
         )
         R_int[i].step(t, control_w)
 
-        control_action[i, :3] = control_u
-        control_action[i, 3:] = control_w
-
-    p = extract(p_int)
-    R = extract(R_int)
+    p = extract_x(p_int)
+    R = extract_x(R_int)
     sensing_graph.update(p, R[:, :, 0])
 
 
 def log_step():
     """Data log"""
     logs.time.append(t)
-    logs.position.append(extract(p_int).ravel())
-    # logs.velocity.append(np.hstack(extract_vel(p_int)))
-    logs.orientation.append(extract(R_int).ravel())
-    logs.control.append(control_action.copy().ravel())
+    logs.position.append(extract_x(p_int).ravel())
+    # logs.velocity.append(np.hstack(extract_dotx(p_int)))
+    logs.orientation.append(extract_x(R_int).ravel())
+    logs.control_u.append(extract_u(p_int).ravel())
+    logs.control_w.append(extract_u(R_int).ravel())
     logs.rigidity_val.append(rigidity_val.copy())
     logs.adjacency.append(sensing_graph.adjacency_matrix().ravel())
     logs.target_position.append(targets.position(t).ravel())
@@ -401,7 +404,6 @@ R_int = [
     for i in nodes
 ]
 
-control_action = np.empty((n, 6), dtype=np.float64)
 rigidity_val = np.empty(3, dtype=np.float64)
 
 # --- define targets --- #
@@ -412,10 +414,11 @@ targets = MovingTargets({
 # initialize logs
 logs = Logs(
     time=[t],
-    position=[extract(p_int).ravel()],
-    # velocity=[extract_vel(p_int).ravel()],
-    orientation=[extract(R_int).ravel()],
-    control=[],
+    position=[extract_x(p_int).ravel()],
+    # velocity=[extract_dotx(p_int).ravel()],
+    orientation=[extract_x(R_int).ravel()],
+    control_u=[],
+    control_w=[],
     rigidity_val=[],
     adjacency=[sensing_graph.adjacency_matrix().ravel()],
     target_id=list(targets.keys()),
@@ -449,7 +452,8 @@ np.savetxt('simu_data/t.csv', logs.time, delimiter=',')
 np.savetxt('simu_data/position.csv', logs.position, delimiter=',')
 # np.savetxt('simu_data/velocity.csv', logs.velocity, delimiter=',')
 np.savetxt('simu_data/orientation.csv', logs.orientation, delimiter=',')
-np.savetxt('simu_data/control.csv', logs.control, delimiter=',')
+np.savetxt('simu_data/control_u.csv', logs.control_u, delimiter=',')
+np.savetxt('simu_data/control_w.csv', logs.control_u, delimiter=',')
 np.savetxt('simu_data/rigidity_val.csv', logs.rigidity_val, delimiter=',')
 np.savetxt('simu_data/adjacency.csv', logs.adjacency, delimiter=',')
 np.savetxt('simu_data/target_id.csv', logs.target_id, delimiter=',')

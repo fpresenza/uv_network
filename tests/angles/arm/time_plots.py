@@ -30,7 +30,8 @@ orientation = read_csv_numpy(
 
 # velocity = read_csv_numpy('simu_data/velocity.csv').reshape(log_num_steps, n, 3)
 
-control = read_csv_numpy('simu_data/control.csv').reshape(log_num_steps - 1, n, 6)
+control_u = read_csv_numpy('simu_data/control_u.csv').reshape(log_num_steps - 1, n, 3)
+control_w = read_csv_numpy('simu_data/control_w.csv').reshape(log_num_steps - 1, n, 3)
 
 rigidity_val = read_csv_numpy('simu_data/rigidity_val.csv')
 
@@ -160,7 +161,7 @@ for k, d in enumerate(['x', 'y', 'z']):
     # ax[k].set_ylim(-1e-4, 1e-4)
     ax[k].grid(1)
 
-    ax[k].plot(t[1:], control[:, :, k], lw=1.0, ds='steps-post')
+    ax[k].plot(t[1:], control_u[:, :, k], lw=1.0, ds='steps-post')
 
 fig.savefig('time_plots/control_u.pdf', bbox_inches='tight')
 
@@ -175,8 +176,9 @@ fig.subplots_adjust(
 
 # convert angular velocity to local frame
 for k in range(log_num_steps - 1):
-    w = control[k, :, 3:]
-    control[k, :, 3:] = np.squeeze(np.matmul(w[:, np.newaxis, :], orientation[k]))
+    control_w[k] = np.squeeze(np.matmul(
+        control_w[k, :, np.newaxis, :], orientation[k]
+    ))
 
 for k, d in enumerate(['x', 'y', 'z']):
     ax[k].tick_params(
@@ -191,7 +193,7 @@ for k, d in enumerate(['x', 'y', 'z']):
     ax[k].set_ylim(-1.5, 1.5)
     ax[k].grid(1)
 
-    ax[k].plot(t[1:], control[:, :, 3 + k], lw=1.0, ds='steps-post')
+    ax[k].plot(t[1:], control_w[:, :, k], lw=1.0, ds='steps-post')
 
 fig.savefig('time_plots/control_w.pdf', bbox_inches='tight')
 
