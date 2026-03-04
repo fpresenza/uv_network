@@ -12,11 +12,7 @@ from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
 from uvnpy.toolkit.geometry import rotation_matrix_from_quaternion
 from uvnpy.toolkit.functions import cosine_activation, cosine_activation_derivative
 from uvnpy.graphs.models import ConeGraph
-from uvnpy.angles.local_frame.core import (
-    angle_indices,
-    is_angle_rigid,
-    angle_rigidity_matrix
-)
+from uvnpy.angles.local_frame.core import angle_indices, angle_rigidity_matrix
 from uvnpy.control.targets import MovingTargets
 
 
@@ -363,40 +359,38 @@ print(
 )
 
 np.set_printoptions(suppress=True, precision=10)
-np.random.seed(17)
 
-# --- world parameters --- #
-t = 0.0
-n = 3
-nodes = np.arange(n)
-initial_position = np.array([
-    [0.,  0.,  0.],
-    [15., 15., 15.],
-    [18., 21., -3.]
-])
-initial_orientation = np.array([
-    np.eye(3),
-    aim_to_target(initial_position[1], initial_position[[0, 2]].mean(axis=0)),
-    random_rotation_matrix()
-])
+found_IAR = False
+seed = 0
+while not found_IAR:
+    np.random.seed(seed)
+    seed += 1
 
-sensing_range = 30.0
-fov = 120.0
-cos_hfov = np.cos(np.deg2rad(fov / 2))
-sensing_graph = ConeGraph(
-    initial_position,
-    initial_orientation[:, :, 0],    # axes
-    dmax=sensing_range,
-    cmin=cos_hfov
-)
+    # --- world parameters --- #
+    t = 0.0
+    n = 4
+    nodes = np.arange(n)
+    initial_position = np.random.normal(loc=15.0, scale=15.0, size=(n, 3))
+    initial_orientation = aim_to_target(initial_position, initial_position.mean(axis=0))
 
-intial_edge_set = sensing_graph.edge_set()
-print(intial_edge_set)
-initial_angle_set = angle_indices(n, intial_edge_set).astype(int)
-print(initial_angle_set)
+    sensing_range = 30.0
+    fov = 120.0
+    cos_hfov = np.cos(np.deg2rad(fov / 2))
+    sensing_graph = ConeGraph(
+        initial_position,
+        initial_orientation[:, :, 0],    # axes
+        dmax=sensing_range,
+        cmin=cos_hfov
+    )
 
-if not is_angle_rigid(intial_edge_set, initial_position):
-    raise ValueError('The initial framework is not IAR.')
+    initial_edge_set = sensing_graph.edge_set()
+    initial_angle_set = angle_indices(n, initial_edge_set).astype(int)
+
+    # check if graph is complete
+    if sensing_graph.adjacency_matrix().sum() == n**2 - n:
+        found_IAR = True
+        print(initial_edge_set)
+        print(initial_angle_set)
 
 p_int = [
     EulerIntegrator(initial_position[i])
