@@ -225,6 +225,7 @@ ax[0].plot(
     t, np.sqrt(np.square(target_position - position[:, target_id]).sum(axis=-1)),
     lw=1.0, ds='steps-post'
 )
+ax[0].hlines(30.0, t[0], t[-1], ls='--', color='k')
 
 ax[1].tick_params(
     axis='both',       # changes apply to the x-axis
@@ -239,6 +240,7 @@ ax[1].set_ylim(-1.0, 1.0)
 ax[1].grid(1)
 
 ax[1].plot(
+    t,
     np.sum(
         unit_vector(
             target_position - position[:, target_id],
@@ -248,6 +250,7 @@ ax[1].plot(
     ),
     lw=1.0, ds='steps-post'
 )
+ax[1].hlines(0.5, t[0], t[-1], ls='--', color='k', lw=0.5)
 
 fig.savefig('time_plots/target_tracking.pdf', bbox_inches='tight')
 
