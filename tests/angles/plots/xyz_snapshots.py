@@ -52,6 +52,9 @@ target_position = read_csv_numpy(
     'data/target_position.csv', jump=arg.jump
 ).reshape(log_num_steps, -1, 3)
 
+target_id = read_csv_numpy('data/target_id.csv').astype(np.int32)
+
+
 # ------------------------------------------------------------------
 # Plot snapshots
 # ------------------------------------------------------------------
@@ -79,7 +82,7 @@ for k in range(log_num_steps):
         ax.set_zlabel(r'$z \ (\mathrm{m})$', fontsize='small', labelpad=-8.0)
         # ax.zaxis.labelpad = 0
 
-        xy_lim = 50.0
+        xy_lim = 100.0
         z_lim = xy_lim
         ax.set_xlim3d(0.0, xy_lim)
         ax.set_ylim3d(0.0, xy_lim)
@@ -110,14 +113,14 @@ for k in range(log_num_steps):
         cone = draw_cone(p[i], R[i], xy_lim/15, np.pi/3)
 
         poly = art3d.Poly3DCollection(cone, alpha=0.5)
-        colors = ['C0'] * len(cone)
-        colors[0:3] = ['r'] * 3    # mark one sector
+        colors = [f'C{i}'] * len(cone)
+        # colors[0:2] = ['r'] * 3    # mark one sector
         poly.set_facecolor(colors)
         axes[0].add_collection3d(poly)
 
         poly = art3d.Poly3DCollection(cone, alpha=0.5)
-        colors = ['C0'] * len(cone)
-        colors[0:3] = ['r'] * 3    # mark one sector
+        colors = [f'C{i}'] * len(cone)
+        # colors[0:2] = ['r'] * 3    # mark one sector
         poly.set_facecolor(colors)
         axes[1].add_collection3d(poly)
 
@@ -134,7 +137,7 @@ for k in range(log_num_steps):
         # )
         plot.points(
             ax, p,
-            facecolor='b',
+            facecolor='0.0',
             edgecolor='none',
             marker='o',
             s=10,
@@ -153,16 +156,18 @@ for k in range(log_num_steps):
             length=0.45,
             arrow_length_ratio=0.15
         )
-        ax.scatter(
-            target_position[k, :, 0],
-            target_position[k, :, 1],
-            target_position[k, :, 2],
-            marker='d',
-            # linewidth=2,
-            edgecolor='black',
-            facecolor='black',
-            s=6,
-        )
+        for m, i in enumerate(target_id):
+            ax.scatter(
+                target_position[k, m, 0],
+                target_position[k, m, 1],
+                target_position[k, m, 2],
+                marker='d',
+                # linewidth=2,
+                edgecolor=f'C{i}',
+                facecolor=f'C{i}',
+                s=6,
+                alpha=1.0
+            )
         ax.xaxis._axinfo['grid'].update(
             color='0.5',
             linestyle='-',
