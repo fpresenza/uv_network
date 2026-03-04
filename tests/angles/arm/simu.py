@@ -408,7 +408,16 @@ rigidity_val = np.empty(3, dtype=np.float64)
 
 # --- define targets --- #
 targets = MovingTargets({
-    2: lambda t: np.array([t, 0.0, 20.0])
+    0: lambda t: np.array([
+        50.0 * (1 - np.cos(0.01 * np.pi * t)),
+        50.0 * (1 - np.cos(0.01 * np.pi * t)),
+        0.0
+    ]),
+    1: lambda t: np.array([
+        50.0 * (1 - np.cos(0.01 * np.pi * t)),
+        50.0 * (1 - np.cos(0.01 * np.pi * t)),
+        50.0 * (1 - np.cos(0.01 * np.pi * t))
+    ])
 })
 
 # initialize logs
