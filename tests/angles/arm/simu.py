@@ -75,7 +75,7 @@ def dsigma_r_f(x):
 
 def dsigma_m_r(x):
     return cosine_activation_derivative(
-        np.array([x]), 0.0, 50.0
+        np.array([x]), 5.0, 100.0
     ).item()
 
 
@@ -169,7 +169,7 @@ def simu_step():
 
     for i in nodes:
         # --- target tracking control --- #
-        k_m_r = 2.0
+        k_m_r = 3.0
         k_m_f = 1.0
         if i in targets.keys():
             rit = targets[i](t) - p[i]
@@ -283,10 +283,10 @@ def simu_step():
         # control_u_r[i] -= kd * vi
 
     # define relative weights
-    k_u_r = 1.0 / evals[7]
-    k_u_m = 20.0
-    k_w_r = 0.1 / evals[7]
-    k_w_m = 2.0
+    k_u_r = 2.0 / evals[7]
+    k_u_m = 80.0
+    k_w_r = 0.2 / evals[7]
+    k_w_m = 8.0
 
     # compose and apply control action
     for i in nodes:
