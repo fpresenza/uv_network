@@ -111,7 +111,7 @@ fig.subplots_adjust(
 )
 
 # obtain euler angles
-euler_angles = np.empty((log_num_steps, 3, 3), dtype=np.float64)
+euler_angles = np.empty((log_num_steps, n, 3), dtype=np.float64)
 for k in range(log_num_steps):
     euler_angles[k] = Rotation.from_matrix(
         orientation[k]
@@ -235,8 +235,7 @@ ax[1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
 ax[1].set_ylabel(r'$\eta_{i \tau_i} \ (\rm m)$', fontsize=10)
 ax[1].set_ylim(-1.0, 1.0)
 ax[1].grid(1)
-print(unit_vector(target_position - position[:, target_id], axis=-1).shape)
-print(orientation[:, target_id, :, 0].swapaxes(0, 1).shape)
+
 ax[1].plot(
     np.sum(
         unit_vector(
