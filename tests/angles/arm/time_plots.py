@@ -278,15 +278,15 @@ ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
 # ax.set_ylim(-1e-4, 1e-4)
 ax.grid(1)
 
-ax.plot(
+ax.semilogy(
     t[1:], rigidity_val[:, 0],
     lw=1.0, ds='steps-post', color='C0', label=r'$\lambda_8$', ls='--'
 )
-ax.plot(
+ax.semilogy(
     t[1:], rigidity_val[:, 1],
     lw=1.0, ds='steps-post', color='C0', label=r'$\widehat{\lambda}_8$'
 )
-ax.plot(
+ax.semilogy(
     t[1:], rigidity_val[:, 2],
     lw=1.0, ds='steps-post', color='C1', label=r'$\widehat{\lambda}_9$'
 )
