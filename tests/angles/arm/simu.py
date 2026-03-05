@@ -363,6 +363,8 @@ print(
 
 np.set_printoptions(suppress=True, precision=10)
 
+# --- world parameters --- #
+
 found_IAR = False
 seed = 0
 while not found_IAR:
