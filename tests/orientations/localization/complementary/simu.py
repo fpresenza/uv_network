@@ -29,10 +29,6 @@ def random_rotation_matrix(max_angle=2 * np.pi):
     return rotation_matrix_from_vector(a * v)
 
 
-def rotation_error(R, Q):
-    return 0.5 * np.trace(np.eye(3) - R.T.dot(Q))
-
-
 # ------------------------------------------------------------------
 # Simulation loop inner functions
 # ------------------------------------------------------------------
@@ -42,12 +38,19 @@ def simu_step():
     """Orientation estimation algorithm"""
     # --- data ---#
     R = R_int.x()
-    # hatR = hatR_int.x()
+    hatR = hatR_int.x()
+    v = np.array([np.cos(t), np.sin(t), 0.5])
 
-    w = np.array([0.0, 0.0, 0.5])
+    # --- measurements --- #
+    vb = R.T.dot(v)
+
+    # --- estimation law --- #
+    hatvb = hatR.T.dot(v)
+
+    w = np.array([0.4, 1.0, -0.2])
     wb = R.T.dot(w)
 
-    ub = wb
+    ub = wb + np.cross(vb, hatvb)
 
     R_int.step_right(t, w)
     hatR_int.step_left(t, ub)
@@ -107,10 +110,10 @@ np.random.seed(0)
 
 # --- world parameters --- #
 t = 0.0
+# initial_error = random_rotation_matrix(max_angle=1.0)
+initial_error = rotation_matrix_from_vector(np.array([0.0, 0.0, 1.0]))
 R_int = EulerIntegratorOrtogonalGroup(random_rotation_matrix())
-hatR_int = EulerIntegratorOrtogonalGroup(
-    R_int.x().dot(random_rotation_matrix(max_angle=0.5))
-)
+hatR_int = EulerIntegratorOrtogonalGroup(initial_error.dot(R_int.x()))
 
 # ------------------------------------------------------------------
 # Simulation
