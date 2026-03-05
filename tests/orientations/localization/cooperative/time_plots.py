@@ -33,7 +33,7 @@ arg = parser.parse_args()
 # ------------------------------------------------------------------
 # Read simulated data
 # ------------------------------------------------------------------
-t = np.loadtxt('data/t.csv', delimiter=',')
+t = np.loadtxt('simu_data/t.csv', delimiter=',')
 arg.end = t[-1] if (arg.end == 0) else arg.end
 
 # slices
@@ -43,7 +43,7 @@ k_e = int(np.argmin(np.abs(t - arg.end))) + 1
 t = t[k_i:k_e:arg.jump]
 
 frames = data.read_csv(
-    'data/frames.csv',
+    'simu_data/frames.csv',
     rows=(k_i, k_e),
     jump=arg.jump,
     dtype=float,
@@ -52,7 +52,7 @@ frames = data.read_csv(
 )
 
 est_frames = data.read_csv(
-    'data/est_frames.csv',
+    'simu_data/est_frames.csv',
     rows=(k_i, k_e),
     jump=arg.jump,
     dtype=float,
@@ -100,7 +100,7 @@ for i in range(n):
             lw=0.8,
             ds='steps-post'
         )
-fig.savefig('time_plot/errors.pdf', bbox_inches='tight')
+fig.savefig('time_plots/errors.pdf', bbox_inches='tight')
 
 
 plt.show()
