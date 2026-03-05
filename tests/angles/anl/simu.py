@@ -86,7 +86,7 @@ def simu_step():
 
         gamma = 2.0
         d_kappa_ell = np.sum((p[kappa] - p[ell])**2)
-        scale_correction = gamma * (d_kappa_ell - measured_distance) * (p[i] - p[ell])
+        scale_correction = gamma*(d_kappa_ell - measured_distance)*(p[kappa] - p[ell])
         u[kappa] -= scale_correction
         u[ell] += scale_correction
 
