@@ -108,7 +108,7 @@ def simu_step():
 
     for i in nodes:
         p_int[i].step(t, R[i].dot(u[i]))
-        R_int[i].step(t, R[i].dot(w[i]))
+        R_int[i].step_left(t, w[i])
 
     control_action[:] = np.hstack([u, w])
 

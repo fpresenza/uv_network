@@ -15,9 +15,15 @@ class EulerIntegratorLieGroup(EulerIntegrator):
     def exp_map(self, h):
         return scipy.linalg.expm(h)
 
-    def step(self, t, u):
+    def step_right(self, t, u):
         dt = t - self.t
         self._x = self.exp_map(dt * self._u).dot(self._x)
+        self.t = t
+        self._u = u
+
+    def step_left(self, t, u):
+        dt = t - self.t
+        self._x = self._x.dot(self.exp_map(dt * self._u))
         self.t = t
         self._u = u
 

@@ -290,16 +290,11 @@ def simu_step():
 
     # compose and apply control action
     for i in nodes:
-        control_u = R[i].dot(
-            k_u_r * control_u_r[i] + k_u_m * control_u_m[i]
-        )
+        control_u = R[i].dot(k_u_r * control_u_r[i] + k_u_m * control_u_m[i])
         p_int[i].step(t, control_u)
 
-        control_w = R[i].dot(
-            k_w_r * control_w_r[i] + k_w_m * control_w_m[i]
-
-        )
-        R_int[i].step(t, control_w)
+        control_w = k_w_r * control_w_r[i] + k_w_m * control_w_m[i]
+        R_int[i].step_left(t, control_w)
 
     p = extract_x(p_int)
     R = extract_x(R_int)
