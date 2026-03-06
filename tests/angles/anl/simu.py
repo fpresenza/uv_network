@@ -75,11 +75,9 @@ def simu_step():
     # correction
     k_s = 4.0
     sc_corr_ab = k_s * (hat_dab - dab) * (hatp[a] - hatp[b])
-    hatu[a] -= sc_corr_ab
-    hatu[b] += sc_corr_ab
-
     sc_corr_ac = k_s * (hat_dac - dac) * (hatp[a] - hatp[c])
-    hatu[a] -= sc_corr_ac
+    hatu[a] -= sc_corr_ab + sc_corr_ac
+    hatu[b] += sc_corr_ab
     hatu[c] += sc_corr_ac
 
     # --- translational correction --- #
