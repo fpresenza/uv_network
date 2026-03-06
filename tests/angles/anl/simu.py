@@ -54,7 +54,7 @@ def simu_step():
     hatp = extract(hatp_int)
     R = extract(R_int)
 
-    u = np.zeros((n, 3), dtype=np.float64)
+    hatu = np.zeros((n, 3), dtype=np.float64)
 
     for i in nodes:
         out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
@@ -88,19 +88,19 @@ def simu_step():
             qijk = Pij.dot(bik) / dij
             qikj = Pik.dot(bij) / dik
 
-            u[i] += eijk * (qijk + qikj)
-            u[j] -= eijk * qijk
-            u[k] -= eijk * qikj
+            hatu[i] += eijk * (qijk + qikj)
+            hatu[j] -= eijk * qijk
+            hatu[k] -= eijk * qikj
 
         gamma = 2.0
         dkl = np.square(p[kappa] - p[ell]).sum()
         hat_dkl = np.square(hatp[kappa] - hatp[ell]).sum()
         scale_correction = gamma * (hat_dkl - dkl) * (hatp[kappa] - hatp[ell])
-        u[kappa] -= scale_correction
-        u[ell] += scale_correction
+        hatu[kappa] -= scale_correction
+        hatu[ell] += scale_correction
 
     for i in nodes:
-        hatp_int[i].step(t, u[i])
+        hatp_int[i].step(t, hatu[i])
 
 
 def log_step():
@@ -168,20 +168,20 @@ edge_set = np.array([
 angle_set = angle_indices(n, edge_set).astype(int)
 # print(angle_set)
 
-position = np.random.uniform(0.0, 1.0, (n, 3))
+init_pos = np.random.uniform(0.0, 1.0, (n, 3))
 
 kappa, ell = edge_set[0]
 
-if not is_angle_rigid(edge_set, position):
+if not is_angle_rigid(edge_set, init_pos):
     raise ValueError('The framework is not IAR.')
 
 p_int = [
-    EulerIntegrator(position[i])
+    EulerIntegrator(init_pos[i])
     for i in nodes
 ]
 
 hatp_int = [
-    EulerIntegrator(np.random.normal(position[i], 0.1, size=3))
+    EulerIntegrator(np.random.normal(init_pos[i], 0.1, size=3))
     for i in nodes
 ]
 
