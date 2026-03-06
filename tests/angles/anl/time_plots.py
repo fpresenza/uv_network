@@ -137,13 +137,7 @@ ax.plot(
     )[:, 1:],
     lw=1.0,
     ds='steps-post'
-    )
-ax.legend(
-    fontsize=10, handlelength=1.5, labelspacing=0.4,
-    borderpad=0.2, handletextpad=0.2, framealpha=1.,
-    ncol=2, columnspacing=1
 )
-
 fig.savefig('time_plots/distance.pdf', bbox_inches='tight')
 
 plt.show()
