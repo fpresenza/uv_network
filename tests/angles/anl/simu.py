@@ -10,7 +10,7 @@ from transformations import unit_vector
 from uvnpy.graphs.core import adjacency_matrix_from_edges
 from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
-from uvnpy.toolkit.geometry import rotation_matrix_from_quaternion
+from uvnpy.toolkit.geometry import rotation_matrix_from_vector
 from uvnpy.angles.local_frame.core import is_angle_rigid
 
 # ------------------------------------------------------------------
@@ -30,10 +30,11 @@ class Logs(object):
     adjacency: list
 
 
-def random_rotation_matrix():
-    q = np.random.normal(size=4)
-    q /= np.sqrt(q.dot(q))
-    return rotation_matrix_from_quaternion(q)
+def random_rotation_matrix(max_angle=2 * np.pi):
+    v = np.random.normal(size=3)
+    v /= np.sqrt(v.dot(v))
+    a = np.random.uniform(0.0, max_angle)
+    return rotation_matrix_from_vector(a * v)
 
 
 def extract_x(integrators):
@@ -190,7 +191,7 @@ simu_length = arg.simu_length * 1e-3    # in seconds
 simu_step_size = arg.simu_step_size * 1e-3    # in seconds
 log_skip = arg.log_skip
 
-np.random.seed(0)
+np.random.seed(1)
 
 print(
     'Simulation Time: begin = {} sec, end = {} sec, step = {} sec'
@@ -224,9 +225,8 @@ p_int = [
     for i in nodes
 ]
 
-est_init_pos = np.random.normal(init_pos, 0.2)
 hatp_int = [
-    EulerIntegrator(est_init_pos[i])
+    EulerIntegrator(np.random.normal(init_pos[i], 0.2))
     for i in nodes
 ]
 
