@@ -23,6 +23,7 @@ np.set_printoptions(suppress=True, precision=10)
 class Logs(object):
     time: list
     position: list
+    orientation: list
     estimated_position: list
     control_u: list
     correction: list
@@ -84,6 +85,24 @@ def simu_step():
     k_t = 2.0
     hatu[a] -= k_t * hatp[a]
 
+    # --- rotational correction --- #
+    # measurements
+    bab = R[a].T.dot(unit_vector(p[b] - p[a]))
+    bac = R[a].T.dot(unit_vector(p[c] - p[a]))
+
+    # estimated values
+    hat_bab = unit_vector(hatp[b] - hatp[a])
+    hat_Pab = np.eye(3) - np.outer(hat_bab, hat_bab)
+
+    hat_bac = unit_vector(hatp[c] - hatp[a])
+    hat_Pac = np.eye(3) - np.outer(hat_bac, hat_bac)
+
+    # correction
+    k_r = 2.0
+    hatu[a] -= k_r * (hat_Pab.dot(bab) / dab + hat_Pac.dot(bac) / dac)
+    hatu[b] += k_r * hat_Pab.dot(bab) / dab
+    hatu[c] += k_r * hat_Pac.dot(bac) / dac
+
     # --- angle correction --- #
     k_a = 1.0
     for i in nodes:
@@ -132,6 +151,7 @@ def log_step():
     """Data log"""
     logs.time.append(t)
     logs.position.append(extract_x(p_int).ravel())
+    logs.orientation.append(extract_x(R_int).ravel())
     logs.estimated_position.append(extract_x(hatp_int).ravel())
     logs.control_u.append(extract_u(p_int).ravel())
     logs.correction.append(extract_u(hatp_int).ravel())
@@ -221,6 +241,7 @@ R_int = [
 logs = Logs(
     time=[t],
     position=[extract_x(p_int).ravel()],
+    orientation=[extract_x(R_int).ravel()],
     estimated_position=[extract_x(hatp_int).ravel()],
     control_u=[extract_u(p_int).ravel()],
     correction=[extract_u(hatp_int).ravel()],
@@ -246,6 +267,7 @@ bar.finish()
 
 np.savetxt('simu_data/t.csv', logs.time, delimiter=',')
 np.savetxt('simu_data/position.csv', logs.position, delimiter=',')
+np.savetxt('simu_data/orientation.csv', logs.orientation, delimiter=',')
 np.savetxt(
     'simu_data/estimated_position.csv', logs.estimated_position, delimiter=','
 )

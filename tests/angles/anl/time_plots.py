@@ -23,6 +23,10 @@ log_num_steps = len(t)
 position = read_csv_numpy('simu_data/position.csv').reshape(log_num_steps, -1, 3)
 n = len(position[0])
 
+orientation = read_csv_numpy(
+    'simu_data/orientation.csv'
+).reshape(log_num_steps, n, 3, 3)
+
 estimated_position = read_csv_numpy(
     'simu_data/estimated_position.csv'
 ).reshape(log_num_steps, -1, 3)
@@ -39,6 +43,12 @@ a = 0
 # ------------------------------------------------------------------
 # Plot positions
 # ------------------------------------------------------------------
+# position reconstruction
+rotated_position = np.matmul(
+    orientation[:, a], estimated_position.swapaxes(1, 2)
+).swapaxes(1, 2)
+reconstructed_position = position[:, np.newaxis, a] + rotated_position
+
 fig, ax = plt.subplots(3, 1, figsize=(9.0, 6.0))
 fig.subplots_adjust(
     bottom=0.215,
@@ -62,11 +72,7 @@ for k, d in enumerate(['x', 'y', 'z']):
 
     ax[k].plot(
         t,
-        (
-            estimated_position[:, :, k] -
-            position[:, :, k] +
-            position[:, a, np.newaxis, k]
-        ),
+        reconstructed_position[:, :, k] - position[:, :, k],
         lw=1.0,
         ds='steps-post'
     )
