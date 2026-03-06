@@ -75,7 +75,7 @@ def simu_step():
     hat_dac2 = np.square(hatp[c] - hatp[a]).sum()
 
     # correction
-    k_s = 4.0
+    k_s = 0.05
     sc_corr_ab = k_s * (hat_dab2 - dab2) * (hatp[a] - hatp[b])
     sc_corr_ac = k_s * (hat_dac2 - dac2) * (hatp[a] - hatp[c])
     delta_hatp[a] -= sc_corr_ab + sc_corr_ac
@@ -101,13 +101,13 @@ def simu_step():
     hat_Pac = np.eye(3) - np.outer(hat_bac, hat_bac)
 
     # correction
-    k_r = 2.0
+    k_r = 100.0
     delta_hatp[a] -= k_r * (hat_Pab.dot(bab) / dab + hat_Pac.dot(bac) / dac)
     delta_hatp[b] += k_r * hat_Pab.dot(bab) / dab
     delta_hatp[c] += k_r * hat_Pac.dot(bac) / dac
 
     # --- angle correction --- #
-    k_a = 1.0
+    k_a = 200.0
     for i in nodes:
         out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
 
@@ -193,7 +193,7 @@ simu_length = arg.simu_length * 1e-3    # in seconds
 simu_step_size = arg.simu_step_size * 1e-3    # in seconds
 log_skip = arg.log_skip
 
-np.random.seed(1)
+np.random.seed(0)
 
 print(
     'Simulation Time: begin = {} sec, end = {} sec, step = {} sec'
