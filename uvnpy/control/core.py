@@ -39,7 +39,7 @@ class CollisionAvoidanceVanishing(object):
     -----
         power: positive number to exponentiate the distance
         dmin: minimum allowed distance
-        dmax: distance at with the controla action vanish
+        dmax: distance at with the control action vanish
 
     """
     def __init__(self, power=2.0, dmin=0.0, dmax=1.0):
