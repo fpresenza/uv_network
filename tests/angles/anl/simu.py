@@ -55,7 +55,7 @@ def complete_angle_set(out_neighbors):
 
 
 def simu_step():
-    """Formation control algorithm"""
+    """Pose estimation algorithm"""
     # --- data ---#
     p = extract_x(p_int)
     hatp = extract_x(hatp_int)
