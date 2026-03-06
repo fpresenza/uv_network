@@ -64,15 +64,23 @@ def simu_step():
     hatu = np.zeros((n, 3), dtype=np.float64)
 
     # --- scale correction --- #
-    # measured values
-    dab = np.square(p[a] - p[b]).sum()
+    # measurements
+    dab = np.square(p[b] - p[a]).sum()
+    dac = np.square(p[c] - p[a]).sum()
+
+    # estimated values
+    hat_dab = np.square(hatp[b] - hatp[a]).sum()
+    hat_dac = np.square(hatp[c] - hatp[a]).sum()
 
     # correction
     k_s = 10.0
-    hat_dab = np.square(hatp[a] - hatp[b]).sum()
-    scale_correction = k_s * (hat_dab - dab) * (hatp[a] - hatp[b])
-    hatu[a] -= scale_correction
-    hatu[b] += scale_correction
+    sc_corr_ab = k_s * (hat_dab - dab) * (hatp[a] - hatp[b])
+    hatu[a] -= sc_corr_ab
+    hatu[b] += sc_corr_ab
+
+    sc_corr_ac = k_s * (hat_dac - dac) * (hatp[a] - hatp[c])
+    hatu[a] -= sc_corr_ac
+    hatu[c] += sc_corr_ac
 
     # --- translational correction --- #
     k_t = 2.0
