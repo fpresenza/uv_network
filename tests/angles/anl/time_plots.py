@@ -34,7 +34,7 @@ correction = read_csv_numpy('simu_data/correction.csv').reshape(log_num_steps, n
 adjacency = read_csv_numpy('simu_data/adjacency.csv').reshape(n, n)
 
 edge_set = edges_from_adjacency(adjacency)
-kappa = edge_set[0, 0]
+a = 0
 
 # ------------------------------------------------------------------
 # Plot positions
@@ -65,7 +65,7 @@ for k, d in enumerate(['x', 'y', 'z']):
         (
             estimated_position[:, :, k] -
             position[:, :, k] +
-            position[:, kappa, np.newaxis, k]
+            position[:, a, np.newaxis, k]
         ),
         lw=1.0,
         ds='steps-post'
@@ -193,7 +193,7 @@ ax.tick_params(
 )
 
 ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-ax.set_ylabel(r'$|\hat{d}_{\kappa \ell} - d_{\kappa \ell}|$', fontsize=10)
+ax.set_ylabel(r'$|\hat{d}_{ij} - d_{ij}|$', fontsize=10)
 ax.grid(1)
 
 ax.plot(

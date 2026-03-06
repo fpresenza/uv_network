@@ -65,18 +65,18 @@ def simu_step():
 
     # --- scale correction --- #
     # measured values
-    dkl = np.square(p[kappa] - p[ell]).sum()
+    dab = np.square(p[a] - p[b]).sum()
 
     # correction
     k_s = 10.0
-    hat_dkl = np.square(hatp[kappa] - hatp[ell]).sum()
-    scale_correction = k_s * (hat_dkl - dkl) * (hatp[kappa] - hatp[ell])
-    hatu[kappa] -= scale_correction
-    hatu[ell] += scale_correction
+    hat_dab = np.square(hatp[a] - hatp[b]).sum()
+    scale_correction = k_s * (hat_dab - dab) * (hatp[a] - hatp[b])
+    hatu[a] -= scale_correction
+    hatu[b] += scale_correction
 
-    # --- translational correcion --- #
+    # --- translational correction --- #
     k_t = 2.0
-    hatu[kappa] -= k_t * hatp[kappa]
+    hatu[a] -= k_t * hatp[a]
 
     # --- angle correction --- #
     for i in nodes:
@@ -187,7 +187,7 @@ edge_set = np.array([
     [0, 3],
     [1, 3]
 ])
-kappa, ell = edge_set[0]
+a, b, c = 0, 1, 2
 
 if not is_angle_rigid(edge_set, init_pos):
     raise ValueError('The framework is not IAR.')
