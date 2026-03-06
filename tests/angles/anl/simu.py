@@ -224,8 +224,9 @@ p_int = [
     for i in nodes
 ]
 
+est_init_pos = np.random.normal(init_pos, 0.2)
 hatp_int = [
-    EulerIntegrator(np.random.normal(init_pos[i], 0.2, size=3))
+    EulerIntegrator(est_init_pos[i])
     for i in nodes
 ]
 
