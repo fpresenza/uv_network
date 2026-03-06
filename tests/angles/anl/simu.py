@@ -25,6 +25,7 @@ class Logs(object):
     position: list
     estimated_position: list
     control_u: list
+    correction: list
     adjacency: list
 
 
@@ -126,6 +127,7 @@ def log_step():
     logs.position.append(extract_x(p_int).ravel())
     logs.estimated_position.append(extract_x(hatp_int).ravel())
     logs.control_u.append(extract_u(p_int).ravel())
+    logs.correction.append(extract_u(hatp_int).ravel())
 
 
 # ------------------------------------------------------------------
@@ -214,6 +216,7 @@ logs = Logs(
     position=[extract_x(p_int).ravel()],
     estimated_position=[extract_x(hatp_int).ravel()],
     control_u=[extract_u(p_int).ravel()],
+    correction=[extract_u(hatp_int).ravel()],
     adjacency=[adjacency_matrix_from_edges(n, edge_set).ravel()]
 )
 
@@ -240,4 +243,5 @@ np.savetxt(
     'simu_data/estimated_position.csv', logs.estimated_position, delimiter=','
 )
 np.savetxt('simu_data/control_u.csv', logs.control_u, delimiter=',')
+np.savetxt('simu_data/correction.csv', logs.correction, delimiter=',')
 np.savetxt('simu_data/adjacency.csv', logs.adjacency, delimiter=',')
