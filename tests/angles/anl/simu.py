@@ -56,6 +56,15 @@ def simu_step():
 
     hatu = np.zeros((n, 3), dtype=np.float64)
 
+    # --- scale correction ---
+    gamma = 10.0
+    dkl = np.square(p[kappa] - p[ell]).sum()
+    hat_dkl = np.square(hatp[kappa] - hatp[ell]).sum()
+    scale_correction = gamma * (hat_dkl - dkl) * (hatp[kappa] - hatp[ell])
+    hatu[kappa] -= scale_correction
+    hatu[ell] += scale_correction
+
+    # --- angle correction --- #
     for i in nodes:
         out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
 
@@ -91,13 +100,6 @@ def simu_step():
             hatu[i] += eijk * (qijk + qikj)
             hatu[j] -= eijk * qijk
             hatu[k] -= eijk * qikj
-
-        gamma = 2.0
-        dkl = np.square(p[kappa] - p[ell]).sum()
-        hat_dkl = np.square(hatp[kappa] - hatp[ell]).sum()
-        scale_correction = gamma * (hat_dkl - dkl) * (hatp[kappa] - hatp[ell])
-        hatu[kappa] -= scale_correction
-        hatu[ell] += scale_correction
 
     for i in nodes:
         hatp_int[i].step(t, hatu[i])
