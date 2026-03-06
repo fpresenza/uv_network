@@ -189,10 +189,12 @@ def simu_step():
         out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
         r = {j: p[j] - p[i] for j in out_neighbors}
 
-        #   # --- measurements --- #
+        #   # --- estimated values --- #
         distances = {
             j: np.sqrt(np.square(r[j]).sum()) for j in out_neighbors
         }
+
+        #   # --- measurements --- #
         bearings = {
             j: R[i].T.dot(r[j] / distances[j]) for j in out_neighbors
         }
@@ -283,9 +285,9 @@ def simu_step():
         # control_u_r[i] -= kd * vi
 
     # define relative weights
-    k_u_r = 2.0 / evals[7]
+    k_u_r = 3.0 / evals[7]
     k_u_m = 80.0
-    k_w_r = 0.2 / evals[7]
+    k_w_r = 0.3 / evals[7]
     k_w_m = 8.0
 
     # compose and apply control action
@@ -359,18 +361,20 @@ print(
 np.set_printoptions(suppress=True, precision=10)
 
 # --- world parameters --- #
-
 found_IAR = False
 seed = 0
 while not found_IAR:
     np.random.seed(seed)
     seed += 1
 
-    # --- world parameters --- #
     t = 0.0
     n = 4
     nodes = np.arange(n)
-    initial_position = np.random.normal(loc=15.0, scale=15.0, size=(n, 3))
+    initial_position = np.random.uniform(
+        [30.0, 0.0, 0.0],
+        [70.0, 30.0, 30.0],
+        size=(n, 3)
+    )
     initial_orientation = aim_to_target(initial_position, initial_position.mean(axis=0))
 
     sensing_range = 30.0
@@ -389,8 +393,7 @@ while not found_IAR:
     # check if graph is complete
     if sensing_graph.adjacency_matrix().sum() == n**2 - n:
         found_IAR = True
-        print(initial_edge_set)
-        print(initial_angle_set)
+        print(seed)
 
 p_int = [
     EulerIntegrator(initial_position[i])
@@ -405,18 +408,21 @@ rigidity_val = np.empty(3, dtype=np.float64)
 
 # --- define targets --- #
 targets = MovingTargets({
-    0: lambda t: np.array([
-        50.0 * (1 - np.cos(0.01 * np.pi * t)),
-        50.0 * (1 - np.cos(0.01 * np.pi * t)),
+    1: lambda t: np.array([
+        50.0 * (1 - np.cos(0.01 * np.pi * t)) + 5.0 * np.sin(0.1 * np.pi * t),
+        50.0 * (1 - np.cos(0.01 * np.pi * t)) - 5.0 * np.sin(0.1 * np.pi * t),
         0.0
     ]),
-    1: lambda t: np.array([
-        50.0 * (1 - np.cos(0.01 * np.pi * t)),
-        50.0 * (1 - np.cos(0.01 * np.pi * t)),
+    2: lambda t: np.array([
+        50.0 * (1 - np.cos(0.01 * np.pi * t)) + 5.0 * np.sin(0.1 * np.pi * t),
+        50.0 * (1 - np.cos(0.01 * np.pi * t)) - 5.0 * np.sin(0.1 * np.pi * t),
         50.0 * (1 - np.cos(0.01 * np.pi * t))
     ])
 })
 
+# ------------------------------------------------------------------
+# Simulation
+# ------------------------------------------------------------------
 # initialize logs
 logs = Logs(
     time=[t],
@@ -430,14 +436,8 @@ logs = Logs(
     target_id=list(targets.keys()),
     target_position=[targets.position(0.0).ravel()]
 )
-# print(logs.position[0])
-# print(logs.orientation[0])
 
-
-# ------------------------------------------------------------------
-# Simulation
-# ------------------------------------------------------------------
-
+# run simulation
 simu_counter = 1
 bar = progressbar.ProgressBar(maxval=simu_length).start()
 
