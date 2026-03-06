@@ -209,6 +209,7 @@ t = 0.0
 n = 4
 nodes = np.arange(n)
 init_pos = np.random.uniform(0.0, 30.0, (n, 3))
+init_ori = np.array([random_rotation_matrix() for _ in nodes])
 edge_set = np.array([
     [0, 1],
     [0, 2],
@@ -227,14 +228,18 @@ p_int = [
     for i in nodes
 ]
 
-hatp_int = [
-    EulerIntegrator(np.random.normal(init_pos[i], 3.0))
+R_int = [
+    EulerIntegratorOrtogonalGroup(init_ori[i])
     for i in nodes
 ]
 
-R_int = [
-    EulerIntegratorOrtogonalGroup(random_rotation_matrix())
-    for _ in nodes
+# refer initial position to body-frame a
+init_pos_a = (init_pos - init_pos[a]).dot(init_ori[a])
+
+est_init_pos = np.random.normal(init_pos_a, 2.0)
+hatp_int = [
+    EulerIntegrator(est_init_pos[i])
+    for i in nodes
 ]
 
 # ------------------------------------------------------------------
