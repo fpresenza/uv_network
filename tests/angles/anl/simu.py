@@ -62,7 +62,7 @@ def simu_step():
     R = extract_x(R_int)
 
     u = np.zeros((n, 3), dtype=np.float64)
-    hatu = np.zeros((n, 3), dtype=np.float64)
+    delta_hatp = np.zeros((n, 3), dtype=np.float64)
 
     # --- scale correction --- #
     # measurements
@@ -77,13 +77,13 @@ def simu_step():
     k_s = 4.0
     sc_corr_ab = k_s * (hat_dab - dab) * (hatp[a] - hatp[b])
     sc_corr_ac = k_s * (hat_dac - dac) * (hatp[a] - hatp[c])
-    hatu[a] -= sc_corr_ab + sc_corr_ac
-    hatu[b] += sc_corr_ab
-    hatu[c] += sc_corr_ac
+    delta_hatp[a] -= sc_corr_ab + sc_corr_ac
+    delta_hatp[b] += sc_corr_ab
+    delta_hatp[c] += sc_corr_ac
 
     # --- translational correction --- #
     k_t = 2.0
-    hatu[a] -= k_t * hatp[a]
+    delta_hatp[a] -= k_t * hatp[a]
 
     # --- rotational correction --- #
     # measurements
@@ -99,9 +99,9 @@ def simu_step():
 
     # correction
     k_r = 2.0
-    hatu[a] -= k_r * (hat_Pab.dot(bab) / dab + hat_Pac.dot(bac) / dac)
-    hatu[b] += k_r * hat_Pab.dot(bab) / dab
-    hatu[c] += k_r * hat_Pac.dot(bac) / dac
+    delta_hatp[a] -= k_r * (hat_Pab.dot(bab) / dab + hat_Pac.dot(bac) / dac)
+    delta_hatp[b] += k_r * hat_Pab.dot(bab) / dab
+    delta_hatp[c] += k_r * hat_Pac.dot(bac) / dac
 
     # --- angle correction --- #
     k_a = 1.0
@@ -137,14 +137,14 @@ def simu_step():
             qijk = Pij.dot(bik) / dij
             qikj = Pik.dot(bij) / dik
 
-            hatu[i] += k_a * eijk * (qijk + qikj)
-            hatu[j] -= k_a * eijk * qijk
-            hatu[k] -= k_a * eijk * qikj
+            delta_hatp[i] += k_a * eijk * (qijk + qikj)
+            delta_hatp[j] -= k_a * eijk * qijk
+            delta_hatp[k] -= k_a * eijk * qikj
 
     for i in nodes:
         # u[i] = i * np.exp(-t) * np.array([np.cos(0.2*t), np.sin(0.2*t), 0.0])
         p_int[i].step(t, u[i])
-        hatp_int[i].step(t, hatu[i])
+        hatp_int[i].step(t, delta_hatp[i])
 
 
 def log_step():
