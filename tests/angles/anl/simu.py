@@ -206,7 +206,7 @@ print(
 t = 0.0
 n = 4
 nodes = np.arange(n)
-init_pos = np.random.uniform(0.0, 1.0, (n, 3))
+init_pos = np.random.uniform(0.0, 30.0, (n, 3))
 edge_set = np.array([
     [0, 1],
     [0, 2],
@@ -226,7 +226,7 @@ p_int = [
 ]
 
 hatp_int = [
-    EulerIntegrator(np.random.normal(init_pos[i], 0.2))
+    EulerIntegrator(np.random.normal(init_pos[i], 3.0))
     for i in nodes
 ]
 
