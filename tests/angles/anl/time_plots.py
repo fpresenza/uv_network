@@ -27,6 +27,8 @@ estimated_position = read_csv_numpy(
     'simu_data/estimated_position.csv'
 ).reshape(log_num_steps, -1, 3)
 
+control_u = read_csv_numpy('simu_data/control_u.csv').reshape(log_num_steps, n, 3)
+
 adjacency = read_csv_numpy('simu_data/adjacency.csv').reshape(n, n)
 
 edge_set = edges_from_adjacency(adjacency)
@@ -65,6 +67,35 @@ for k, d in enumerate(['x', 'y', 'z']):
 fig.savefig('time_plots/estimated_position.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
+# Plot control
+# ------------------------------------------------------------------
+fig, ax = plt.subplots(3, 1, figsize=(9.0, 6.0))
+fig.subplots_adjust(
+    bottom=0.215,
+    top=0.925,
+    wspace=0.33,
+    right=0.975,
+    left=0.18
+)
+
+for k, d in enumerate(['x', 'y', 'z']):
+    ax[k].tick_params(
+        axis='both',       # changes apply to the x-axis
+        which='both',      # both major and minor ticks are affected
+        pad=1,
+        labelsize=9
+    )
+
+    ax[k].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+    ax[k].set_ylabel(fr'$u_{{i, {d}}} \ (\rm m / s^2)$', fontsize=10)
+    # ax[k].set_ylim(-1e-4, 1e-4)
+    ax[k].grid(1)
+
+    ax[k].plot(t, control_u[:, :, k], lw=1.0, ds='steps-post')
+
+fig.savefig('time_plots/control_u.pdf', bbox_inches='tight')
+
+# ------------------------------------------------------------------
 # Plot angle errors
 # ------------------------------------------------------------------
 fig, ax = plt.subplots(figsize=(9.0, 6.0))
@@ -100,7 +131,6 @@ fig.savefig('time_plots/angle_errors.pdf', bbox_inches='tight')
 # ------------------------------------------------------------------
 # Plot distance
 # ------------------------------------------------------------------
-kappa, _ = edge_set[0]
 distance = np.linalg.norm(
     position[:, np.newaxis, :, :] - position[:, :, np.newaxis, :],
     axis=-1
