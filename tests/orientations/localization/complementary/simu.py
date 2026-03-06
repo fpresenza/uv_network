@@ -110,10 +110,8 @@ np.random.seed(0)
 
 # --- world parameters --- #
 t = 0.0
-# initial_error = random_rotation_matrix(max_angle=1.0)
-initial_error = rotation_matrix_from_vector(np.array([0.0, 0.0, 1.0]))
 R_int = EulerIntegratorOrtogonalGroup(random_rotation_matrix())
-hatR_int = EulerIntegratorOrtogonalGroup(initial_error.dot(R_int.x()))
+hatR_int = EulerIntegratorOrtogonalGroup(random_rotation_matrix())
 
 # ------------------------------------------------------------------
 # Simulation
