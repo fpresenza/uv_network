@@ -32,6 +32,7 @@ control_u = read_csv_numpy('simu_data/control_u.csv').reshape(log_num_steps, n, 
 adjacency = read_csv_numpy('simu_data/adjacency.csv').reshape(n, n)
 
 edge_set = edges_from_adjacency(adjacency)
+kappa = edge_set[0, 0]
 
 # ------------------------------------------------------------------
 # Plot positions
@@ -59,7 +60,11 @@ for k, d in enumerate(['x', 'y', 'z']):
 
     ax[k].plot(
         t,
-        np.abs(estimated_position[:, :, k] - position[:, :, k]),
+        (
+            estimated_position[:, :, k] -
+            position[:, :, k] +
+            position[:, kappa, np.newaxis, k]
+        ),
         lw=1.0,
         ds='steps-post'
     )

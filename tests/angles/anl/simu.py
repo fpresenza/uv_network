@@ -73,6 +73,10 @@ def simu_step():
     hatu[kappa] -= scale_correction
     hatu[ell] += scale_correction
 
+    # --- translational correcion --- #
+    k_t = 2.0
+    hatu[kappa] -= k_t * hatp[kappa]
+
     # --- angle correction --- #
     for i in nodes:
         out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
@@ -113,7 +117,7 @@ def simu_step():
     for i in nodes:
         # u[i] = i * np.exp(-t) * np.array([np.cos(0.2*t), np.sin(0.2*t), 0.0])
         p_int[i].step(t, u[i])
-        hatp_int[i].step(t, 2 * hatu[i])
+        hatp_int[i].step(t, hatu[i])
 
 
 def log_step():
