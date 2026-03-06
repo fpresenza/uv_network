@@ -73,7 +73,7 @@ def simu_step():
     hat_dac = np.square(hatp[c] - hatp[a]).sum()
 
     # correction
-    k_s = 10.0
+    k_s = 4.0
     sc_corr_ab = k_s * (hat_dab - dab) * (hatp[a] - hatp[b])
     hatu[a] -= sc_corr_ab
     hatu[b] += sc_corr_ab
@@ -87,6 +87,7 @@ def simu_step():
     hatu[a] -= k_t * hatp[a]
 
     # --- angle correction --- #
+    k_a = 1.0
     for i in nodes:
         out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
 
@@ -119,9 +120,9 @@ def simu_step():
             qijk = Pij.dot(bik) / dij
             qikj = Pik.dot(bij) / dik
 
-            hatu[i] += eijk * (qijk + qikj)
-            hatu[j] -= eijk * qijk
-            hatu[k] -= eijk * qikj
+            hatu[i] += k_a * eijk * (qijk + qikj)
+            hatu[j] -= k_a * eijk * qijk
+            hatu[k] -= k_a * eijk * qikj
 
     for i in nodes:
         # u[i] = i * np.exp(-t) * np.array([np.cos(0.2*t), np.sin(0.2*t), 0.0])
