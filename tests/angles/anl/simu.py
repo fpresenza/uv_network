@@ -9,12 +9,9 @@ from transformations import unit_vector
 
 from uvnpy.graphs.core import adjacency_matrix_from_edges
 from uvnpy.dynamics.core import EulerIntegrator
+from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
 from uvnpy.toolkit.geometry import rotation_matrix_from_quaternion
-from uvnpy.angles.local_frame.core import (
-    angle_indices,
-    angle_function,
-    is_angle_rigid
-)
+from uvnpy.angles.local_frame.core import angle_indices, is_angle_rigid
 
 # ------------------------------------------------------------------
 # Functions, Classes and Configurations
@@ -36,8 +33,8 @@ def random_rotation_matrix():
     return rotation_matrix_from_quaternion(q)
 
 
-def extract(integrators, wrapper=lambda x: x):
-    return [wrapper(p.x()) for p in integrators]
+def extract(integrators):
+    return np.array([p.x() for p in integrators])
 
 
 def complete_angle_set(out_neighbors):
@@ -54,29 +51,40 @@ def simu_step():
     """Formation control algorithm"""
     # --- data ---#
     p = extract(p_int)
+    hatp = extract(hatp_int)
+    R = extract(R_int)
+
     u = np.zeros((n, 3), dtype=np.float64)
 
     for i in nodes:
         out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
 
         # --- estimated values --- #
-        distances = {
-            j: np.sqrt(np.sum((p[j] - p[i])**2)) for j in out_neighbors
+        hat_distances = {
+            j: np.sqrt(np.square(hatp[j] - hatp[i]).sum()) for j in out_neighbors
         }
-        bearings = {j: unit_vector(p[j] - p[i]) for j in out_neighbors}
+        hat_bearings = {j: unit_vector(hatp[j] - hatp[i]) for j in out_neighbors}
 
-        # --- control law --- #
+        # --- measured values --- #
+        bearings = {
+            j: R[i].T.dot(unit_vector(p[j] - p[i])) for j in out_neighbors
+        }
+
+        # --- estimation law --- #
         for j, k in complete_angle_set(out_neighbors):
-            dij = distances[j]
-            bij = bearings[j]
+
+            dij = hat_distances[j]
+            bij = hat_bearings[j]
             Pij = np.eye(3) - np.outer(bij, bij)
 
-            dik = distances[k]
-            bik = bearings[k]
+            dik = hat_distances[k]
+            bik = hat_bearings[k]
             Pik = np.eye(3) - np.outer(bik, bik)
 
-            ijk = np.all(angle_set == (i, j, k), axis=1)
-            eijk = bij.dot(bik) - measured_angles[ijk]
+            # --- measured angles --- #
+            aijk = bearings[j].dot(bearings[k])
+
+            eijk = bij.dot(bik) - aijk
             qijk = Pij.dot(bik) / dij
             qikj = Pik.dot(bij) / dik
 
@@ -85,19 +93,20 @@ def simu_step():
             u[k] -= eijk * qikj
 
         gamma = 2.0
-        d_kappa_ell = np.sum((p[kappa] - p[ell])**2)
-        scale_correction = gamma*(d_kappa_ell - measured_distance)*(p[kappa] - p[ell])
+        dkl = np.square(p[kappa] - p[ell]).sum()
+        hat_dkl = np.square(hatp[kappa] - hatp[ell]).sum()
+        scale_correction = gamma * (hat_dkl - dkl) * (hatp[kappa] - hatp[ell])
         u[kappa] -= scale_correction
         u[ell] += scale_correction
 
     for i in nodes:
-        p_int[i].step(t, u[i])
+        hatp_int[i].step(t, u[i])
 
 
 def log_step():
     """Data log"""
     logs.time.append(t)
-    logs.estimated_position.append(np.hstack(extract(p_int)))
+    logs.estimated_position.append(extract(hatp_int).ravel())
 
 
 # ------------------------------------------------------------------
@@ -160,34 +169,39 @@ angle_set = angle_indices(n, edge_set).astype(int)
 # print(angle_set)
 
 position = np.random.uniform(0.0, 1.0, (n, 3))
-measured_angles = angle_function(edge_set, position)
-# print(measured_angles)
+
 kappa, ell = edge_set[0]
-measured_distance = np.sum((position[kappa] - position[ell])**2)
 
 if not is_angle_rigid(edge_set, position):
     raise ValueError('The framework is not IAR.')
 
 p_int = [
+    EulerIntegrator(position[i])
+    for i in nodes
+]
+
+hatp_int = [
     EulerIntegrator(np.random.normal(position[i], 0.1, size=3))
     for i in nodes
 ]
 
-# initialize logs
-logs = Logs(
-    time=[t],
-    position=[position.ravel()],
-    estimated_position=[np.hstack(extract(p_int))],
-    adjacency=[adjacency_matrix_from_edges(n, edge_set).ravel()]
-)
-# print(logs.position[0])
-# print(logs.orientation[0])
-
+R_int = [
+    EulerIntegratorOrtogonalGroup(random_rotation_matrix())
+    for _ in nodes
+]
 
 # ------------------------------------------------------------------
 # Simulation
 # ------------------------------------------------------------------
+# initialize logs
+logs = Logs(
+    time=[t],
+    position=[extract(p_int).ravel()],
+    estimated_position=[extract(hatp_int).ravel()],
+    adjacency=[adjacency_matrix_from_edges(n, edge_set).ravel()]
+)
 
+# run simulation
 simu_counter = 1
 bar = progressbar.ProgressBar(maxval=simu_length).start()
 
