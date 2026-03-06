@@ -135,7 +135,6 @@ for k, d in enumerate(['yaw', 'pitch', 'roll']):
 
 fig.savefig('time_plots/euler_angles.pdf', bbox_inches='tight')
 
-
 # ------------------------------------------------------------------
 # Plot control
 # ------------------------------------------------------------------
