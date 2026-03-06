@@ -41,7 +41,40 @@ edge_set = edges_from_adjacency(adjacency)
 a = 0
 
 # ------------------------------------------------------------------
-# Plot positions
+# Plot position error
+# ------------------------------------------------------------------
+fig, ax = plt.subplots(3, 1, figsize=(9.0, 6.0))
+fig.subplots_adjust(
+    bottom=0.215,
+    top=0.925,
+    wspace=0.33,
+    right=0.975,
+    left=0.18
+)
+
+for k, d in enumerate(['x', 'y', 'z']):
+    ax[k].tick_params(
+        axis='both',       # changes apply to the x-axis
+        which='both',      # both major and minor ticks are affected
+        pad=1,
+        labelsize=9
+    )
+
+    ax[k].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+    ax[k].set_ylabel(fr'$\hat{{p}}_{{i, {d}}} \ (\rm m)$', fontsize=10)
+    ax[k].grid(1)
+
+    ax[k].plot(
+        t,
+        position[:, :, k],
+        lw=1.0,
+        ds='steps-post'
+    )
+
+fig.savefig('time_plots/position.pdf', bbox_inches='tight')
+
+# ------------------------------------------------------------------
+# Plot position error
 # ------------------------------------------------------------------
 # position reconstruction
 rotated_position = np.matmul(
@@ -77,7 +110,7 @@ for k, d in enumerate(['x', 'y', 'z']):
         ds='steps-post'
     )
 
-fig.savefig('time_plots/estimated_position.pdf', bbox_inches='tight')
+fig.savefig('time_plots/position_error.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot control
@@ -138,7 +171,7 @@ for k, d in enumerate(['x', 'y', 'z']):
 fig.savefig('time_plots/correction.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
-# Plot angle errors
+# Plot angle error
 # ------------------------------------------------------------------
 fig, ax = plt.subplots(figsize=(9.0, 6.0))
 fig.subplots_adjust(
@@ -168,10 +201,10 @@ ax.plot(
     ],
     lw=1.0, ds='steps-post'
 )
-fig.savefig('time_plots/angle_errors.pdf', bbox_inches='tight')
+fig.savefig('time_plots/angle_error.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
-# Plot distance
+# Plot distance error
 # ------------------------------------------------------------------
 distance = np.linalg.norm(
     position[:, np.newaxis, :, :] - position[:, :, np.newaxis, :],
@@ -210,6 +243,6 @@ ax.plot(
     lw=1.0,
     ds='steps-post'
 )
-fig.savefig('time_plots/distance.pdf', bbox_inches='tight')
+fig.savefig('time_plots/distance_error.pdf', bbox_inches='tight')
 
 plt.show()
