@@ -108,6 +108,7 @@ def simu_step():
 def log_step():
     """Data log"""
     logs.time.append(t)
+    logs.position.append(extract(p_int).ravel())
     logs.estimated_position.append(extract(hatp_int).ravel())
 
 
