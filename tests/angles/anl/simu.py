@@ -62,8 +62,18 @@ def simu_step():
     hatp = extract_x(hatp_int)
     R = extract_x(R_int)
 
-    u = np.zeros((n, 3), dtype=np.float64)
     delta_hatp = np.zeros((n, 3), dtype=np.float64)
+
+    ub = np.zeros((n, 3), dtype=np.float64)    # body-frame
+    wb = np.zeros((n, 3), dtype=np.float64)    # body-frame
+
+    # --- Control inputs --- #
+    for i in nodes:
+        fac = i / 10.0
+        ub[i] = (0.5 + fac) * np.array([
+            np.cos((1.5 - fac) * t), np.sin((1.5 - fac) * t), 0.0
+        ])
+        wb[i] += 0.0
 
     # --- scale correction --- #
     # measurements
@@ -145,9 +155,10 @@ def simu_step():
             delta_hatp[k] -= k_a * eijk * qikj
 
     for i in nodes:
-        # u[i] = i * np.exp(-t) * np.array([np.cos(0.2*t), np.sin(0.2*t), 0.0])
-        p_int[i].step(t, u[i])
         hatp_int[i].step(t, delta_hatp[i])
+
+        p_int[i].step(t, R[i].dot(ub[i]))
+        R_int[i].step_left(t, wb[i])
 
 
 def log_step():
@@ -240,6 +251,11 @@ est_init_pos = np.random.normal(init_pos_a, 2.0)
 hatp_int = [
     EulerIntegrator(est_init_pos[i])
     for i in nodes
+]
+
+hatR_int = [
+    EulerIntegratorOrtogonalGroup(random_rotation_matrix())
+    for _ in nodes
 ]
 
 # ------------------------------------------------------------------
