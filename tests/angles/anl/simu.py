@@ -67,17 +67,17 @@ def simu_step():
 
     # --- scale correction --- #
     # measurements
-    dab = np.square(p[b] - p[a]).sum()
-    dac = np.square(p[c] - p[a]).sum()
+    dab2 = np.square(p[b] - p[a]).sum()
+    dac2 = np.square(p[c] - p[a]).sum()
 
     # estimated values
-    hat_dab = np.square(hatp[b] - hatp[a]).sum()
-    hat_dac = np.square(hatp[c] - hatp[a]).sum()
+    hat_dab2 = np.square(hatp[b] - hatp[a]).sum()
+    hat_dac2 = np.square(hatp[c] - hatp[a]).sum()
 
     # correction
     k_s = 4.0
-    sc_corr_ab = k_s * (hat_dab - dab) * (hatp[a] - hatp[b])
-    sc_corr_ac = k_s * (hat_dac - dac) * (hatp[a] - hatp[c])
+    sc_corr_ab = k_s * (hat_dab2 - dab2) * (hatp[a] - hatp[b])
+    sc_corr_ac = k_s * (hat_dac2 - dac2) * (hatp[a] - hatp[c])
     delta_hatp[a] -= sc_corr_ab + sc_corr_ac
     delta_hatp[b] += sc_corr_ab
     delta_hatp[c] += sc_corr_ac
@@ -92,9 +92,11 @@ def simu_step():
     bac = R[a].T.dot(unit_vector(p[c] - p[a]))
 
     # estimated values
+    dab = np.sqrt(dab2)
     hat_bab = unit_vector(hatp[b] - hatp[a])
     hat_Pab = np.eye(3) - np.outer(hat_bab, hat_bab)
 
+    dac = np.sqrt(dac2)
     hat_bac = unit_vector(hatp[c] - hatp[a])
     hat_Pac = np.eye(3) - np.outer(hat_bac, hat_bac)
 
