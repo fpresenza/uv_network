@@ -11,7 +11,7 @@ from uvnpy.graphs.core import adjacency_matrix_from_edges
 from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
 from uvnpy.toolkit.geometry import rotation_matrix_from_quaternion
-from uvnpy.angles.local_frame.core import angle_indices, is_angle_rigid
+from uvnpy.angles.local_frame.core import is_angle_rigid
 
 # ------------------------------------------------------------------
 # Functions, Classes and Configurations
@@ -24,6 +24,7 @@ class Logs(object):
     time: list
     position: list
     estimated_position: list
+    control_u: list
     adjacency: list
 
 
@@ -33,8 +34,12 @@ def random_rotation_matrix():
     return rotation_matrix_from_quaternion(q)
 
 
-def extract(integrators):
+def extract_x(integrators):
     return np.array([p.x() for p in integrators])
+
+
+def extract_u(integrators):
+    return np.array([p.u() for p in integrators])
 
 
 def complete_angle_set(out_neighbors):
@@ -50,21 +55,26 @@ def complete_angle_set(out_neighbors):
 def simu_step():
     """Formation control algorithm"""
     # --- data ---#
-    p = extract(p_int)
-    hatp = extract(hatp_int)
-    R = extract(R_int)
+    p = extract_x(p_int)
+    hatp = extract_x(hatp_int)
+    R = extract_x(R_int)
 
+    u = np.zeros((n, 3), dtype=np.float64)
     hatu = np.zeros((n, 3), dtype=np.float64)
 
-    # --- scale correction ---
-    gamma = 10.0
+    # --- scale correction --- #
+    # measured values
     dkl = np.square(p[kappa] - p[ell]).sum()
+
+    # correction
+    k_s = 20.0
     hat_dkl = np.square(hatp[kappa] - hatp[ell]).sum()
-    scale_correction = gamma * (hat_dkl - dkl) * (hatp[kappa] - hatp[ell])
+    scale_correction = k_s * (hat_dkl - dkl) * (hatp[kappa] - hatp[ell])
     hatu[kappa] -= scale_correction
     hatu[ell] += scale_correction
 
     # --- angle correction --- #
+    k_a = 2.0
     for i in nodes:
         out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
 
@@ -90,26 +100,31 @@ def simu_step():
             bik = hat_bearings[k]
             Pik = np.eye(3) - np.outer(bik, bik)
 
-            # --- measured angles --- #
+            # measured angles
             aijk = bearings[j].dot(bearings[k])
 
             eijk = bij.dot(bik) - aijk
             qijk = Pij.dot(bik) / dij
             qikj = Pik.dot(bij) / dik
 
+            eijk *= k_a
+
             hatu[i] += eijk * (qijk + qikj)
             hatu[j] -= eijk * qijk
             hatu[k] -= eijk * qikj
 
     for i in nodes:
+        # u[i] = i * np.exp(-t) * np.array([np.cos(0.2*t), np.sin(0.2*t), 0.0])
+        p_int[i].step(t, u[i])
         hatp_int[i].step(t, hatu[i])
 
 
 def log_step():
     """Data log"""
     logs.time.append(t)
-    logs.position.append(extract(p_int).ravel())
-    logs.estimated_position.append(extract(hatp_int).ravel())
+    logs.position.append(extract_x(p_int).ravel())
+    logs.estimated_position.append(extract_x(hatp_int).ravel())
+    logs.control_u.append(extract_u(p_int).ravel())
 
 
 # ------------------------------------------------------------------
@@ -160,6 +175,7 @@ print(
 t = 0.0
 n = 4
 nodes = np.arange(n)
+init_pos = np.random.uniform(0.0, 1.0, (n, 3))
 edge_set = np.array([
     [0, 1],
     [0, 2],
@@ -168,11 +184,6 @@ edge_set = np.array([
     [0, 3],
     [1, 3]
 ])
-angle_set = angle_indices(n, edge_set).astype(int)
-# print(angle_set)
-
-init_pos = np.random.uniform(0.0, 1.0, (n, 3))
-
 kappa, ell = edge_set[0]
 
 if not is_angle_rigid(edge_set, init_pos):
@@ -184,7 +195,7 @@ p_int = [
 ]
 
 hatp_int = [
-    EulerIntegrator(np.random.normal(init_pos[i], 0.1, size=3))
+    EulerIntegrator(np.random.normal(init_pos[i], 0.2, size=3))
     for i in nodes
 ]
 
@@ -199,8 +210,9 @@ R_int = [
 # initialize logs
 logs = Logs(
     time=[t],
-    position=[extract(p_int).ravel()],
-    estimated_position=[extract(hatp_int).ravel()],
+    position=[extract_x(p_int).ravel()],
+    estimated_position=[extract_x(hatp_int).ravel()],
+    control_u=[extract_u(p_int).ravel()],
     adjacency=[adjacency_matrix_from_edges(n, edge_set).ravel()]
 )
 
@@ -209,7 +221,7 @@ simu_counter = 1
 bar = progressbar.ProgressBar(maxval=simu_length).start()
 
 while simu_counter < simu_num_steps:
-    t += simu_step_size
+    t = np.round(t + simu_step_size, 3)
 
     simu_step()
     if (simu_counter % log_skip == 0):
@@ -217,7 +229,7 @@ while simu_counter < simu_num_steps:
 
     simu_counter += 1
 
-    bar.update(np.round(t, 3))
+    bar.update(t)
 
 bar.finish()
 
@@ -226,4 +238,5 @@ np.savetxt('simu_data/position.csv', logs.position, delimiter=',')
 np.savetxt(
     'simu_data/estimated_position.csv', logs.estimated_position, delimiter=','
 )
+np.savetxt('simu_data/control_u.csv', logs.control_u, delimiter=',')
 np.savetxt('simu_data/adjacency.csv', logs.adjacency, delimiter=',')
