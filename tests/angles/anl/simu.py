@@ -67,14 +67,13 @@ def simu_step():
     dkl = np.square(p[kappa] - p[ell]).sum()
 
     # correction
-    k_s = 20.0
+    k_s = 10.0
     hat_dkl = np.square(hatp[kappa] - hatp[ell]).sum()
     scale_correction = k_s * (hat_dkl - dkl) * (hatp[kappa] - hatp[ell])
     hatu[kappa] -= scale_correction
     hatu[ell] += scale_correction
 
     # --- angle correction --- #
-    k_a = 2.0
     for i in nodes:
         out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
 
@@ -107,8 +106,6 @@ def simu_step():
             qijk = Pij.dot(bik) / dij
             qikj = Pik.dot(bij) / dik
 
-            eijk *= k_a
-
             hatu[i] += eijk * (qijk + qikj)
             hatu[j] -= eijk * qijk
             hatu[k] -= eijk * qikj
@@ -116,7 +113,7 @@ def simu_step():
     for i in nodes:
         # u[i] = i * np.exp(-t) * np.array([np.cos(0.2*t), np.sin(0.2*t), 0.0])
         p_int[i].step(t, u[i])
-        hatp_int[i].step(t, hatu[i])
+        hatp_int[i].step(t, 2 * hatu[i])
 
 
 def log_step():
