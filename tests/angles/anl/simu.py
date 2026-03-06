@@ -97,7 +97,7 @@ def simu_step():
         }
         hat_bearings = {j: unit_vector(hatp[j] - hatp[i]) for j in out_neighbors}
 
-        # --- measured values --- #
+        # --- measurements --- #
         bearings = {
             j: R[i].T.dot(unit_vector(p[j] - p[i])) for j in out_neighbors
         }
