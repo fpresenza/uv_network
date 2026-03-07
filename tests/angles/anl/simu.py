@@ -25,6 +25,7 @@ class Logs(object):
     position: list
     orientation: list
     estimated_position: list
+    estimated_orientation: list
     control_u: list
     correction: list
     adjacency: list
@@ -60,7 +61,9 @@ def simu_step():
     # --- data ---#
     p = extract_x(p_int)
     hatp = extract_x(hatp_int)
+    dot_hatp = extract_u(hatp_int)
     R = extract_x(R_int)
+    hatQ = extract_x(hatQ_int)
 
     delta_hatp = np.zeros((n, 3), dtype=np.float64)
 
@@ -69,10 +72,13 @@ def simu_step():
 
     # --- Control inputs --- #
     for i in nodes:
-        fac = i / 10.0
-        ub[i] = (0.5 + fac) * np.array([
-            np.cos((1.5 - fac) * t), np.sin((1.5 - fac) * t), 0.0
+        ub[i] = 0.1 * np.array([
+            np.sin(0.1 * t),
+            # np.cos(0.1 * t)
+            np.sin(0.1 * t),
+            0.0
         ])
+        # ub[i] = np.array([0.1, 0.0, 0.0])
         wb[i] += 0.0
 
     # --- scale correction --- #
@@ -154,6 +160,14 @@ def simu_step():
             delta_hatp[j] -= k_a * eijk * qijk
             delta_hatp[k] -= k_a * eijk * qikj
 
+    # --- orientation correction --- #
+    k_o = 3.0
+    for i in nodes:
+        v = np.cross(wb[a], hatp[i]) + dot_hatp[i] + ub[a]
+        hatvb = hatQ[i].T.dot(v)
+        vb = ub[i]
+        hatQ_int[i].step_left(t, wb[i] + k_o * np.cross(vb, hatvb))
+
     for i in nodes:
         hatp_int[i].step(t, delta_hatp[i])
 
@@ -167,6 +181,7 @@ def log_step():
     logs.position.append(extract_x(p_int).ravel())
     logs.orientation.append(extract_x(R_int).ravel())
     logs.estimated_position.append(extract_x(hatp_int).ravel())
+    logs.estimated_orientation.append(extract_x(hatQ_int).ravel())
     logs.control_u.append(extract_u(p_int).ravel())
     logs.correction.append(extract_u(hatp_int).ravel())
 
@@ -244,7 +259,7 @@ R_int = [
     for i in nodes
 ]
 
-# refer initial position to body-frame a
+# refer initial position to body frame a
 init_pos_a = (init_pos - init_pos[a]).dot(init_ori[a])
 
 est_init_pos = np.random.normal(init_pos_a, 2.0)
@@ -253,10 +268,19 @@ hatp_int = [
     for i in nodes
 ]
 
-hatR_int = [
-    EulerIntegratorOrtogonalGroup(random_rotation_matrix())
-    for _ in nodes
+# refer initial orientation to body frame a
+init_ori_a = np.matmul(init_ori[a].T, init_ori)
+
+est_init_ori = [np.matmul(random_rotation_matrix(0.5), init_ori_a[i]) for i in nodes]
+hatQ_int = [
+    EulerIntegratorOrtogonalGroup(est_init_ori[i])
+    for i in nodes
 ]
+
+# hatQ_int = [
+#     EulerIntegratorOrtogonalGroup(random_rotation_matrix())
+#     for i in nodes
+# ]
 
 # ------------------------------------------------------------------
 # Simulation
@@ -267,6 +291,7 @@ logs = Logs(
     position=[extract_x(p_int).ravel()],
     orientation=[extract_x(R_int).ravel()],
     estimated_position=[extract_x(hatp_int).ravel()],
+    estimated_orientation=[extract_x(hatQ_int).ravel()],
     control_u=[extract_u(p_int).ravel()],
     correction=[extract_u(hatp_int).ravel()],
     adjacency=[adjacency_matrix_from_edges(n, edge_set).ravel()]
@@ -294,6 +319,9 @@ np.savetxt('simu_data/position.csv', logs.position, delimiter=',')
 np.savetxt('simu_data/orientation.csv', logs.orientation, delimiter=',')
 np.savetxt(
     'simu_data/estimated_position.csv', logs.estimated_position, delimiter=','
+)
+np.savetxt(
+    'simu_data/estimated_orientation.csv', logs.estimated_orientation, delimiter=','
 )
 np.savetxt('simu_data/control_u.csv', logs.control_u, delimiter=',')
 np.savetxt('simu_data/correction.csv', logs.correction, delimiter=',')
