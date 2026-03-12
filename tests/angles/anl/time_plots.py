@@ -105,7 +105,7 @@ for k, d in enumerate(['x', 'y', 'z']):
     )
 
     ax[k].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-    ax[k].set_ylabel(fr'$\hat{{p}}_{{i, {d}}} \ (\rm m)$', fontsize=10)
+    ax[k].set_ylabel(fr'$\hat{{p}}_{{i, {d}}} - p_{{i, {d}}} \ (\rm m)$', fontsize=10)
     ax[k].grid(1)
 
     ax[k].plot(
@@ -181,7 +181,7 @@ for k, d in enumerate(['x', 'y', 'z']):
 
     ax[k].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
     ax[k].set_ylabel(fr'$u_{{i, {d}}} \ (\rm m / s)$', fontsize=10)
-    # ax[k].set_ylim(-1e-4, 1e-4)
+    ax[k].set_ylim(-2.0, 2.0)
     ax[k].grid(1)
 
     ax[k].plot(t, control_u[:, :, k], lw=1.0, ds='steps-post')
