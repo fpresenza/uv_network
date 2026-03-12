@@ -5,6 +5,7 @@ import argparse
 from dataclasses import dataclass
 import progressbar
 import numpy as np
+from transformations import unit_vector
 
 from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
 from uvnpy.toolkit.geometry import rotation_matrix_from_vector
@@ -42,15 +43,16 @@ def simu_step():
     v = np.array([np.cos(t), np.sin(t), 0.5])
 
     # --- measurements --- #
-    vb = R.T.dot(v)
+    vb = unit_vector(R.T.dot(v))
 
     # --- estimation law --- #
-    hatvb = hatR.T.dot(v)
+    hatvb = unit_vector(hatR.T.dot(v))
 
     w = np.array([0.4, 1.0, -0.2])
     wb = R.T.dot(w)
 
-    ub = wb + np.cross(vb, hatvb)
+    ko = 1
+    ub = wb + ko * np.cross(vb, hatvb)
 
     R_int.step_right(t, w)
     hatR_int.step_left(t, ub)
