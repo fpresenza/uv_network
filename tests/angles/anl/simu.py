@@ -66,20 +66,15 @@ def simu_step():
     hatQ = extract_x(hatQ_int)
 
     delta_hatp = np.zeros((n, 3), dtype=np.float64)
+    delta_hatQ = np.zeros((n, 3), dtype=np.float64)
 
     ub = np.zeros((n, 3), dtype=np.float64)    # body-frame
     wb = np.zeros((n, 3), dtype=np.float64)    # body-frame
 
     # --- Control inputs --- #
     for i in nodes:
-        ub[i] = 0.1 * np.array([
-            np.sin(0.1 * t),
-            # np.cos(0.1 * t)
-            np.sin(0.1 * t),
-            0.0
-        ])
-        # ub[i] = np.array([0.1, 0.0, 0.0])
-        wb[i] += 0.0
+        ub[i] = R[i].T.dot([np.cos(1.0*t), np.sin(1.0*t), 0.5])
+        wb[i] = [0, 0, 0.5]
 
     # --- scale correction --- #
     # measurements
@@ -122,23 +117,34 @@ def simu_step():
     delta_hatp[b] += k_r * hat_Pab.dot(bab) / dab
     delta_hatp[c] += k_r * hat_Pac.dot(bac) / dac
 
-    # --- angle correction --- #
+    k_o = 3.0
     k_a = 200.0
     for i in nodes:
+        # --- feed forward prediction step --- #
+        delta_hatp[i] += hatQ[i].dot(ub[i]) - ub[a] - np.cross(wb[a], hatp[i])
+        delta_hatQ[i] += wb[i] - hatQ[i].T.dot(wb[a])
+
+        # --- orientation correction --- #
+        v = np.cross(wb[a], hatp[i]) + dot_hatp[i] + ub[a]
+        hatvb = unit_vector(hatQ[i].T.dot(v))
+        vb = unit_vector(ub[i])
+        delta_hatQ[i] += k_o * np.cross(vb, hatvb)
+
+        # --- angle correction --- #
         out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
 
-        # --- estimated values --- #
+        # estimated values
         hat_distances = {
             j: np.sqrt(np.square(hatp[j] - hatp[i]).sum()) for j in out_neighbors
         }
         hat_bearings = {j: unit_vector(hatp[j] - hatp[i]) for j in out_neighbors}
 
-        # --- measurements --- #
+        # measurements
         bearings = {
             j: R[i].T.dot(unit_vector(p[j] - p[i])) for j in out_neighbors
         }
 
-        # --- estimation law --- #
+        # correction
         for j, k in complete_angle_set(out_neighbors):
 
             dij = hat_distances[j]
@@ -160,19 +166,12 @@ def simu_step():
             delta_hatp[j] -= k_a * eijk * qijk
             delta_hatp[k] -= k_a * eijk * qikj
 
-    # --- orientation correction --- #
-    k_o = 3.0
     for i in nodes:
-        v = np.cross(wb[a], hatp[i]) + dot_hatp[i] + ub[a]
-        hatvb = hatQ[i].T.dot(v)
-        vb = ub[i]
-        hatQ_int[i].step_left(t, wb[i] + k_o * np.cross(vb, hatvb))
-
-    for i in nodes:
-        hatp_int[i].step(t, delta_hatp[i])
-
         p_int[i].step(t, R[i].dot(ub[i]))
         R_int[i].step_left(t, wb[i])
+
+        hatp_int[i].step(t, delta_hatp[i])
+        hatQ_int[i].step_left(t,  delta_hatQ[i])
 
 
 def log_step():
