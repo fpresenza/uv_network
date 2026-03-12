@@ -44,8 +44,14 @@ adjacency = read_csv_numpy('simu_data/adjacency.csv').reshape(n, n)
 edge_set = edges_from_adjacency(adjacency)
 a = 0
 
+# position reconstruction
+rotated_position = np.matmul(
+    orientation[:, a], estimated_position.swapaxes(1, 2)
+).swapaxes(1, 2)
+reconstructed_position = position[:, np.newaxis, a] + rotated_position
+
 # ------------------------------------------------------------------
-# Plot position error
+# Plot position
 # ------------------------------------------------------------------
 fig, ax = plt.subplots(3, 1, figsize=(9.0, 6.0))
 fig.subplots_adjust(
@@ -65,15 +71,23 @@ for k, d in enumerate(['x', 'y', 'z']):
     )
 
     ax[k].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-    ax[k].set_ylabel(fr'$\hat{{p}}_{{i, {d}}} \ (\rm m)$', fontsize=10)
+    ax[k].set_ylabel(fr'$p_{{i, {d}}}, \hat{{p}}_{{i, {d}}} \ (\rm m)$', fontsize=10)
     ax[k].grid(1)
-    ax[k].set_ylim(-10.0, 50.0)
+    # ax[k].set_ylim(-10.0, 50.0)
 
     ax[k].plot(
         t,
         position[:, :, k],
         lw=1.0,
-        ds='steps-post'
+        ds='steps-post',
+    )
+    ax[k].plot(
+        t,
+        reconstructed_position[:, :, k],
+        lw=0.8,
+        color='0.5',
+        ls='--',
+        ds='steps-post',
     )
 
 fig.savefig('time_plots/position.pdf', bbox_inches='tight')
@@ -81,12 +95,6 @@ fig.savefig('time_plots/position.pdf', bbox_inches='tight')
 # ------------------------------------------------------------------
 # Plot position error
 # ------------------------------------------------------------------
-# position reconstruction
-rotated_position = np.matmul(
-    orientation[:, a], estimated_position.swapaxes(1, 2)
-).swapaxes(1, 2)
-reconstructed_position = position[:, np.newaxis, a] + rotated_position
-
 fig, ax = plt.subplots(3, 1, figsize=(9.0, 6.0))
 fig.subplots_adjust(
     bottom=0.215,
