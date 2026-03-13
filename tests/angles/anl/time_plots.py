@@ -157,7 +157,10 @@ ax.tick_params(
 )
 
 ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-ax.set_ylabel(r'$\hat{Q}_{i} \ (\rm m)$', fontsize=10)
+ax.set_ylabel(
+    r'$\frac{1}{2} \  \mathrm{tr}\left(I - Q_i^\top \hat{Q}_{i}\right) \ (\rm m)$',
+    fontsize=10
+)
 ax.grid(1)
 
 ax.plot(
