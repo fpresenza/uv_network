@@ -29,6 +29,9 @@ class EulerIntegratorLieGroup(EulerIntegrator):
 
 
 class EulerIntegratorOrtogonalGroup(EulerIntegratorLieGroup):
+    def __init__(self, x, t=0.0):
+        self.initialize(x, t, 3)
+
     def exp_map(self, h):
         if np.allclose(h, 0.0):
             dx = np.eye(3)

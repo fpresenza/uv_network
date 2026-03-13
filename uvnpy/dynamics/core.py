@@ -8,14 +8,20 @@ import numpy as np
 
 
 class EulerIntegrator(object):
-    def __init__(self, x, t=0.0):
-        self.initialize(x, t)
+    def __init__(self, x, t=0.0, dim=None):
+        self.initialize(x, t, dim)
 
-    def initialize(self, x, t=0.0, u=None):
+    def initialize(self, x, t=0.0, dim=None, u=None):
         self.t = t
         self._x = np.copy(x)
+        if dim is None:
+            self.dim = x.shape
+        else:
+            self.dim = dim
         if u is None:
-            self._u = np.zeros_like(x)
+            self._u = np.zeros(self.dim)
+        else:
+            self._u = np.copy(u)
 
     def x(self):
         return self._x.copy()
