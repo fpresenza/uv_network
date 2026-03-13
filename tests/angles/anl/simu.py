@@ -75,8 +75,8 @@ def simu_step():
 
     # --- Control inputs --- #
     for i in nodes:
-        ub[i] = R[i].T.dot([np.cos(1.0*t), np.sin(1.0*t), 0.5])
-        wb[i] = [0, 0, 0.5]
+        ub[i] = [np.cos(1.0*t), np.sin(1.0*t), 0.0]
+        wb[i] = [i / 10.0, 0, 0.5 - i / 10.0]
 
     # --- scale correction --- #
     # measurements
