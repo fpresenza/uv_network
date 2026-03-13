@@ -27,7 +27,9 @@ class Logs(object):
     estimated_position: list
     estimated_orientation: list
     control_u: list
-    correction: list
+    control_w: list
+    correction_u: list
+    correction_w: list
     adjacency: list
 
 
@@ -182,7 +184,9 @@ def log_step():
     logs.estimated_position.append(extract_x(hatp_int).ravel())
     logs.estimated_orientation.append(extract_x(hatQ_int).ravel())
     logs.control_u.append(extract_u(p_int).ravel())
-    logs.correction.append(extract_u(hatp_int).ravel())
+    logs.control_w.append(extract_u(R_int).ravel())
+    logs.correction_u.append(extract_u(hatp_int).ravel())
+    logs.correction_w.append(extract_u(hatQ_int).ravel())
 
 
 # ------------------------------------------------------------------
@@ -287,7 +291,9 @@ logs = Logs(
     estimated_position=[extract_x(hatp_int).ravel()],
     estimated_orientation=[extract_x(hatQ_int).ravel()],
     control_u=[extract_u(p_int).ravel()],
-    correction=[extract_u(hatp_int).ravel()],
+    control_w=[extract_u(p_int).ravel()],
+    correction_u=[extract_u(hatp_int).ravel()],
+    correction_w=[extract_u(hatQ_int).ravel()],
     adjacency=[adjacency_matrix_from_edges(n, edge_set).ravel()]
 )
 
@@ -318,5 +324,7 @@ np.savetxt(
     'simu_data/estimated_orientation.csv', logs.estimated_orientation, delimiter=','
 )
 np.savetxt('simu_data/control_u.csv', logs.control_u, delimiter=',')
-np.savetxt('simu_data/correction.csv', logs.correction, delimiter=',')
+np.savetxt('simu_data/control_w.csv', logs.control_w, delimiter=',')
+np.savetxt('simu_data/correction_u.csv', logs.correction_u, delimiter=',')
+np.savetxt('simu_data/correction_w.csv', logs.correction_w, delimiter=',')
 np.savetxt('simu_data/adjacency.csv', logs.adjacency, delimiter=',')

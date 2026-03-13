@@ -36,8 +36,10 @@ estimated_orientation = read_csv_numpy(
 ).reshape(log_num_steps, n, 3, 3)
 
 control_u = read_csv_numpy('simu_data/control_u.csv').reshape(log_num_steps, n, 3)
+control_w = read_csv_numpy('simu_data/control_w.csv').reshape(log_num_steps, n, 3)
 
-correction = read_csv_numpy('simu_data/correction.csv').reshape(log_num_steps, n, 3)
+correction_u = read_csv_numpy('simu_data/correction_u.csv').reshape(log_num_steps, n, 3)
+correction_w = read_csv_numpy('simu_data/correction_w.csv').reshape(log_num_steps, n, 3)
 
 adjacency = read_csv_numpy('simu_data/adjacency.csv').reshape(n, n)
 
@@ -170,7 +172,7 @@ fig.savefig('time_plots/orientation_error.pdf', bbox_inches='tight')
 # ------------------------------------------------------------------
 # Plot control
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(3, 1, figsize=(9.0, 6.0))
+fig, ax = plt.subplots(3, 2, figsize=(18.0, 6.0))
 fig.subplots_adjust(
     bottom=0.215,
     top=0.925,
@@ -180,26 +182,40 @@ fig.subplots_adjust(
 )
 
 for k, d in enumerate(['x', 'y', 'z']):
-    ax[k].tick_params(
+    ax[k, 0].tick_params(
         axis='both',       # changes apply to the x-axis
         which='both',      # both major and minor ticks are affected
         pad=1,
         labelsize=9
     )
 
-    ax[k].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-    ax[k].set_ylabel(fr'$u_{{i, {d}}} \ (\rm m / s)$', fontsize=10)
-    ax[k].set_ylim(-2.0, 2.0)
-    ax[k].grid(1)
+    ax[k, 0].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+    ax[k, 0].set_ylabel(fr'$u_{{i, {d}}} \ (\rm m / s)$', fontsize=10)
+    ax[k, 0].set_ylim(-2.0, 2.0)
+    ax[k, 0].grid(1)
 
-    ax[k].plot(t, control_u[:, :, k], lw=1.0, ds='steps-post')
+    ax[k, 0].plot(t, control_u[:, :, k], lw=1.0, ds='steps-post')
 
-fig.savefig('time_plots/control_u.pdf', bbox_inches='tight')
+    ax[k, 1].tick_params(
+        axis='both',       # changes apply to the x-axis
+        which='both',      # both major and minor ticks are affected
+        pad=1,
+        labelsize=9
+    )
+
+    ax[k, 1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+    ax[k, 1].set_ylabel(fr'$w^i_{{i, {d}}} \ (\rm m / s)$', fontsize=10)
+    ax[k, 1].set_ylim(-2.0, 2.0)
+    ax[k, 1].grid(1)
+
+    ax[k, 1].plot(t, control_w[:, :, k], lw=1.0, ds='steps-post')
+
+fig.savefig('time_plots/control.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot correction
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(3, 1, figsize=(9.0, 6.0))
+fig, ax = plt.subplots(3, 2, figsize=(18.0, 6.0))
 fig.subplots_adjust(
     bottom=0.215,
     top=0.925,
@@ -209,19 +225,34 @@ fig.subplots_adjust(
 )
 
 for k, d in enumerate(['x', 'y', 'z']):
-    ax[k].tick_params(
+    ax[k, 0].tick_params(
         axis='both',       # changes apply to the x-axis
         which='both',      # both major and minor ticks are affected
         pad=1,
         labelsize=9
     )
 
-    ax[k].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-    ax[k].set_ylabel(fr'$\delta \hat{{p}}_{{i, {d}}} \ (\rm m / s)$', fontsize=10)
-    # ax[k].set_ylim(-1e-4, 1e-4)
-    ax[k].grid(1)
+    ax[k, 0].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+    ax[k, 0].set_ylabel(fr'$\delta \hat{{p}}_{{i, {d}}} \ (\rm m / s)$', fontsize=10)
+    # ax[k, 0].set_ylim(-1e-4, 1e-4)
+    ax[k, 0].grid(1)
 
-    ax[k].plot(t, correction[:, :, k], lw=1.0, ds='steps-post')
+    ax[k, 0].plot(t, correction_u[:, :, k], lw=1.0, ds='steps-post')
+
+    ax[k, 1].tick_params(
+        axis='both',       # changes apply to the x-axis
+        which='both',      # both major and minor ticks are affected
+        pad=1,
+        labelsize=9
+    )
+
+    ax[k, 1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+    ax[k, 1].set_ylabel(fr'$\delta \hat{{Q}}_{{i, {d}}} \ (\rm m / s)$', fontsize=10)
+    # ax[k, 1].set_ylim(-1e-4, 1e-4)
+    ax[k, 1].grid(1)
+
+    ax[k, 1].plot(t, correction_w[:, :, k], lw=1.0, ds='steps-post')
+
 
 fig.savefig('time_plots/correction.pdf', bbox_inches='tight')
 
