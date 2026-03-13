@@ -276,11 +276,6 @@ hatQ_int = [
     for i in nodes
 ]
 
-# hatQ_int = [
-#     EulerIntegratorOrtogonalGroup(random_rotation_matrix())
-#     for i in nodes
-# ]
-
 # ------------------------------------------------------------------
 # Simulation
 # ------------------------------------------------------------------
