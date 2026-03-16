@@ -77,7 +77,7 @@ def simu_step():
     qc = R[a].T.dot(p[c] - p[a])
 
     # correction
-    k_s = 5.0
+    k_s = 10.0
     neg_grad[a] -= k_s * hatq[a]
     neg_grad[b] -= k_s * (hatq[b] - qb)
     neg_grad[c] -= k_s * (hatq[c] - qc)
@@ -120,10 +120,10 @@ def simu_step():
             neg_grad[j] -= k_a * eijk * qijk
             neg_grad[k] -= k_a * eijk * qikj
 
-    k_o = 3.0
+    k_o = 2.0
     for i in nodes:
         # --- Control inputs --- #
-        ub[i] = [np.cos(1.0*t), np.sin(1.0*t), 0.0]
+        ub[i] = [np.cos(1.0*t), np.sin(1.0*t), np.sin(0.2*t)]
         wb[i] = [i / 10.0, 0, 0.5 - i / 10.0]
 
         # --- advance pose --- #
@@ -187,7 +187,7 @@ simu_length = arg.simu_length * 1e-3    # in seconds
 simu_step_size = arg.simu_step_size * 1e-3    # in seconds
 log_skip = arg.log_skip
 
-np.random.seed(0)
+np.random.seed(2)
 
 print(
     'Simulation Time: begin = {} sec, end = {} sec, step = {} sec'
