@@ -71,11 +71,6 @@ def simu_step():
     ub = np.zeros((n, 3), dtype=np.float64)    # body-frame
     wb = np.zeros((n, 3), dtype=np.float64)    # body-frame
 
-    # --- Control inputs --- #
-    for i in nodes:
-        ub[i] = [np.cos(1.0*t), np.sin(1.0*t), 0.0]
-        wb[i] = [i / 10.0, 0, 0.5 - i / 10.0]
-
     # --- scale correction --- #
     # measurements
     dab2 = np.square(p[b] - p[a]).sum()
@@ -157,20 +152,22 @@ def simu_step():
             neg_grad[k] -= k_a * eijk * qikj
 
     for i in nodes:
+        # --- Control inputs --- #
+        ub[i] = [np.cos(1.0*t), np.sin(1.0*t), 0.0]
+        wb[i] = [i / 10.0, 0, 0.5 - i / 10.0]
+
         # --- advance pose --- #
         p_int[i].step(t, R[i].dot(ub[i]))
         R_int[i].step_left(t, wb[i])
 
         # --- advance estimation --- #
         zi = neg_grad[i].copy()
-        hatvb = hatQ[i].T.dot(zi)
-        vb = ub[i]
 
         hatp_int[i].step(
             t, hatQ[i].dot(ub[i]) - ub[a] - np.cross(wb[a], hatp[i]) + zi
         )
         hatQ_int[i].step_left(
-            t,  wb[i] - hatQ[i].T.dot(wb[a]) + k_o * np.cross(vb, hatvb)
+            t,  wb[i] - hatQ[i].T.dot(wb[a]) + k_o * np.cross(ub[i], hatQ[i].T.dot(zi))
         )
 
 
