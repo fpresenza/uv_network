@@ -66,8 +66,7 @@ def simu_step():
     R = extract_x(R_int)
     hatQ = extract_x(hatQ_int)
 
-    delta_hatp = np.zeros((n, 3), dtype=np.float64)
-    delta_hatQ = np.zeros((n, 3), dtype=np.float64)
+    neg_grad = np.zeros((n, 3), dtype=np.float64)
 
     ub = np.zeros((n, 3), dtype=np.float64)    # body-frame
     wb = np.zeros((n, 3), dtype=np.float64)    # body-frame
@@ -90,13 +89,13 @@ def simu_step():
     k_s = 0.05
     sc_corr_ab = k_s * (hat_dab2 - dab2) * (hatp[a] - hatp[b])
     sc_corr_ac = k_s * (hat_dac2 - dac2) * (hatp[a] - hatp[c])
-    delta_hatp[a] -= sc_corr_ab + sc_corr_ac
-    delta_hatp[b] += sc_corr_ab
-    delta_hatp[c] += sc_corr_ac
+    neg_grad[a] -= sc_corr_ab + sc_corr_ac
+    neg_grad[b] += sc_corr_ab
+    neg_grad[c] += sc_corr_ac
 
     # --- translational correction --- #
     k_t = 2.0
-    delta_hatp[a] -= k_t * hatp[a]
+    neg_grad[a] -= k_t * hatp[a]
 
     # --- rotational correction --- #
     # measurements
@@ -114,9 +113,9 @@ def simu_step():
 
     # correction
     k_r = 100.0
-    delta_hatp[a] -= k_r * (hat_Pab.dot(bab) / dab + hat_Pac.dot(bac) / dac)
-    delta_hatp[b] += k_r * hat_Pab.dot(bab) / dab
-    delta_hatp[c] += k_r * hat_Pac.dot(bac) / dac
+    neg_grad[a] -= k_r * (hat_Pab.dot(bab) / dab + hat_Pac.dot(bac) / dac)
+    neg_grad[b] += k_r * hat_Pab.dot(bab) / dab
+    neg_grad[c] += k_r * hat_Pac.dot(bac) / dac
 
     k_o = 3.0
     k_a = 200.0
@@ -153,26 +152,26 @@ def simu_step():
             qijk = Pij.dot(bik) / dij
             qikj = Pik.dot(bij) / dik
 
-            delta_hatp[i] += k_a * eijk * (qijk + qikj)
-            delta_hatp[j] -= k_a * eijk * qijk
-            delta_hatp[k] -= k_a * eijk * qikj
-
-        # --- feed forward prediction step --- #
-        zi = delta_hatp[i].copy()
-        delta_hatp[i] += hatQ[i].dot(ub[i]) - ub[a] - np.cross(wb[a], hatp[i])
-        delta_hatQ[i] += wb[i] - hatQ[i].T.dot(wb[a])
-
-        # --- orientation correction --- #
-        hatvb = hatQ[i].T.dot(zi)
-        vb = ub[i]
-        delta_hatQ[i] += k_o * np.cross(vb, hatvb)
+            neg_grad[i] += k_a * eijk * (qijk + qikj)
+            neg_grad[j] -= k_a * eijk * qijk
+            neg_grad[k] -= k_a * eijk * qikj
 
     for i in nodes:
+        # --- advance pose --- #
         p_int[i].step(t, R[i].dot(ub[i]))
         R_int[i].step_left(t, wb[i])
 
-        hatp_int[i].step(t, delta_hatp[i])
-        hatQ_int[i].step_left(t,  delta_hatQ[i])
+        # --- advance estimation --- #
+        zi = neg_grad[i].copy()
+        hatvb = hatQ[i].T.dot(zi)
+        vb = ub[i]
+
+        hatp_int[i].step(
+            t, hatQ[i].dot(ub[i]) - ub[a] - np.cross(wb[a], hatp[i]) + zi
+        )
+        hatQ_int[i].step_left(
+            t,  wb[i] - hatQ[i].T.dot(wb[a]) + k_o * np.cross(vb, hatvb)
+        )
 
 
 def log_step():
