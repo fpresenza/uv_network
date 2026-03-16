@@ -71,48 +71,17 @@ def simu_step():
     ub = np.zeros((n, 3), dtype=np.float64)    # body-frame
     wb = np.zeros((n, 3), dtype=np.float64)    # body-frame
 
-    # --- scale correction --- #
+    # --- similarity correction --- #
     # measurements
-    dab2 = np.square(p[b] - p[a]).sum()
-    dac2 = np.square(p[c] - p[a]).sum()
-
-    # estimated values
-    hat_dab2 = np.square(hatp[b] - hatp[a]).sum()
-    hat_dac2 = np.square(hatp[c] - hatp[a]).sum()
+    qb = R[a].T.dot(p[b] - p[a])
+    qc = R[a].T.dot(p[c] - p[a])
 
     # correction
-    k_s = 0.05
-    sc_corr_ab = k_s * (hat_dab2 - dab2) * (hatp[a] - hatp[b])
-    sc_corr_ac = k_s * (hat_dac2 - dac2) * (hatp[a] - hatp[c])
-    neg_grad[a] -= sc_corr_ab + sc_corr_ac
-    neg_grad[b] += sc_corr_ab
-    neg_grad[c] += sc_corr_ac
+    k_s = 5.0
+    neg_grad[a] -= k_s * hatp[a]
+    neg_grad[b] -= k_s * (hatp[b] - qb)
+    neg_grad[c] -= k_s * (hatp[c] - qc)
 
-    # --- translational correction --- #
-    k_t = 2.0
-    neg_grad[a] -= k_t * hatp[a]
-
-    # --- rotational correction --- #
-    # measurements
-    bab = R[a].T.dot(unit_vector(p[b] - p[a]))
-    bac = R[a].T.dot(unit_vector(p[c] - p[a]))
-
-    # estimated values
-    dab = np.sqrt(dab2)
-    hat_bab = unit_vector(hatp[b] - hatp[a])
-    hat_Pab = np.eye(3) - np.outer(hat_bab, hat_bab)
-
-    dac = np.sqrt(dac2)
-    hat_bac = unit_vector(hatp[c] - hatp[a])
-    hat_Pac = np.eye(3) - np.outer(hat_bac, hat_bac)
-
-    # correction
-    k_r = 100.0
-    neg_grad[a] -= k_r * (hat_Pab.dot(bab) / dab + hat_Pac.dot(bac) / dac)
-    neg_grad[b] += k_r * hat_Pab.dot(bab) / dab
-    neg_grad[c] += k_r * hat_Pac.dot(bac) / dac
-
-    k_o = 3.0
     k_a = 200.0
     for i in nodes:
         # --- angle correction --- #
@@ -151,6 +120,7 @@ def simu_step():
             neg_grad[j] -= k_a * eijk * qijk
             neg_grad[k] -= k_a * eijk * qikj
 
+    k_o = 3.0
     for i in nodes:
         # --- Control inputs --- #
         ub[i] = [np.cos(1.0*t), np.sin(1.0*t), 0.0]
