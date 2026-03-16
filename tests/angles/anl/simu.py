@@ -62,7 +62,7 @@ def simu_step():
     """Pose estimation algorithm"""
     # --- data ---#
     p = extract_x(p_int)
-    hatp = extract_x(hatp_int)
+    hatq = extract_x(hatq_int)
     R = extract_x(R_int)
     hatQ = extract_x(hatQ_int)
 
@@ -78,9 +78,9 @@ def simu_step():
 
     # correction
     k_s = 5.0
-    neg_grad[a] -= k_s * hatp[a]
-    neg_grad[b] -= k_s * (hatp[b] - qb)
-    neg_grad[c] -= k_s * (hatp[c] - qc)
+    neg_grad[a] -= k_s * hatq[a]
+    neg_grad[b] -= k_s * (hatq[b] - qb)
+    neg_grad[c] -= k_s * (hatq[c] - qc)
 
     k_a = 200.0
     for i in nodes:
@@ -89,9 +89,9 @@ def simu_step():
 
         # estimated values
         hat_distances = {
-            j: np.sqrt(np.square(hatp[j] - hatp[i]).sum()) for j in out_neighbors
+            j: np.sqrt(np.square(hatq[j] - hatq[i]).sum()) for j in out_neighbors
         }
-        hat_bearings = {j: unit_vector(hatp[j] - hatp[i]) for j in out_neighbors}
+        hat_bearings = {j: unit_vector(hatq[j] - hatq[i]) for j in out_neighbors}
 
         # measurements
         bearings = {
@@ -133,8 +133,8 @@ def simu_step():
         # --- advance estimation --- #
         zi = neg_grad[i].copy()
 
-        hatp_int[i].step(
-            t, hatQ[i].dot(ub[i]) - ub[a] - np.cross(wb[a], hatp[i]) + zi
+        hatq_int[i].step(
+            t, hatQ[i].dot(ub[i]) - ub[a] - np.cross(wb[a], hatq[i]) + zi
         )
         hatQ_int[i].step_left(
             t,  wb[i] - hatQ[i].T.dot(wb[a]) + k_o * np.cross(ub[i], hatQ[i].T.dot(zi))
@@ -146,11 +146,11 @@ def log_step():
     logs.time.append(t)
     logs.position.append(extract_x(p_int).ravel())
     logs.orientation.append(extract_x(R_int).ravel())
-    logs.estimated_position.append(extract_x(hatp_int).ravel())
+    logs.estimated_position.append(extract_x(hatq_int).ravel())
     logs.estimated_orientation.append(extract_x(hatQ_int).ravel())
     logs.control_u.append(extract_u(p_int).ravel())
     logs.control_w.append(extract_u(R_int).ravel())
-    logs.correction_u.append(extract_u(hatp_int).ravel())
+    logs.correction_u.append(extract_u(hatq_int).ravel())
     logs.correction_w.append(extract_u(hatQ_int).ravel())
 
 
@@ -231,7 +231,7 @@ R_int = [
 init_pos_a = (init_pos - init_pos[a]).dot(init_ori[a])
 
 est_init_pos = np.random.normal(init_pos_a, 2.0)
-hatp_int = [
+hatq_int = [
     EulerIntegrator(est_init_pos[i])
     for i in nodes
 ]
@@ -253,11 +253,11 @@ logs = Logs(
     time=[t],
     position=[extract_x(p_int).ravel()],
     orientation=[extract_x(R_int).ravel()],
-    estimated_position=[extract_x(hatp_int).ravel()],
+    estimated_position=[extract_x(hatq_int).ravel()],
     estimated_orientation=[extract_x(hatQ_int).ravel()],
     control_u=[extract_u(p_int).ravel()],
     control_w=[extract_u(p_int).ravel()],
-    correction_u=[extract_u(hatp_int).ravel()],
+    correction_u=[extract_u(hatq_int).ravel()],
     correction_w=[extract_u(hatQ_int).ravel()],
     adjacency=[adjacency_matrix_from_edges(n, edge_set).ravel()]
 )
