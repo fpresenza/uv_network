@@ -237,11 +237,11 @@ hatq_int = [
 ]
 
 # refer initial orientation to body frame a
-init_ori_a = np.matmul(init_ori[a].T, init_ori)
+# init_ori_a = np.matmul(init_ori[a].T, init_ori)
 
-est_init_ori = [random_rotation_matrix(1.0).dot(init_ori_a[i]) for i in nodes]
+# est_init_ori = [random_rotation_matrix(1.0).dot(init_ori_a[i]) for i in nodes]
 hatQ_int = [
-    EulerIntegratorOrtogonalGroup(est_init_ori[i])
+    EulerIntegratorOrtogonalGroup(np.eye(3))
     for i in nodes
 ]
 
