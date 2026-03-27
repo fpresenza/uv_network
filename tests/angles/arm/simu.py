@@ -85,10 +85,10 @@ def dsigma_m_f(x):
     ).item()
 
 
-def distance_weights(edge_set, p):
+def distance_weights(angle_set, p):
     return np.array([
         np.sqrt(np.square(p[j] - p[i]).sum() * np.square(p[k] - p[i]).sum())
-        for i, j, k in angle_indices(n, edge_set).astype(int)
+        for i, j, k in angle_set
     ])
 
 
@@ -111,11 +111,8 @@ def weight(indices, p, R):
     return dij * dik * wrij * wfij * wrik * wfik
 
 
-def weights(edge_set, p, R):
-    return np.array([
-        weight((i, j, k), p, R)
-        for i, j, k in angle_indices(n, edge_set).astype(int)
-    ])
+def weights(angle_set, p, R):
+    return np.array([weight((i, j, k), p, R) for i, j, k in angle_set])
 
 
 def extract_x(integrators):
@@ -153,15 +150,16 @@ def simu_step():
 
     # --- angle rigidity eigenvalue-vector --- #
     edge_set = sensing_graph.edge_set()
+    angle_set = angle_indices(n, edge_set).astype(int)
     A = angle_rigidity_matrix(edge_set, p)
 
     #    # --- unweighted part --- #
-    W = distance_weights(edge_set, p)
+    W = distance_weights(angle_set, p)
     evals = np.linalg.eigvalsh(A.T.dot(W[:, np.newaxis] * A))
     rigidity_val[0] = evals[7]
 
     #    # --- weighted part --- #
-    W = weights(edge_set, p, R)
+    W = weights(angle_set, p, R)
     evals, evecs = np.linalg.eigh(A.T.dot(W[:, np.newaxis] * A))
     rigidity_val[1:] = evals[7:9]
     vec = evecs[:, 7].reshape(n, 3)
@@ -224,10 +222,10 @@ def simu_step():
             wrik = 1 - sigma_r_r(dik)
             wfik = sigma_r_f(nik)
 
-            w = wrij * wfij * wrik * wfik
             d = dij * dik
             wr = wrij * wrik
             wf = wfij * wfik
+            w = wr * wf
 
             wijk_j = w * dik * bij + d * (
                 - wf * wrik * dsigma_r_r(dij) * bij
@@ -272,9 +270,9 @@ def simu_step():
             Eijk = Pij.dot(Pik) / (dij * dik)
             Eikj = Pik.dot(Pij) / (dik * dij)
 
-            sijk_i = (Dijk - Eikj).dot(vec_j - vec_i) + (Dikj - Eijk).dot(vec_k - vec_i)
             sijk_j = - Dijk.dot(vec_j - vec_i) + Eijk.dot(vec_k - vec_i)
             sijk_k = Eikj.dot(vec_j - vec_i) - Dikj.dot(vec_k - vec_i)
+            sijk_i = - sijk_j - sijk_k
 
             control_u_r[i] += sijk * (sijk * wijk_i + 2 * wijk * sijk_i)
             control_u_r[j] += sijk * Rij.T.dot(sijk * wijk_j + 2 * wijk * sijk_j)
