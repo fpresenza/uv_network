@@ -168,7 +168,7 @@ def simu_step():
     for i in nodes:
         # --- target tracking control --- #
         k_m_r = 3.0
-        k_m_f = 1.0
+        k_m_f = 0.5
         if i in targets.keys():
             rit = targets[i](t) - p[i]
             dit = np.sqrt(np.square(rit).sum())
@@ -181,7 +181,7 @@ def simu_step():
 
             control_u_m[i] = k_m_r * dsigma_m_r(dit) * bit \
                 - k_m_f * dsigma_m_f(nit) * Pit[0] / dit
-            control_w_m[i] = k_m_f * 0.5 * dsigma_m_f(nit) * e1_bit
+            control_w_m[i] = k_m_f * dsigma_m_f(nit) * e1_bit
 
         # --- rigidity maintenance control --- #
         out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
@@ -240,7 +240,7 @@ def simu_step():
 
             e1_bij = np.array([0.0, -bij[2], bij[1]])
             e1_bik = np.array([0.0, -bik[2], bik[1]])
-            wijk_Ri = 0.5 * d * wr * (
+            wijk_Ri = d * wr * (
                 wfik * dsigma_r_f(nij) * e1_bij
                 + wfij * dsigma_r_f(nik) * e1_bik
             )
