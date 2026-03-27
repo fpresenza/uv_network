@@ -293,9 +293,9 @@ def simu_step():
         # control_u_r[i] -= kd * vi
 
     # define relative weights
-    k_u_r = 3.0 / evals[7]
+    k_u_r = 5.0 / evals[7]
     k_u_m = 80.0
-    k_w_r = 0.3 / evals[7]
+    k_w_r = 0.5 / evals[7]
     k_w_m = 8.0
     k_u_c = 1.0
 
