@@ -147,6 +147,7 @@ def simu_step():
     control_w_r = np.zeros((n, 3), dtype=np.float64)
     control_u_m = np.zeros((n, 3), dtype=np.float64)
     control_w_m = np.zeros((n, 3), dtype=np.float64)
+    control_u_c = np.zeros((n, 3), dtype=np.float64)
 
     # --- angle rigidity eigenvalue-vector --- #
     edge_set = sensing_graph.edge_set()
@@ -183,7 +184,7 @@ def simu_step():
                 - k_m_f * dsigma_m_f(nit) * Pit[0] / dit
             control_w_m[i] = k_m_f * dsigma_m_f(nit) * e1_bit
 
-        # --- rigidity maintenance control --- #
+        # --- rigidity maintenance and collision avoidance control --- #
         out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
         r = {j: p[j] - p[i] for j in out_neighbors}
 
@@ -201,7 +202,16 @@ def simu_step():
         }
         # vi = R[i].T.dot(v[i])
 
-        #   # --- control law --- #
+        #   # --- collision control law --- #
+        for j in out_neighbors:
+            dij = distances[j]
+            bij = bearings[j]
+
+            repulsion = 2 * sensing_range * (dij - sensing_range) * bij / dij**3
+            control_u_c[i] += repulsion
+            control_u_c[j] += -repulsion
+
+        #   # --- rigidity control law --- #
         for j, k in complete_angle_set(out_neighbors):
             dij = distances[j]
             bij = bearings[j]
@@ -287,10 +297,13 @@ def simu_step():
     k_u_m = 80.0
     k_w_r = 0.3 / evals[7]
     k_w_m = 8.0
+    k_u_c = 1.0
 
     # compose and apply control action
     for i in nodes:
-        control_u = R[i].dot(k_u_r * control_u_r[i] + k_u_m * control_u_m[i])
+        control_u = R[i].dot(
+            k_u_r * control_u_r[i] + k_u_m * control_u_m[i] + k_u_c * control_u_c[i]
+        )
         p_int[i].step(t, control_u)
 
         control_w = k_w_r * control_w_r[i] + k_w_m * control_w_m[i]
