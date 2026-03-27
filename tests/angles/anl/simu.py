@@ -11,7 +11,7 @@ from uvnpy.graphs.core import adjacency_matrix_from_edges
 from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
 from uvnpy.toolkit.geometry import rotation_matrix_from_vector
-from uvnpy.angles.local_frame.core import is_angle_rigid
+from uvnpy.angles.local_frame.core import is_angle_rigid, angle_indices
 
 # ------------------------------------------------------------------
 # Functions, Classes and Configurations
@@ -212,9 +212,10 @@ edge_set = np.array([
     [0, 3],
     [1, 3]
 ])
+angle_set = angle_indices(n, edge_set).astype(int)
 a, b, c = 0, 1, 2
 
-if not is_angle_rigid(edge_set, init_pos):
+if not is_angle_rigid(angle_set, init_pos):
     raise ValueError('The framework is not IAR.')
 
 p_int = [

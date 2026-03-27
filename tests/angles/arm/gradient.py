@@ -23,7 +23,7 @@ def random_rotation_matrix():
 
 
 def A(p):
-    X = angle_rigidity_matrix(edge_set, p)
+    X = angle_rigidity_matrix(angle_set, p)
     return X.T.dot(X)
 
 
@@ -123,7 +123,7 @@ angle_set = angle_indices(n, edge_set).astype(int)
 p = np.random.uniform(0.0, 1.0, (n, 3))
 R = np.array([random_rotation_matrix() for _ in range(n)])
 
-if not is_angle_rigid(edge_set, p):
+if not is_angle_rigid(angle_set, p):
     raise ValueError('The initial framework is not IAR.')
 
 rigidity_laplacian = A(p)

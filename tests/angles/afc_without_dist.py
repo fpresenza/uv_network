@@ -7,7 +7,7 @@ import numpy as np
 from numba import njit
 
 from uvnpy.angles.local_frame.core import (
-    angle_indices, angle_function, angle_rigidity_matrix
+    angle_indices, angle_function, angle_rigidity_matrix_from_edges
 )
 
 
@@ -65,7 +65,7 @@ def angle_rigidity_matrix_scale_free(E, p):
 def simu_step():
     p = np.random.uniform(-1, 1, (n, 3))
 
-    A = angle_rigidity_matrix(edge_set, p)
+    A = angle_rigidity_matrix_from_edges(edge_set, p)
     B = angle_rigidity_matrix_scale_free(edge_set, p)
     a = angle_function(edge_set, p)
 

@@ -186,7 +186,7 @@ desired_position = np.random.uniform(0.0, 1.0, (n, 3))
 desired_angles = angle_function(edge_set, desired_position)
 # print(desired_angles)
 
-if not is_angle_rigid(edge_set, desired_position):
+if not is_angle_rigid(angle_set, desired_position):
     raise ValueError('The desired framework is not IAR.')
 
 p_int = [

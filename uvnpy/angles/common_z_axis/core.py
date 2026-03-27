@@ -67,7 +67,7 @@ def angle_function(E, p):
 
 @njit
 def angle_rigidity_matrix(E, p):
-    """Angle Rigidity matrix (jacobian of the bearing function)
+    """Angle Rigidity matrix (jacobian of the angle function)
 
     args:
         E: edge set | (m, 2)-array

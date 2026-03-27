@@ -151,7 +151,7 @@ def simu_step():
     # --- angle rigidity eigenvalue-vector --- #
     edge_set = sensing_graph.edge_set()
     angle_set = angle_indices(n, edge_set).astype(int)
-    A = angle_rigidity_matrix(edge_set, p)
+    A = angle_rigidity_matrix(angle_set, p)
 
     #    # --- unweighted part --- #
     W = distance_weights(angle_set, p)

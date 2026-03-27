@@ -10,7 +10,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 from uvnpy.graphs.models import ErdosRenyi
-from uvnpy.angles.local_frame.core import is_angle_rigid
+from uvnpy.angles.local_frame.core import is_angle_rigid, angle_indices
 from uvnpy.toolkit.plot import point_arrow_framework
 
 # ------------------------------------------------------------------
@@ -43,7 +43,8 @@ def run(d, nmin, nmax, degree, rep):
             while r < rep:
                 graph = ErdosRenyi(n, prob)
                 E = graph.edge_set()
-                is_iar = is_angle_rigid(E, p, threshold=1e-10)
+                A = angle_indices(n, E).astype(int)
+                is_iar = is_angle_rigid(A, p, threshold=1e-10)
                 is_rooted = is_rooted_out_branching(n, E)
                 if is_iar and not is_rooted:
                     print(p.ravel())

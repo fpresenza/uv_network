@@ -61,8 +61,46 @@ def angle_function(E, p):
 
 
 @njit
-def angle_rigidity_matrix(E, p):
-    """Angle Rigidity matrix (jacobian of the bearing function)
+def angle_rigidity_matrix(A, p):
+    """Angle Rigidity matrix (jacobian of the angle function)
+
+    args:
+        A: angle set | (m, 2)-array
+        p: positions | (..., n, d)-array
+
+    returns:
+        angle rigidity matrix | (a, n*d)
+    """
+    s = len(A)
+    n, d = p.shape
+    Id = np.eye(d)
+    R = np.zeros(shape=(s, n, d), dtype=float)
+    for m, (i, j, k) in enumerate(A):
+        rij = p[j] - p[i]
+        dij = np.sqrt(np.square(rij).sum())
+        bij = rij / dij
+        Pij = Id - bij[:, np.newaxis] * bij[np.newaxis, :]
+        Mij = Pij / dij
+
+        rik = p[k] - p[i]
+        dik = np.sqrt(np.square(rik).sum())
+        bik = rik / dik
+        Pik = Id - bik[:, np.newaxis] * bik[np.newaxis, :]
+        Mik = Pik / dik
+
+        Nijk = Mij.dot(bik)
+        Nikj = Mik.dot(bij)
+
+        R[m, i] = - Nijk - Nikj
+        R[m, j] = Nijk
+        R[m, k] = Nikj
+
+    return R.reshape(s, -1)
+
+
+@njit
+def angle_rigidity_matrix_from_edges(E, p):
+    """Angle Rigidity matrix (jacobian of the angle function)
 
     args:
         E: edge set | (m, 2)-array
@@ -103,8 +141,8 @@ def angle_rigidity_matrix(E, p):
     return R
 
 
-def is_angle_rigid(E, p, threshold=THRESHOLD_SV):
+def is_angle_rigid(A, p, threshold=THRESHOLD_SV):
     n, d = p.shape
     t = int(d * (d + 1) / 2) + 1
-    R = angle_rigidity_matrix(E, p)
+    R = angle_rigidity_matrix(A, p)
     return np.linalg.matrix_rank(R, tol=threshold) == n*d - t
