@@ -189,7 +189,7 @@ for k, d in enumerate(['x', 'y', 'z']):
 
     ax[k].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
     ax[k].set_ylabel(fr'$\omega_{{i, {d}}} \ (\rm rad / s)$', fontsize=10)
-    ax[k].set_ylim(-1.5, 1.5)
+    ax[k].set_ylim(-2.5, 2.5)
     ax[k].grid(1)
 
     ax[k].plot(t[1:], control_w[:, :, k], lw=1.0, ds='steps-post')
