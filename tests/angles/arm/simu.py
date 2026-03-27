@@ -350,8 +350,8 @@ arg = parser.parse_args()
 # ------------------------------------------------------------------
 # --- simulation parameters --- #
 if arg.simu_length % arg.simu_step_size != 0:
-    print('\
-        Simulation length is not a multiple of the step size. \
+    print(
+        'Simulation length is not a multiple of the step size. \
         Length will be truncated the closest multiple.\
     ')
 simu_num_steps = int(arg.simu_length / arg.simu_step_size)
@@ -455,9 +455,13 @@ bar = progressbar.ProgressBar(maxval=simu_length).start()
 while simu_counter < simu_num_steps:
     t = np.round(t + simu_step_size, 3)
 
-    simu_step()
-    if (simu_counter % log_skip == 0):
-        log_step()
+    try:
+        simu_step()
+        if (simu_counter % log_skip == 0):
+            log_step()
+    except (ValueError, IndexError, ArithmeticError) as e:
+        print('Simulation found error <{}> at t={} sec and stopped.'.format(e, t))
+        break
 
     simu_counter += 1
 
