@@ -41,7 +41,7 @@ def random_rotation_matrix():
     return rotation_matrix_from_quaternion(q)
 
 
-def aim_to_target(p, target):
+def aiming(p, target):
     a = unit_vector(target - p, axis=-1)
     x = np.random.normal(size=3)
     b = unit_vector(np.cross(a, x), axis=-1)
@@ -75,7 +75,7 @@ def dsigma_r_f(x):
 
 def dsigma_m_r(x):
     return cosine_activation_derivative(
-        np.array([x]), 5.0, 100.0
+        np.array([x]), 0.0, 100.0
     ).item()
 
 
@@ -375,14 +375,14 @@ while not found_IAR:
         [70.0, 30.0, 30.0],
         size=(n, 3)
     )
-    initial_orientation = aim_to_target(initial_position, initial_position.mean(axis=0))
+    initial_orientation = aiming(initial_position, initial_position.mean(axis=0))
 
     sensing_range = 30.0
     fov = 120.0
     cos_hfov = np.cos(np.deg2rad(fov / 2))
     sensing_graph = ConeGraph(
         initial_position,
-        initial_orientation[:, :, 0],    # axes
+        initial_orientation[:, :, 0],    # x-axes
         dmax=sensing_range,
         cmin=cos_hfov
     )
@@ -393,7 +393,7 @@ while not found_IAR:
     # check if graph is complete
     if sensing_graph.adjacency_matrix().sum() == n**2 - n:
         found_IAR = True
-        print(seed)
+        print('seed = {}'.format(seed))
 
 p_int = [
     EulerIntegrator(initial_position[i])
@@ -409,13 +409,13 @@ rigidity_val = np.empty(3, dtype=np.float64)
 # --- define targets --- #
 targets = MovingTargets({
     1: lambda t: np.array([
-        50.0 * (1 - np.cos(0.01 * np.pi * t)) + 5.0 * np.sin(0.1 * np.pi * t),
-        50.0 * (1 - np.cos(0.01 * np.pi * t)) - 5.0 * np.sin(0.1 * np.pi * t),
+        50.0 * (1 - np.cos(0.01 * np.pi * t)),    # + 5.0 * np.sin(0.1 * np.pi * t),
+        50.0 * (1 - np.cos(0.01 * np.pi * t)),    # - 5.0 * np.sin(0.1 * np.pi * t),
         0.0
     ]),
     2: lambda t: np.array([
-        50.0 * (1 - np.cos(0.01 * np.pi * t)) + 5.0 * np.sin(0.1 * np.pi * t),
-        50.0 * (1 - np.cos(0.01 * np.pi * t)) - 5.0 * np.sin(0.1 * np.pi * t),
+        50.0 * (1 - np.cos(0.01 * np.pi * t)),    # + 5.0 * np.sin(0.1 * np.pi * t),
+        50.0 * (1 - np.cos(0.01 * np.pi * t)),    # - 5.0 * np.sin(0.1 * np.pi * t),
         50.0 * (1 - np.cos(0.01 * np.pi * t))
     ])
 })
@@ -442,7 +442,7 @@ simu_counter = 1
 bar = progressbar.ProgressBar(maxval=simu_length).start()
 
 while simu_counter < simu_num_steps:
-    t += simu_step_size
+    t = np.round(t + simu_step_size, 3)
 
     simu_step()
     if (simu_counter % log_skip == 0):
@@ -450,7 +450,7 @@ while simu_counter < simu_num_steps:
 
     simu_counter += 1
 
-    bar.update(np.round(t, 3))
+    bar.update(t)
 
 bar.finish()
 

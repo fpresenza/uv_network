@@ -224,7 +224,7 @@ ax[0].plot(
     t, np.sqrt(np.square(target_position - position[:, target_id]).sum(axis=-1)),
     lw=1.0, ds='steps-post'
 )
-ax[0].hlines(30.0, t[0], t[-1], ls='--', color='k')
+# ax[0].hlines(30.0, t[0], t[-1], ls='--', color='k')
 
 ax[1].tick_params(
     axis='both',       # changes apply to the x-axis
@@ -283,11 +283,11 @@ ax.semilogy(
 )
 ax.semilogy(
     t[1:], rigidity_val[:, 1],
-    lw=1.0, ds='steps-post', color='C0', label=r'$\widehat{\lambda}_8$'
+    lw=1.0, ds='steps-post', color='C0', label=r'$\widetilde{\lambda}_8$'
 )
 ax.semilogy(
     t[1:], rigidity_val[:, 2],
-    lw=1.0, ds='steps-post', color='C1', label=r'$\widehat{\lambda}_9$'
+    lw=1.0, ds='steps-post', color='C1', label=r'$\widetilde{\lambda}_9$'
 )
 ax.legend(
     fontsize=10, handlelength=1.5, labelspacing=0.4,
