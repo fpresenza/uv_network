@@ -184,6 +184,9 @@ def simu_step():
                 - k_m_f * dsigma_m_f(nit) * Pit[0] / dit
             control_w_m[i] = k_m_f * dsigma_m_f(nit) * e1_bit
 
+            # target collision avoidance
+            control_u_c[i] += 2 * sensing_range * (dit - sensing_range) * bit / dit**3
+
         # --- rigidity maintenance and collision avoidance control --- #
         out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
         r = {j: p[j] - p[i] for j in out_neighbors}
