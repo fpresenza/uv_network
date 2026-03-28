@@ -135,6 +135,7 @@ dmypy.json
 # Log. files
 *.csv
 *.npy
+*.jsonlog
 
 # Media
 *.mp4
