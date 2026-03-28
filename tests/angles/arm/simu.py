@@ -12,7 +12,9 @@ from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
 from uvnpy.toolkit.geometry import rotation_matrix_from_quaternion
 from uvnpy.toolkit.functions import cosine_activation, cosine_activation_derivative
 from uvnpy.graphs.models import ConeGraph
-from uvnpy.angles.local_frame.core import angle_indices, angle_rigidity_matrix
+from uvnpy.angles.local_frame.core import (
+    angle_indices, angle_rigidity_matrix, is_angle_rigid
+)
 from uvnpy.control.targets import MovingTargets
 
 
@@ -402,8 +404,13 @@ while not found_IAR:
     initial_edge_set = sensing_graph.edge_set()
     initial_angle_set = angle_indices(nodes, initial_edge_set).astype(int)
 
-    # check if graph is complete
-    if sensing_graph.adjacency_matrix().sum() == n**2 - n:
+    # # check if graph is complete
+    # if sensing_graph.adjacency_matrix().sum() == n**2 - n:
+    #     found_IAR = True
+    #     print('seed = {}'.format(seed))
+    # check if graph is angle rigid
+
+    if is_angle_rigid(initial_angle_set, initial_position):
         found_IAR = True
         print('seed = {}'.format(seed))
 
