@@ -1,5 +1,6 @@
 import csv
 import numpy as np
+import json
 from itertools import islice
 
 
@@ -70,3 +71,14 @@ def read_rows_csv(
         return np.asarray(data)
     else:
         return data
+
+
+def read_json_file(filename):
+    with open(filename, 'r') as file:
+        config_dict = json.load(file)
+    return config_dict
+
+
+def write_json_file(filename, data):
+    with open(filename, 'w') as file:
+        json.dump(data, file, indent=4)
