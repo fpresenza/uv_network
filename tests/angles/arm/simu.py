@@ -151,7 +151,7 @@ def simu_step():
 
     # --- angle rigidity eigenvalue-vector --- #
     edge_set = sensing_graph.edge_set()
-    angle_set = angle_indices(n, edge_set).astype(int)
+    angle_set = angle_indices(rigidity_nodes, edge_set).astype(int)
     A = angle_rigidity_matrix(angle_set, p)
 
     #    # --- unweighted part --- #
@@ -167,10 +167,32 @@ def simu_step():
     vec = np.squeeze(np.matmul(vec[:, np.newaxis, :], R))
 
     for i in nodes:
+        out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
+        r = {j: p[j] - p[i] for j in out_neighbors}
+
+        #   # --- estimated values --- #
+        distances = {
+            j: np.sqrt(np.square(r[j]).sum()) for j in out_neighbors
+        }
+
+        #   # --- measurements --- #
+        bearings = {
+            j: R[i].T.dot(r[j] / distances[j]) for j in out_neighbors
+        }
+
+        # --- collision avoidance control --- #
+        for j in out_neighbors:
+            dij = distances[j]
+            bij = bearings[j]
+
+            repulsion = 2 * sensing_range * (dij - sensing_range) * bij / dij**3
+            control_u_c[i] += repulsion
+            control_u_c[j] += -repulsion
+
         # --- target tracking control --- #
         k_m_r = 3.0
         k_m_f = 0.5
-        if i in targets.keys():
+        if i in tracking_nodes:
             rit = targets[i](t) - p[i]
             dit = np.sqrt(np.square(rit).sum())
             bit = R[i].T.dot(rit / dit)
@@ -187,113 +209,89 @@ def simu_step():
             # target collision avoidance
             control_u_c[i] += 2 * sensing_range * (dit - sensing_range) * bit / dit**3
 
-        # --- rigidity maintenance and collision avoidance control --- #
-        out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
-        r = {j: p[j] - p[i] for j in out_neighbors}
+        # --- rigidity maintenance control --- #
+        if i in rigidity_nodes:
+            rotations = {
+                j: R[i].T.dot(R[j]) for j in out_neighbors
+            }
+            for j, k in complete_angle_set(out_neighbors):
+                # --- rigidity control law --- #
+                dij = distances[j]
+                bij = bearings[j]
+                Pij = np.eye(3) - np.outer(bij, bij)
+                Rij = rotations[j]
 
-        #   # --- estimated values --- #
-        distances = {
-            j: np.sqrt(np.square(r[j]).sum()) for j in out_neighbors
-        }
+                dik = distances[k]
+                bik = bearings[k]
+                Pik = np.eye(3) - np.outer(bik, bik)
+                Rik = rotations[k]
 
-        #   # --- measurements --- #
-        bearings = {
-            j: R[i].T.dot(r[j] / distances[j]) for j in out_neighbors
-        }
-        rotations = {
-            j: R[i].T.dot(R[j]) for j in out_neighbors
-        }
-        # vi = R[i].T.dot(v[i])
+                # --- weight part --- #
+                nij = bij[0]
+                nik = bik[0]
 
-        #   # --- collision control law --- #
-        for j in out_neighbors:
-            dij = distances[j]
-            bij = bearings[j]
+                wrij = 1 - sigma_r_r(dij)
+                wfij = sigma_r_f(nij)
+                wrik = 1 - sigma_r_r(dik)
+                wfik = sigma_r_f(nik)
 
-            repulsion = 2 * sensing_range * (dij - sensing_range) * bij / dij**3
-            control_u_c[i] += repulsion
-            control_u_c[j] += -repulsion
+                d = dij * dik
+                wr = wrij * wrik
+                wf = wfij * wfik
+                w = wr * wf
 
-        #   # --- rigidity control law --- #
-        for j, k in complete_angle_set(out_neighbors):
-            dij = distances[j]
-            bij = bearings[j]
-            Pij = np.eye(3) - np.outer(bij, bij)
-            Rij = rotations[j]
+                wijk_j = w * dik * bij + d * (
+                    - wf * wrik * dsigma_r_r(dij) * bij
+                    + wr * wfik * dsigma_r_f(nij) * Pij[0] / dij
+                )
 
-            dik = distances[k]
-            bik = bearings[k]
-            Pik = np.eye(3) - np.outer(bik, bik)
-            Rik = rotations[k]
+                wijk_k = w * dij * bik + d * (
+                    - wf * wrij * dsigma_r_r(dik) * bik
+                    + wr * wfij * dsigma_r_f(nik) * Pik[0] / dik
+                )
+                wijk_i = - wijk_j - wijk_k
 
-            # --- weight part --- #
-            nij = bij[0]
-            nik = bik[0]
+                e1_bij = np.array([0.0, -bij[2], bij[1]])
+                e1_bik = np.array([0.0, -bik[2], bik[1]])
+                wijk_Ri = d * wr * (
+                    wfik * dsigma_r_f(nij) * e1_bij
+                    + wfij * dsigma_r_f(nik) * e1_bik
+                )
 
-            wrij = 1 - sigma_r_r(dij)
-            wfij = sigma_r_f(nij)
-            wrik = 1 - sigma_r_r(dik)
-            wfik = sigma_r_f(nik)
+                wijk = d * w
 
-            d = dij * dik
-            wr = wrij * wrik
-            wf = wfij * wfik
-            w = wr * wf
+                # --- rigidity matrix part --- #
+                qijk = Pij.dot(bik) / dij
+                qikj = Pik.dot(bij) / dik
 
-            wijk_j = w * dik * bij + d * (
-                - wf * wrik * dsigma_r_r(dij) * bij
-                + wr * wfik * dsigma_r_f(nij) * Pij[0] / dij
-            )
+                vec_i = vec[i]
+                vec_j = Rij.dot(vec[j])
+                vec_k = Rik.dot(vec[k])
 
-            wijk_k = w * dij * bik + d * (
-                - wf * wrij * dsigma_r_r(dik) * bik
-                + wr * wfij * dsigma_r_f(nik) * Pik[0] / dik
-            )
-            wijk_i = - wijk_j - wijk_k
+                sijk = qijk.dot(vec_j - vec_i) + qikj.dot(vec_k - vec_i)
 
-            e1_bij = np.array([0.0, -bij[2], bij[1]])
-            e1_bik = np.array([0.0, -bik[2], bik[1]])
-            wijk_Ri = d * wr * (
-                wfik * dsigma_r_f(nij) * e1_bij
-                + wfij * dsigma_r_f(nik) * e1_bik
-            )
+                Dijk = np.outer(Pij.dot(bik), bij)
+                Dijk += np.outer(bij, bik.dot(Pij))
+                Dijk += bij.dot(bik) * Pij
+                Dijk /= dij**2
 
-            wijk = d * w
+                Dikj = np.outer(Pik.dot(bij), bik)
+                Dikj += np.outer(bik, bij.dot(Pik))
+                Dikj += bik.dot(bij) * Pik
+                Dikj /= dik**2
 
-            # --- rigidity matrix part --- #
-            qijk = Pij.dot(bik) / dij
-            qikj = Pik.dot(bij) / dik
+                Eijk = Pij.dot(Pik) / (dij * dik)
+                Eikj = Pik.dot(Pij) / (dik * dij)
 
-            vec_i = vec[i]
-            vec_j = Rij.dot(vec[j])
-            vec_k = Rik.dot(vec[k])
+                sijk_j = - Dijk.dot(vec_j - vec_i) + Eijk.dot(vec_k - vec_i)
+                sijk_k = Eikj.dot(vec_j - vec_i) - Dikj.dot(vec_k - vec_i)
+                sijk_i = - sijk_j - sijk_k
 
-            sijk = qijk.dot(vec_j - vec_i) + qikj.dot(vec_k - vec_i)
+                control_u_r[i] += sijk * (sijk * wijk_i + 2 * wijk * sijk_i)
+                control_u_r[j] += sijk * Rij.T.dot(sijk * wijk_j + 2 * wijk * sijk_j)
+                control_u_r[k] += sijk * Rik.T.dot(sijk * wijk_k + 2 * wijk * sijk_k)
 
-            Dijk = np.outer(Pij.dot(bik), bij)
-            Dijk += np.outer(bij, bik.dot(Pij))
-            Dijk += bij.dot(bik) * Pij
-            Dijk /= dij**2
-
-            Dikj = np.outer(Pik.dot(bij), bik)
-            Dikj += np.outer(bik, bij.dot(Pik))
-            Dikj += bik.dot(bij) * Pik
-            Dikj /= dik**2
-
-            Eijk = Pij.dot(Pik) / (dij * dik)
-            Eikj = Pik.dot(Pij) / (dik * dij)
-
-            sijk_j = - Dijk.dot(vec_j - vec_i) + Eijk.dot(vec_k - vec_i)
-            sijk_k = Eikj.dot(vec_j - vec_i) - Dikj.dot(vec_k - vec_i)
-            sijk_i = - sijk_j - sijk_k
-
-            control_u_r[i] += sijk * (sijk * wijk_i + 2 * wijk * sijk_i)
-            control_u_r[j] += sijk * Rij.T.dot(sijk * wijk_j + 2 * wijk * sijk_j)
-            control_u_r[k] += sijk * Rik.T.dot(sijk * wijk_k + 2 * wijk * sijk_k)
-
-            control_w_r[i] += sijk**2 * wijk_Ri
-
-        # control_u_r[i] -= kd * vi
+                control_w_r[i] += sijk**2 * wijk_Ri
 
     # define relative weights
     k_u_r = 5.0 / evals[7]
@@ -402,7 +400,7 @@ while not found_IAR:
     )
 
     initial_edge_set = sensing_graph.edge_set()
-    initial_angle_set = angle_indices(n, initial_edge_set).astype(int)
+    initial_angle_set = angle_indices(nodes, initial_edge_set).astype(int)
 
     # check if graph is complete
     if sensing_graph.adjacency_matrix().sum() == n**2 - n:
@@ -438,6 +436,9 @@ targets = MovingTargets({
         0.0
     ])
 })
+
+tracking_nodes = [0, 1, 2]
+rigidity_nodes = [3, 4]
 
 # ------------------------------------------------------------------
 # Simulation
