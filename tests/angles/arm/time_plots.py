@@ -35,7 +35,7 @@ control_w = read_csv_numpy('simu_data/control_w.csv').reshape(log_num_steps - 1,
 
 rigidity_val = read_csv_numpy('simu_data/rigidity_val.csv')
 
-targets = read_json_file('simu_data/targets.json')
+targets = read_json_file('simu_data/targets.jsonlog')
 tracking_nodes = targets['tracking_nodes']
 targets_ids = targets['alloc']
 

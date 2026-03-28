@@ -449,7 +449,7 @@ rigidity_nodes = [0, 1, 2, 3, 4]
 target_allocation = [0, 1, 2, 1, 2]
 
 write_json_file(
-    'simu_data/targets.json',
+    'simu_data/targets.jsonlog',
     {
         'ids': list(targets.keys()),
         'tracking_nodes': tracking_nodes,
