@@ -95,9 +95,9 @@ def distance_weights(angle_set, p):
 def weight(indices, p, R):
     i, j, k = indices
     dij = np.sqrt(np.square(p[j] - p[i]).sum())
-    bij = unit_vector(p[j] - p[i])
+    bij = (p[j] - p[i]) / dij
     dik = np.sqrt(np.square(p[k] - p[i]).sum())
-    bik = unit_vector(p[k] - p[i])
+    bik = (p[k] - p[i]) / dik
 
     ei = R[i, :, 0]
     nij = ei.dot(bij)
@@ -297,9 +297,9 @@ def simu_step():
 
     # define relative weights
     k_u_r = 5.0 / evals[7]
-    k_u_m = 80.0
+    k_u_m = 50.0
     k_w_r = 0.5 / evals[7]
-    k_w_m = 8.0
+    k_w_m = 5.0
     k_u_c = 1.0
 
     # compose and apply control action
@@ -382,16 +382,16 @@ while not found_IAR:
     seed += 1
 
     t = 0.0
-    n = 4
+    n = 5
     nodes = np.arange(n)
     initial_position = np.random.uniform(
-        [30.0, 0.0, 0.0],
-        [70.0, 30.0, 30.0],
+        [60.0, 0.0, 0.0],
+        [100.0, 40.0, 40.0],
         size=(n, 3)
     )
     initial_orientation = aiming(initial_position, initial_position.mean(axis=0))
 
-    sensing_range = 30.0
+    sensing_range = 40.0
     fov = 120.0
     cos_hfov = np.cos(np.deg2rad(fov / 2))
     sensing_graph = ConeGraph(
@@ -422,15 +422,20 @@ rigidity_val = np.empty(3, dtype=np.float64)
 
 # --- define targets --- #
 targets = MovingTargets({
-    1: lambda t: np.array([
-        50.0 * (1 - np.cos(0.01 * np.pi * t)),    # + 5.0 * np.sin(0.1 * np.pi * t),
-        50.0 * (1 - np.cos(0.01 * np.pi * t)),    # - 5.0 * np.sin(0.1 * np.pi * t),
+    0: lambda t: np.array([
+        min(t, 100.0, 200.0 - t),
+        min(t, 100.0, 200.0 - t),
         0.0
     ]),
+    1: lambda t: np.array([
+        min(t, 100.0, 200.0 - t),
+        min(t, 100.0),
+        min(t, 100.0)
+    ]),
     2: lambda t: np.array([
-        50.0 * (1 - np.cos(0.01 * np.pi * t)),    # + 5.0 * np.sin(0.1 * np.pi * t),
-        50.0 * (1 - np.cos(0.01 * np.pi * t)),    # - 5.0 * np.sin(0.1 * np.pi * t),
-        50.0 * (1 - np.cos(0.01 * np.pi * t))
+        0.0,
+        min(t, 100.0),
+        0.0
     ])
 })
 
