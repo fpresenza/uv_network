@@ -165,7 +165,7 @@ for k in range(log_num_steps):
                 # linewidth=2,
                 edgecolor=f'C{i}',
                 facecolor=f'C{i}',
-                s=6,
+                s=10,
                 alpha=1.0
             )
         ax.xaxis._axinfo['grid'].update(
@@ -190,7 +190,7 @@ for k in range(log_num_steps):
     fig.savefig(
         'xyz_snapshots/frame{}.png'.format(str(k).zfill(3)),
         format='png',
-        dpi=100,
+        dpi=300,
         # bbox_inches="tight",
         # transparent=True
     )
