@@ -12,7 +12,7 @@ THRESHOLD_SV = 1e-5
 
 
 @njit
-def angle_indices(n, E):
+def angle_indices(V, E):
     """Compute the angles indices with the directed edges.
     An angle is:
         - a triple (i, j, k) where (i, j) and (i, k)
@@ -20,14 +20,14 @@ def angle_indices(n, E):
         - the angle between (i, j) and the z-axis
 
     args:
-        n: number of vertices | float
+        V: list of vertices
         E: edge set | (m, 2)-array
 
     returns:
         a: angle_indices | (a, 3)-array
     """
     a = np.empty(shape=(0, 3), dtype=float)
-    for i in range(n):
+    for i in V:
         S = E[:, 0] == i
         s = sum(S)
         Ei = E[S]
