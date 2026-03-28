@@ -163,8 +163,8 @@ for k in range(log_num_steps):
                 target_position[k, m, 2],
                 marker='d',
                 # linewidth=2,
-                edgecolor=f'C{i}',
-                facecolor=f'C{i}',
+                edgecolor='k',
+                facecolor='k',
                 s=10,
                 alpha=1.0
             )
@@ -190,7 +190,7 @@ for k in range(log_num_steps):
     fig.savefig(
         'xyz_snapshots/frame{}.png'.format(str(k).zfill(3)),
         format='png',
-        dpi=300,
+        dpi=100,
         # bbox_inches="tight",
         # transparent=True
     )
