@@ -179,7 +179,7 @@ edge_set = np.array([
     [0, 3],
     [1, 3]
 ])
-angle_set = angle_indices(n, edge_set).astype(int)
+angle_set = angle_indices(nodes, edge_set).astype(int)
 # print(angle_set)
 
 desired_position = np.random.uniform(0.0, 1.0, (n, 3))

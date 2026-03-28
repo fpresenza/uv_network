@@ -118,7 +118,7 @@ edge_set = np.array([
     [0, 3],
     [1, 3]
 ])
-angle_set = angle_indices(n, edge_set).astype(int)
+angle_set = angle_indices(np.arange(n), edge_set).astype(int)
 # print(angle_set)
 p = np.random.uniform(0.0, 1.0, (n, 3))
 R = np.array([random_rotation_matrix() for _ in range(n)])

@@ -34,7 +34,7 @@ def run(d, nmin, nmax, degree, rep):
             while r < rep:
                 graph = ErdosRenyi(n, prob)
                 E = graph.edge_set()
-                A = angle_indices(n, E).astype(int)
+                A = angle_indices(np.arange(n), E).astype(int)
                 b = is_bearing_rigid(E, x, threshold=1e-10)
                 a = is_angle_rigid(A, p, threshold=1e-10)
                 if b != (a and len(np.unique(E[:, 0])) == n):

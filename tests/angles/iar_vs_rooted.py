@@ -43,7 +43,7 @@ def run(d, nmin, nmax, degree, rep):
             while r < rep:
                 graph = ErdosRenyi(n, prob)
                 E = graph.edge_set()
-                A = angle_indices(n, E).astype(int)
+                A = angle_indices(np.arange(n), E).astype(int)
                 is_iar = is_angle_rigid(A, p, threshold=1e-10)
                 is_rooted = is_rooted_out_branching(n, E)
                 if is_iar and not is_rooted:
