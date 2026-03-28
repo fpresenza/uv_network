@@ -7,6 +7,7 @@ import progressbar
 import numpy as np
 from transformations import unit_vector
 
+from uvnpy.toolkit.data import write_json_file
 from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
 from uvnpy.toolkit.geometry import rotation_matrix_from_quaternion
@@ -33,7 +34,6 @@ class Logs(object):
     control_w: list
     rigidity_val: list
     adjacency: list
-    target_id: list
     target_position: list
 
 
@@ -195,7 +195,7 @@ def simu_step():
         k_m_r = 3.0
         k_m_f = 0.5
         if i in tracking_nodes:
-            rit = targets[i](t) - p[i]
+            rit = targets[target_allocation[i]](t) - p[i]
             dit = np.sqrt(np.square(rit).sum())
             bit = R[i].T.dot(rit / dit)
 
@@ -444,8 +444,18 @@ targets = MovingTargets({
     ])
 })
 
-tracking_nodes = [0, 1, 2]
-rigidity_nodes = [3, 4]
+tracking_nodes = [0, 1, 2, 3, 4]
+rigidity_nodes = [0, 1, 2, 3, 4]
+target_allocation = [i % len(targets) for i in tracking_nodes]
+
+write_json_file(
+    'simu_data/targets.json',
+    {
+        'ids': list(targets.keys()),
+        'tracking_nodes': tracking_nodes,
+        'alloc': target_allocation
+    }
+)
 
 # ------------------------------------------------------------------
 # Simulation
@@ -460,7 +470,6 @@ logs = Logs(
     control_w=[],
     rigidity_val=[],
     adjacency=[sensing_graph.adjacency_matrix().ravel()],
-    target_id=list(targets.keys()),
     target_position=[targets.position(0.0).ravel()]
 )
 
@@ -492,5 +501,4 @@ np.savetxt('simu_data/control_u.csv', logs.control_u, delimiter=',')
 np.savetxt('simu_data/control_w.csv', logs.control_u, delimiter=',')
 np.savetxt('simu_data/rigidity_val.csv', logs.rigidity_val, delimiter=',')
 np.savetxt('simu_data/adjacency.csv', logs.adjacency, delimiter=',')
-np.savetxt('simu_data/target_id.csv', logs.target_id, delimiter=',')
 np.savetxt('simu_data/target_position.csv', logs.target_position, delimiter=',')
