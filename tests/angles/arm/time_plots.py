@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from transformations import unit_vector
 from scipy.spatial.transform import Rotation
 
-from uvnpy.toolkit.data import read_csv_numpy
+from uvnpy.toolkit.data import read_csv_numpy, read_json_file
 
 plt.rcParams['text.usetex'] = False
 plt.rcParams['pdf.fonttype'] = 42
@@ -35,7 +35,9 @@ control_w = read_csv_numpy('simu_data/control_w.csv').reshape(log_num_steps - 1,
 
 rigidity_val = read_csv_numpy('simu_data/rigidity_val.csv')
 
-target_id = read_csv_numpy('simu_data/target_id.csv').astype(np.int32).reshape(-1)
+targets = read_json_file('simu_data/targets.json')
+tracking_nodes = targets['tracking_nodes']
+targets_ids = targets['alloc']
 
 target_position = read_csv_numpy(
     'simu_data/target_position.csv'
@@ -221,7 +223,9 @@ ax[0].set_ylim(0.0, 100.0)
 ax[0].grid(1)
 
 ax[0].plot(
-    t, np.sqrt(np.square(target_position - position[:, target_id]).sum(axis=-1)),
+    t, np.sqrt(np.square(
+        target_position[:, targets_ids] - position[:, tracking_nodes]
+    ).sum(axis=-1)),
     lw=1.0, ds='steps-post'
 )
 # ax[0].hlines(30.0, t[0], t[-1], ls='--', color='k')
@@ -234,7 +238,7 @@ ax[1].tick_params(
 )
 
 ax[1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-ax[1].set_ylabel(r'$\eta_{i \tau_i} \ (\rm m)$', fontsize=10)
+ax[1].set_ylabel(r'$\zeta_{i \tau_i} \ (\rm m)$', fontsize=10)
 ax[1].set_ylim(-1.0, 1.0)
 ax[1].grid(1)
 
@@ -242,9 +246,9 @@ ax[1].plot(
     t,
     np.sum(
         unit_vector(
-            target_position - position[:, target_id],
+            target_position[:, targets_ids] - position[:, tracking_nodes],
             axis=-1
-        ) * orientation[:, target_id, :, 0].swapaxes(0, 1),
+        ) * orientation[:, tracking_nodes, :, 0].swapaxes(0, 1),
         axis=-1
     ),
     lw=1.0, ds='steps-post'
