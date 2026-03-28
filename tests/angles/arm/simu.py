@@ -468,8 +468,8 @@ while simu_counter < simu_num_steps:
         simu_step()
         if (simu_counter % log_skip == 0):
             log_step()
-    except (ValueError, IndexError, ArithmeticError) as e:
-        print('Simulation found error <{}> at t={} sec and stopped.'.format(e, t))
+    except (ValueError, IndexError, ArithmeticError, KeyboardInterrupt) as e:
+        print('Simulation interrupted at t={} sec due to <{}>.'.format(t, e))
         break
 
     simu_counter += 1
@@ -480,7 +480,6 @@ bar.finish()
 
 np.savetxt('simu_data/t.csv', logs.time, delimiter=',')
 np.savetxt('simu_data/position.csv', logs.position, delimiter=',')
-# np.savetxt('simu_data/velocity.csv', logs.velocity, delimiter=',')
 np.savetxt('simu_data/orientation.csv', logs.orientation, delimiter=',')
 np.savetxt('simu_data/control_u.csv', logs.control_u, delimiter=',')
 np.savetxt('simu_data/control_w.csv', logs.control_u, delimiter=',')
