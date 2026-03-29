@@ -27,6 +27,14 @@ parser.add_argument(
     '-j', '--jump',
     default=1, type=int, help='simulation step jumped'
 )
+parser.add_argument(
+    '-s', '--snaps',
+    default=False, action='store_true', help='Whether to plot as snapshots.'
+)
+parser.add_argument(
+    '-m', '--multijump',
+    default=1, type=int, help='Multiplicative jump'
+)
 arg = parser.parse_args()
 
 # ------------------------------------------------------------------
@@ -49,11 +57,14 @@ adjacency = read_csv_numpy(
 ).reshape(log_num_steps, n, n)
 
 target_position = read_csv_numpy(
-    'data/target_position.csv', jump=arg.jump
-).reshape(log_num_steps, -1, 3)
+    'data/target_position.csv', jump=arg.jump // arg.multijump
+).reshape((log_num_steps - 1) * arg.multijump + 1, -1, 3)
+tm = read_csv_numpy('data/t.csv', jump=arg.jump // arg.multijump)
+
 
 targets = read_json_file('data/targets.jsonlog')
 targets_ids = targets['ids']
+targets_style = ['d', 'P', 's', '*', 'X', '^']
 
 # ------------------------------------------------------------------
 # Plot snapshots
@@ -63,9 +74,9 @@ bar = progressbar.ProgressBar(maxval=log_num_steps).start()
 fig, axes = plt.subplots(
     1, 2, subplot_kw={"projection": "3d"}, figsize=(12, 6)
 )
-fig.subplots_adjust(bottom=0.0, wspace=0.0, right=1.0, top=1.0)
+# fig.subplots_adjust(bottom=0.0, wspace=0.0, right=1.0, top=1.0)
 # fig.set_size_inches(10, 8)  # Width = 10, Height = 8
-# fig.tight_layout()
+fig.tight_layout()
 for k in range(log_num_steps):
     tk = t[k]
 
@@ -74,12 +85,12 @@ for k in range(log_num_steps):
             axis='both',       # changes apply to the x-axis
             which='both',      # both major and minor ticks are affected
             pad=-2,
-            labelsize='small'
+            labelsize='medium'
         )
         ax.set_aspect('equal')
-        ax.set_xlabel(r'$x \ (\mathrm{m})$', fontsize='small', labelpad=0.5)
-        ax.set_ylabel(r'$y \ (\mathrm{m})$', fontsize='small', labelpad=0.5)
-        ax.set_zlabel(r'$z \ (\mathrm{m})$', fontsize='small', labelpad=-8.0)
+        ax.set_xlabel(r'$x \ (\mathrm{m})$', fontsize='medium', labelpad=0.5)
+        ax.set_ylabel(r'$y \ (\mathrm{m})$', fontsize='medium', labelpad=0.5)
+        ax.set_zlabel(r'$z \ (\mathrm{m})$', fontsize='medium', labelpad=-9.0)
         # ax.zaxis.labelpad = 0
 
         xy_lim = 100.0
@@ -87,20 +98,20 @@ for k in range(log_num_steps):
         ax.set_xlim3d(0.0, xy_lim)
         ax.set_ylim3d(0.0, xy_lim)
         ax.set_zlim3d(0.0, z_lim)
-        ax.set_xticks(np.linspace(0.0, xy_lim, num=5, endpoint=True))
-        ax.set_yticks(np.linspace(0.0, xy_lim, num=5, endpoint=True))
-        ax.set_zticks(np.linspace(0.0, z_lim, num=3, endpoint=True))
+        ax.set_xticks(np.linspace(0.0, xy_lim, num=4, endpoint=False))
+        ax.set_yticks(np.linspace(0.0, xy_lim, num=4, endpoint=False))
+        ax.set_zticks(np.linspace(0.0, z_lim, num=4, endpoint=False))
 
-    axes[0].view_init(elev=20.0, azim=-70.0)
+    axes[0].view_init(elev=10.0, azim=-45.0)
     axes[0].set_box_aspect(None, zoom=1.0)
 
-    axes[1].view_init(elev=20.0, azim=40.0)
+    axes[1].view_init(elev=10.0, azim=45.0)
     axes[1].set_box_aspect(None, zoom=1.0)
 
     axes[0].text(
-        50, 50.0, 0.0, r't = {:.3f}s'.format(tk),
+        100, 100.0, 100.0, r't = {:.3f}s'.format(tk),
         verticalalignment='bottom', horizontalalignment='left',
-        transform=axes[0].transAxes, color='g', fontsize=10
+        transform=axes[0].transAxes, color='g', fontsize=12
     )
 
     # --- position and orientation--- #
@@ -140,7 +151,7 @@ for k in range(log_num_steps):
             facecolor='0.3',
             edgecolor='none',
             marker='o',
-            s=10,
+            s=15,
             # lw=1,
             zorder=10,
             # alpha=1
@@ -154,20 +165,35 @@ for k in range(log_num_steps):
             lw=0.75,
             zorder=0,
             length=0.45,
-            arrow_length_ratio=0.15
+            arrow_length_ratio=0.3
         )
         for m, i in enumerate(targets_ids):
+            mk = arg.multijump * k
             ax.scatter(
-                target_position[k, m, 0],
-                target_position[k, m, 1],
-                target_position[k, m, 2],
-                marker='d',
+                target_position[mk, m, 0],
+                target_position[mk, m, 1],
+                target_position[mk, m, 2],
+                marker=targets_style[m],
                 # linewidth=2,
                 edgecolor='k',
                 facecolor='k',
-                s=10,
-                alpha=1.0
+                s=20,
+                alpha=1.0,
+                zorder=0,
             )
+            if arg.snaps:
+                ax.scatter(
+                    target_position[max(0, mk-10):mk:2, m, 0],
+                    target_position[max(0, mk-10):mk:2, m, 1],
+                    target_position[max(0, mk-10):mk:2, m, 2],
+                    marker=targets_style[m],
+                    # linewidth=2,
+                    edgecolor='0.0',
+                    facecolor='0.0',
+                    s=3,
+                    alpha=0.5,
+                    zorder=10
+                )
         ax.xaxis._axinfo['grid'].update(
             color='0.5',
             linestyle='-',
@@ -186,11 +212,10 @@ for k in range(log_num_steps):
             linewidth=0.25,
             alpha=0.5
         )
-
     fig.savefig(
         'xyz_snapshots/frame{}.png'.format(str(k).zfill(3)),
         format='png',
-        dpi=100,
+        dpi=300,
         # bbox_inches="tight",
         # transparent=True
     )
