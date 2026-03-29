@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import progressbar
 import mpl_toolkits.mplot3d.art3d as art3d
 
-from uvnpy.toolkit.data import read_csv_numpy
+from uvnpy.toolkit.data import read_csv_numpy, read_json_file
 from uvnpy.toolkit.geometry import draw_cone
 from uvnpy.toolkit import plot
 from uvnpy.graphs.core import edges_from_adjacency
@@ -52,8 +52,8 @@ target_position = read_csv_numpy(
     'data/target_position.csv', jump=arg.jump
 ).reshape(log_num_steps, -1, 3)
 
-target_id = read_csv_numpy('data/target_id.csv').astype(np.int32)
-
+targets = read_json_file('data/targets.jsonlog')
+targets_ids = targets['ids']
 
 # ------------------------------------------------------------------
 # Plot snapshots
@@ -137,7 +137,7 @@ for k in range(log_num_steps):
         # )
         plot.points(
             ax, p,
-            facecolor='0.0',
+            facecolor='0.3',
             edgecolor='none',
             marker='o',
             s=10,
@@ -156,7 +156,7 @@ for k in range(log_num_steps):
             length=0.45,
             arrow_length_ratio=0.15
         )
-        for m, i in enumerate(target_id):
+        for m, i in enumerate(targets_ids):
             ax.scatter(
                 target_position[k, m, 0],
                 target_position[k, m, 1],
