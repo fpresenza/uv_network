@@ -42,7 +42,6 @@ estimated_position = read_csv_numpy(
     'simu_data/estimated_position.csv'
 ).reshape(log_num_steps, n, 3)
 
-
 control_u = read_csv_numpy('simu_data/control_u.csv').reshape(log_num_steps, n, 3)
 control_w = read_csv_numpy('simu_data/control_w.csv').reshape(log_num_steps, n, 3)
 
