@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -13,6 +15,15 @@ plt.rcParams['ps.fonttype'] = 42
 plt.rcParams['mathtext.fontset'] = 'dejavuserif'
 plt.rcParams['font.family'] = 'serif'
 
+# ------------------------------------------------------------------
+# Argument parse
+# ------------------------------------------------------------------
+parser = argparse.ArgumentParser(description='')
+parser.add_argument(
+    '-c', '--coupled',
+    default=False, action='store_true', help='Coupled or uncoupled estimation.'
+)
+arg = parser.parse_args()
 
 # ------------------------------------------------------------------
 # Read simulated data
@@ -31,15 +42,19 @@ estimated_position = read_csv_numpy(
     'simu_data/estimated_position.csv'
 ).reshape(log_num_steps, n, 3)
 
-estimated_orientation = read_csv_numpy(
-    'simu_data/estimated_orientation.csv'
-).reshape(log_num_steps, n, 3, 3)
 
 control_u = read_csv_numpy('simu_data/control_u.csv').reshape(log_num_steps, n, 3)
 control_w = read_csv_numpy('simu_data/control_w.csv').reshape(log_num_steps, n, 3)
 
 correction_u = read_csv_numpy('simu_data/correction_u.csv').reshape(log_num_steps, n, 3)
-correction_w = read_csv_numpy('simu_data/correction_w.csv').reshape(log_num_steps, n, 3)
+
+if arg.coupled:
+    estimated_orientation = read_csv_numpy(
+        'simu_data/estimated_orientation.csv'
+    ).reshape(log_num_steps, n, 3, 3)
+    correction_w = read_csv_numpy(
+        'simu_data/correction_w.csv'
+    ).reshape(log_num_steps, n, 3)
 
 adjacency = read_csv_numpy('simu_data/adjacency.csv').reshape(n, n)
 
@@ -134,43 +149,44 @@ fig.savefig('time_plots/position_error.pdf', bbox_inches='tight')
 # Q = orientation
 # hatR = np.matmul(estimated_orientation[:, a, np.newaxis], estimated_orientation)
 
-Q = np.matmul(orientation[:, a, np.newaxis].swapaxes(2, 3), orientation)
-hatQ = estimated_orientation
+if arg.coupled:
+    Q = np.matmul(orientation[:, a, np.newaxis].swapaxes(2, 3), orientation)
+    hatQ = estimated_orientation
 
-E = np.matmul(Q.swapaxes(2, 3), hatQ)
-e = 0.5 * (3 - np.trace(E, axis1=2, axis2=3))
+    E = np.matmul(Q.swapaxes(2, 3), hatQ)
+    e = 0.5 * (3 - np.trace(E, axis1=2, axis2=3))
 
-fig, ax = plt.subplots(figsize=(9.0, 6.0))
-fig.subplots_adjust(
-    bottom=0.215,
-    top=0.925,
-    wspace=0.33,
-    right=0.975,
-    left=0.18
-)
+    fig, ax = plt.subplots(figsize=(9.0, 6.0))
+    fig.subplots_adjust(
+        bottom=0.215,
+        top=0.925,
+        wspace=0.33,
+        right=0.975,
+        left=0.18
+    )
 
-ax.tick_params(
-    axis='both',       # changes apply to the x-axis
-    which='both',      # both major and minor ticks are affected
-    pad=1,
-    labelsize=9
-)
+    ax.tick_params(
+        axis='both',       # changes apply to the x-axis
+        which='both',      # both major and minor ticks are affected
+        pad=1,
+        labelsize=9
+    )
 
-ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-ax.set_ylabel(
-    r'$\frac{1}{2} \  \mathrm{tr}\left(I - Q_i^\top \hat{Q}_{i}\right) \ (\rm m)$',
-    fontsize=10
-)
-ax.grid(1)
+    ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+    ax.set_ylabel(
+        r'$\frac{1}{2} \  \mathrm{tr}\left(I - Q_i^\top \hat{Q}_{i}\right) \ (\rm m)$',
+        fontsize=10
+    )
+    ax.grid(1)
 
-ax.plot(
-    t,
-    e,
-    lw=1.0,
-    ds='steps-post'
-)
+    ax.plot(
+        t,
+        e,
+        lw=1.0,
+        ds='steps-post'
+    )
 
-fig.savefig('time_plots/orientation_error.pdf', bbox_inches='tight')
+    fig.savefig('time_plots/orientation_error.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot control
@@ -183,6 +199,7 @@ fig.subplots_adjust(
     right=0.975,
     left=0.18
 )
+fig.tight_layout()
 
 for k, d in enumerate(['x', 'y', 'z']):
     ax[k, 0].tick_params(
@@ -218,47 +235,78 @@ fig.savefig('time_plots/control.pdf', bbox_inches='tight')
 # ------------------------------------------------------------------
 # Plot correction
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(3, 2, figsize=(18.0, 6.0))
-fig.subplots_adjust(
-    bottom=0.215,
-    top=0.925,
-    wspace=0.33,
-    right=0.975,
-    left=0.18
-)
-
-for k, d in enumerate(['x', 'y', 'z']):
-    ax[k, 0].tick_params(
-        axis='both',       # changes apply to the x-axis
-        which='both',      # both major and minor ticks are affected
-        pad=1,
-        labelsize=9
+if arg.coupled:
+    fig, ax = plt.subplots(3, 2, figsize=(18.0, 6.0))
+    fig.subplots_adjust(
+        bottom=0.215,
+        top=0.925,
+        wspace=0.33,
+        right=0.975,
+        left=0.18
     )
 
-    ax[k, 0].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-    ax[k, 0].set_ylabel(fr'$\delta \hat{{p}}_{{i, {d}}} \ (\rm m / s)$', fontsize=10)
-    # ax[k, 0].set_ylim(-1e-4, 1e-4)
-    ax[k, 0].grid(1)
+    for k, d in enumerate(['x', 'y', 'z']):
+        ax[k, 0].tick_params(
+            axis='both',       # changes apply to the x-axis
+            which='both',      # both major and minor ticks are affected
+            pad=1,
+            labelsize=9
+        )
 
-    ax[k, 0].plot(t, correction_u[:, :, k], lw=1.0, ds='steps-post')
+        ax[k, 0].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+        ax[k, 0].set_ylabel(
+            fr'$\delta \hat{{p}}_{{i, {d}}} \ (\rm m / s)$', fontsize=10
+        )
+        # ax[k, 0].set_ylim(-1e-4, 1e-4)
+        ax[k, 0].grid(1)
 
-    ax[k, 1].tick_params(
-        axis='both',       # changes apply to the x-axis
-        which='both',      # both major and minor ticks are affected
-        pad=1,
-        labelsize=9
+        ax[k, 0].plot(t, correction_u[:, :, k], lw=1.0, ds='steps-post')
+
+        ax[k, 1].tick_params(
+            axis='both',       # changes apply to the x-axis
+            which='both',      # both major and minor ticks are affected
+            pad=1,
+            labelsize=9
+        )
+
+        ax[k, 1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+        ax[k, 1].set_ylabel(
+            fr'$\delta \hat{{Q}}_{{i, {d}}} \ (\rm m / s)$', fontsize=10
+        )
+        # ax[k, 1].set_ylim(-1e-4, 1e-4)
+        ax[k, 1].grid(1)
+
+        ax[k, 1].plot(t, correction_w[:, :, k], lw=1.0, ds='steps-post')
+
+    fig.savefig('time_plots/correction.pdf', bbox_inches='tight')
+
+else:
+
+    fig, ax = plt.subplots(3, figsize=(9.0, 6.0))
+    fig.subplots_adjust(
+        bottom=0.215,
+        top=0.925,
+        wspace=0.33,
+        right=0.975,
+        left=0.18
     )
 
-    ax[k, 1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-    ax[k, 1].set_ylabel(fr'$\delta \hat{{Q}}_{{i, {d}}} \ (\rm m / s)$', fontsize=10)
-    # ax[k, 1].set_ylim(-1e-4, 1e-4)
-    ax[k, 1].grid(1)
+    for k, d in enumerate(['x', 'y', 'z']):
+        ax[k].tick_params(
+            axis='both',       # changes apply to the x-axis
+            which='both',      # both major and minor ticks are affected
+            pad=1,
+            labelsize=9
+        )
 
-    ax[k, 1].plot(t, correction_w[:, :, k], lw=1.0, ds='steps-post')
+        ax[k].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+        ax[k].set_ylabel(fr'$\delta \hat{{p}}_{{i, {d}}} \ (\rm m / s)$', fontsize=10)
+        # ax[k].set_ylim(-1e-4, 1e-4)
+        ax[k].grid(1)
 
+        ax[k].plot(t, correction_u[:, :, k], lw=1.0, ds='steps-post')
 
-fig.savefig('time_plots/correction.pdf', bbox_inches='tight')
-
+    fig.savefig('time_plots/correction.pdf', bbox_inches='tight')
 # ------------------------------------------------------------------
 # Plot angle error
 # ------------------------------------------------------------------
