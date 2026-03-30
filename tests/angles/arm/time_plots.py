@@ -158,7 +158,7 @@ for k, d in enumerate(['x', 'y', 'z']):
     )
 
     ax[k].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-    ax[k].set_ylabel(fr'$u_{{i, {d}}} \ (\rm m / s^2)$', fontsize=10)
+    ax[k].set_ylabel(fr'$u_{{i, {d}}} \ (\mathrm{{m s}}^{{-1}})$', fontsize=10)
     # ax[k].set_ylim(-1e-4, 1e-4)
     ax[k].grid(1)
 
@@ -201,100 +201,98 @@ fig.savefig('time_plots/control_w.pdf', bbox_inches='tight')
 # ------------------------------------------------------------------
 # Plot target tracking metrics
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(2, 1, figsize=(9.0, 6.0))
-fig.subplots_adjust(
-    bottom=0.215,
-    top=0.925,
-    wspace=0.33,
-    right=0.975,
-    left=0.18
-)
-
-ax[0].tick_params(
-    axis='both',       # changes apply to the x-axis
-    which='both',      # both major and minor ticks are affected
-    pad=1,
-    labelsize=9
-)
-
-ax[0].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-ax[0].set_ylabel(r'$d_{i \tau_i} \ (\rm m)$', fontsize=10)
-ax[0].set_ylim(0.0, 100.0)
-ax[0].grid(1)
-
-ax[0].plot(
-    t, np.sqrt(np.square(
-        target_position[:, targets_ids] - position[:, tracking_nodes]
-    ).sum(axis=-1)),
-    lw=1.0, ds='steps-post'
-)
-# ax[0].hlines(30.0, t[0], t[-1], ls='--', color='k')
-
-ax[1].tick_params(
-    axis='both',       # changes apply to the x-axis
-    which='both',      # both major and minor ticks are affected
-    pad=1,
-    labelsize=9
-)
-
-ax[1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-ax[1].set_ylabel(r'$\zeta_{i \tau_i} \ (\rm m)$', fontsize=10)
-ax[1].set_ylim(-1.0, 1.0)
-ax[1].grid(1)
-
-ax[1].plot(
-    t,
-    np.sum(
-        unit_vector(
-            target_position[:, targets_ids] - position[:, tracking_nodes],
-            axis=-1
-        ) * orientation[:, tracking_nodes, :, 0].swapaxes(0, 1),
-        axis=-1
-    ),
-    lw=1.0, ds='steps-post'
-)
-ax[1].hlines(0.5, t[0], t[-1], ls='--', color='k', lw=0.5)
-
-fig.savefig('time_plots/target_tracking.pdf', bbox_inches='tight')
-
-# ------------------------------------------------------------------
-# Plot rigidity eigenvalue
-# ------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(9.0, 6.0))
-fig.subplots_adjust(
-    bottom=0.215,
-    top=0.925,
-    wspace=0.33,
-    right=0.975,
-    left=0.18
-)
+fig, ax = plt.subplots(figsize=(9.0, 3.0))
+fig.tight_layout()
 
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
-    labelsize=9
+    labelsize=3
 )
 
-ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=15)
+ax.set_ylabel(r'$d_{i \tau_i} \ (\rm m)$', fontsize=15)
+ax.set_ylim(0.0, 100.0)
+ax.set_xticks(np.linspace(t[0], t[-1], 5))
+ax.grid(1)
+
+ax.plot(
+    t, np.sqrt(np.square(
+        target_position[:, targets_ids] - position[:, tracking_nodes]
+    ).sum(axis=-1)),
+    lw=2.0, ds='steps-post'
+)
+# ax.hlines(30.0, t[0], t[-1], ls='--', color='k')
+fig.savefig('time_plots/tracking_distance.pdf', bbox_inches='tight')
+
+
+fig, ax = plt.subplots(figsize=(9.0, 3.0))
+fig.tight_layout()
+
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize=15
+)
+
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=15)
+ax.set_ylabel(r'$\arccos(\zeta_{i \tau_i})$', fontsize=15)
+# ax.set_ylim(bottom=0.0)
+ax.set_xticks(np.linspace(t[0], t[-1], 5))
+ax.set_yticks(np.linspace(0, 360, 6, endpoint=False))
+ax.grid(1)
+
+ax.plot(
+    t,
+    np.rad2deg(np.arccos(np.sum(
+        unit_vector(
+            target_position[:, targets_ids] - position[:, tracking_nodes],
+            axis=-1
+        ) * orientation[:, tracking_nodes, :, 0].swapaxes(0, 1),
+        axis=-1
+    ))),
+    lw=2.0, ds='steps-post'
+)
+ax.hlines(60.0, t[0], t[-1], ls='--', color='k', lw=1.0)
+ax.text(180.0, 63.0, r'$60\degree$', size=15)
+
+fig.savefig('time_plots/tracking_aiming.pdf', bbox_inches='tight')
+
+# ------------------------------------------------------------------
+# Plot rigidity eigenvalue
+# ------------------------------------------------------------------
+fig, ax = plt.subplots(figsize=(9.0, 3.0))
+fig.tight_layout()
+
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize=15
+)
+
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=15)
 # ax.set_ylabel(r'$\lambda$', fontsize=10)
 # ax.set_ylim(-1e-4, 1e-4)
+ax.set_xticks(np.linspace(t[0], t[-1], 5))
 ax.grid(1)
 
 ax.semilogy(
     t[1:], rigidity_val[:, 0],
-    lw=1.0, ds='steps-post', color='C0', label=r'$\lambda_8$', ls='--'
+    lw=2.0, ds='steps-post', color='C0', label=r'$\lambda_8$', ls='--'
 )
 ax.semilogy(
     t[1:], rigidity_val[:, 1],
-    lw=1.0, ds='steps-post', color='C0', label=r'$\widetilde{\lambda}_8$'
+    lw=2.0, ds='steps-post', color='C0', label=r'$\widetilde{\lambda}_8$'
 )
-ax.semilogy(
-    t[1:], rigidity_val[:, 2],
-    lw=1.0, ds='steps-post', color='C1', label=r'$\widetilde{\lambda}_9$'
-)
+# ax.semilogy(
+#     t[1:], rigidity_val[:, 2],
+#     lw=1.0, ds='steps-post', color='C1', label=r'$\widetilde{\lambda}_9$'
+# )
 ax.legend(
-    fontsize=10, handlelength=1.5, labelspacing=0.4,
+    fontsize=15, handlelength=1.5, labelspacing=0.4,
     borderpad=0.2, handletextpad=0.2, framealpha=1.,
     ncol=1, columnspacing=1
 )
