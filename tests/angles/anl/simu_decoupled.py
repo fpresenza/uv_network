@@ -68,7 +68,7 @@ def simu_step():
     ub = np.zeros((n, 3), dtype=np.float64)    # body-frame
     wb = np.zeros((n, 3), dtype=np.float64)    # body-frame
 
-    # # --- similarity correction --- #
+    # --- similarity correction --- #
     # measurements
     qb = R[a].T.dot(p[b] - p[a])
     qc = R[a].T.dot(p[c] - p[a])
@@ -79,7 +79,7 @@ def simu_step():
     gradient_descent[b] -= k_s * (hatq[b] - qb)
     gradient_descent[c] -= k_s * (hatq[c] - qc)
 
-    k_a = 200.0
+    k_a = 500.0
     for i in nodes:
         # --- angle correction --- #
         out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
@@ -113,9 +113,11 @@ def simu_step():
             nijk = Pij.dot(bik) / dij
             nikj = Pik.dot(bij) / dik
 
-            gradient_descent[i] += k_a * eijk * (nijk + nikj)
-            gradient_descent[j] -= k_a * eijk * nijk
-            gradient_descent[k] -= k_a * eijk * nikj
+            angle_correction_j = k_a * eijk * nijk
+            angle_correction_k = k_a * eijk * nikj
+            gradient_descent[i] += angle_correction_j + angle_correction_k
+            gradient_descent[j] -= angle_correction_j
+            gradient_descent[k] -= angle_correction_k
 
     for i in nodes:
         # --- Control inputs --- #
@@ -196,9 +198,9 @@ orientation = np.array([random_rotation_matrix() for _ in nodes])
 edge_set = np.array([
     [0, 1],
     [0, 2],
+    [0, 3],
     [1, 0],
     [1, 2],
-    [0, 3],
     [1, 3]
 ])
 angle_set = angle_indices(nodes, edge_set).astype(int)
