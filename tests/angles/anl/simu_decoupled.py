@@ -74,12 +74,29 @@ def simu_step():
     qc = R[a].T.dot(p[c] - p[a])
 
     # correction
-    k_s = 10.0
+    k_s = 30.0
     gradient_descent[a] -= k_s * hatq[a]
     gradient_descent[b] -= k_s * (hatq[b] - qb)
     gradient_descent[c] -= k_s * (hatq[c] - qc)
 
-    k_a = 500.0
+    # # --- scale correction --- #
+    # # measurements
+    # dab2 = np.square(p[b] - p[a]).sum()
+    # dac2 = np.square(p[c] - p[a]).sum()
+
+    # # estimated values
+    # hat_dab2 = np.square(hatq[b] - hatq[a]).sum()
+    # hat_dac2 = np.square(hatq[c] - hatq[a]).sum()
+
+    # # correction
+    # k_s = 0.45
+    # scale_correction_ab = k_s * (hat_dab2 - dab2) * (hatq[a] - hatq[b])
+    # scale_correction_ac = k_s * (hat_dac2 - dac2) * (hatq[a] - hatq[c])
+    # gradient_descent[b] += scale_correction_ab
+    # gradient_descent[c] += scale_correction_ac
+    # gradient_descent[a] -= scale_correction_ab + scale_correction_ac
+
+    k_a = 1000.0
     for i in nodes:
         # --- angle correction --- #
         out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
@@ -121,7 +138,7 @@ def simu_step():
 
     for i in nodes:
         # --- Control inputs --- #
-        ub[i] = [0.0, 0.0, 0.0]
+        ub[i] = [np.cos(i / 5.0 * t), 0.0, 0.0]
         wb[i] = [0.0, 0.0, 0.0]
 
         # --- advance pose --- #
@@ -129,9 +146,8 @@ def simu_step():
         R_int[i].step_left(t, wb[i])
 
         # --- advance estimation --- #
-        zi = gradient_descent[i].copy()
-
-        hatq_int[i].step(t, - ub[a] - np.cross(wb[a], hatq[i]) + zi)
+        hatq_int[i].step(t, - ub[a] - np.cross(wb[a], hatq[i]) + gradient_descent[i])
+        # hatq_int[i].step(t, gradient_descent[i])
 
 
 def log_step():
