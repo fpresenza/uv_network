@@ -193,3 +193,33 @@ def draw_cone(apex, rotation, hypot, fov, resolution=36):
     points = points.dot(rotation.T) + apex
 
     return [np.vstack([apex, points[i-1:i+1]]) for i in range(1, resolution)]
+
+
+def optimal_rigid_transform(X, Y):
+    """
+    Find R, t minimizing ||Y - (R X + t)||_F
+
+    args:
+    -----
+    X, Y : (n, 3)-(array)
+
+    Returns:
+        R: (3, 3) rotation matrix
+        t: (3,) translation vector
+    """
+    cX = X.mean(axis=0)
+    cY = Y.mean(axis=0)
+
+    Xc = X - cX
+    Yc = Y - cY
+
+    H = Xc.T.dot(Yc)
+    U, _, Vt = np.linalg.svd(H)
+
+    # Enforce proper rotation (det(R)=+1), avoid reflection
+    if np.linalg.det(Vt) * np.linalg.det(U) < 0.0:
+        Vt[-1, :] *= -1
+
+    R = Vt.T.dot(U.T)
+    t = cY - R.dot(cX)
+    return R, t
