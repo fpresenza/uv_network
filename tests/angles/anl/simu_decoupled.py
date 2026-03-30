@@ -92,9 +92,9 @@ def simu_step():
     # k_s = 0.45
     # scale_correction_ab = k_s * (hat_dab2 - dab2) * (hatq[a] - hatq[b])
     # scale_correction_ac = k_s * (hat_dac2 - dac2) * (hatq[a] - hatq[c])
+    # gradient_descent[a] -= scale_correction_ab + scale_correction_ac
     # gradient_descent[b] += scale_correction_ab
     # gradient_descent[c] += scale_correction_ac
-    # gradient_descent[a] -= scale_correction_ab + scale_correction_ac
 
     k_a = 1000.0
     for i in nodes:
@@ -138,8 +138,8 @@ def simu_step():
 
     for i in nodes:
         # --- Control inputs --- #
-        ub[i] = [np.cos(i / 5.0 * t), 0.0, 0.0]
-        wb[i] = [0.0, 0.0, 0.0]
+        ub[i] = [0.0, 0.0, 0.0]
+        wb[i] = [1.0 - i, 0.0, 0.0]
 
         # --- advance pose --- #
         p_int[i].step(t, R[i].dot(ub[i]))
