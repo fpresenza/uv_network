@@ -45,40 +45,40 @@ def simu_step():
     R = orientation[simu_counter]
     edge_set = edges_from_adjacency(adjacency[simu_counter])
     angle_set = angle_indices(nodes, edge_set).astype(int)
-    ub = control_u[simu_counter - 1]
-    wb = control_w[simu_counter - 1]
+    # ub = control_u[simu_counter - 1]
+    # wb = control_w[simu_counter - 1]
 
     hatq = extract_x(hatq_int)
 
     gradient_descent = np.zeros((n, 3), dtype=np.float64)
 
-    # --- similarity correction --- #
-    # measurements
-    qb = R[a].T.dot(p[b] - p[a])
-    qc = R[a].T.dot(p[c] - p[a])
-
-    # correction
-    k_s = 30.0
-    gradient_descent[a] -= k_s * hatq[a]
-    gradient_descent[b] -= k_s * (hatq[b] - qb)
-    gradient_descent[c] -= k_s * (hatq[c] - qc)
-
-    # # --- scale correction --- #
+    # # --- similarity correction --- #
     # # measurements
-    # dab2 = np.square(p[b] - p[a]).sum()
-    # dac2 = np.square(p[c] - p[a]).sum()
-
-    # # estimated values
-    # hat_dab2 = np.square(hatq[b] - hatq[a]).sum()
-    # hat_dac2 = np.square(hatq[c] - hatq[a]).sum()
+    # qb = R[a].T.dot(p[b] - p[a])
+    # qc = R[a].T.dot(p[c] - p[a])
 
     # # correction
-    # k_s = 0.45
-    # scale_correction_ab = k_s * (hat_dab2 - dab2) * (hatq[a] - hatq[b])
+    # k_s = 30.0
+    # gradient_descent[a] -= k_s * hatq[a]
+    # gradient_descent[b] -= k_s * (hatq[b] - qb)
+    # gradient_descent[c] -= k_s * (hatq[c] - qc)
+
+    # --- scale correction --- #
+    # measurements
+    dab2 = np.square(p[b] - p[a]).sum()
+    # dac2 = np.square(p[c] - p[a]).sum()
+
+    # estimated values
+    hat_dab2 = np.square(hatq[b] - hatq[a]).sum()
+    # hat_dac2 = np.square(hatq[c] - hatq[a]).sum()
+
+    # correction
+    k_s = 0.05
+    scale_correction_ab = k_s * (hat_dab2 - dab2) * (hatq[a] - hatq[b])
     # scale_correction_ac = k_s * (hat_dac2 - dac2) * (hatq[a] - hatq[c])
-    # gradient_descent[b] += scale_correction_ab
+    gradient_descent[a] -= scale_correction_ab     # + scale_correction_ac
+    gradient_descent[b] += scale_correction_ab
     # gradient_descent[c] += scale_correction_ac
-    # gradient_descent[a] -= scale_correction_ab + scale_correction_ac
 
     k_a = 1000.0
     for i in nodes:
@@ -122,8 +122,8 @@ def simu_step():
 
     for i in nodes:
         # --- advance estimation --- #
-        hatq_int[i].step(t, - ub[a] - np.cross(wb[a], hatq[i]) + gradient_descent[i])
-        # hatq_int[i].step(t, gradient_descent[i])
+        # hatq_int[i].step(t, - ub[a] - np.cross(wb[a], hatq[i]) + gradient_descent[i])
+        hatq_int[i].step(t, gradient_descent[i])
 
 
 def log_step():
@@ -173,9 +173,9 @@ adjacency = read_csv_numpy(
 a, b, c = 0, 1, 2
 
 # refer initial position to body frame a
-position_a = (position[0] - position[0, a]).dot(orientation[0, a])
+# position_a = (position[0] - position[0, a]).dot(orientation[0, a])
 
-est_position = np.random.normal(position_a, 2.0)
+est_position = np.random.normal(position[0], 2.0)
 hatq_int = [
     EulerIntegrator(est_position[i])
     for i in nodes

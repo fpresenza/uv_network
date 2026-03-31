@@ -9,6 +9,7 @@ from uvnpy.toolkit.data import read_csv_numpy
 from uvnpy.angles.local_frame.core import angle_function
 # from uvnpy.graphs.core import edges_from_adjacency
 from uvnpy.graphs.core import complete_edges
+from uvnpy.toolkit.geometry import optimal_rigid_transform
 
 plt.rcParams['text.usetex'] = False
 plt.rcParams['pdf.fonttype'] = 42
@@ -71,10 +72,14 @@ edge_set = complete_edges(n)
 a = 0
 
 # position reconstruction
-rotated_position = np.matmul(
-    orientation[:, a], estimated_position.swapaxes(1, 2)
-).swapaxes(1, 2)
-reconstructed_position = position[:, np.newaxis, a] + rotated_position
+# rotated_position = np.matmul(
+#     orientation[:, a], estimated_position.swapaxes(1, 2)
+# ).swapaxes(1, 2)
+# reconstructed_position = position[:, np.newaxis, a] + rotated_position
+reconstructed_position = np.empty(shape=estimated_position.shape)
+for k in range(log_num_steps):
+    U, v = optimal_rigid_transform(estimated_position[k], position[k])
+    reconstructed_position[k] = estimated_position[k].dot(U.T) + v
 
 # ------------------------------------------------------------------
 # Plot position
