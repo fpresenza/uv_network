@@ -141,7 +141,7 @@ R_int = [
 ]
 
 hatQ_int = [
-    EulerIntegrator(np.eye(3))
+    EulerIntegrator(np.eye(3) if i == a else random_rotation_matrix())
     for i in nodes
 ]
 
