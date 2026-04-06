@@ -181,15 +181,19 @@ def simu_step():
         bearings = {
             j: R[i].T.dot(r[j] / distances[j]) for j in out_neighbors
         }
+        rotations = {
+            j: R[i].T.dot(R[j]) for j in out_neighbors
+        }
 
         # --- collision avoidance control --- #
         for j in out_neighbors:
             dij = distances[j]
             bij = bearings[j]
+            Rij = rotations[j]
 
             repulsion = 2 * sensing_range * (dij - sensing_range) * bij / dij**3
             control_u_c[i] += repulsion
-            control_u_c[j] += -repulsion
+            control_u_c[j] += -Rij.T.dot(repulsion)
 
         # --- target tracking control --- #
         k_m_r = 3.0
@@ -213,9 +217,6 @@ def simu_step():
 
         # --- rigidity maintenance control --- #
         if i in rigidity_nodes:
-            rotations = {
-                j: R[i].T.dot(R[j]) for j in out_neighbors
-            }
             for j, k in complete_angle_set(out_neighbors):
                 # --- rigidity control law --- #
                 dij = distances[j]
