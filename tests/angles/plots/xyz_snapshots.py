@@ -102,10 +102,10 @@ for k in range(log_num_steps):
         ax.set_yticks(np.linspace(0.0, xy_lim, num=4, endpoint=False))
         ax.set_zticks(np.linspace(0.0, z_lim, num=4, endpoint=False))
 
-    axes[0].view_init(elev=10.0, azim=-45.0)
+    axes[0].view_init(elev=0.0, azim=45.0)
     axes[0].set_box_aspect(None, zoom=1.0)
 
-    axes[1].view_init(elev=10.0, azim=45.0)
+    axes[1].view_init(elev=90.0, azim=45.0)
     axes[1].set_box_aspect(None, zoom=1.0)
 
     axes[0].text(

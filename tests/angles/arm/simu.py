@@ -77,7 +77,7 @@ def dsigma_r_f(x):
 
 def dsigma_m_r(x):
     return cosine_activation_derivative(
-        np.array([x]), 0.0, 100.0
+        np.array([x]), 0.0, 200.0
     ).item()
 
 
@@ -193,7 +193,7 @@ def simu_step():
 
         # --- target tracking control --- #
         k_m_r = 3.0
-        k_m_f = 0.5
+        k_m_f = 2.5
         if i in tracking_nodes:
             rit = targets[target_allocation[i]](t) - p[i]
             dit = np.sqrt(np.square(rit).sum())
@@ -382,16 +382,16 @@ while not found_IAR:
     seed += 1
 
     t = 0.0
-    n = 5
+    n = 8
     nodes = np.arange(n)
     initial_position = np.random.uniform(
-        [60.0, 0.0, 0.0],
-        [100.0, 40.0, 40.0],
+        [20.0, 20.0, 20.0],
+        [80.0, 80.0, 80.0],
         size=(n, 3)
     )
     initial_orientation = aiming(initial_position, initial_position.mean(axis=0))
 
-    sensing_range = 40.0
+    sensing_range = 50.0
     fov = 120.0
     cos_hfov = np.cos(np.deg2rad(fov / 2))
     sensing_graph = ConeGraph(
@@ -428,32 +428,21 @@ rigidity_val = np.empty(3, dtype=np.float64)
 # --- define targets --- #
 targets = MovingTargets({
     0: lambda t: np.array([
-        min(t, 100.0, 200.0 - t),
-        min(t, 100.0, 200.0 - t),
-        0.0
-    ]),
-    1: lambda t: np.array([
-        min(t, 100.0, 200.0 - t),
-        min(t, 100.0),
-        min(t, 100.0)
-    ]),
-    2: lambda t: np.array([
-        0.0,
-        min(t, 100.0),
-        0.0
-    ])
+        50.0 + 40 * np.cos(0.2 * np.pi * t),
+        50.0 + 40 * np.sin(0.2 * np.pi * t) * np.cos(0.02 * np.pi * t),
+        50.0 + 40 * np.sin(0.2 * np.pi * t) * np.sin(0.02 * np.pi * t)])
 })
 
-tracking_nodes = [0, 1, 2, 3, 4]
-rigidity_nodes = [0, 1, 2, 3, 4]
-target_allocation = [0, 1, 2, 1, 2]
+tracking_nodes = nodes
+rigidity_nodes = nodes
+target_allocation = np.zeros(n, dtype=int)
 
 write_json_file(
     'simu_data/targets.jsonlog',
     {
         'ids': list(targets.keys()),
-        'tracking_nodes': tracking_nodes,
-        'alloc': target_allocation
+        'tracking_nodes': tracking_nodes.tolist(),
+        'alloc': target_allocation.tolist()
     }
 )
 
