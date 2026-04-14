@@ -256,7 +256,7 @@ ax.plot(
     lw=2.0, ds='steps-post'
 )
 ax.hlines(60.0, t[0], t[-1], ls='--', color='k', lw=1.0)
-ax.text(180.0, 63.0, r'$60\degree$', size=15)
+ax.text(90.0, 63.0, r'$60\degree$', size=15)
 
 fig.savefig('time_plots/tracking_aiming.pdf', bbox_inches='tight')
 
