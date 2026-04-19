@@ -71,16 +71,24 @@ def simu_step():
     ub = np.zeros((n, 3), dtype=np.float64)    # body-frame
     wb = np.zeros((n, 3), dtype=np.float64)    # body-frame
 
-    # --- similarity correction --- #
+    # --- Euclidean correction --- #
     # measurements
-    qb = R[a].T.dot(p[b] - p[a])
-    qc = R[a].T.dot(p[c] - p[a])
+    dab = np.sqrt(np.square(p[b] - p[a]).sum())
+    dac = np.sqrt(np.square(p[c] - p[a]).sum())
+    bab = R[a].T.dot((p[b] - p[a]) / dab)
+    bac = R[a].T.dot((p[c] - p[a]) / dac)
 
     # correction
     k_s = 10.0
+    hat_bab = unit_vector(hatq[b] - hatq[a])
+    hat_bac = unit_vector(hatq[c] - hatq[a])
+    hat_Pab = np.eye(3) - np.outer(hat_bab, hat_bab)
+    hat_Pac = np.eye(3) - np.outer(hat_bac, hat_bac)
+
     gradient[a] += k_s * hatq[a]
-    gradient[b] += k_s * (hatq[b] - qb)
-    gradient[c] += k_s * (hatq[c] - qc)
+    gradient[a] += k_s * (hat_Pab.dot(bab) / dab + hat_Pac.dot(bac) / dac)
+    gradient[b] -= k_s * hat_Pab.dot(bab) / dab
+    gradient[c] -= k_s * hat_Pac.dot(bac) / dac
 
     k_a = 500.0
     for i in nodes:
@@ -123,7 +131,7 @@ def simu_step():
     k_o = 2.0
     for i in nodes:
         # --- Control inputs --- #
-        ub[i] = [np.cos(1.0*t), np.sin(1.0*t), np.sin(0.2*t)]
+        ub[i] = [np.cos(1.0*t), np.sin(1.0*t), np.sin(2.0*t)]
         wb[i] = [i / 10.0, 0, 0.5 - i / 10.0]
 
         # --- advance pose --- #
