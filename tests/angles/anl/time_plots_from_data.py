@@ -156,7 +156,7 @@ for k, d in enumerate(['x', 'y', 'z']):
 
 fig.savefig('time_plots/position_error.pdf', bbox_inches='tight')
 
-fig, ax = plt.subplots(figsize=(9.0, 3.0))
+fig, ax = plt.subplots(figsize=(9.0, 2.0))
 fig.tight_layout()
 
 ax.tick_params(

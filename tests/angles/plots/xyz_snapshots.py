@@ -58,9 +58,7 @@ adjacency = read_csv_numpy(
 
 target_position = read_csv_numpy(
     'data/target_position.csv', jump=arg.jump // arg.multijump
-).reshape((log_num_steps - 1) * arg.multijump + 1, -1, 3)
-tm = read_csv_numpy('data/t.csv', jump=arg.jump // arg.multijump)
-
+).reshape(log_num_steps * arg.multijump, -1, 3)
 
 targets = read_json_file('data/targets.jsonlog')
 targets_ids = targets['ids']
@@ -102,10 +100,10 @@ for k in range(log_num_steps):
         ax.set_yticks(np.linspace(0.0, xy_lim, num=4, endpoint=False))
         ax.set_zticks(np.linspace(0.0, z_lim, num=4, endpoint=False))
 
-    axes[0].view_init(elev=0.0, azim=45.0)
+    axes[0].view_init(elev=10.0, azim=-45.0)
     axes[0].set_box_aspect(None, zoom=1.0)
 
-    axes[1].view_init(elev=90.0, azim=45.0)
+    axes[1].view_init(elev=10.0, azim=45.0)
     axes[1].set_box_aspect(None, zoom=1.0)
 
     axes[0].text(
@@ -183,9 +181,9 @@ for k in range(log_num_steps):
             )
             if arg.snaps:
                 ax.scatter(
-                    target_position[max(0, mk-10):mk:2, m, 0],
-                    target_position[max(0, mk-10):mk:2, m, 1],
-                    target_position[max(0, mk-10):mk:2, m, 2],
+                    target_position[max(0, mk-60):mk:6, m, 0],
+                    target_position[max(0, mk-60):mk:6, m, 1],
+                    target_position[max(0, mk-60):mk:6, m, 2],
                     marker=targets_style[m],
                     # linewidth=2,
                     edgecolor='0.0',
