@@ -66,7 +66,7 @@ def simu_step():
     R = extract_x(R_int)
     hatQ = extract_x(hatQ_int)
 
-    gradient_descent = np.zeros((n, 3), dtype=np.float64)
+    gradient = np.zeros((n, 3), dtype=np.float64)
 
     ub = np.zeros((n, 3), dtype=np.float64)    # body-frame
     wb = np.zeros((n, 3), dtype=np.float64)    # body-frame
@@ -78,11 +78,11 @@ def simu_step():
 
     # correction
     k_s = 10.0
-    gradient_descent[a] -= k_s * hatq[a]
-    gradient_descent[b] -= k_s * (hatq[b] - qb)
-    gradient_descent[c] -= k_s * (hatq[c] - qc)
+    gradient[a] += k_s * hatq[a]
+    gradient[b] += k_s * (hatq[b] - qb)
+    gradient[c] += k_s * (hatq[c] - qc)
 
-    k_a = 200.0
+    k_a = 500.0
     for i in nodes:
         # --- angle correction --- #
         out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
@@ -116,9 +116,9 @@ def simu_step():
             qijk = Pij.dot(bik) / dij
             qikj = Pik.dot(bij) / dik
 
-            gradient_descent[i] += k_a * eijk * (qijk + qikj)
-            gradient_descent[j] -= k_a * eijk * qijk
-            gradient_descent[k] -= k_a * eijk * qikj
+            gradient[i] -= k_a * eijk * (qijk + qikj)
+            gradient[j] += k_a * eijk * qijk
+            gradient[k] += k_a * eijk * qikj
 
     k_o = 2.0
     for i in nodes:
@@ -131,13 +131,13 @@ def simu_step():
         R_int[i].step_left(t, wb[i])
 
         # --- advance estimation --- #
-        zi = gradient_descent[i].copy()
+        zi = gradient[i].copy()
 
         hatq_int[i].step(
-            t, hatQ[i].dot(ub[i]) - ub[a] - np.cross(wb[a], hatq[i]) + zi
+            t, hatQ[i].dot(ub[i]) - ub[a] - np.cross(wb[a], hatq[i]) - zi
         )
         hatQ_int[i].step_left(
-            t,  wb[i] - hatQ[i].T.dot(wb[a]) + k_o * np.cross(ub[i], hatQ[i].T.dot(zi))
+            t,  wb[i] - hatQ[i].T.dot(wb[a]) + k_o * np.cross(ub[i], hatQ[i].T.dot(-zi))
         )
 
 
