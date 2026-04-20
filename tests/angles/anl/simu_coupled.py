@@ -202,8 +202,8 @@ print(
 t = 0.0
 n = 4
 nodes = np.arange(n)
-init_pos = np.random.uniform(0.0, 30.0, (n, 3))
-init_ori = np.array([random_rotation_matrix() for _ in nodes])
+p = np.random.uniform(0.0, 30.0, (n, 3))
+R = np.array([random_rotation_matrix() for _ in nodes])
 edge_set = np.array([
     [0, 1],
     [0, 2],
@@ -215,32 +215,32 @@ edge_set = np.array([
 angle_set = angle_indices(nodes, edge_set).astype(int)
 a, b, c = 0, 1, 2
 
-if not is_angle_rigid(angle_set, init_pos):
+if not is_angle_rigid(angle_set, p):
     raise ValueError('The framework is not IAR.')
 
 p_int = [
-    EulerIntegrator(init_pos[i])
+    EulerIntegrator(p[i])
     for i in nodes
 ]
 
 R_int = [
-    EulerIntegratorOrtogonalGroup(init_ori[i])
+    EulerIntegratorOrtogonalGroup(R[i])
     for i in nodes
 ]
 
 # refer initial position to body frame a
-init_pos_a = (init_pos - init_pos[a]).dot(init_ori[a])
+q = (p - p[a]).dot(R[a])
 
-est_init_pos = np.random.normal(init_pos_a, 2.0)
+hat_q = np.random.normal(q, 2.0)
 hatq_int = [
-    EulerIntegrator(est_init_pos[i])
+    EulerIntegrator(hat_q[i])
     for i in nodes
 ]
 
 # refer initial orientation to body frame a
-# init_ori_a = np.matmul(init_ori[a].T, init_ori)
+# Q = np.matmul(R[a].T, R)
 
-# est_init_ori = [random_rotation_matrix(1.0).dot(init_ori_a[i]) for i in nodes]
+# est_R = [random_rotation_matrix(1.0).dot(Q[i]) for i in nodes]
 hatQ_int = [
     EulerIntegratorOrtogonalGroup(np.eye(3))
     for i in nodes
