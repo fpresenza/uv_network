@@ -26,6 +26,7 @@ class Logs(object):
     orientation: list
     estimated_position: list
     estimated_orientation: list
+    gradient: list
     control_u: list
     control_w: list
     correction_u: list
@@ -66,7 +67,7 @@ def simu_step():
     R = extract_x(R_int)
     hatQ = extract_x(hatQ_int)
 
-    gradient = np.zeros((n, 3), dtype=np.float64)
+    gradient[:] = 0.0
 
     ub = np.zeros((n, 3), dtype=np.float64)    # body-frame
     wb = np.zeros((n, 3), dtype=np.float64)    # body-frame
@@ -148,6 +149,7 @@ def log_step():
     logs.orientation.append(extract_x(R_int).ravel())
     logs.estimated_position.append(extract_x(hatq_int).ravel())
     logs.estimated_orientation.append(extract_x(hatQ_int).ravel())
+    logs.gradient.append(gradient.copy().ravel())
     logs.control_u.append(extract_u(p_int).ravel())
     logs.control_w.append(extract_u(R_int).ravel())
     logs.correction_u.append(extract_u(hatq_int).ravel())
@@ -250,12 +252,14 @@ hatQ_int = [
 # Simulation
 # ------------------------------------------------------------------
 # initialize logs
+gradient = np.zeros((n, 3), dtype=np.float64)
 logs = Logs(
     time=[t],
     position=[extract_x(p_int).ravel()],
     orientation=[extract_x(R_int).ravel()],
     estimated_position=[extract_x(hatq_int).ravel()],
     estimated_orientation=[extract_x(hatQ_int).ravel()],
+    gradient=[gradient.ravel()],
     control_u=[extract_u(p_int).ravel()],
     control_w=[extract_u(p_int).ravel()],
     correction_u=[extract_u(hatq_int).ravel()],
@@ -289,6 +293,7 @@ np.savetxt(
 np.savetxt(
     'simu_data/estimated_orientation.csv', logs.estimated_orientation, delimiter=','
 )
+np.savetxt('simu_data/gradient.csv', logs.gradient, delimiter=',')
 np.savetxt('simu_data/control_u.csv', logs.control_u, delimiter=',')
 np.savetxt('simu_data/control_w.csv', logs.control_w, delimiter=',')
 np.savetxt('simu_data/correction_u.csv', logs.correction_u, delimiter=',')

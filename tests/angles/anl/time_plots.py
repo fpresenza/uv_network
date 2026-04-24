@@ -42,6 +42,8 @@ estimated_position = read_csv_numpy(
     'simu_data/estimated_position.csv'
 ).reshape(log_num_steps, n, 3)
 
+gradient = read_csv_numpy('simu_data/gradient.csv').reshape(log_num_steps, n, 3)
+
 control_u = read_csv_numpy('simu_data/control_u.csv').reshape(log_num_steps, n, 3)
 control_w = read_csv_numpy('simu_data/control_w.csv').reshape(log_num_steps, n, 3)
 
@@ -186,6 +188,29 @@ if arg.coupled:
     )
 
     fig.savefig('time_plots/orientation_error.pdf', bbox_inches='tight')
+
+# ------------------------------------------------------------------
+# Plot gradient
+# ------------------------------------------------------------------
+fig, ax = plt.subplots(3, 1, figsize=(9.0, 6.0))
+fig.tight_layout()
+
+for k, d in enumerate(['x', 'y', 'z']):
+    ax[k].tick_params(
+        axis='both',       # changes apply to the x-axis
+        which='both',      # both major and minor ticks are affected
+        pad=1,
+        labelsize=9
+    )
+
+    ax[k].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+    ax[k].set_ylabel(fr'$\zeta_{{i, {d}}} \ (\rm m / s)$', fontsize=10)
+    # ax[k].set_ylim(-2.0, 2.0)
+    ax[k].grid(1)
+
+    ax[k].plot(t, gradient[:, :, k], lw=1.0, ds='steps-post')
+
+fig.savefig('time_plots/gradient.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot control
