@@ -125,7 +125,7 @@ def simu_step():
     for i in nodes:
         # --- Control inputs --- #
         ub[i] = [np.cos(1.0*t), np.sin(1.0*t), np.sin(0.2*t)]
-        wb[i] = [i / 10.0, 0, 0.5 - i / 10.0]
+        wb[i] = [i / 10.0, 0.0, 0.5 - i / 10.0]
 
         # --- advance pose --- #
         p_int[i].step(t, R[i].dot(ub[i]))
@@ -138,7 +138,7 @@ def simu_step():
             t, hatQ[i].dot(ub[i]) - ub[a] - np.cross(wb[a], hatq[i]) - zi
         )
         hatQ_int[i].step_left(
-            t,  wb[i] - hatQ[i].T.dot(wb[a]) + k_o * np.cross(ub[i], hatQ[i].T.dot(-zi))
+            t, wb[i] - hatQ[i].T.dot(wb[a]) + k_o * np.cross(ub[i], hatQ[i].T.dot(-zi))
         )
 
 
@@ -259,7 +259,7 @@ logs = Logs(
     orientation=[extract_x(R_int).ravel()],
     estimated_position=[extract_x(hatq_int).ravel()],
     estimated_orientation=[extract_x(hatQ_int).ravel()],
-    gradient=[gradient.ravel()],
+    gradient=[gradient.copy().ravel()],
     control_u=[extract_u(p_int).ravel()],
     control_w=[extract_u(p_int).ravel()],
     correction_u=[extract_u(hatq_int).ravel()],
