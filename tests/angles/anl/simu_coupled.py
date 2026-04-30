@@ -132,7 +132,7 @@ def simu_step():
         R_int[i].step_left(t, wb[i])
 
         # --- advance estimation --- #
-        zi = gradient[i].copy()
+        zi = gradient[i]
 
         hatq_int[i].step(
             t, hatQ[i].dot(ub[i]) - ub[a] - np.cross(wb[a], hatq[i]) - zi
