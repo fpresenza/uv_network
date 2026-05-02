@@ -7,7 +7,9 @@ import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation
 
 from uvnpy.toolkit.data import read_csv_numpy
-from uvnpy.angles.local_frame.core import angle_function
+from uvnpy.angles.local_frame.core import (
+    angle_function, angle_indices, angle_rigidity_matrix
+)
 from uvnpy.graphs.core import edges_from_adjacency
 
 plt.rcParams['text.usetex'] = False
@@ -32,14 +34,14 @@ arg = parser.parse_args()
 t = read_csv_numpy('simu_data/t.csv')
 log_num_steps = len(t)
 
-position = read_csv_numpy('simu_data/position.csv').reshape(log_num_steps, -1, 3)
-n = len(position[0])
+p = read_csv_numpy('simu_data/position.csv').reshape(log_num_steps, -1, 3)
+n = len(p[0])
 
-orientation = read_csv_numpy(
+R = read_csv_numpy(
     'simu_data/orientation.csv'
 ).reshape(log_num_steps, n, 3, 3)
 
-estimated_position = read_csv_numpy(
+hatq = read_csv_numpy(
     'simu_data/estimated_position.csv'
 ).reshape(log_num_steps, n, 3)
 
@@ -51,7 +53,7 @@ control_w = read_csv_numpy('simu_data/control_w.csv').reshape(log_num_steps, n, 
 correction_u = read_csv_numpy('simu_data/correction_u.csv').reshape(log_num_steps, n, 3)
 
 if arg.coupled:
-    estimated_orientation = read_csv_numpy(
+    hatQ = read_csv_numpy(
         'simu_data/estimated_orientation.csv'
     ).reshape(log_num_steps, n, 3, 3)
     correction_w = read_csv_numpy(
@@ -61,13 +63,19 @@ if arg.coupled:
 adjacency = read_csv_numpy('simu_data/adjacency.csv').reshape(n, n)
 
 edge_set = edges_from_adjacency(adjacency)
-a = 0
+angle_set = angle_indices(np.arange(n), edge_set).astype(int)
+a, b, c = 0, 1, 2
 
-# position reconstruction
-rotated_position = np.matmul(
-    orientation[:, a], estimated_position.swapaxes(1, 2)
-).swapaxes(1, 2)
-reconstructed_position = position[:, np.newaxis, a] + rotated_position
+# change of basis
+hatp = np.matmul(hatq, R[:, a].swapaxes(1, 2)) + p[:, np.newaxis, a]
+q = np.matmul(p - p[:, np.newaxis, a], R[:, a])
+if arg.coupled:
+    Q = np.matmul(R[:, a, np.newaxis].swapaxes(2, 3), R)
+
+# Hessian
+A = [angle_rigidity_matrix(angle_set, pk) for pk in p]
+eb = np.eye(n)
+S = np.kron(np.diag(eb[a] + eb[b] + eb[c]), np.eye(3))
 
 # ------------------------------------------------------------------
 # Plot position
@@ -96,13 +104,13 @@ for k, d in enumerate(['x', 'y', 'z']):
 
     ax[k].plot(
         t,
-        position[:, :, k],
+        p[:, :, k],
         lw=1.0,
         ds='steps-post',
     )
     ax[k].plot(
         t,
-        reconstructed_position[:, :, k],
+        hatp[:, :, k],
         lw=0.8,
         color='0.5',
         ls='--',
@@ -132,12 +140,21 @@ for k, d in enumerate(['x', 'y', 'z']):
     )
 
     ax[k].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-    ax[k].set_ylabel(fr'$\hat{{p}}_{{i, {d}}} - p_{{i, {d}}} \ (\rm m)$', fontsize=10)
+    # ax[k].set_ylabel(fr'$\hat{{p}}_{{i, {d}}} - p_{{i, {d}}} \ (\rm m)$', fontsize=10)
+    # ax[k].grid(1)
+
+    # ax[k].plot(
+    #     t,
+    #     hatp[:, :, k] - p[:, :, k],
+    #     lw=1.0,
+    #     ds='steps-post'
+    # )
+    ax[k].set_ylabel(fr'$\hat{{q}}_{{i, {d}}} - q_{{i, {d}}} \ (\rm m)$', fontsize=10)
     ax[k].grid(1)
 
     ax[k].plot(
         t,
-        reconstructed_position[:, :, k] - position[:, :, k],
+        hatq[:, :, k] - q[:, :, k],
         lw=1.0,
         ds='steps-post'
     )
@@ -160,7 +177,7 @@ fig.subplots_adjust(
 euler_angles = np.empty((log_num_steps, n, 3), dtype=np.float64)
 for k in range(log_num_steps):
     euler_angles[k] = Rotation.from_matrix(
-        orientation[k]
+        R[k]
     ).as_euler('ZYX', degrees=False)
 
 for k, d in enumerate(['yaw', 'pitch', 'roll']):
@@ -184,13 +201,10 @@ fig.savefig('time_plots/euler_angles.pdf', bbox_inches='tight')
 # Plot orientation error
 # ------------------------------------------------------------------
 # position reconstruction
-# Q = orientation
-# hatR = np.matmul(estimated_orientation[:, a, np.newaxis], estimated_orientation)
+# Q = R
+# hatR = np.matmul(hatQ[:, a, np.newaxis], hatQ)
 
 if arg.coupled:
-    Q = np.matmul(orientation[:, a, np.newaxis].swapaxes(2, 3), orientation)
-    hatQ = estimated_orientation
-
     E = np.matmul(Q.swapaxes(2, 3), hatQ)
     e = 0.5 * (3 - np.trace(E, axis1=2, axis2=3))
 
@@ -394,8 +408,8 @@ ax.grid(1)
 ax.plot(
     t,
     [
-        np.abs(angle_function(edge_set, hatp) - angle_function(edge_set, p))
-        for hatp, p in zip(estimated_position, position)
+        np.abs(angle_function(edge_set, hatpk) - angle_function(edge_set, pk))
+        for hatpk, pk in zip(hatp, p)
     ],
     lw=1.0, ds='steps-post'
 )
@@ -405,11 +419,11 @@ fig.savefig('time_plots/angle_error.pdf', bbox_inches='tight')
 # Plot distance error
 # ------------------------------------------------------------------
 distance = np.linalg.norm(
-    position[:, np.newaxis, :, :] - position[:, :, np.newaxis, :],
+    p[:, np.newaxis, :, :] - p[:, :, np.newaxis, :],
     axis=-1
 )
 estimated_distance = np.linalg.norm(
-    estimated_position[:, np.newaxis, :, :] - estimated_position[:, :, np.newaxis, :],
+    hatq[:, np.newaxis, :, :] - hatq[:, :, np.newaxis, :],
     axis=-1
 )
 
@@ -442,5 +456,38 @@ ax.plot(
     ds='steps-post'
 )
 fig.savefig('time_plots/distance_error.pdf', bbox_inches='tight')
+
+# ------------------------------------------------------------------
+# Plot Hessian eigenvalues
+# ------------------------------------------------------------------
+fig, ax = plt.subplots(figsize=(9.0, 6.0))
+fig.subplots_adjust(
+    bottom=0.215,
+    top=0.925,
+    wspace=0.33,
+    right=0.975,
+    left=0.18
+)
+
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize=9
+)
+
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+ax.set_ylabel(r'$\lambda(H(p))$', fontsize=10)
+ax.grid(1)
+
+ax.semilogy(
+    t,
+    np.linalg.eigvalsh([A[k].T.dot(A[k]) + S for k in range(log_num_steps)]),
+    lw=1.0,
+    ds='steps-post'
+)
+fig.savefig('time_plots/hessian_eigenvalues.pdf', bbox_inches='tight')
+
+plt.show()
 
 plt.show()
