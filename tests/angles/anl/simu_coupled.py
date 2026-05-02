@@ -26,7 +26,7 @@ class Logs(object):
     orientation: list
     estimated_position: list
     estimated_orientation: list
-    gradient: list
+    gradient_q: list
     control_u: list
     control_w: list
     correction_u: list
@@ -67,7 +67,7 @@ def simu_step():
     R = extract_x(R_int)
     hatQ = extract_x(hatQ_int)
 
-    gradient[:] = 0.0
+    grad_q[:] = 0.0
 
     ub = np.zeros((n, 3), dtype=np.float64)    # body-frame
     wb = np.zeros((n, 3), dtype=np.float64)    # body-frame
@@ -79,9 +79,9 @@ def simu_step():
 
     # correction
     k_s = 10.0
-    gradient[a] += k_s * hatq[a]
-    gradient[b] += k_s * (hatq[b] - qb)
-    gradient[c] += k_s * (hatq[c] - qc)
+    grad_q[a] += k_s * hatq[a]
+    grad_q[b] += k_s * (hatq[b] - qb)
+    grad_q[c] += k_s * (hatq[c] - qc)
 
     k_a = 500.0
     for i in nodes:
@@ -117,9 +117,9 @@ def simu_step():
             qijk = Pij.dot(bik) / dij
             qikj = Pik.dot(bij) / dik
 
-            gradient[i] -= k_a * eijk * (qijk + qikj)
-            gradient[j] += k_a * eijk * qijk
-            gradient[k] += k_a * eijk * qikj
+            grad_q[i] -= k_a * eijk * (qijk + qikj)
+            grad_q[j] += k_a * eijk * qijk
+            grad_q[k] += k_a * eijk * qikj
 
     k_o = 2.0
     for i in nodes:
@@ -132,7 +132,7 @@ def simu_step():
         R_int[i].step_left(t, wb[i])
 
         # --- advance estimation --- #
-        zi = gradient[i]
+        zi = grad_q[i]
 
         hatq_int[i].step(
             t, hatQ[i].dot(ub[i]) - ub[a] - np.cross(wb[a], hatq[i]) - zi
@@ -149,7 +149,7 @@ def log_step():
     logs.orientation.append(extract_x(R_int).ravel())
     logs.estimated_position.append(extract_x(hatq_int).ravel())
     logs.estimated_orientation.append(extract_x(hatQ_int).ravel())
-    logs.gradient.append(gradient.copy().ravel())
+    logs.gradient_q.append(grad_q.copy().ravel())
     logs.control_u.append(extract_u(p_int).ravel())
     logs.control_w.append(extract_u(R_int).ravel())
     logs.correction_u.append(extract_u(hatq_int).ravel())
@@ -234,6 +234,7 @@ R_int = [
 q = (p - p[a]).dot(R[a])
 
 hat_q = np.random.normal(q, 2.0)
+hat_q[a] = 0.0
 hatq_int = [
     EulerIntegrator(hat_q[i])
     for i in nodes
@@ -242,7 +243,8 @@ hatq_int = [
 # refer initial orientation to body frame a
 Q = np.matmul(R[a].T, R)
 
-hatQ = [random_rotation_matrix(1.0).dot(Q[i]) for i in nodes]
+hatQ = [np.eye(3) for i in nodes]
+hatQ[a] = np.eye(3)
 hatQ_int = [
     EulerIntegratorOrtogonalGroup(hatQ[i])
     for i in nodes
@@ -252,14 +254,14 @@ hatQ_int = [
 # Simulation
 # ------------------------------------------------------------------
 # initialize logs
-gradient = np.zeros((n, 3), dtype=np.float64)
+grad_q = np.zeros((n, 3), dtype=np.float64)
 logs = Logs(
     time=[t],
     position=[extract_x(p_int).ravel()],
     orientation=[extract_x(R_int).ravel()],
     estimated_position=[extract_x(hatq_int).ravel()],
     estimated_orientation=[extract_x(hatQ_int).ravel()],
-    gradient=[gradient.copy().ravel()],
+    gradient_q=[grad_q.copy().ravel()],
     control_u=[extract_u(p_int).ravel()],
     control_w=[extract_u(p_int).ravel()],
     correction_u=[extract_u(hatq_int).ravel()],
@@ -293,7 +295,7 @@ np.savetxt(
 np.savetxt(
     'simu_data/estimated_orientation.csv', logs.estimated_orientation, delimiter=','
 )
-np.savetxt('simu_data/gradient.csv', logs.gradient, delimiter=',')
+np.savetxt('simu_data/gradient_q.csv', logs.gradient_q, delimiter=',')
 np.savetxt('simu_data/control_u.csv', logs.control_u, delimiter=',')
 np.savetxt('simu_data/control_w.csv', logs.control_w, delimiter=',')
 np.savetxt('simu_data/correction_u.csv', logs.correction_u, delimiter=',')
