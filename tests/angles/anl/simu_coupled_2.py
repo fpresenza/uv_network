@@ -92,6 +92,13 @@ def simu_step():
 
     k_a = 500.0
     for i in nodes:
+        # --- Control inputs --- #
+        ub[i] = control_u[i](t)
+
+        # --- advance pose --- #
+        p_int[i].step(t, R[i].dot(ub[i]))
+        R_int[i].step_left(t, wb[i])
+
         # --- angle correction --- #
         out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
 
@@ -109,7 +116,8 @@ def simu_step():
             j: R[i].T.dot(unit_vector(p[j] - p[i])) for j in out_neighbors
         }
         dot_bearings = {
-            j: projection_matrix(bearings[j]).dot(R[i].T.dot(dotp[j])) / distances[j]
+            j: projection_matrix(bearings[j]).dot(
+                R[i].T.dot(dotp[j] - dotp[i])) / distances[j]
             for j in out_neighbors
         }
 
@@ -138,24 +146,20 @@ def simu_step():
         # orientation gradient
         if i in leaders:
             for j in out_neighbors:
+                proj_ij = projection_matrix(hatQ[i].dot(bearings[j]))
                 grad_Q[i] += np.cross(bearings[j], hatQ[i].T.dot(hatq[j] - hatq[i]))
-                aux_f[j]['num'] += hat_distances[j] * hatQ[i].dot(dot_bearings[j])
-                aux_f[j]['den'] += projection_matrix(hatQ[i].dot(bearings[j]))
+                aux_f[j]['num'] += (
+                    hat_distances[j] * hatQ[i].dot(dot_bearings[j]) +
+                    proj_ij.dot(hatQ[i].dot(ub[i]) - ub[a])
+                )
+                aux_f[j]['den'] += proj_ij
 
     k_o = 2.0
     for i in nodes:
-        # --- Control inputs --- #
-        if i in followers:
-            ub[i] = [np.cos(1.0*t), np.sin(0.5*t), np.sin(0.2*t)]
-
-        # --- advance pose --- #
-        p_int[i].step(t, R[i].dot(ub[i]))
-        R_int[i].step_left(t, wb[i])
-
         # --- advance estimation --- #
         if i in leaders:
             hatq_int[i].step(
-                t, - grad_q[i]
+                t, hatQ[i].dot(ub[i]) - ub[a] - grad_q[i]
             )
             hatQ_int[i].step_left(
                 t, k_o * grad_Q[i]
@@ -164,7 +168,7 @@ def simu_step():
             hat_dotq = np.linalg.inv(aux_f[i]['den']).dot(aux_f[i]['num'])
             aux_f[i]['num'][:] = 0.0
             aux_f[i]['den'][:] = 0.0
-            grad_Q[i] = np.cross(ub[i], hatQ[i].T.dot(hat_dotq))
+            grad_Q[i] = np.cross(ub[i], hatQ[i].T.dot(hat_dotq + ub[a]))
             hatq_int[i].step(
                 t, hat_dotq - grad_q[i]
             )
@@ -283,6 +287,15 @@ hatQ_int = [
     EulerIntegratorOrtogonalGroup(hatQ[i])
     for i in nodes
 ]
+
+# define velocities
+
+control_u = {
+    0: lambda t: np.array([np.cos(2.0*t), np.sin(2.0*t), 0.0]),
+    1: lambda t: np.array([np.cos(2.0*t), np.sin(2.0*t), 0.0]),
+    2: lambda t: np.array([np.cos(2.0*t), np.sin(2.0*t), 0.0]),
+    3: lambda t: np.array([np.cos(2.0*t), 0.5 + np.sin(2.0*t), 0.0])
+}
 
 # ------------------------------------------------------------------
 # Simulation
