@@ -94,6 +94,7 @@ def simu_step():
     for i in nodes:
         # --- Control inputs --- #
         ub[i] = control_u[i](t)
+        wb[i] = control_w[i](t)
 
         # --- advance pose --- #
         p_int[i].step(t, R[i].dot(ub[i]))
@@ -117,7 +118,8 @@ def simu_step():
         }
         dot_bearings = {
             j: projection_matrix(bearings[j]).dot(
-                R[i].T.dot(dotp[j] - dotp[i])) / distances[j]
+                R[i].T.dot(dotp[j] - dotp[i])
+            ) / distances[j] - np.cross(wb[i], bearings[j])
             for j in out_neighbors
         }
 
@@ -146,12 +148,16 @@ def simu_step():
         # orientation gradient
         if i in leaders:
             for j in out_neighbors:
-                proj_ij = projection_matrix(hatQ[i].dot(bearings[j]))
                 grad_Q[i] += np.cross(bearings[j], hatQ[i].T.dot(hatq[j] - hatq[i]))
-                aux_f[j]['num'] += (
-                    hat_distances[j] * hatQ[i].dot(dot_bearings[j]) +
-                    proj_ij.dot(hatQ[i].dot(ub[i]) - ub[a])
+                proj_ij = projection_matrix(hatQ[i].dot(bearings[j]))
+                hat_dotQ_i_bij = hatQ[i].dot(
+                    np.cross(wb[i] - hatQ[i].T.dot(wb[a]), bearings[j])
                 )
+                hat_Qi_dotbij = hatQ[i].dot(dot_bearings[j])
+                hat_dotq_i = hatQ[i].dot(ub[i]) - ub[a] - np.cross(wb[a], hatq[i])
+                aux_f[j]['num'] += hat_distances[j] * (
+                    hat_dotQ_i_bij + hat_Qi_dotbij
+                ) + proj_ij.dot(hat_dotq_i)
                 aux_f[j]['den'] += proj_ij
 
     k_o = 2.0
@@ -159,21 +165,22 @@ def simu_step():
         # --- advance estimation --- #
         if i in leaders:
             hatq_int[i].step(
-                t, hatQ[i].dot(ub[i]) - ub[a] - grad_q[i]
+                t, hatQ[i].dot(ub[i]) - ub[a] - np.cross(wb[a], hatq[i]) - grad_q[i]
             )
             hatQ_int[i].step_left(
-                t, k_o * grad_Q[i]
+                t, wb[i] - hatQ[i].T.dot(wb[a]) + k_o * grad_Q[i]
             )
         else:
-            hat_dotq = np.linalg.inv(aux_f[i]['den']).dot(aux_f[i]['num'])
+            hat_dotq_i = np.linalg.inv(aux_f[i]['den']).dot(aux_f[i]['num'])
             aux_f[i]['num'][:] = 0.0
             aux_f[i]['den'][:] = 0.0
-            grad_Q[i] = np.cross(ub[i], hatQ[i].T.dot(hat_dotq + ub[a]))
+            hat_Qui = hat_dotq_i + ub[a] + np.cross(wb[a], hatq[i])
+            grad_Q[i] = np.cross(ub[i], hatQ[i].T.dot(hat_Qui))
             hatq_int[i].step(
-                t, hat_dotq - grad_q[i]
+                t, hat_dotq_i - grad_q[i]
             )
             hatQ_int[i].step_left(
-                t, k_o * grad_Q[i]
+                t, wb[i] - hatQ[i].T.dot(wb[a]) + k_o * grad_Q[i]
             )
 
 
@@ -225,7 +232,7 @@ simu_length = arg.simu_length * 1e-3    # in seconds
 simu_step_size = arg.simu_step_size * 1e-3    # in seconds
 log_skip = arg.log_skip
 
-np.random.seed(0)
+np.random.seed(2)
 
 print(
     'Simulation Time: begin = {} sec, end = {} sec, step = {} sec'
@@ -291,10 +298,17 @@ hatQ_int = [
 # define velocities
 
 control_u = {
-    0: lambda t: np.array([np.cos(2.0*t), np.sin(2.0*t), 0.0]),
-    1: lambda t: np.array([np.cos(2.0*t), np.sin(2.0*t), 0.0]),
-    2: lambda t: np.array([np.cos(2.0*t), np.sin(2.0*t), 0.0]),
-    3: lambda t: np.array([np.cos(2.0*t), 0.5 + np.sin(2.0*t), 0.0])
+    0: lambda t: np.array([0.0, 0.0, 1.0]),
+    1: lambda t: np.array([np.cos(0.25*t), np.sin(0.25*t), 0.0]),
+    2: lambda t: np.array([0.0, np.cos(1.0*t), np.sin(1.0*t)]),
+    3: lambda t: np.array([np.cos(2.0*t), np.sin(2.0*t), 0.5])
+}
+
+control_w = {
+    0: lambda t: np.array([0.5, 0.0, 0.0]),
+    1: lambda t: np.array([0.0, 1.0, 0.0]),
+    2: lambda t: np.array([0.0, 0.0, 1.0]),
+    3: lambda t: np.array([0.0, 0.0, 0.0])
 }
 
 # ------------------------------------------------------------------
