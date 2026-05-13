@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation
 
 from uvnpy.toolkit.data import read_csv_numpy
+from uvnpy.toolkit import plot
 from uvnpy.angles.local_frame.core import (
     angle_function, angle_indices, angle_rigidity_matrix
 )
@@ -159,8 +160,6 @@ for k, d in enumerate(['x', 'y', 'z']):
         ds='steps-post'
     )
 
-fig.savefig('time_plots/position_error.pdf', bbox_inches='tight')
-
 # ------------------------------------------------------------------
 # Plot orientations
 # ------------------------------------------------------------------
@@ -198,47 +197,74 @@ for k, d in enumerate(['yaw', 'pitch', 'roll']):
 fig.savefig('time_plots/euler_angles.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
-# Plot orientation error
+# Plot pose error
 # ------------------------------------------------------------------
-# position reconstruction
-# Q = R
-# hatR = np.matmul(hatQ[:, a, np.newaxis], hatQ)
-
 if arg.coupled:
-    E = np.matmul(Q.swapaxes(2, 3), hatQ)
-    e = 0.5 * (3 - np.trace(E, axis1=2, axis2=3))
+    fig, axes = plt.subplots(2, 1, figsize=(4.0, 3.5))
+    fig.tight_layout()
+    fig.subplots_adjust(hspace=0.45)
 
-    fig, ax = plt.subplots(figsize=(9.0, 6.0))
-    fig.subplots_adjust(
-        bottom=0.215,
-        top=0.925,
-        wspace=0.33,
-        right=0.975,
-        left=0.18
+    for ax in axes:
+        ax.tick_params(
+            axis='both',       # changes apply to the x-axis
+            which='both',      # both major and minor ticks are affected
+            pad=1,
+            labelsize=12
+        )
+        ax.grid(1)
+
+    axes[0].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=2)
+    axes[0].set_ylabel(r'$\|\tilde{{q}}_{i}\| (\rm m)$', fontsize=14, labelpad=5)
+    axes[0].set_yticks([0.0, 5.0])
+    axes[0].set_yticklabels(['0.0', '5.0'])
+    axes[0].plot(
+        t,
+        np.sqrt(np.square(hatq - q).sum(axis=-1)),
+        lw=2.0,
+        ds='steps-post'
     )
+
+    E = np.matmul(Q.swapaxes(2, 3), hatQ)
+    axes[1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=2)
+    # ax.set_ylabel(
+    #     r'$\mathrm{tr}\left(I - \tilde{Q}_i\right) / 2$',
+    #     fontsize=15
+    # )
+    axes[1].set_ylabel(r'$\|\psi_i\| \ (\rm rad)$', fontsize=14, labelpad=5)
+    axes[1].set_yticks([0.0, 0.5])
+    axes[1].set_yticklabels(['0.0', '0.5'])
+    axes[1].plot(
+        t,
+        np.arccos(1 - 0.5 * (3 - np.trace(E, axis1=2, axis2=3))),
+        lw=2.0,
+        ds='steps-post'
+    )
+
+    fig.savefig('time_plots/pose_error.pdf', bbox_inches='tight')
+
+else:
+    fig, ax = plt.subplots(figsize=(9.0, 2.0))
+    fig.tight_layout()
 
     ax.tick_params(
         axis='both',       # changes apply to the x-axis
         which='both',      # both major and minor ticks are affected
         pad=1,
-        labelsize=9
+        labelsize=15
     )
 
-    ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-    ax.set_ylabel(
-        r'$\frac{1}{2} \  \mathrm{tr}\left(I - Q_i^\top \hat{Q}_{i}\right) \ (\rm m)$',
-        fontsize=10
-    )
+    ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=15)
+    ax.set_ylabel(r'$\|\tilde{{q}}_{i}\| \ (\rm m)$', fontsize=15)
     ax.grid(1)
 
     ax.plot(
         t,
-        e,
-        lw=1.0,
+        np.sqrt(np.square(hatq - q).sum(axis=-1)),
+        lw=2.0,
         ds='steps-post'
     )
 
-    fig.savefig('time_plots/orientation_error.pdf', bbox_inches='tight')
+    fig.savefig('time_plots/position_error_norm.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot gradient
@@ -382,6 +408,7 @@ else:
         ax[k].plot(t, correction_u[:, :, k], lw=1.0, ds='steps-post')
 
     fig.savefig('time_plots/correction.pdf', bbox_inches='tight')
+
 # ------------------------------------------------------------------
 # Plot angle error
 # ------------------------------------------------------------------
@@ -488,6 +515,65 @@ ax.semilogy(
 )
 fig.savefig('time_plots/hessian_eigenvalues.pdf', bbox_inches='tight')
 
-plt.show()
+
+# ------------------------------------------------------------------
+# Plot 3d trajectories
+# ------------------------------------------------------------------
+fig, ax = plt.subplots(subplot_kw={"projection": "3d"}, figsize=(4, 4))
+fig.tight_layout()
+ax.tick_params(
+    axis='x',       # changes apply to the x-axis
+    which='major',      # both major and minor ticks are affected
+    pad=-5,
+    labelsize='10'
+)
+ax.tick_params(
+    axis='y',       # changes apply to the x-axis
+    which='major',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='10'
+)
+ax.tick_params(
+    axis='z',       # changes apply to the x-axis
+    which='major',      # both major and minor ticks are affected
+    pad=-3,
+    labelsize='10'
+)
+ax.set_aspect('equal')
+ax.set_xlabel(r'$x \ (\mathrm{m})$', fontsize='10', labelpad=-5.0)
+ax.set_ylabel(r'$y \ (\mathrm{m})$', fontsize='10', labelpad=0.5)
+ax.set_zlabel(r'$z \ (\mathrm{m})$', fontsize='10', labelpad=-8.0)
+
+xy_lim = 20.0
+z_lim = xy_lim
+ax.set_xlim3d(0.0, xy_lim)
+ax.set_ylim3d(0.0, xy_lim)
+ax.set_zlim3d(0.0, z_lim)
+ax.set_xticks(np.linspace(0.0, xy_lim, num=3, endpoint=True))
+ax.set_yticks(np.linspace(0.0, xy_lim, num=3, endpoint=True))
+ax.set_zticks(np.linspace(0.0, z_lim, num=3, endpoint=True))
+
+ax.view_init(elev=10.0, azim=-15.0)
+ax.set_box_aspect(None, zoom=1.0)
+
+for i in range(n):
+    ax.scatter(
+        p[0, i, 0], p[0, i, 1], p[0, i, 2],
+        marker='o', s=10, color='k', zorder=10
+    )
+    ax.plot(p[1::400, i, 0], p[1::400, i, 1], p[1::400, i, 2], zorder=0)
+
+plot.arrows(
+    ax,
+    p[0],
+    edge_set,
+    color='0.0',
+    alpha=0.5,
+    lw=0.75,
+    zorder=0,
+    length=0.45,
+    arrow_length_ratio=0.3
+)
+fig.savefig('time_plots/trajectory.pdf', bbox_inches='tight')
 
 plt.show()
