@@ -245,9 +245,17 @@ print(
 
 # --- world parameters --- #
 t = 0.0
-n = 4
+n = 5
 nodes = np.arange(n)
-p = np.random.uniform(0.0, 30.0, (n, 3))
+# p = np.random.uniform(0.0, 30.0, (n, 3))
+p = np.array([
+    [13.07984706, 0.77778695, 16.48987434],
+    [13.05967178, 12.61103406, 9.91004463],
+    [6.13945902, 18.57812899, 8.98964021],
+    [8.00481825, 12.63401498, 15.87426283],
+    [15., 5., 5.]
+])
+
 R = np.array([random_rotation_matrix() for _ in nodes])
 edge_set = np.array([
     [0, 1],
@@ -255,7 +263,9 @@ edge_set = np.array([
     [1, 0],
     [1, 2],
     [0, 3],
-    [1, 3]
+    [1, 3],
+    [0, 4],
+    [1, 4]
 ])
 angle_set = angle_indices(nodes, edge_set).astype(int)
 a, b, c = 0, 1, 2
@@ -288,7 +298,7 @@ hatq_int = [
 # refer initial orientation to body frame a
 Q = np.matmul(R[a].T, R)
 
-hatQ = [np.eye(3) for i in nodes]
+hatQ = [random_rotation_matrix(1.0).dot(Q[i]) for i in nodes]
 hatQ[a] = np.eye(3)
 hatQ_int = [
     EulerIntegratorOrtogonalGroup(hatQ[i])
@@ -301,14 +311,16 @@ control_u = {
     0: lambda t: np.array([0.0, 0.0, 1.0]),
     1: lambda t: np.array([np.cos(0.25*t), np.sin(0.25*t), 0.0]),
     2: lambda t: np.array([0.0, np.cos(1.0*t), np.sin(1.0*t)]),
-    3: lambda t: np.array([np.cos(2.0*t), np.sin(2.0*t), 0.5])
+    3: lambda t: np.array([np.cos(2.0*t), np.sin(2.0*t), 0.5]),
+    4: lambda t: np.array([np.cos(1.0*t), np.sin(0.5*t), 0.0])
 }
 
 control_w = {
     0: lambda t: np.array([0.5, 0.0, 0.0]),
     1: lambda t: np.array([0.0, 1.0, 0.0]),
     2: lambda t: np.array([0.0, 0.0, 1.0]),
-    3: lambda t: np.array([0.0, 0.0, 0.0])
+    3: lambda t: np.array([0.0, 0.0, 0.0]),
+    4: lambda t: np.array([0.0, 0.0, 0.0])
 }
 
 # ------------------------------------------------------------------
