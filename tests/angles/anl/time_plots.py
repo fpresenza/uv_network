@@ -65,6 +65,8 @@ adjacency = read_csv_numpy('simu_data/adjacency.csv').reshape(n, n)
 
 edge_set = edges_from_adjacency(adjacency)
 angle_set = angle_indices(np.arange(n), edge_set).astype(int)
+leaders = np.unique(angle_set[:, 0])
+followers = np.setdiff1d(np.arange(n), leaders)
 a, b, c = 0, 1, 2
 
 # change of basis
@@ -219,14 +221,14 @@ if arg.coupled:
     axes[0].set_yticklabels(['0.0', '5.0'])
     axes[0].plot(
         t,
-        np.sqrt(np.square(hatq[:, :2] - q[:, :2]).sum(axis=-1)),
+        np.sqrt(np.square(hatq[:, leaders] - q[:, leaders]).sum(axis=-1)),
         lw=2.0,
         ls='-',
         ds='steps-post'
     )
     axes[0].plot(
         t,
-        np.sqrt(np.square(hatq[:, 2:] - q[:, 2:]).sum(axis=-1)),
+        np.sqrt(np.square(hatq[:, followers] - q[:, followers]).sum(axis=-1)),
         lw=2.0,
         ls='--',
         ds='steps-post'
@@ -246,14 +248,14 @@ if arg.coupled:
     axes[1].set_yticklabels(['0.0', '0.5'])
     axes[1].plot(
         t,
-        np.arccos(1 - 0.5 * (3 - np.trace(E[:, :2], axis1=2, axis2=3))),
+        np.arccos(1 - 0.5 * (3 - np.trace(E[:, leaders], axis1=2, axis2=3))),
         lw=2.0,
         ls='-',
         ds='steps-post'
     )
     axes[1].plot(
         t,
-        np.arccos(1 - 0.5 * (3 - np.trace(E[:, 2:], axis1=2, axis2=3))),
+        np.arccos(1 - 0.5 * (3 - np.trace(E[:, followers], axis1=2, axis2=3))),
         lw=2.0,
         ls='--',
         ds='steps-post'
@@ -578,7 +580,7 @@ ax.set_zticks(np.linspace(0.0, z_lim, num=3, endpoint=True))
 ax.view_init(elev=10.0, azim=-15.0)
 ax.set_box_aspect(None, zoom=1.0)
 
-for i in range(2):
+for i in leaders:
     ax.scatter(
         p[0, i, 0], p[0, i, 1], p[0, i, 2],
         marker='o', s=12, color='k', zorder=10
@@ -589,7 +591,7 @@ for i in range(2):
     )
     ax.plot(p[1::400, i, 0], p[1::400, i, 1], p[1::400, i, 2], ls='-', zorder=0)
 
-for i in range(2, n):
+for i in followers:
     ax.scatter(
         p[0, i, 0], p[0, i, 1], p[0, i, 2],
         marker='o', s=12, color='k', zorder=10

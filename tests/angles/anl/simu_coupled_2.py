@@ -269,7 +269,7 @@ edge_set = np.array([
 ])
 angle_set = angle_indices(nodes, edge_set).astype(int)
 a, b, c = 0, 1, 2
-leaders = np.array([0, 1])
+leaders = np.unique(angle_set[:, 0])
 followers = np.setdiff1d(nodes, leaders)
 
 if not is_angle_rigid(angle_set, p):
