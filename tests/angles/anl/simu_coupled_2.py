@@ -309,7 +309,7 @@ hatQ_int = [
 
 control_u = {
     0: lambda t: np.array([0.0, 0.0, 1.0]),
-    1: lambda t: np.array([np.cos(0.25*t), np.sin(0.25*t), 0.0]),
+    1: lambda t: np.array([0.0, np.cos(0.25*t), np.sin(0.25*t)]),
     2: lambda t: np.array([0.0, np.cos(1.0*t), np.sin(1.0*t)]),
     3: lambda t: np.array([np.cos(2.0*t), np.sin(2.0*t), 0.5]),
     4: lambda t: np.array([np.cos(1.0*t), np.sin(0.5*t), 0.0])
