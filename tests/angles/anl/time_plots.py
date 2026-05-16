@@ -219,10 +219,21 @@ if arg.coupled:
     axes[0].set_yticklabels(['0.0', '5.0'])
     axes[0].plot(
         t,
-        np.sqrt(np.square(hatq - q).sum(axis=-1)),
+        np.sqrt(np.square(hatq[:, :2] - q[:, :2]).sum(axis=-1)),
         lw=2.0,
+        ls='-',
         ds='steps-post'
     )
+    axes[0].plot(
+        t,
+        np.sqrt(np.square(hatq[:, 2:] - q[:, 2:]).sum(axis=-1)),
+        lw=2.0,
+        ls='--',
+        ds='steps-post'
+    )
+    axes[0].plot(0.0, 0.0, color='k', ls='-', label='lead')
+    axes[0].plot(0.0, 0.0, color='k', ls='--', label='foll')
+    axes[0].legend(fontsize=12)
 
     E = np.matmul(Q.swapaxes(2, 3), hatQ)
     axes[1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=2)
@@ -235,10 +246,21 @@ if arg.coupled:
     axes[1].set_yticklabels(['0.0', '0.5'])
     axes[1].plot(
         t,
-        np.arccos(1 - 0.5 * (3 - np.trace(E, axis1=2, axis2=3))),
+        np.arccos(1 - 0.5 * (3 - np.trace(E[:, :2], axis1=2, axis2=3))),
         lw=2.0,
+        ls='-',
         ds='steps-post'
     )
+    axes[1].plot(
+        t,
+        np.arccos(1 - 0.5 * (3 - np.trace(E[:, 2:], axis1=2, axis2=3))),
+        lw=2.0,
+        ls='--',
+        ds='steps-post'
+    )
+    axes[1].plot(0.0, 0.0, color='k', ls='-', label='lead')
+    axes[1].plot(0.0, 0.0, color='k', ls='--', label='foll')
+    axes[1].legend(fontsize=12)
 
     fig.savefig('time_plots/pose_error.pdf', bbox_inches='tight')
 
@@ -556,12 +578,27 @@ ax.set_zticks(np.linspace(0.0, z_lim, num=3, endpoint=True))
 ax.view_init(elev=10.0, azim=-15.0)
 ax.set_box_aspect(None, zoom=1.0)
 
-for i in range(n):
+for i in range(2):
     ax.scatter(
         p[0, i, 0], p[0, i, 1], p[0, i, 2],
-        marker='o', s=10, color='k', zorder=10
+        marker='o', s=12, color='k', zorder=10
     )
-    ax.plot(p[1::400, i, 0], p[1::400, i, 1], p[1::400, i, 2], zorder=0)
+    ax.scatter(
+        p[-1, i, 0], p[-1, i, 1], p[-1, i, 2],
+        marker='x', s=14, color='k', zorder=10
+    )
+    ax.plot(p[1::400, i, 0], p[1::400, i, 1], p[1::400, i, 2], ls='-', zorder=0)
+
+for i in range(2, n):
+    ax.scatter(
+        p[0, i, 0], p[0, i, 1], p[0, i, 2],
+        marker='o', s=12, color='k', zorder=10
+    )
+    ax.scatter(
+        p[-1, i, 0], p[-1, i, 1], p[-1, i, 2],
+        marker='x', s=14, color='k', zorder=10
+    )
+    ax.plot(p[1::400, i, 0], p[1::400, i, 1], p[1::400, i, 2], ls='--', zorder=0)
 
 plot.arrows(
     ax,
@@ -576,4 +613,4 @@ plot.arrows(
 )
 fig.savefig('time_plots/trajectory.pdf', bbox_inches='tight')
 
-plt.show()
+# plt.show()
