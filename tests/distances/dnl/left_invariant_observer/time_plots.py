@@ -32,18 +32,12 @@ log_num_steps = len(t)
 
 p = read_csv_numpy('simu_data/position.csv').reshape(log_num_steps, -1, 3)
 n = len(p[0])
-
 R = read_csv_numpy('simu_data/orientation.csv').reshape(-1, n, 3, 3)
-
 hatq = read_csv_numpy('simu_data/estimated_position.csv').reshape(-1, n - 1, 3)
+hatQ = read_csv_numpy('simu_data/estimated_orientation.csv').reshape(-1, 3, 3)
 
 control_u = read_csv_numpy('simu_data/control_u.csv').reshape(-1, n, 3)
 control_w = read_csv_numpy('simu_data/control_w.csv').reshape(-1, n, 3)
-
-correction_u = read_csv_numpy('simu_data/correction_u.csv').reshape(-1, n, 3)
-
-hatQ = read_csv_numpy('simu_data/estimated_orientation.csv').reshape(-1, 3, 3)
-correction_w = read_csv_numpy('simu_data/correction_w.csv').reshape(-1, 3)
 
 a = 0
 neighbors = np.setdiff1d(np.arange(n), a)
