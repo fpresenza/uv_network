@@ -8,7 +8,10 @@ import numpy as np
 
 from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
-from uvnpy.toolkit.geometry import rotation_matrix_from_vector
+from uvnpy.toolkit.geometry import (
+    rotation_matrix_from_vector,
+    cross_product_matrix_multiple_axes as S
+)
 
 # ------------------------------------------------------------------
 # Functions, Classes and Configurations
@@ -93,12 +96,24 @@ def simu_step():
 
     # --- advance estimation --- #
     # prediction step
+    hat_ai = (meas_lin_vel[neighbors] - meas_lin_vel[a]).dot(hatQ)
     hatq_int.step(
         t,
-        (meas_lin_vel[neighbors] - meas_lin_vel[a]).dot(hatQ) -
-        np.cross(meas_ang_vel, hatq)
+        hat_ai - np.cross(meas_ang_vel, hatq)
     )
     hatQ_int.step_left(t, meas_ang_vel)
+
+    F = np.kron(np.eye(n), np.eye(3) - simu_step_size * S(meas_ang_vel))
+    F[:-3, -3:] = S(simu_step_size * hat_ai).reshape(3*n - 3, 3)
+
+    G = np.zeros((3*n, 3*n + 3))
+    G[:-3, :3] = np.kron(np.ones((n-1, 1)), hatQ.T)
+    G[:-3, 3:-3] = np.kron(np.eye(n-1), -hatQ.T)
+    G[:-3, -3:] = S(- hatq).reshape(3*n - 3, 3)
+    G[-3:, -3:] = - np.eye(3)
+
+    V = np.diag([0.25**2] * 3*n + [0.2**2] * 3)
+    cov_matrix[:] = F.dot(cov_matrix.dot(F.T)) + G.dot(V.dot(G.T)) * simu_step_size
 
     # correction step
     hat_square_dist - meas_square_dist
@@ -195,8 +210,12 @@ hat_q = np.random.normal(q, 2.0)
 hatq_int = EulerIntegrator(hat_q)
 
 # refer initial orientation to body frame a
-hatQ = R[a].dot(random_rotation_matrix(1.0))
+delta_theta = np.random.normal(scale=0.5, size=3)
+hatQ = R[a].dot(rotation_matrix_from_vector(delta_theta))
 hatQ_int = EulerIntegratorOrtogonalGroup(hatQ)
+
+# cov_matrixiance matrix
+cov_matrix = np.eye(3*n)
 
 # define velocities
 control_u = {
