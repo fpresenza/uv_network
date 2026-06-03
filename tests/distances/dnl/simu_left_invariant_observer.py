@@ -76,6 +76,10 @@ def simu_step():
         R_int[i].step_left(t, wb[i])
 
     # --- measurements --- #
+    # velocity
+    meas_lin_vel = np.random.normal(dotp, 0.25)
+    meas_ang_vel = np.random.normal(dotR[a], 0.1)
+
     # distance
     noise_square_dist = 0.0
     meas_square_dist = np.square(p[neighbors] - p[a]).sum(axis=1) + noise_square_dist
@@ -89,8 +93,12 @@ def simu_step():
 
     # --- advance estimation --- #
     # prediction step
-    hatq_int.step(t, (dotp[neighbors] - dotp[a]).dot(hatQ) - np.cross(dotR[a], hatq))
-    hatQ_int.step_left(t, dotR[a])
+    hatq_int.step(
+        t,
+        (meas_lin_vel[neighbors] - meas_lin_vel[a]).dot(hatQ) -
+        np.cross(meas_ang_vel, hatq)
+    )
+    hatQ_int.step_left(t, meas_ang_vel)
 
     # correction step
     hat_square_dist - meas_square_dist
