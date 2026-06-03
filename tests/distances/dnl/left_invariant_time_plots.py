@@ -151,8 +151,6 @@ for ax in axes:
 
 axes[0].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=2)
 axes[0].set_ylabel(r'$\|\hat{p}_{ij} - p_{ij}\| (\rm m)$', fontsize=14, labelpad=5)
-axes[0].set_yticks([0.0, 5.0])
-axes[0].set_yticklabels(['0.0', '5.0'])
 axes[0].plot(
     t,
     np.sqrt(np.square(hatq - q).sum(axis=-1)),
@@ -160,8 +158,6 @@ axes[0].plot(
     ls='-',
     ds='steps-post'
 )
-axes[0].plot(0.0, 0.0, color='k', ls='-', label='sens')
-axes[0].plot(0.0, 0.0, color='k', ls='--', label='free')
 axes[0].legend(fontsize=12)
 
 E = np.matmul(R[:, a].swapaxes(1, 2), hatQ)
@@ -172,8 +168,6 @@ axes[1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=2)
 #     fontsize=15
 # )
 axes[1].set_ylabel(r'$\|\delta \theta_i\| \ (\rm rad)$', fontsize=14, labelpad=5)
-axes[1].set_yticks([0.0, 0.5])
-axes[1].set_yticklabels(['0.0', '0.5'])
 axes[1].plot(
     t,
     delta_theta,
@@ -181,8 +175,6 @@ axes[1].plot(
     ls='-',
     ds='steps-post'
 )
-axes[1].plot(0.0, 0.0, color='k', ls='-', label='sens')
-axes[1].plot(0.0, 0.0, color='k', ls='--', label='free')
 axes[1].legend(fontsize=12)
 
 fig.savefig('time_plots/pose_error.pdf', bbox_inches='tight')
