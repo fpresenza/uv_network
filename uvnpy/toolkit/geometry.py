@@ -144,6 +144,40 @@ def rotation_matrix_from_vector_multiple_axes(theta):
     return R
 
 
+def vector_angle_from_matrix(R):
+    """Inverse of the Rodrigues rotation formula
+
+
+    Parameters
+    ----------
+    R : numqy.ndarray
+        A row stack of rotation matrices
+
+    Returns
+    ----------
+    axis : numqy.ndarray
+        A row stack of axis
+    angles : numqy.ndarray
+        A row stack of angles
+
+    Requires
+    ----------
+        No angle is equal to zero or pi.
+    """
+    s = list(R.shape)
+    s.pop(-2)
+    axis = np.empty(s, dtype=float)
+    trace = R.trace(axis1=-2, axis2=-1)
+    angle = np.arccos(np.clip((trace - 1)/2, -1, 1))
+
+    sin = np.sin(angle)
+    axis[..., 0] = (R[..., 2, 1] - R[..., 1, 2]) / 2 / sin
+    axis[..., 1] = (R[..., 0, 2] - R[..., 2, 0]) / 2 / sin
+    axis[..., 2] = (R[..., 1, 0] - R[..., 0, 1]) / 2 / sin
+
+    return axis * angle[..., np.newaxis]
+
+
 def triangle(center, heading, height, ratio=0.3):
     """Compute coordinates of a triangle.
 
