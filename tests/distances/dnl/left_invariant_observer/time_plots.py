@@ -158,7 +158,6 @@ axes[0].plot(
     ls='-',
     ds='steps-post'
 )
-axes[0].legend(fontsize=12)
 
 E = np.matmul(R[:, a].swapaxes(1, 2), hatQ)
 delta_theta = np.arccos((np.trace(E, axis1=1, axis2=2) - 1)/2)
@@ -175,7 +174,6 @@ axes[1].plot(
     ls='-',
     ds='steps-post'
 )
-axes[1].legend(fontsize=12)
 
 fig.savefig('time_plots/pose_error.pdf', bbox_inches='tight')
 
