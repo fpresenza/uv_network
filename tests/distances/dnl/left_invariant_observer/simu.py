@@ -126,6 +126,7 @@ def log_step():
     logs.orientation.append(extract_x(R_int).ravel())
     logs.estimated_position.append(hatq_int.x().ravel())
     logs.estimated_orientation.append(hatQ_int.x().ravel())
+    logs.covariance.append(cov_matrix.copy().ravel())
     logs.control_u.append(extract_u(p_int).ravel())
     logs.control_w.append(extract_u(R_int).ravel())
 
@@ -241,6 +242,7 @@ logs = Logs(
     orientation=[extract_x(R_int).ravel()],
     estimated_position=[hatq_int.x().ravel()],
     estimated_orientation=[hatQ_int.x().ravel()],
+    covariance=[cov_matrix.copy().ravel()],
     control_u=[extract_u(p_int).ravel()],
     control_w=[extract_u(p_int).ravel()],
 )
@@ -271,5 +273,6 @@ np.savetxt(
 np.savetxt(
     'simu_data/estimated_orientation.csv', logs.estimated_orientation, delimiter=','
 )
+np.savetxt('simu_data/covariance.csv', logs.covariance, delimiter=',')
 np.savetxt('simu_data/control_u.csv', logs.control_u, delimiter=',')
 np.savetxt('simu_data/control_w.csv', logs.control_w, delimiter=',')

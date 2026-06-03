@@ -36,6 +36,8 @@ R = read_csv_numpy('simu_data/orientation.csv').reshape(-1, n, 3, 3)
 hatq = read_csv_numpy('simu_data/estimated_position.csv').reshape(-1, n - 1, 3)
 hatQ = read_csv_numpy('simu_data/estimated_orientation.csv').reshape(-1, 3, 3)
 
+cov_matrix = read_csv_numpy('simu_data/covariance.csv').reshape(-1, 3*n, 3*n)
+
 control_u = read_csv_numpy('simu_data/control_u.csv').reshape(-1, n, 3)
 control_w = read_csv_numpy('simu_data/control_w.csv').reshape(-1, n, 3)
 
@@ -170,6 +172,44 @@ axes[1].plot(
 )
 
 fig.savefig('time_plots/pose_error.pdf', bbox_inches='tight')
+
+
+# ------------------------------------------------------------------
+# Plot left-invariant covariance
+# ------------------------------------------------------------------
+fig, ax = plt.subplots(figsize=(4.5, 4.5))
+
+ax.tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize=9
+)
+
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+ax.set_ylabel(r'$\mathrm{tr}(P)$', fontsize=10)
+ax.grid(1)
+# ax[k].set_ylim(-10.0, 50.0)
+
+cov_diag = cov_matrix[:, np.eye(3*n, 3*n).astype(bool)]
+cov_diag_pij = cov_diag[:, :-3]
+cov_diag_Ri = cov_diag[:, -3:]
+
+ax.plot(
+    t,
+    cov_diag_pij.reshape(-1, n-1, 3).sum(axis=-1),
+    lw=1.0,
+    ds='steps-post',
+)
+ax.plot(
+    t,
+    cov_diag_Ri.reshape(-1, 1, 3).sum(axis=-1),
+    lw=1.0,
+    ls='--',
+    ds='steps-post',
+)
+
+fig.savefig('time_plots/covariance.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot control
