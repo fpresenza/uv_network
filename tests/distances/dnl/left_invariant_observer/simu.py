@@ -26,10 +26,9 @@ class Logs(object):
     orientation: list
     estimated_position: list
     estimated_orientation: list
+    covariance: list
     control_u: list
     control_w: list
-    correction_u: list
-    correction_w: list
 
 
 def random_rotation_matrix(max_angle=2 * np.pi):
@@ -129,8 +128,6 @@ def log_step():
     logs.estimated_orientation.append(hatQ_int.x().ravel())
     logs.control_u.append(extract_u(p_int).ravel())
     logs.control_w.append(extract_u(R_int).ravel())
-    logs.correction_u.append(hatq_int.u().ravel())
-    logs.correction_w.append(hatQ_int.u().ravel())
 
 
 # ------------------------------------------------------------------
@@ -246,8 +243,6 @@ logs = Logs(
     estimated_orientation=[hatQ_int.x().ravel()],
     control_u=[extract_u(p_int).ravel()],
     control_w=[extract_u(p_int).ravel()],
-    correction_u=[hatq_int.u().ravel()],
-    correction_w=[hatQ_int.u().ravel()],
 )
 
 # run simulation
@@ -278,5 +273,3 @@ np.savetxt(
 )
 np.savetxt('simu_data/control_u.csv', logs.control_u, delimiter=',')
 np.savetxt('simu_data/control_w.csv', logs.control_w, delimiter=',')
-np.savetxt('simu_data/correction_u.csv', logs.correction_u, delimiter=',')
-np.savetxt('simu_data/correction_w.csv', logs.correction_w, delimiter=',')

@@ -85,7 +85,7 @@ for k, d in enumerate(['x', 'y', 'z']):
         ds='steps-post',
     )
 
-fig.savefig('time_plots/left_invariant_position.pdf', bbox_inches='tight')
+fig.savefig('time_plots/position.pdf', bbox_inches='tight')
 
 # -------------------------------------------------------
 # Plot orientations
