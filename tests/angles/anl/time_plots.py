@@ -233,11 +233,12 @@ if arg.coupled:
         ls='--',
         ds='steps-post'
     )
-    axes[0].plot(0.0, 0.0, color='k', ls='-', label='lead')
-    axes[0].plot(0.0, 0.0, color='k', ls='--', label='foll')
+    axes[0].plot(0.0, 0.0, color='k', ls='-', label='sens')
+    axes[0].plot(0.0, 0.0, color='k', ls='--', label='free')
     axes[0].legend(fontsize=12)
 
     E = np.matmul(Q.swapaxes(2, 3), hatQ)
+    phi = np.arccos((np.trace(E, axis1=2, axis2=3) - 1)/2)
     axes[1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=2)
     # ax.set_ylabel(
     #     r'$\mathrm{tr}\left(I - \tilde{Q}_i\right) / 2$',
@@ -248,20 +249,25 @@ if arg.coupled:
     axes[1].set_yticklabels(['0.0', '0.5'])
     axes[1].plot(
         t,
-        np.arccos(1 - 0.5 * (3 - np.trace(E[:, leaders], axis1=2, axis2=3))),
+        phi[:, leaders],
         lw=2.0,
         ls='-',
         ds='steps-post'
     )
     axes[1].plot(
         t,
-        np.arccos(1 - 0.5 * (3 - np.trace(E[:, followers], axis1=2, axis2=3))),
+        phi[:, followers],
         lw=2.0,
         ls='--',
         ds='steps-post'
     )
-    axes[1].plot(0.0, 0.0, color='k', ls='-', label='lead')
-    axes[1].plot(0.0, 0.0, color='k', ls='--', label='foll')
+    for i in followers:
+        axes[1].scatter(
+            t[[1500, 5000]], phi[[1500, 5000], i],
+            marker='s', s=20, color='k', facecolor='none', zorder=10
+        )
+    axes[1].plot(0.0, 0.0, color='k', ls='-', label='sens')
+    axes[1].plot(0.0, 0.0, color='k', ls='--', label='free')
     axes[1].legend(fontsize=12)
 
     fig.savefig('time_plots/pose_error.pdf', bbox_inches='tight')
@@ -583,22 +589,30 @@ ax.set_box_aspect(None, zoom=1.0)
 for i in leaders:
     ax.scatter(
         p[0, i, 0], p[0, i, 1], p[0, i, 2],
-        marker='o', s=12, color='k', zorder=10
+        marker='o', s=20, color='k', zorder=10
     )
     ax.scatter(
         p[-1, i, 0], p[-1, i, 1], p[-1, i, 2],
-        marker='x', s=14, color='k', zorder=10
+        marker='x', s=20, color='k', zorder=10
     )
     ax.plot(p[1::400, i, 0], p[1::400, i, 1], p[1::400, i, 2], ls='-', zorder=0)
 
 for i in followers:
     ax.scatter(
         p[0, i, 0], p[0, i, 1], p[0, i, 2],
-        marker='o', s=12, color='k', zorder=10
+        marker='o', s=20, color='k', facecolor='none', zorder=10
     )
     ax.scatter(
         p[-1, i, 0], p[-1, i, 1], p[-1, i, 2],
-        marker='x', s=14, color='k', zorder=10
+        marker='x', s=20, color='k', zorder=10
+    )
+    ax.scatter(
+        p[1500, i, 0], p[1500, i, 1], p[1500, i, 2],
+        marker='s', s=18, color='k', facecolor='none', zorder=10
+    )
+    ax.scatter(
+        p[5000, i, 0], p[5000, i, 1], p[5000, i, 2],
+        marker='s', s=18, color='k', facecolor='none', zorder=10
     )
     ax.plot(p[1::400, i, 0], p[1::400, i, 1], p[1::400, i, 2], ls='--', zorder=0)
 
@@ -610,8 +624,8 @@ plot.arrows(
     alpha=0.5,
     lw=0.75,
     zorder=0,
-    length=0.45,
-    arrow_length_ratio=0.3
+    length=0.4,
+    arrow_length_ratio=0.2
 )
 fig.savefig('time_plots/trajectory.pdf', bbox_inches='tight')
 
