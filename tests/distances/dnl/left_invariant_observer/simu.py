@@ -5,12 +5,14 @@ import argparse
 from dataclasses import dataclass
 import progressbar
 import numpy as np
+from scipy.linalg import block_diag
 
 from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
 from uvnpy.toolkit.geometry import (
     rotation_matrix_from_vector,
-    cross_product_matrix_multiple_axes as S
+    cross_product_matrix_multiple_axes as S,
+    vector_angle_from_matrix
 )
 
 # ------------------------------------------------------------------
@@ -62,9 +64,61 @@ def simu_step():
     dotp = extract_u(p_int)
     R = extract_x(R_int)
     dotR = extract_u(R_int)
-    hatq = hatq_int.x()
-    hatQ = hatQ_int.x()
+    dt = simu_step_size
 
+    # --- measurements --- #
+    # velocity
+    meas_lin_vel = np.random.normal(dotp, 0.25)
+    meas_ang_vel = np.random.normal(dotR[a], 0.1)
+
+    # distance
+    noise_square_dist = np.random.normal(scale=1.0, size=n-1)
+    meas_square_dist = 0.5 * np.square(
+        p[neighbors] - p[a]
+    ).sum(axis=1) + noise_square_dist
+
+    # orientation
+    noise_orient = np.random.normal(scale=0.5, size=3)
+    meas_orient = R[a].dot(rotation_matrix_from_vector(noise_orient))
+
+    # --- advance estimation --- #
+    # prediction step
+    hat_ai = (meas_lin_vel[neighbors] - meas_lin_vel[a]).dot(hatQ)
+
+    F = np.kron(np.eye(n), np.eye(3) - dt * S(meas_ang_vel))
+    F[:-3, -3:] = S(dt * hat_ai).reshape(3*n - 3, 3)
+
+    V = np.diag([0.25**2] * 3*n + [0.1**2] * 3)
+    G = np.zeros((3*n, 3*n + 3))
+    G[:-3, :3] = np.kron(np.ones((n-1, 1)), hatQ.T)
+    G[:-3, 3:-3] = np.kron(np.eye(n-1), -hatQ.T)
+    G[:-3, -3:] = S(- hatq).reshape(3*n - 3, 3)
+    G[-3:, -3:] = - np.eye(3)
+
+    hatq[:] = hatq + dt * (hat_ai - np.cross(meas_ang_vel, hatq))
+    hatQ[:] = hatQ.dot(rotation_matrix_from_vector(dt * meas_ang_vel))
+    cov_matrix[:] = F.dot(cov_matrix).dot(F.T) + G.dot(V).dot(G.T) * dt**2
+
+    # correction step
+    hat_square_dist = 0.5 * np.square(hatq).sum(axis=1)
+    hat_vector_angle = vector_angle_from_matrix(hatQ.T.dot(meas_orient))
+    residual = np.hstack([meas_square_dist - hat_square_dist, hat_vector_angle])
+
+    H = np.zeros((n + 2, 3*n))
+    H[:-3, :-3] = block_diag(*hatq)
+    H[-3:, -3:] = np.eye(3)
+
+    N = np.diag([1.0**2] * (n - 1) + [0.5**2] * 3)
+    K = cov_matrix.dot(H.T).dot(np.linalg.inv(H.dot(cov_matrix).dot(H.T) + N))
+
+    correction = K.dot(residual)
+    hatq[:] = hatq + correction[:-3].reshape(n - 1, 3)
+    hatQ[:] = hatQ.dot(rotation_matrix_from_vector(correction[-3:]))
+
+    X = np.eye(3*n) - K.dot(H)
+    cov_matrix[:] = X.dot(cov_matrix).dot(X.T) + K.dot(N).dot(K.T)
+
+    # advance pose
     ub = np.zeros((n, 3), dtype=np.float64)    # body-frame
     wb = np.zeros((n, 3), dtype=np.float64)    # body-frame
 
@@ -77,55 +131,14 @@ def simu_step():
         p_int[i].step(t, R[i].dot(ub[i]))
         R_int[i].step_left(t, wb[i])
 
-    # --- measurements --- #
-    # velocity
-    meas_lin_vel = np.random.normal(dotp, 0.25)
-    meas_ang_vel = np.random.normal(dotR[a], 0.1)
-
-    # distance
-    noise_square_dist = 0.0
-    meas_square_dist = np.square(p[neighbors] - p[a]).sum(axis=1) + noise_square_dist
-
-    # orientation
-    noise_orient = np.zeros(3, dtype=np.float64)
-    meas_orient = R.dot(rotation_matrix_from_vector(noise_orient))
-
-    # estimated values
-    hat_square_dist = np.square(hatq).sum(axis=1)
-
-    # --- advance estimation --- #
-    # prediction step
-    hat_ai = (meas_lin_vel[neighbors] - meas_lin_vel[a]).dot(hatQ)
-    hatq_int.step(
-        t,
-        hat_ai - np.cross(meas_ang_vel, hatq)
-    )
-    hatQ_int.step_left(t, meas_ang_vel)
-
-    F = np.kron(np.eye(n), np.eye(3) - simu_step_size * S(meas_ang_vel))
-    F[:-3, -3:] = S(simu_step_size * hat_ai).reshape(3*n - 3, 3)
-
-    G = np.zeros((3*n, 3*n + 3))
-    G[:-3, :3] = np.kron(np.ones((n-1, 1)), hatQ.T)
-    G[:-3, 3:-3] = np.kron(np.eye(n-1), -hatQ.T)
-    G[:-3, -3:] = S(- hatq).reshape(3*n - 3, 3)
-    G[-3:, -3:] = - np.eye(3)
-
-    V = np.diag([0.25**2] * 3*n + [0.2**2] * 3)
-    cov_matrix[:] = F.dot(cov_matrix.dot(F.T)) + G.dot(V.dot(G.T)) * simu_step_size
-
-    # correction step
-    hat_square_dist - meas_square_dist
-    hatQ - meas_orient
-
 
 def log_step():
     """Data log"""
     logs.time.append(t)
     logs.position.append(extract_x(p_int).ravel())
     logs.orientation.append(extract_x(R_int).ravel())
-    logs.estimated_position.append(hatq_int.x().ravel())
-    logs.estimated_orientation.append(hatQ_int.x().ravel())
+    logs.estimated_position.append(hatq.copy().ravel())
+    logs.estimated_orientation.append(hatQ.copy().ravel())
     logs.covariance.append(cov_matrix.copy().ravel())
     logs.control_u.append(extract_u(p_int).ravel())
     logs.control_w.append(extract_u(R_int).ravel())
@@ -164,7 +177,7 @@ simu_length = arg.simu_length * 1e-3    # in seconds
 simu_step_size = arg.simu_step_size * 1e-3    # in seconds
 log_skip = arg.log_skip
 
-np.random.seed(0)
+np.random.seed(2)
 
 print(
     'Simulation Time: begin = {} sec, end = {} sec, step = {} sec'
@@ -204,30 +217,28 @@ R_int = [
 # refer initial position to body frame a
 q = (p[neighbors] - p[a]).dot(R[a])
 
-hat_q = np.random.normal(q, 2.0)
-hatq_int = EulerIntegrator(hat_q)
+hatq = np.random.normal(q, 2.0)
 
 # refer initial orientation to body frame a
 delta_theta = np.random.normal(scale=0.5, size=3)
 hatQ = R[a].dot(rotation_matrix_from_vector(delta_theta))
-hatQ_int = EulerIntegratorOrtogonalGroup(hatQ)
 
 # cov_matrixiance matrix
 cov_matrix = np.eye(3*n)
 
 # define velocities
 control_u = {
-    0: lambda t: np.array([0.0, 0.0, 1.0]),
-    1: lambda t: np.array([0.0, np.cos(0.25*t), np.sin(0.25*t)]),
-    2: lambda t: np.array([0.0, np.cos(1.0*t), np.sin(1.0*t)]),
-    3: lambda t: np.array([np.cos(2.0*t), np.sin(2.0*t), 0.5]),
-    4: lambda t: np.array([np.cos(1.0*t), np.sin(0.5*t), 0.0])
+    0: lambda t: np.array([0.0, 0.0, 0.0]),
+    1: lambda t: np.array([np.cos(0.5*t), np.sin(0.5*t), 0.5]),
+    2: lambda t: np.array([np.cos(0.5*t), np.sin(0.5*t), 0.5]),
+    3: lambda t: np.array([np.cos(0.5*t), np.sin(0.5*t), 0.5]),
+    4: lambda t: np.array([np.cos(0.5*t), np.sin(0.5*t), 0.5])
 }
 
 control_w = {
     0: lambda t: np.array([0.5, 0.0, 0.0]),
-    1: lambda t: np.array([0.0, 1.0, 0.0]),
-    2: lambda t: np.array([0.0, 0.0, 1.0]),
+    1: lambda t: np.array([0.0, 0.0, 0.0]),
+    2: lambda t: np.array([0.0, 0.0, 0.0]),
     3: lambda t: np.array([0.0, 0.0, 0.0]),
     4: lambda t: np.array([0.0, 0.0, 0.0])
 }
@@ -240,8 +251,8 @@ logs = Logs(
     time=[t],
     position=[extract_x(p_int).ravel()],
     orientation=[extract_x(R_int).ravel()],
-    estimated_position=[hatq_int.x().ravel()],
-    estimated_orientation=[hatQ_int.x().ravel()],
+    estimated_position=[hatq.copy().ravel()],
+    estimated_orientation=[hatQ.copy().ravel()],
     covariance=[cov_matrix.copy().ravel()],
     control_u=[extract_u(p_int).ravel()],
     control_w=[extract_u(p_int).ravel()],

@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation
 
+from uvnpy.toolkit.plot import arrows
 from uvnpy.toolkit.data import read_csv_numpy
 
 plt.rcParams['text.usetex'] = False
@@ -187,7 +188,7 @@ ax.tick_params(
 )
 
 ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-ax.set_ylabel(r'$\mathrm{tr}(P)$', fontsize=10)
+ax.set_ylabel(r'$\sqrt{\mathrm{tr}(P)}$', fontsize=10)
 ax.grid(1)
 # ax[k].set_ylim(-10.0, 50.0)
 
@@ -197,13 +198,13 @@ cov_diag_Ri = cov_diag[:, -3:]
 
 ax.plot(
     t,
-    cov_diag_pij.reshape(-1, n-1, 3).sum(axis=-1),
+    np.sqrt(cov_diag_pij.reshape(-1, n-1, 3).sum(axis=-1)),
     lw=1.0,
     ds='steps-post',
 )
 ax.plot(
     t,
-    cov_diag_Ri.reshape(-1, 1, 3).sum(axis=-1),
+    np.sqrt(cov_diag_Ri.reshape(-1, 1, 3).sum(axis=-1)),
     lw=1.0,
     ls='--',
     ds='steps-post',
@@ -254,5 +255,69 @@ for k, d in enumerate(['x', 'y', 'z']):
     ax[k, 1].plot(t, control_w[:, :, k], lw=1.0, ds='steps-post')
 
 fig.savefig('time_plots/control.pdf', bbox_inches='tight')
+
+# ------------------------------------------------------------------
+# Plot 3d trajectories
+# ------------------------------------------------------------------
+fig, ax = plt.subplots(subplot_kw={"projection": "3d"}, figsize=(4, 4))
+fig.tight_layout()
+ax.tick_params(
+    axis='x',       # changes apply to the x-axis
+    which='major',      # both major and minor ticks are affected
+    pad=-5,
+    labelsize='10'
+)
+ax.tick_params(
+    axis='y',       # changes apply to the x-axis
+    which='major',      # both major and minor ticks are affected
+    pad=1,
+    labelsize='10'
+)
+ax.tick_params(
+    axis='z',       # changes apply to the x-axis
+    which='major',      # both major and minor ticks are affected
+    pad=-3,
+    labelsize='10'
+)
+ax.set_aspect('equal')
+ax.set_xlabel(r'$x \ (\mathrm{m})$', fontsize='10', labelpad=-5.0)
+ax.set_ylabel(r'$y \ (\mathrm{m})$', fontsize='10', labelpad=0.5)
+ax.set_zlabel(r'$z \ (\mathrm{m})$', fontsize='10', labelpad=-8.0)
+
+xy_lim = 30.0
+z_lim = xy_lim
+ax.set_xlim3d(0.0, xy_lim)
+ax.set_ylim3d(0.0, xy_lim)
+ax.set_zlim3d(0.0, z_lim)
+ax.set_xticks(np.linspace(0.0, xy_lim, num=3, endpoint=True))
+ax.set_yticks(np.linspace(0.0, xy_lim, num=3, endpoint=True))
+ax.set_zticks(np.linspace(0.0, z_lim, num=3, endpoint=True))
+
+ax.view_init(elev=10.0, azim=-15.0)
+ax.set_box_aspect(None, zoom=1.0)
+
+for i in np.arange(n):
+    ax.scatter(
+        p[0, i, 0], p[0, i, 1], p[0, i, 2],
+        marker='o', s=20, color='k', facecolor='none', zorder=10
+    )
+    ax.scatter(
+        p[-1, i, 0], p[-1, i, 1], p[-1, i, 2],
+        marker='x', s=20, color='k', zorder=10
+    )
+    ax.plot(p[1::400, i, 0], p[1::400, i, 1], p[1::400, i, 2], ls='--', zorder=0)
+
+arrows(
+    ax,
+    p[0],
+    [[a, j] for j in neighbors],
+    color='0.0',
+    alpha=0.5,
+    lw=0.75,
+    zorder=0,
+    length=0.4,
+    arrow_length_ratio=0.2
+)
+fig.savefig('time_plots/trajectory.pdf', bbox_inches='tight')
 
 plt.show()
