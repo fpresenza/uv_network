@@ -177,7 +177,7 @@ simu_length = arg.simu_length * 1e-3    # in seconds
 simu_step_size = arg.simu_step_size * 1e-3    # in seconds
 log_skip = arg.log_skip
 
-np.random.seed(2)
+np.random.seed(3)
 
 print(
     'Simulation Time: begin = {} sec, end = {} sec, step = {} sec'
@@ -230,9 +230,9 @@ cov_matrix = np.eye(3*n)
 control_u = {
     0: lambda t: np.array([0.0, 0.0, 0.0]),
     1: lambda t: np.array([np.cos(0.5*t), np.sin(0.5*t), 0.5]),
-    2: lambda t: np.array([np.cos(0.5*t), np.sin(0.5*t), 0.5]),
+    2: lambda t: np.array([np.cos(0.5*t), np.sin(0.5*t), -0.5]),
     3: lambda t: np.array([np.cos(0.5*t), np.sin(0.5*t), 0.5]),
-    4: lambda t: np.array([np.cos(0.5*t), np.sin(0.5*t), 0.5])
+    4: lambda t: np.array([np.cos(0.5*t), np.sin(0.5*t), -0.5])
 }
 
 control_w = {

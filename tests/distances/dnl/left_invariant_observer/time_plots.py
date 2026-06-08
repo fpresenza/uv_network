@@ -133,9 +133,9 @@ fig.savefig('time_plots/euler_angles.pdf', bbox_inches='tight')
 # ------------------------------------------------------------------
 # Plot left-invariant pose error
 # ------------------------------------------------------------------
-fig, axes = plt.subplots(2, 1, figsize=(4.0, 3.5))
+fig, axes = plt.subplots(3, 1, figsize=(4.0, 6.0))
 fig.tight_layout()
-fig.subplots_adjust(hspace=0.45)
+fig.subplots_adjust(hspace=0.3)
 
 for ax in axes:
     ax.tick_params(
@@ -146,71 +146,69 @@ for ax in axes:
     )
     ax.grid(1)
 
-axes[0].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=2)
-axes[0].set_ylabel(r'$\|\hat{p}_{ij} - p_{ij}\| (\rm m)$', fontsize=14, labelpad=5)
-axes[0].plot(
-    t,
-    np.sqrt(np.square(hatq - q).sum(axis=-1)),
-    lw=2.0,
-    ls='-',
-    ds='steps-post'
-)
+axes[0].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=13, labelpad=2)
+axes[0].set_ylabel(r'$\|\delta p_{ij}\|$', fontsize=13, labelpad=5)
+axes[0].set_yticks([0, 2, 4, 6])
+axes[0].set_yticklabels(['0.0', '2.0', '4.0', '6.0'])
+for j, _ in enumerate(neighbors):
+    axes[0].plot(
+        t,
+        np.sqrt(np.square(hatq[:, j] - q[:, j]).sum(axis=-1)),
+        lw=2.0,
+        ls='-',
+        ds='steps-post',
+        label=fr'$j_{j+1}$'
+    )
+axes[0].legend(fontsize=12, ncols=2)
 
 E = np.matmul(R[:, a].swapaxes(1, 2), hatQ)
 delta_theta = np.arccos((np.trace(E, axis1=1, axis2=2) - 1)/2)
-axes[1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=2)
+axes[1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=13, labelpad=2)
 # ax.set_ylabel(
 #     r'$\mathrm{tr}\left(I - \tilde{Q}_i\right) / 2$',
 #     fontsize=15
 # )
-axes[1].set_ylabel(r'$\|\delta \theta_i\| \ (\rm rad)$', fontsize=14, labelpad=5)
+axes[1].set_ylabel(r'$\|\delta \theta_i\|$', fontsize=13, labelpad=5)
+axes[1].set_ylim(0.0, 1.0)
+axes[1].set_yticks([0, 0.5, 1])
+axes[1].set_yticklabels(['0.0', '0.5', '1.0'])
 axes[1].plot(
     t,
     delta_theta,
     lw=2.0,
     ls='-',
-    ds='steps-post'
+    ds='steps-post',
 )
 
-fig.savefig('time_plots/pose_error.pdf', bbox_inches='tight')
-
-
-# ------------------------------------------------------------------
-# Plot left-invariant covariance
-# ------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(4.5, 4.5))
-
-ax.tick_params(
-    axis='both',       # changes apply to the x-axis
-    which='both',      # both major and minor ticks are affected
-    pad=1,
-    labelsize=9
-)
-
-ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-ax.set_ylabel(r'$\sqrt{\mathrm{tr}(P)}$', fontsize=10)
-ax.grid(1)
+axes[2].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=13)
+axes[2].set_ylabel(r'$\mathrm{tr}(P)$', fontsize=13)
+axes[2].set_yticks([0, 1, 2, 3])
+axes[2].set_yticklabels(['0.0', '1.0', '2.0', '3.0'])
 # ax[k].set_ylim(-10.0, 50.0)
 
 cov_diag = cov_matrix[:, np.eye(3*n, 3*n).astype(bool)]
-cov_diag_pij = cov_diag[:, :-3]
+cov_diag_pij = cov_diag[:, :-3].reshape(-1, n - 1, 3)
 cov_diag_Ri = cov_diag[:, -3:]
 
-ax.plot(
+for j, _ in enumerate(neighbors):
+    axes[2].plot(
+        t,
+        cov_diag_pij[:, j].sum(axis=-1),
+        lw=1.0,
+        ds='steps-post',
+        label=fr'$\delta p_{{ij_{j+1}}}$'
+    )
+axes[2].plot(
     t,
-    np.sqrt(cov_diag_pij.reshape(-1, n-1, 3).sum(axis=-1)),
-    lw=1.0,
-    ds='steps-post',
-)
-ax.plot(
-    t,
-    np.sqrt(cov_diag_Ri.reshape(-1, 1, 3).sum(axis=-1)),
+    cov_diag_Ri.reshape(-1, 1, 3).sum(axis=-1),
     lw=1.0,
     ls='--',
     ds='steps-post',
+    label=r'$\delta \theta_i$'
 )
+ax.legend(fontsize=12, ncols=2)
 
-fig.savefig('time_plots/covariance.pdf', bbox_inches='tight')
+fig.savefig('time_plots/pose_error.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot control
@@ -260,7 +258,13 @@ fig.savefig('time_plots/control.pdf', bbox_inches='tight')
 # Plot 3d trajectories
 # ------------------------------------------------------------------
 fig, ax = plt.subplots(subplot_kw={"projection": "3d"}, figsize=(4, 4))
-fig.tight_layout()
+# fig.tight_layout()
+fig.subplots_adjust(
+    bottom=0.0,
+    top=1.0,
+    right=0.85,
+    left=0.0
+)
 ax.tick_params(
     axis='x',       # changes apply to the x-axis
     which='major',      # both major and minor ticks are affected
@@ -293,23 +297,29 @@ ax.set_xticks(np.linspace(0.0, xy_lim, num=3, endpoint=True))
 ax.set_yticks(np.linspace(0.0, xy_lim, num=3, endpoint=True))
 ax.set_zticks(np.linspace(0.0, z_lim, num=3, endpoint=True))
 
-ax.view_init(elev=10.0, azim=-15.0)
+ax.view_init(elev=5.0, azim=-15.0)
 ax.set_box_aspect(None, zoom=1.0)
 
-for i in np.arange(n):
+ax.scatter(
+    p[0, a, 0], p[0, a, 1], p[0, a, 2],
+    marker='o', s=30, color='k', zorder=10
+)
+
+
+for j in neighbors:
     ax.scatter(
-        p[0, i, 0], p[0, i, 1], p[0, i, 2],
+        p[0, j, 0], p[0, j, 1], p[0, j, 2],
         marker='o', s=20, color='k', facecolor='none', zorder=10
     )
     ax.scatter(
-        p[-1, i, 0], p[-1, i, 1], p[-1, i, 2],
+        p[-1, j, 0], p[-1, j, 1], p[-1, j, 2],
         marker='x', s=20, color='k', zorder=10
     )
-    ax.plot(p[1::400, i, 0], p[1::400, i, 1], p[1::400, i, 2], ls='--', zorder=0)
+    ax.plot(p[1::400, j, 0], p[1::400, j, 1], p[1::400, j, 2], ls='--', zorder=0)
 
 arrows(
     ax,
-    p[0],
+    p[a],
     [[a, j] for j in neighbors],
     color='0.0',
     alpha=0.5,
@@ -318,6 +328,6 @@ arrows(
     length=0.4,
     arrow_length_ratio=0.2
 )
-fig.savefig('time_plots/trajectory.pdf', bbox_inches='tight')
+fig.savefig('time_plots/trajectory.pdf')
 
 plt.show()
