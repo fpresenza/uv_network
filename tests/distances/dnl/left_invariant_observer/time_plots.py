@@ -300,22 +300,16 @@ ax.set_zticks(np.linspace(0.0, z_lim, num=3, endpoint=True))
 ax.view_init(elev=5.0, azim=-15.0)
 ax.set_box_aspect(None, zoom=1.0)
 
-ax.scatter(
-    p[0, a, 0], p[0, a, 1], p[0, a, 2],
-    marker='o', s=30, color='k', zorder=10
-)
-
-
-for j in neighbors:
+for i in np.arange(n):
     ax.scatter(
-        p[0, j, 0], p[0, j, 1], p[0, j, 2],
+        p[0, i, 0], p[0, i, 1], p[0, i, 2],
         marker='o', s=20, color='k', facecolor='none', zorder=10
     )
     ax.scatter(
-        p[-1, j, 0], p[-1, j, 1], p[-1, j, 2],
+        p[-1, i, 0], p[-1, i, 1], p[-1, i, 2],
         marker='x', s=20, color='k', zorder=10
     )
-    ax.plot(p[1::400, j, 0], p[1::400, j, 1], p[1::400, j, 2], ls='--', zorder=0)
+    ax.plot(p[1::400, i, 0], p[1::400, i, 1], p[1::400, i, 2], ls='--', zorder=0)
 
 arrows(
     ax,
