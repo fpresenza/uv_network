@@ -48,7 +48,7 @@ class Quadrotor(object):
 
     def step(self, t, force, torque):
         omega = self.ang_vel.x()
-        J = self.inertia_matrix
+        J = self.inertia
         Jinv = np.linalg.inv(J)
         self.pos.step(t, self.lin_vel.x())
         self.att.step_left(t, omega)

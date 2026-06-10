@@ -6,9 +6,9 @@ from dataclasses import dataclass
 import progressbar
 import numpy as np
 from scipy.linalg import block_diag
+from transformations import unit_vector
 
-from uvnpy.dynamics.core import EulerIntegrator
-from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
+from uvnpy.dynamics.quadrotor import Quadrotor
 from uvnpy.toolkit.geometry import (
     rotation_matrix_from_vector,
     cross_product_matrix_multiple_axes as S,
@@ -44,13 +44,90 @@ def projection_matrix(x):
     return np.eye(3) - np.outer(x, x)
 
 
-def extract_x(integrators):
-    return np.array([p.x() for p in integrators])
+def extract_p(integrators):
+    return np.array([p.position() for p in integrators])
+
+
+def extract_R(integrators):
+    return np.array([p.attitude() for p in integrators])
+
+
+def extract_dotp(integrators):
+    return np.array([p.linear_vel() for p in integrators])
+
+
+def extract_dotR(integrators):
+    return np.array([p.angular_vel() for p in integrators])
 
 
 def extract_u(integrators):
     return np.array([p.u() for p in integrators])
 
+
+def desired_attitude_from_yaw(b3d, yaw):
+    b1c = np.array([np.cos(yaw), np.sin(yaw), 0.0])
+
+    b2d = unit_vector(np.cross(b3d, b1c))
+    b1d = np.cross(b2d, b3d)
+
+    return np.column_stack((b1d, b2d, b3d))
+
+
+def velocity_controller_quadrotor(
+    quad,
+    v_des,
+    yaw_des,
+    g=9.81,
+    kv=1.5,
+    kR=4.0,
+    kOmega=1.5
+):
+    """
+    Quadrotor velocity controller for the model:
+
+        dot v = g e3 - (f/m) R e3
+        dot R = R hat(Omega)
+        J dot Omega + Omega x J Omega = tau
+
+    Inputs:
+        v      : current world-frame velocity, shape (3,)
+        R      : current attitude, body-to-world rotation, shape (3,3)
+        Omega  : body-frame angular velocity, shape (3,)
+        v_des  : desired world-frame velocity, shape (3,)
+
+    Returns:
+        f      : scalar thrust
+        tau    : body-frame torque, shape (3,)
+        R_des  : desired attitude
+    """
+    R = quad.attitude()
+    v = quad.linear_vel()
+    Omega = quad.angular_vel()
+    mass = quad.mass
+    J = quad.inertia
+
+    e3 = np.array([0.0, 0.0, 1.0])
+
+    # Outer-loop desired acceleration.
+    a_des = kv * (v_des - v)
+
+    # For dot v = g e3 - (f/m) R e3,
+    # choose f R e3 = m(g e3 - a_des).
+    F_des = mass * (g * e3 + a_des)
+
+    f = np.sqrt(np.square(F_des).sum())
+
+    b3_des = F_des / f
+    R_des = desired_attitude_from_yaw(b3_des, yaw_des)
+
+    # Attitude error.
+    e_R_mat = 0.5 * (R_des.T.dot(R) - R.T.dot(R_des))
+    e_R = np.array([e_R_mat[2, 1], e_R_mat[0, 2], e_R_mat[1, 0]])
+
+    # Simple attitude-rate reference: Omega_des = 0.
+    tau = -kR * e_R - kOmega * Omega + np.cross(Omega, J.dot(Omega))
+
+    return f, tau
 
 # ------------------------------------------------------------------
 # Simulation loop inner functions
@@ -60,10 +137,10 @@ def extract_u(integrators):
 def simu_step():
     """Pose estimation algorithm"""
     # --- data ---#
-    p = extract_x(p_int)
-    dotp = extract_u(p_int)
-    R = extract_x(R_int)
-    dotR = extract_u(R_int)
+    p = extract_p(quad)
+    dotp = extract_dotp(quad)
+    R = extract_R(quad)
+    dotR = extract_dotR(quad)
     dt = simu_step_size
 
     # --- measurements --- #
@@ -119,29 +196,28 @@ def simu_step():
     cov_matrix[:] = X.dot(cov_matrix).dot(X.T) + K.dot(N).dot(K.T)
 
     # advance pose
-    ub = np.zeros((n, 3), dtype=np.float64)    # body-frame
-    wb = np.zeros((n, 3), dtype=np.float64)    # body-frame
-
     for i in nodes:
         # --- Control inputs --- #
-        ub[i] = control_u[i](t)
-        wb[i] = control_w[i](t)
+        force, torque = velocity_controller_quadrotor(
+            quad[i],
+            v_des=control_u[i](t),
+            yaw_des=0.0
+        )
 
         # --- advance pose --- #
-        p_int[i].step(t, R[i].dot(ub[i]))
-        R_int[i].step_left(t, wb[i])
+        quad[i].step(t, force, torque)
 
 
 def log_step():
     """Data log"""
     logs.time.append(t)
-    logs.position.append(extract_x(p_int).ravel())
-    logs.orientation.append(extract_x(R_int).ravel())
+    logs.position.append(extract_p(quad).ravel())
+    logs.orientation.append(extract_R(quad).ravel())
     logs.estimated_position.append(hatq.copy().ravel())
     logs.estimated_orientation.append(hatQ.copy().ravel())
     logs.covariance.append(cov_matrix.copy().ravel())
-    logs.control_u.append(extract_u(p_int).ravel())
-    logs.control_w.append(extract_u(R_int).ravel())
+    logs.control_u.append(extract_dotp(quad).ravel())
+    logs.control_w.append(extract_dotR(quad).ravel())
 
 
 # ------------------------------------------------------------------
@@ -194,7 +270,7 @@ n = 5
 nodes = np.arange(n)
 p = np.random.uniform(0.0, 30.0, (n, 3))
 
-R = np.array([random_rotation_matrix() for _ in nodes])
+R = np.array([np.eye(3) for _ in nodes])
 edge_set = np.array([
     [0, 1],
     [0, 2],
@@ -204,58 +280,51 @@ edge_set = np.array([
 a = 0
 neighbors = np.setdiff1d(nodes, a)
 
-p_int = [
-    EulerIntegrator(p[i])
-    for i in nodes
-]
-
-R_int = [
-    EulerIntegratorOrtogonalGroup(R[i])
+quad = [
+    Quadrotor(
+        p[i],
+        R[i],
+        np.zeros(3),
+        np.zeros(3),
+        mass=1.5,
+        inertia=np.diag([29e-3, 29e-3, 55e-3])
+    )
     for i in nodes
 ]
 
 # refer initial position to body frame a
-q = (p[neighbors] - p[a]).dot(R[a])
+q = (p[neighbors] - p[a]).dot(quad[a].attitude())
 
 hatq = np.random.normal(q, 2.0)
 
 # refer initial orientation to body frame a
 delta_theta = np.random.normal(scale=0.5, size=3)
-hatQ = R[a].dot(rotation_matrix_from_vector(delta_theta))
+hatQ = quad[a].attitude().dot(rotation_matrix_from_vector(delta_theta))
 
 # cov_matrixiance matrix
 cov_matrix = np.eye(3*n)
 
-# define velocities
+# define commanded velocities
 control_u = {
-    0: lambda t: np.array([0.0, 0.0, 0.0]),
-    1: lambda t: np.array([0.0, 0.0, 0.0]),
-    2: lambda t: np.array([0.0, 0.0, 0.0]),
+    0: lambda t: np.array([1.0, 0.0, 0.0]),
+    1: lambda t: np.array([0.0, 1.0, 0.0]),
+    2: lambda t: np.array([0.0, 0.0, 1.0]),
     3: lambda t: np.array([np.cos(0.5*t), np.sin(0.5*t), 0.0]),
-    4: lambda t: np.array([np.cos(0.5*t), np.sin(0.5*t), -0.05])
-}
-
-control_w = {
-    0: lambda t: np.array([0.5, 0.0, 0.0]),
-    1: lambda t: np.array([0.0, 0.0, 0.0]),
-    2: lambda t: np.array([0.0, 0.0, 0.0]),
-    3: lambda t: np.array([0.0, 0.0, 0.0]),
     4: lambda t: np.array([0.0, 0.0, 0.0])
 }
-
 # ------------------------------------------------------------------
 # Simulation
 # ------------------------------------------------------------------
 # initialize logs
 logs = Logs(
     time=[t],
-    position=[extract_x(p_int).ravel()],
-    orientation=[extract_x(R_int).ravel()],
+    position=[extract_p(quad).ravel()],
+    orientation=[extract_R(quad).ravel()],
     estimated_position=[hatq.copy().ravel()],
     estimated_orientation=[hatQ.copy().ravel()],
     covariance=[cov_matrix.copy().ravel()],
-    control_u=[extract_u(p_int).ravel()],
-    control_w=[extract_u(p_int).ravel()],
+    control_u=[extract_dotp(quad).ravel()],
+    control_w=[extract_dotR(quad).ravel()],
 )
 
 # run simulation
