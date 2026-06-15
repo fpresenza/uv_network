@@ -255,7 +255,7 @@ logs = Logs(
     estimated_orientation=[hatQ.copy().ravel()],
     covariance=[cov_matrix.copy().ravel()],
     control_u=[extract_u(p_int).ravel()],
-    control_w=[extract_u(p_int).ravel()],
+    control_w=[extract_u(R_int).ravel()],
 )
 
 # run simulation
