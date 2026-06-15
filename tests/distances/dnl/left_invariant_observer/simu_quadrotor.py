@@ -145,17 +145,17 @@ def simu_step():
 
     # --- measurements --- #
     # velocity
-    meas_lin_vel = np.random.normal(dotp, 0.25)
-    meas_ang_vel = np.random.normal(dotR[a], 0.1)
+    meas_lin_vel = np.random.normal(dotp, lin_vel_stdev)
+    meas_ang_vel = np.random.normal(dotR[a], ang_vel_stdev)
 
     # distance
-    noise_square_dist = np.random.normal(scale=1.0, size=n-1)
+    noise_square_dist = np.random.normal(scale=square_dist_stdev, size=n-1)
     meas_square_dist = 0.5 * np.square(
         p[neighbors] - p[a]
     ).sum(axis=1) + noise_square_dist
 
     # orientation
-    noise_orient = np.random.normal(scale=0.5, size=3)
+    noise_orient = np.random.normal(scale=theta_stdev, size=3)
     meas_orient = R[a].dot(rotation_matrix_from_vector(noise_orient))
 
     # --- advance estimation --- #
@@ -165,7 +165,7 @@ def simu_step():
     F = np.kron(np.eye(n), np.eye(3) - dt * S(meas_ang_vel))
     F[:-3, -3:] = S(dt * hat_ai).reshape(3*n - 3, 3)
 
-    V = np.diag([0.25**2] * 3*n + [0.1**2] * 3)
+    V = np.diag([lin_vel_stdev**2] * 3*n + [ang_vel_stdev**2] * 3)
     G = np.zeros((3*n, 3*n + 3))
     G[:-3, :3] = np.kron(np.ones((n-1, 1)), hatQ.T)
     G[:-3, 3:-3] = np.kron(np.eye(n-1), -hatQ.T)
@@ -185,7 +185,7 @@ def simu_step():
     H[:-3, :-3] = block_diag(*hatq)
     H[-3:, -3:] = np.eye(3)
 
-    N = np.diag([1.0**2] * (n - 1) + [0.5**2] * 3)
+    N = np.diag([square_dist_stdev**2] * (n - 1) + [theta_stdev**2] * 3)
     K = cov_matrix.dot(H.T).dot(np.linalg.inv(H.dot(cov_matrix).dot(H.T) + N))
 
     correction = K.dot(residual)
@@ -292,17 +292,24 @@ quad = [
     for i in nodes
 ]
 
+# define noise parameters
+q_stdev = 2.0
+theta_stdev = 0.5
+square_dist_stdev = 1.0
+lin_vel_stdev = 0.25
+ang_vel_stdev = 0.1
+
 # refer initial position to body frame a
 q = (p[neighbors] - p[a]).dot(quad[a].attitude())
 
-hatq = np.random.normal(q, 2.0)
+hatq = np.random.normal(q, q_stdev)
 
 # refer initial orientation to body frame a
-delta_theta = np.random.normal(scale=0.5, size=3)
+delta_theta = np.random.normal(scale=theta_stdev, size=3)
 hatQ = quad[a].attitude().dot(rotation_matrix_from_vector(delta_theta))
 
 # cov_matrixiance matrix
-cov_matrix = np.eye(3*n)
+cov_matrix = np.diag([q_stdev**2] * 3 * (n - 1) + [theta_stdev**2] * 3)
 
 # define commanded velocities
 cmd_vel = {
