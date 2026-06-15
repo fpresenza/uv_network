@@ -200,7 +200,7 @@ def simu_step():
         # --- Control inputs --- #
         force, torque = velocity_controller_quadrotor(
             quad[i],
-            v_des=control_u[i](t),
+            v_des=cmd_vel[i](t),
             yaw_des=0.0
         )
 
@@ -305,12 +305,12 @@ hatQ = quad[a].attitude().dot(rotation_matrix_from_vector(delta_theta))
 cov_matrix = np.eye(3*n)
 
 # define commanded velocities
-control_u = {
-    0: lambda t: np.array([1.0, 0.0, 0.0]),
-    1: lambda t: np.array([0.0, 1.0, 0.0]),
-    2: lambda t: np.array([0.0, 0.0, 1.0]),
-    3: lambda t: np.array([np.cos(0.5*t), np.sin(0.5*t), 0.0]),
-    4: lambda t: np.array([0.0, 0.0, 0.0])
+cmd_vel = {
+    0: lambda t: np.array([0.0, 0.0, 0.0]),
+    1: lambda t: np.array([np.cos(0.5*t), np.sin(0.5*t), 0.5]),
+    2: lambda t: np.array([np.cos(0.5*t), np.sin(0.5*t), -0.5]),
+    3: lambda t: np.array([np.cos(0.5*t), np.sin(0.5*t), 0.5]),
+    4: lambda t: np.array([np.cos(0.5*t), np.sin(0.5*t), -0.5])
 }
 # ------------------------------------------------------------------
 # Simulation
