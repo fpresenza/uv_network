@@ -14,6 +14,7 @@ from uvnpy.toolkit.geometry import (
     cross_product_matrix_multiple_axes as S,
     vector_angle_from_matrix
 )
+from uvnpy.control.targets import OmniCollectionTargets, OmniCollectionTargetControl
 
 # ------------------------------------------------------------------
 # Functions, Classes and Configurations
@@ -31,6 +32,7 @@ class Logs(object):
     covariance: list
     control_u: list
     control_w: list
+    targets: list
 
 
 def random_rotation_matrix(max_angle=2 * np.pi):
@@ -129,6 +131,7 @@ def velocity_controller_quadrotor(
 
     return f, tau
 
+
 # ------------------------------------------------------------------
 # Simulation loop inner functions
 # ------------------------------------------------------------------
@@ -196,16 +199,19 @@ def simu_step():
     cov_matrix[:] = X.dot(cov_matrix).dot(X.T) + K.dot(N).dot(K.T)
 
     # advance pose
+    target_alloc = targets.allocation(extract_p(quad))
     for i in nodes:
         # --- Control inputs --- #
         force, torque = velocity_controller_quadrotor(
             quad[i],
-            v_des=cmd_vel[i](t),
+            v_des=target_tracking.update(quad[i].position(), target_alloc[i]),
             yaw_des=0.0
         )
 
         # --- advance pose --- #
         quad[i].step(t, force, torque)
+
+    targets.update(extract_p(quad))
 
 
 def log_step():
@@ -218,6 +224,7 @@ def log_step():
     logs.covariance.append(cov_matrix.copy().ravel())
     logs.control_u.append(extract_dotp(quad).ravel())
     logs.control_w.append(extract_dotR(quad).ravel())
+    logs.targets.append(targets.active.copy())
 
 
 # ------------------------------------------------------------------
@@ -311,14 +318,20 @@ hatQ = quad[a].attitude().dot(rotation_matrix_from_vector(delta_theta))
 # cov_matrixiance matrix
 cov_matrix = np.diag([q_stdev**2] * 3 * (n - 1) + [theta_stdev**2] * 3)
 
-# define commanded velocities
-cmd_vel = {
-    0: lambda t: np.array([0.0, 0.0, 0.0]),
-    1: lambda t: np.array([np.cos(0.5*t), np.sin(0.5*t), 0.5]),
-    2: lambda t: np.array([np.cos(0.5*t), np.sin(0.5*t), -0.5]),
-    3: lambda t: np.array([np.cos(0.5*t), np.sin(0.5*t), 0.5]),
-    4: lambda t: np.array([np.cos(0.5*t), np.sin(0.5*t), -0.5])
-}
+# define target tracking parameters
+target_tracking = OmniCollectionTargetControl(
+    tracking_radius=20.0,
+    forget_radius=30.0,
+    v_max=1.5
+)
+targets = OmniCollectionTargets(
+    n=30,
+    dim=3,
+    low_lim=(0.0, 0.0, 0.0),
+    up_lim=(30.0, 30.0, 30.0),
+    collect_radius=2.0
+)
+
 # ------------------------------------------------------------------
 # Simulation
 # ------------------------------------------------------------------
@@ -332,6 +345,7 @@ logs = Logs(
     covariance=[cov_matrix.copy().ravel()],
     control_u=[extract_dotp(quad).ravel()],
     control_w=[extract_dotR(quad).ravel()],
+    targets=[targets.active.copy()]
 )
 
 # run simulation
@@ -363,3 +377,5 @@ np.savetxt(
 np.savetxt('simu_data/covariance.csv', logs.covariance, delimiter=',')
 np.savetxt('simu_data/control_u.csv', logs.control_u, delimiter=',')
 np.savetxt('simu_data/control_w.csv', logs.control_w, delimiter=',')
+np.savetxt('simu_data/targets.csv', logs.targets, delimiter=',')
+np.savetxt('simu_data/targets_positions.csv', targets.positions, delimiter=',')
