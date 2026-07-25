@@ -204,7 +204,7 @@ fig.savefig('time_plots/euler_angles.pdf', bbox_inches='tight')
 if arg.coupled:
     fig, axes = plt.subplots(2, 1, figsize=(4.0, 3.5))
     fig.tight_layout()
-    fig.subplots_adjust(hspace=0.45)
+    fig.subplots_adjust(hspace=0.35)
 
     for ax in axes:
         ax.tick_params(
@@ -215,7 +215,7 @@ if arg.coupled:
         )
         ax.grid(1)
 
-    axes[0].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=2)
+    axes[0].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=-2)
     axes[0].set_ylabel(r'$\|\tilde{{q}}_{i}\| (\rm m)$', fontsize=14, labelpad=5)
     axes[0].set_yticks([0.0, 5.0])
     axes[0].set_yticklabels(['0.0', '5.0'])
@@ -239,7 +239,7 @@ if arg.coupled:
 
     E = np.matmul(Q.swapaxes(2, 3), hatQ)
     phi = np.arccos((np.trace(E, axis1=2, axis2=3) - 1)/2)
-    axes[1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=2)
+    axes[1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=-2)
     # ax.set_ylabel(
     #     r'$\mathrm{tr}\left(I - \tilde{Q}_i\right) / 2$',
     #     fontsize=15
@@ -264,7 +264,7 @@ if arg.coupled:
     for i in followers:
         axes[1].scatter(
             t[[1500, 5000]], phi[[1500, 5000], i],
-            marker='s', s=20, color='k', facecolor='none', zorder=10
+            marker='s', s=25, color='k', facecolor='none', zorder=10
         )
     axes[1].plot(0.0, 0.0, color='k', ls='-', label='sens')
     axes[1].plot(0.0, 0.0, color='k', ls='--', label='free')
@@ -589,30 +589,30 @@ ax.set_box_aspect(None, zoom=1.0)
 for i in leaders:
     ax.scatter(
         p[0, i, 0], p[0, i, 1], p[0, i, 2],
-        marker='o', s=20, color='k', zorder=10
+        marker='o', s=25, color='k', zorder=10
     )
     ax.scatter(
         p[-1, i, 0], p[-1, i, 1], p[-1, i, 2],
-        marker='x', s=20, color='k', zorder=10
+        marker='x', s=25, color='k', zorder=10
     )
     ax.plot(p[1::400, i, 0], p[1::400, i, 1], p[1::400, i, 2], ls='-', zorder=0)
 
 for i in followers:
     ax.scatter(
         p[0, i, 0], p[0, i, 1], p[0, i, 2],
-        marker='o', s=20, color='k', facecolor='none', zorder=10
+        marker='o', s=25, color='k', facecolor='none', zorder=10
     )
     ax.scatter(
         p[-1, i, 0], p[-1, i, 1], p[-1, i, 2],
-        marker='x', s=20, color='k', zorder=10
+        marker='x', s=25, color='k', zorder=10
     )
     ax.scatter(
         p[1500, i, 0], p[1500, i, 1], p[1500, i, 2],
-        marker='s', s=18, color='k', facecolor='none', zorder=10
+        marker='s', s=22, color='k', facecolor='none', zorder=10
     )
     ax.scatter(
         p[5000, i, 0], p[5000, i, 1], p[5000, i, 2],
-        marker='s', s=18, color='k', facecolor='none', zorder=10
+        marker='s', s=22, color='k', facecolor='none', zorder=10
     )
     ax.plot(p[1::400, i, 0], p[1::400, i, 1], p[1::400, i, 2], ls='--', zorder=0)
 
