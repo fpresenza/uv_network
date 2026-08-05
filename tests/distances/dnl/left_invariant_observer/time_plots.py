@@ -235,44 +235,45 @@ fig.savefig('time_plots/pose_error.pdf', bbox_inches='tight')
 # ------------------------------------------------------------------
 # Plot control
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(3, 2, figsize=(18.0, 6.0))
-fig.subplots_adjust(
-    bottom=0.215,
-    top=0.925,
-    wspace=0.33,
-    right=0.975,
-    left=0.18
-)
+fig, ax = plt.subplots(3, 1, figsize=(6.0, 4.0))
+# fig.subplots_adjust(
+#     bottom=0.215,
+#     top=0.925,
+#     wspace=0.33,
+#     right=0.975,
+#     left=0.18
+# )
 fig.tight_layout()
 
 for k, d in enumerate(['x', 'y', 'z']):
-    ax[k, 0].tick_params(
+    ax[k].tick_params(
         axis='both',       # changes apply to the x-axis
         which='both',      # both major and minor ticks are affected
         pad=1,
-        labelsize=9
+        labelsize=12
     )
+    ax[k].grid(1)
 
-    ax[k, 0].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-    ax[k, 0].set_ylabel(fr'$u_{{i, {d}}} \ (\rm m / s)$', fontsize=10)
-    ax[k, 0].set_ylim(-2.0, 2.0)
-    ax[k, 0].grid(1)
+    ax[k].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+    ax[k].set_ylabel(fr'$v^{d}_i \ (\rm m / s)$', fontsize=10)
+    ax[k].set_ylim(-2.0, 2.0)
+    ax[k].grid(1)
 
-    ax[k, 0].plot(t, control_u[:, :, k], lw=1.0, ds='steps-post')
+    ax[k].plot(t, control_u[:, :, k], lw=1.0, ds='steps-post')
 
-    ax[k, 1].tick_params(
-        axis='both',       # changes apply to the x-axis
-        which='both',      # both major and minor ticks are affected
-        pad=1,
-        labelsize=9
-    )
+    # ax[k, 1].tick_params(
+    #     axis='both',       # changes apply to the x-axis
+    #     which='both',      # both major and minor ticks are affected
+    #     pad=1,
+    #     labelsize=9
+    # )
 
-    ax[k, 1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-    ax[k, 1].set_ylabel(fr'$w^i_{{i, {d}}} \ (\rm m / s)$', fontsize=10)
-    ax[k, 1].set_ylim(-2.0, 2.0)
-    ax[k, 1].grid(1)
+    # ax[k, 1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+    # ax[k, 1].set_ylabel(fr'$w^i_{{i, {d}}} \ (\rm m / s)$', fontsize=10)
+    # ax[k, 1].set_ylim(-2.0, 2.0)
+    # ax[k, 1].grid(1)
 
-    ax[k, 1].plot(t, control_w[:, :, k], lw=1.0, ds='steps-post')
+    # ax[k, 1].plot(t, control_w[:, :, k], lw=1.0, ds='steps-post')
 
 fig.savefig('time_plots/control.pdf', bbox_inches='tight')
 
