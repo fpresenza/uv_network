@@ -309,17 +309,17 @@ hatQ_int = [
 # define velocities
 
 control_u = {
-    0: lambda t: hatQ_int[0].x().T.dot(np.array([np.cos(1.0*t), np.sin(0.5*t), 0.0])),
-    1: lambda t: hatQ_int[1].x().T.dot(np.array([np.cos(1.0*t), np.sin(0.5*t), 0.0])),
-    2: lambda t: hatQ_int[2].x().T.dot(np.array([np.cos(1.0*t), np.sin(0.5*t), 0.0])),
-    3: lambda t: hatQ_int[3].x().T.dot(np.array([np.cos(1.0*t), np.sin(0.5*t), 0.0])),
-    4: lambda t: hatQ_int[4].x().T.dot(np.array([np.cos(1.0*t), np.sin(0.5*t), 0.0]))
+    0: lambda t: np.array([0.0, 0.0, 1.0]),
+    1: lambda t: np.array([0.0, np.cos(0.25*t), np.sin(0.25*t)]),
+    2: lambda t: np.array([0.0, np.cos(1.0*t), np.sin(1.0*t)]),
+    3: lambda t: np.array([np.cos(2.0*t), np.sin(2.0*t), 0.5]),
+    4: lambda t: np.array([np.cos(1.0*t), np.sin(0.5*t), 0.0])
 }
 
 control_w = {
-    0: lambda t: np.array([0.0, 0.0, 0.0]),
-    1: lambda t: np.array([0.0, 0.0, 0.0]),
-    2: lambda t: np.array([0.0, 0.0, 0.0]),
+    0: lambda t: np.array([0.5, 0.0, 0.0]),
+    1: lambda t: np.array([0.0, 1.0, 0.0]),
+    2: lambda t: np.array([0.0, 0.0, 1.0]),
     3: lambda t: np.array([0.0, 0.0, 0.0]),
     4: lambda t: np.array([0.0, 0.0, 0.0])
 }
