@@ -141,3 +141,6 @@ dmypy.json
 *.mp4
 *.png
 *.pdf
+
+# Mac Finder files
+*.DS_Store
