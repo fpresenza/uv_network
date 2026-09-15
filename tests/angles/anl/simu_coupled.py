@@ -295,7 +295,7 @@ np.savetxt(
 np.savetxt(
     'simu_data/estimated_orientation.csv', logs.estimated_orientation, delimiter=','
 )
-np.savetxt('simu_data/gradient_q.csv', logs.gradient_q, delimiter=',')
+np.savetxt('simu_data/position_gradient.csv', logs.gradient_q, delimiter=',')
 np.savetxt('simu_data/control_u.csv', logs.control_u, delimiter=',')
 np.savetxt('simu_data/control_w.csv', logs.control_w, delimiter=',')
 np.savetxt('simu_data/correction_u.csv', logs.correction_u, delimiter=',')
