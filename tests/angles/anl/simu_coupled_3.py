@@ -79,14 +79,16 @@ def simu_step():
     ub = np.zeros((n, 3), dtype=np.float64)    # body-frame
     wb = np.zeros((n, 3), dtype=np.float64)    # body-frame
 
-    # --- similarity correction --- #
+    # --- scale and angles correction --- #
     # correction
-    k_s = 10.0
-    grad_p[a] += k_s * (hatp[a] - p[a])
-    grad_p[b] += k_s * (hatp[b] - p[b])
-    grad_p[c] += k_s * (hatp[c] - p[c])
+    k_s = 0.5
+    dab2 = np.square(p[b] - p[a]).sum()
+    hat_dab2 = np.square(hatp[b] - hatp[a]).sum()
+    scale_correction_ab = k_s * (hat_dab2 - dab2) * (hatp[a] - hatp[b])
+    grad_p[a] += scale_correction_ab
+    grad_p[b] -= scale_correction_ab
 
-    k_a = 500.0
+    k_a = 2000.0
     for i in nodes:
         # --- Control inputs --- #
         ub[i] = control_u[i](t)
@@ -252,27 +254,18 @@ edge_set = np.array([
     [1, 4]
 ])
 angle_set = angle_indices(nodes, edge_set).astype(int)
-a, b, c = 0, 1, 2
+a, b = 0, 1
 leaders = np.unique(angle_set[:, 0])
 followers = np.setdiff1d(nodes, leaders)
 
 if not is_angle_rigid(angle_set, p):
     raise ValueError('The framework is not IAR.')
 
-p_int = [
-    EulerIntegrator(p[i])
-    for i in nodes
-]
+p_int = [EulerIntegrator(p[i]) for i in nodes]
 
-R_int = [
-    EulerIntegratorOrtogonalGroup(R[i])
-    for i in nodes
-]
+R_int = [EulerIntegratorOrtogonalGroup(R[i]) for i in nodes]
 
-hatp_int = [
-    EulerIntegrator(np.random.normal(p[i], 2.0))
-    for i in nodes
-]
+hatp_int = [EulerIntegrator(np.random.normal(p[i], 2.0)) for i in nodes]
 
 hatR_int = [
     EulerIntegratorOrtogonalGroup(

@@ -9,6 +9,7 @@ from uvnpy.toolkit.data import read_csv_numpy
 from uvnpy.toolkit import plot
 from uvnpy.angles.local_frame.core import angle_function, angle_indices
 from uvnpy.graphs.core import edges_from_adjacency
+from uvnpy.toolkit.geometry import optimal_rigid_transform
 
 plt.rcParams['text.usetex'] = False
 plt.rcParams['pdf.fonttype'] = 42
@@ -44,6 +45,11 @@ angle_set = angle_indices(np.arange(n), edge_set).astype(int)
 leaders = np.unique(angle_set[:, 0])
 followers = np.setdiff1d(np.arange(n), leaders)
 a, b, c = 0, 1, 2
+
+for k in range(log_num_steps):
+    U, v = optimal_rigid_transform(hatp[k], p[k])
+    hatp[k] = hatp[k].dot(U.T) + v
+    hatR[k] = np.matmul(U, hatR[k])
 
 # ------------------------------------------------------------------
 # Plot position
@@ -142,6 +148,7 @@ for ax in axes:
 axes[0].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=-2)
 axes[0].set_ylabel(r'$\|\hat{p}_i - p_i\| (\rm m)$', fontsize=14, labelpad=5)
 axes[0].set_yticks([0.0, 5.0])
+axes[0].set_ylim(0.0, 10.0)
 axes[0].set_yticklabels(['0.0', '5.0'])
 axes[0].plot(
     t,
@@ -155,6 +162,7 @@ E = np.matmul(R.swapaxes(2, 3), hatR)
 phi = np.arccos((np.trace(E, axis1=2, axis2=3) - 1)/2)
 axes[1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=-2)
 axes[1].set_ylabel(r'$\|\psi_i\| \ (\rm rad)$', fontsize=14, labelpad=5)
+axes[1].set_ylim(0.0, 1.0)
 axes[1].set_yticks([0.0, 0.5])
 axes[1].set_yticklabels(['0.0', '0.5'])
 axes[1].plot(
