@@ -158,15 +158,14 @@ def simu_step():
     k_o = 2.0
     for i in nodes:
         # --- advance estimation --- #
+        hatp_int[i].step(t, hatR[i].dot(ub[i]) - grad_p[i])
         if i in leaders:
-            hatp_int[i].step(t, hatR[i].dot(ub[i]) - grad_p[i])
             hatR_int[i].step_left(t, wb[i] + k_o * grad_R[i])
         else:
             hat_v_i = np.linalg.inv(aux_f[i]['den']).dot(aux_f[i]['num'])
             aux_f[i]['num'][:] = 0.0
             aux_f[i]['den'][:] = 0.0
             grad_R[i] = np.cross(ub[i], hatR[i].T.dot(hat_v_i))
-            hatp_int[i].step(t, hat_v_i - grad_p[i])
             hatR_int[i].step_left(t, wb[i] + k_o * grad_R[i])
 
 
