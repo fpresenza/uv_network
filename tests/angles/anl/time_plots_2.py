@@ -42,9 +42,6 @@ adjacency = read_csv_numpy('simu_data/adjacency.csv').reshape(n, n)
 
 edge_set = edges_from_adjacency(adjacency)
 angle_set = angle_indices(np.arange(n), edge_set).astype(int)
-leaders = np.unique(angle_set[:, 0])
-followers = np.setdiff1d(np.arange(n), leaders)
-a, b, c = 0, 1, 2
 
 for k in range(log_num_steps):
     U, v = optimal_rigid_transform(hatp[k], p[k])
@@ -155,8 +152,10 @@ axes[0].plot(
     np.sqrt(np.square(hatp - p).sum(axis=-1)),
     lw=2.0,
     ls='-',
-    ds='steps-post'
+    ds='steps-post',
+    label=[f'{i}' for i in range(n)]
 )
+axes[0].legend(fontsize=10, ncols=2)
 
 E = np.matmul(R.swapaxes(2, 3), hatR)
 phi = np.arccos((np.trace(E, axis1=2, axis2=3) - 1)/2)
@@ -170,8 +169,10 @@ axes[1].plot(
     phi,
     lw=2.0,
     ls='-',
-    ds='steps-post'
+    ds='steps-post',
+    label=[f'{i}' for i in range(n)]
 )
+axes[1].legend(fontsize=10, ncols=2)
 
 fig.savefig('time_plots/pose_error.pdf', bbox_inches='tight')
 

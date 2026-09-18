@@ -144,29 +144,32 @@ def simu_step():
             grad_p[k] += k_a * eijk * Xikj
 
         # orientation gradient
-        if i in leaders:
-            for j in out_neighbors:
-                grad_R[i] += np.cross(bearings[j], hatR[i].T.dot(hatp[j] - hatp[i]))
-                hat_Mij = projection_matrix(hatR[i].dot(bearings[j]))
-                hat_Oi_bij = hatR[i].dot(np.cross(wb[i], bearings[j]))
-                hat_Ri_dotbij = hatR[i].dot(dot_bearings[j])
-                hat_v_i = hatR[i].dot(ub[i])
-                aux_f[j]['num'] += hat_distances[j] * (
-                    hat_Oi_bij + hat_Ri_dotbij) + hat_Mij.dot(hat_v_i)
-                aux_f[j]['den'] += hat_Mij
+        for j in out_neighbors:
+            # own orientation
+            grad_R[i] += np.cross(bearings[j], hatR[i].T.dot(hatp[j] - hatp[i]))
+            # neighbor orientation
+            hat_Mij = projection_matrix(hatR[i].dot(bearings[j]))
+            hat_Oi_bij = hatR[i].dot(np.cross(wb[i], bearings[j]))
+            hat_Ri_dotbij = hatR[i].dot(dot_bearings[j])
+            hat_v_i = hatR[i].dot(ub[i])
+            aux_f[j]['num'].append(
+                hat_distances[j] * (hat_Oi_bij + hat_Ri_dotbij) + hat_Mij.dot(hat_v_i)
+            )
+            aux_f[j]['den'].append(hat_Mij)
 
     k_o = 2.0
     for i in nodes:
         # --- advance estimation --- #
+        if len(aux_f[i]['den']) >= 2:
+            Mi = sum(aux_f[i]['den'])
+            bi = sum(aux_f[i]['num'])
+            hat_v_i = np.linalg.inv(Mi).dot(bi)
+            grad_R[i] += np.cross(ub[i], hatR[i].T.dot(hat_v_i))
+
         hatp_int[i].step(t, hatR[i].dot(ub[i]) - grad_p[i])
-        if i in leaders:
-            hatR_int[i].step_left(t, wb[i] + k_o * grad_R[i])
-        else:
-            hat_v_i = np.linalg.inv(aux_f[i]['den']).dot(aux_f[i]['num'])
-            aux_f[i]['num'][:] = 0.0
-            aux_f[i]['den'][:] = 0.0
-            grad_R[i] = np.cross(ub[i], hatR[i].T.dot(hat_v_i))
-            hatR_int[i].step_left(t, wb[i] + k_o * grad_R[i])
+        hatR_int[i].step_left(t, wb[i] + k_o * grad_R[i])
+        aux_f[i]['num'].clear()
+        aux_f[i]['den'].clear()
 
 
 def log_step():
@@ -250,12 +253,11 @@ edge_set = np.array([
     [1, 0],
     [1, 2],
     [1, 3],
-    [1, 4]
+    [1, 4],
+    [2, 0]
 ])
 angle_set = angle_indices(nodes, edge_set).astype(int)
 a, b = 0, 1
-leaders = np.unique(angle_set[:, 0])
-followers = np.setdiff1d(nodes, leaders)
 
 if not is_angle_rigid(angle_set, p):
     raise ValueError('The framework is not IAR.')
@@ -299,8 +301,8 @@ grad_p = np.zeros((n, 3), dtype=np.float64)
 grad_R = np.zeros((n, 3), dtype=np.float64)
 aux_f = {
     i: {
-        'num': np.zeros(3, dtype=np.float64),
-        'den': np.zeros((3, 3), dtype=np.float64)
+        'num': [],
+        'den': []
     }
     for i in nodes
 }
