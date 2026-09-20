@@ -26,12 +26,8 @@ class Logs(object):
     orientation: list
     estimated_position: list
     estimated_orientation: list
-    gradient_p: list
-    gradient_R: list
     control_u: list
     control_w: list
-    correction_u: list
-    correction_w: list
     adjacency: list
 
 
@@ -73,8 +69,8 @@ def simu_step():
     R = extract_x(R_int)
     hatR = extract_x(hatR_int)
 
-    grad_p[:] = 0.0
-    grad_R[:] = 0.0
+    grad_p = np.zeros((n, 3), dtype=np.float64)
+    grad_R = np.zeros((n, 3), dtype=np.float64)
 
     ub = np.zeros((n, 3), dtype=np.float64)    # body-frame
     wb = np.zeros((n, 3), dtype=np.float64)    # body-frame
@@ -179,12 +175,8 @@ def log_step():
     logs.orientation.append(extract_x(R_int).ravel())
     logs.estimated_position.append(extract_x(hatp_int).ravel())
     logs.estimated_orientation.append(extract_x(hatR_int).ravel())
-    logs.gradient_p.append(grad_p.copy().ravel())
-    logs.gradient_R.append(grad_R.copy().ravel())
     logs.control_u.append(extract_u(p_int).ravel())
     logs.control_w.append(extract_u(R_int).ravel())
-    logs.correction_u.append(extract_u(hatp_int).ravel())
-    logs.correction_w.append(extract_u(hatR_int).ravel())
 
 
 # ------------------------------------------------------------------
@@ -297,8 +289,6 @@ control_w = {
 # Simulation
 # ------------------------------------------------------------------
 # initialize logs
-grad_p = np.zeros((n, 3), dtype=np.float64)
-grad_R = np.zeros((n, 3), dtype=np.float64)
 aux_f = {
     i: {
         'num': [],
@@ -313,12 +303,8 @@ logs = Logs(
     orientation=[extract_x(R_int).ravel()],
     estimated_position=[extract_x(hatp_int).ravel()],
     estimated_orientation=[extract_x(hatR_int).ravel()],
-    gradient_p=[grad_p.copy().ravel()],
-    gradient_R=[grad_R.copy().ravel()],
     control_u=[extract_u(p_int).ravel()],
-    control_w=[extract_u(p_int).ravel()],
-    correction_u=[extract_u(hatp_int).ravel()],
-    correction_w=[extract_u(hatR_int).ravel()],
+    control_w=[extract_u(R_int).ravel()],
     adjacency=[adjacency_matrix_from_edges(n, edge_set).ravel()]
 )
 
@@ -348,10 +334,6 @@ np.savetxt(
 np.savetxt(
     'simu_data/estimated_orientation.csv', logs.estimated_orientation, delimiter=','
 )
-np.savetxt('simu_data/position_gradient.csv', logs.gradient_p, delimiter=',')
-np.savetxt('simu_data/orientation_gradient.csv', logs.gradient_R, delimiter=',')
 np.savetxt('simu_data/control_u.csv', logs.control_u, delimiter=',')
 np.savetxt('simu_data/control_w.csv', logs.control_w, delimiter=',')
-np.savetxt('simu_data/correction_u.csv', logs.correction_u, delimiter=',')
-np.savetxt('simu_data/correction_w.csv', logs.correction_w, delimiter=',')
 np.savetxt('simu_data/adjacency.csv', logs.adjacency, delimiter=',')
