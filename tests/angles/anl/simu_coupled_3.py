@@ -69,8 +69,8 @@ def simu_step():
     R = extract_x(R_int)
     hatR = extract_x(hatR_int)
 
-    grad_p = np.zeros((n, 3), dtype=np.float64)
-    grad_R = np.zeros((n, 3), dtype=np.float64)
+    corr_p = np.zeros((n, 3), dtype=np.float64)
+    corr_R = np.zeros((n, 3), dtype=np.float64)
 
     ub = np.zeros((n, 3), dtype=np.float64)    # body-frame
     wb = np.zeros((n, 3), dtype=np.float64)    # body-frame
@@ -81,8 +81,8 @@ def simu_step():
     dab2 = np.square(p[b] - p[a]).sum()
     hat_dab2 = np.square(hatp[b] - hatp[a]).sum()
     scale_correction_ab = k_s * (hat_dab2 - dab2) * (hatp[a] - hatp[b])
-    grad_p[a] += scale_correction_ab
-    grad_p[b] -= scale_correction_ab
+    corr_p[a] -= scale_correction_ab
+    corr_p[b] += scale_correction_ab
 
     k_a = 2000.0
     for i in nodes:
@@ -135,14 +135,14 @@ def simu_step():
             Xijk = Pij.dot(bik) / dij
             Xikj = Pik.dot(bij) / dik
 
-            grad_p[i] -= k_a * eijk * (Xijk + Xikj)
-            grad_p[j] += k_a * eijk * Xijk
-            grad_p[k] += k_a * eijk * Xikj
+            corr_p[i] += k_a * eijk * (Xijk + Xikj)
+            corr_p[j] -= k_a * eijk * Xijk
+            corr_p[k] -= k_a * eijk * Xikj
 
         # orientation gradient
         for j in out_neighbors:
             # own orientation
-            grad_R[i] += np.cross(bearings[j], hatR[i].T.dot(hatp[j] - hatp[i]))
+            corr_R[i] += np.cross(bearings[j], hatR[i].T.dot(hatp[j] - hatp[i]))
             # neighbor orientation
             hat_Mij = projection_matrix(hatR[i].dot(bearings[j]))
             hat_Oi_bij = hatR[i].dot(np.cross(wb[i], bearings[j]))
@@ -160,10 +160,10 @@ def simu_step():
             Mi = sum(aux_f[i]['den'])
             bi = sum(aux_f[i]['num'])
             hat_v_i = np.linalg.inv(Mi).dot(bi)
-            grad_R[i] += np.cross(ub[i], hatR[i].T.dot(hat_v_i))
+            corr_R[i] += np.cross(ub[i], hatR[i].T.dot(hat_v_i))
 
-        hatp_int[i].step(t, hatR[i].dot(ub[i]) - grad_p[i])
-        hatR_int[i].step_left(t, wb[i] + k_o * grad_R[i])
+        hatp_int[i].step(t, hatR[i].dot(ub[i]) + corr_p[i])
+        hatR_int[i].step_left(t, wb[i] + k_o * corr_R[i])
         aux_f[i]['num'].clear()
         aux_f[i]['den'].clear()
 
