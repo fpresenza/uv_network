@@ -96,7 +96,8 @@ def simu_step():
         R_int[i].step_left(t, wb[i])
 
         # --- angle correction --- #
-        out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
+        E = edge_set(t)
+        out_neighbors = E[:, 1][E[:, 0] == i]
 
         # estimated values
         hat_distances = {
@@ -238,18 +239,35 @@ p = np.array([
 ])
 
 R = np.array([random_rotation_matrix() for _ in nodes])
-edge_set = np.array([
-    [0, 1],
-    [0, 2],
-    [0, 3],
-    [0, 4],
-    [1, 0],
-    [1, 2],
-    [1, 3],
-    [1, 4],
-    [2, 0]
-])
-angle_set = angle_indices(nodes, edge_set).astype(int)
+
+
+def edge_set(t):
+    if t < 5.0:
+        return np.array([
+            [0, 1],
+            [0, 2],
+            [0, 3],
+            [0, 4],
+            [1, 0],
+            [1, 2],
+            [1, 3],
+            [1, 4]
+        ])
+    else:
+        return np.array([
+            [0, 1],
+            [0, 3],
+            [0, 4],
+            [1, 0],
+            [1, 2],
+            [1, 3],
+            [2, 0],
+            [2, 1],
+            [2, 4]
+        ])
+
+
+angle_set = angle_indices(nodes, edge_set(0.0)).astype(int)
 a, b = 0, 1
 
 if not is_angle_rigid(angle_set, p):
@@ -306,7 +324,7 @@ logs = Logs(
     estimated_orientation=[extract_x(hatR_int).ravel()],
     control_u=[extract_u(p_int).ravel()],
     control_w=[extract_u(R_int).ravel()],
-    adjacency=[adjacency_matrix_from_edges(n, edge_set).ravel()]
+    adjacency=[adjacency_matrix_from_edges(n, edge_set(0.0)).ravel()]
 )
 
 # run simulation
