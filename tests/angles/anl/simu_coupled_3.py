@@ -140,9 +140,10 @@ def simu_step():
             corr_p[k] -= k_a * eijk * Xikj
 
         # orientation gradient
+        k_o1 = 2.0
         for j in out_neighbors:
             # own orientation
-            corr_R[i] += np.cross(bearings[j], hatR[i].T.dot(hatp[j] - hatp[i]))
+            corr_R[i] += k_o1 * np.cross(bearings[j], hatR[i].T.dot(hatp[j] - hatp[i]))
             # neighbor orientation
             hat_Mij = projection_matrix(hatR[i].dot(bearings[j]))
             hat_Oi_bij = hatR[i].dot(np.cross(wb[i], bearings[j]))
@@ -153,17 +154,17 @@ def simu_step():
             )
             aux_f[j]['den'].append(hat_Mij)
 
-    k_o = 2.0
+    k_o2 = 2.0
     for i in nodes:
         # --- advance estimation --- #
         if len(aux_f[i]['den']) >= 2:
             Mi = sum(aux_f[i]['den'])
             bi = sum(aux_f[i]['num'])
             hat_v_i = np.linalg.inv(Mi).dot(bi)
-            corr_R[i] += np.cross(ub[i], hatR[i].T.dot(hat_v_i))
+            corr_R[i] += k_o2 * np.cross(ub[i], hatR[i].T.dot(hat_v_i))
 
         hatp_int[i].step(t, hatR[i].dot(ub[i]) + corr_p[i])
-        hatR_int[i].step_left(t, wb[i] + k_o * corr_R[i])
+        hatR_int[i].step_left(t, wb[i] + corr_R[i])
         aux_f[i]['num'].clear()
         aux_f[i]['den'].clear()
 
