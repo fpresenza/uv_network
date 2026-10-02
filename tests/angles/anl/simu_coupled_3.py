@@ -161,8 +161,8 @@ def simu_step():
     k_o2 = 2.0
     for i in nodes:
         # --- advance estimation --- #
-        hat_v_i = np.linalg.solve(aux_f[i]['mat'], aux_f[i]['vec'])
-        corr_R[i] += k_o2 * np.cross(ub[i], hatR[i].T.dot(hat_v_i))
+        tilde_v_i = np.linalg.solve(aux_f[i]['mat'], aux_f[i]['vec'])
+        corr_R[i] += k_o2 * np.cross(ub[i], hatR[i].T.dot(tilde_v_i))
 
         hatp_int[i].step(t, hatR[i].dot(ub[i]) + corr_p[i])
         hatR_int[i].step_left(t, wb[i] + corr_R[i])
