@@ -75,7 +75,7 @@ def simu_step():
     ub = np.zeros((n, 3), dtype=np.float64)    # body-frame
     wb = np.zeros((n, 3), dtype=np.float64)    # body-frame
 
-    # --- scale and angles correction --- #
+    # --- distance-based scale correction --- #
     # correction
     k_s = 0.5
     dab2 = np.square(p[b] - p[a]).sum()
@@ -85,17 +85,16 @@ def simu_step():
     corr_p[b] += scale_correction_ab
 
     for i in nodes:
-        # --- Control inputs --- #
+        # --- control inputs --- #
         ub[i] = control_u[i](t)
         wb[i] = control_w[i](t)
 
-    k_a = 2000.0
     for i in nodes:
         # --- advance pose --- #
         p_int[i].step(t, R[i].dot(ub[i]))
         R_int[i].step_left(t, wb[i])
 
-        # --- angle correction --- #
+        # --- compute measurements --- #
         E = edge_set(t)
         out_neighbors = E[:, 1][E[:, 0] == i]
 
@@ -119,7 +118,8 @@ def simu_step():
             for j in out_neighbors
         }
 
-        # position gradient
+        # --- angle-based shape correction --- #
+        k_a = 2000.0
         for j, k in complete_angle_set(out_neighbors):
 
             dij = hat_distances[j]
@@ -141,10 +141,9 @@ def simu_step():
             corr_p[j] -= k_a * eijk * Xijk
             corr_p[k] -= k_a * eijk * Xikj
 
-        # orientation gradient
         k_o1 = 2.0
         for j in out_neighbors:
-            # own orientation
+            # --- bearing-based orientation correction --- #
             corr_R[i] += k_o1 * np.cross(bearings[j], hatR[i].T.dot(hatp[j] - hatp[i]))
             # neighbor orientation
             hat_Mij = projection_matrix(hatR[i].dot(bearings[j]))
@@ -160,10 +159,11 @@ def simu_step():
 
     k_o2 = 2.0
     for i in nodes:
-        # --- advance estimation --- #
+        # --- velocity-based orientation correction --- #
         tilde_v_i = np.linalg.solve(aux_f[i]['mat'], aux_f[i]['vec'])
         corr_R[i] += k_o2 * np.cross(ub[i], hatR[i].T.dot(tilde_v_i))
 
+        # --- advance estimation --- #
         hatp_int[i].step(t, hatR[i].dot(ub[i]) + corr_p[i])
         hatR_int[i].step_left(t, wb[i] + corr_R[i])
         aux_f[i]['vec'][:] = 0.0
