@@ -149,25 +149,24 @@ def simu_step():
             hat_Mij = projection_matrix(hatR[i].dot(bearings[j]))
             hat_Oi_bij = hatR[i].dot(np.cross(wb[i], bearings[j]))
             hat_Ri_dotbij = hatR[i].dot(dot_bearings[j])
+            hat_yij = hat_distances[j] * (hat_Oi_bij + hat_Ri_dotbij)
             hat_v_i = hatR[i].dot(ub[i])
-            aux_f[j]['num'].append(
-                hat_distances[j] * (hat_Oi_bij + hat_Ri_dotbij) + hat_Mij.dot(hat_v_i)
-            )
-            aux_f[j]['den'].append(hat_Mij)
+            hat_v_j = hatR[j].dot(ub[j])
+            aux_f[i]['vec'] += hat_Mij.dot(hat_v_j) - hat_yij
+            aux_f[i]['mat'] += hat_Mij
+            aux_f[j]['vec'] += hat_Mij.dot(hat_v_i) + hat_yij
+            aux_f[j]['mat'] += hat_Mij
 
     k_o2 = 2.0
     for i in nodes:
         # --- advance estimation --- #
-        if len(aux_f[i]['den']) >= 2:
-            Mi = sum(aux_f[i]['den'])
-            bi = sum(aux_f[i]['num'])
-            hat_v_i = np.linalg.inv(Mi).dot(bi)
-            corr_R[i] += k_o2 * np.cross(ub[i], hatR[i].T.dot(hat_v_i))
+        hat_v_i = np.linalg.solve(aux_f[i]['mat'], aux_f[i]['vec'])
+        corr_R[i] += k_o2 * np.cross(ub[i], hatR[i].T.dot(hat_v_i))
 
         hatp_int[i].step(t, hatR[i].dot(ub[i]) + corr_p[i])
         hatR_int[i].step_left(t, wb[i] + corr_R[i])
-        aux_f[i]['num'].clear()
-        aux_f[i]['den'].clear()
+        aux_f[i]['vec'][:] = 0.0
+        aux_f[i]['mat'][:] = 0.0
 
 
 def log_step():
@@ -293,8 +292,8 @@ control_w = {
 # initialize logs
 aux_f = {
     i: {
-        'num': [],
-        'den': []
+        'vec': np.zeros(3),
+        'mat': np.zeros((3, 3))
     }
     for i in nodes
 }
