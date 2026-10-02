@@ -84,12 +84,13 @@ def simu_step():
     corr_p[a] -= scale_correction_ab
     corr_p[b] += scale_correction_ab
 
-    k_a = 2000.0
     for i in nodes:
         # --- Control inputs --- #
         ub[i] = control_u[i](t)
         wb[i] = control_w[i](t)
 
+    k_a = 2000.0
+    for i in nodes:
         # --- advance pose --- #
         p_int[i].step(t, R[i].dot(ub[i]))
         R_int[i].step_left(t, wb[i])
