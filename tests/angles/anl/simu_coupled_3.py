@@ -130,8 +130,10 @@ def simu_step():
             bik = hat_bearings[k]
             Pik = projection_matrix(bik)
 
-            # measured angles
+            # measured angle and angle-rate
             aijk = bearings[j].dot(bearings[k])
+            dot_aijk = bearings[k].dot(dot_bearings[j]) + \
+                bearings[j].dot(dot_bearings[k])
 
             eijk = bij.dot(bik) - aijk
             Xijk = Pij.dot(bik) / dij
@@ -141,21 +143,28 @@ def simu_step():
             corr_p[j] -= k_a * eijk * Xijk
             corr_p[k] -= k_a * eijk * Xikj
 
+            # velocity reconstruction sum
+            hat_v_i = hatR[i].dot(ub[i])
+            hat_v_j = hatR[j].dot(ub[j])
+            hat_v_k = hatR[k].dot(ub[k])
+
+            aux_f[i]['mat'] += np.outer(Xijk + Xikj, Xijk + Xikj)
+            aux_f[j]['mat'] += np.outer(Xijk, Xijk)
+            aux_f[k]['mat'] += np.outer(Xikj, Xikj)
+            aux_f[i]['vec'] += (
+                Xijk.dot(hat_v_j) + Xikj.dot(hat_v_k) - dot_aijk
+            ) * (Xijk + Xikj)
+            aux_f[j]['vec'] -= (
+                Xikj.dot(hat_v_k) - (Xijk + Xikj).dot(hat_v_i) - dot_aijk
+            ) * Xijk
+            aux_f[k]['vec'] -= (
+                Xijk.dot(hat_v_j) - (Xikj + Xijk).dot(hat_v_i) - dot_aijk
+            ) * Xikj
+
         k_o1 = 2.0
         for j in out_neighbors:
             # --- bearing-based orientation correction --- #
             corr_R[i] += k_o1 * np.cross(bearings[j], hatR[i].T.dot(hatp[j] - hatp[i]))
-            # neighbor orientation
-            hat_Mij = projection_matrix(hatR[i].dot(bearings[j]))
-            hat_Oi_bij = hatR[i].dot(np.cross(wb[i], bearings[j]))
-            hat_Ri_dotbij = hatR[i].dot(dot_bearings[j])
-            hat_yij = hat_distances[j] * (hat_Oi_bij + hat_Ri_dotbij)
-            hat_v_i = hatR[i].dot(ub[i])
-            hat_v_j = hatR[j].dot(ub[j])
-            aux_f[i]['vec'] += hat_Mij.dot(hat_v_j) - hat_yij
-            aux_f[i]['mat'] += hat_Mij
-            aux_f[j]['vec'] += hat_Mij.dot(hat_v_i) + hat_yij
-            aux_f[j]['mat'] += hat_Mij
 
     k_o2 = 2.0
     for i in nodes:
