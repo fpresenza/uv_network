@@ -64,7 +64,6 @@ def simu_step():
     """Pose estimation algorithm"""
     # --- data ---#
     p = extract_x(p_int)
-    v = extract_u(p_int)
     hatp = extract_x(hatp_int)
     R = extract_x(R_int)
     hatR = extract_x(hatR_int)
@@ -88,6 +87,8 @@ def simu_step():
         # --- control inputs --- #
         ub[i] = control_u[i](t)
         wb[i] = control_w[i](t)
+
+    v = np.einsum('nij,nj->ni', R, ub)
 
     for i in nodes:
         # --- advance pose --- #
