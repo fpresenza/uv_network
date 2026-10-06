@@ -167,11 +167,12 @@ def simu_step():
             # --- bearing-based orientation correction --- #
             corr_R[i] += k_o1 * np.cross(bearings[j], hatR[i].T.dot(hatp[j] - hatp[i]))
 
-    k_o2 = 2.0
+    k_o2 = 200.0
     for i in nodes:
         # --- velocity-based orientation correction --- #
-        tilde_v_i = np.linalg.solve(aux_f[i]['mat'], aux_f[i]['vec'])
-        corr_R[i] += k_o2 * np.cross(ub[i], hatR[i].T.dot(tilde_v_i))
+        hat_v_i = hatR[i].dot(ub[i])
+        resid_i = aux_f[i]['vec'] - aux_f[i]['mat'].dot(hat_v_i)
+        corr_R[i] += k_o2 * np.cross(ub[i], hatR[i].T.dot(resid_i))
 
         # --- advance estimation --- #
         hatp_int[i].step(t, hatR[i].dot(ub[i]) + corr_p[i])
@@ -252,7 +253,7 @@ R = np.array([random_rotation_matrix() for _ in nodes])
 
 
 def edge_set(t):
-    if t < 5.0:
+    if t < 10.0:
         return np.array([
             [0, 1],
             [0, 2],
