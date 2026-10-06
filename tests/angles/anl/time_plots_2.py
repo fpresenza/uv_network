@@ -158,7 +158,8 @@ axes[0].plot(
 axes[0].legend(fontsize=10, ncols=2)
 
 E = np.matmul(R.swapaxes(2, 3), hatR)
-phi = np.arccos((np.trace(E, axis1=2, axis2=3) - 1)/2)
+cos_phi = (np.trace(E, axis1=2, axis2=3) - 1) / 2
+phi = np.arccos(np.clip(cos_phi, -1.0, 1.0))
 axes[1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=-2)
 axes[1].set_ylabel(r'$\|\psi_i\| \ (\rm rad)$', fontsize=14, labelpad=5)
 axes[1].set_ylim(0.0, 1.0)
