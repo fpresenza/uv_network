@@ -118,6 +118,7 @@ def simu_step():
         k_a = 2000.0
         for j, k in complete_angle_set(out_neighbors):
 
+            # auxiliary variables
             dij = hat_distances[j]
             bij = hat_bearings[j]
             Pij = projection_matrix(bij)
@@ -126,11 +127,20 @@ def simu_step():
             bik = hat_bearings[k]
             Pik = projection_matrix(bik)
 
+            Xijk = Pij.dot(bik) / dij
+            Xikj = Pik.dot(bij) / dik
+
+            # --- angle-based shape correction --- #
             # measured angle and angle-rate
             aijk = bearings[j].dot(bearings[k])
-            dot_aijk = bearings[k].dot(dot_bearings[j]) + \
-                bearings[j].dot(dot_bearings[k])
+            hat_aijk = bij.dot(bik)
+            e_aijk = hat_aijk - aijk
 
+            corr_p[i] += k_a * e_aijk * (Xijk + Xikj)
+            corr_p[j] -= k_a * e_aijk * Xijk
+            corr_p[k] -= k_a * e_aijk * Xikj
+
+            # --- angle-rate-based scale correction --- #
             # auxiliary variables
             hat_v_i = hatR[i].dot(ub[i])
             hat_v_j = hatR[j].dot(ub[j])
@@ -139,21 +149,12 @@ def simu_step():
             hat_v_ij = hat_v_j - hat_v_i
             hat_v_ik = hat_v_k - hat_v_i
 
-            Xijk = Pij.dot(bik) / dij
-            Xikj = Pik.dot(bij) / dik
-
             # estimated angle and angle-rate
-            hat_aijk = bij.dot(bik)
-            e_aijk = hat_aijk - aijk
+            dot_aijk = bearings[k].dot(dot_bearings[j]) + \
+                bearings[j].dot(dot_bearings[k])
             dot_hat_aijk = Xijk.dot(hat_v_ij) + Xikj.dot(hat_v_ik)
             e_dot_aijk = dot_hat_aijk - dot_aijk
 
-            corr_p[i] += k_a * e_aijk * (Xijk + Xikj)
-            corr_p[j] -= k_a * e_aijk * Xijk
-            corr_p[k] -= k_a * e_aijk * Xikj
-
-            # --- angle-rate-based scale correction --- #
-            # Hessian blocks of the angle cosine with respect to hatp_j, hatp_k.
             Pij_bik = Pij.dot(bik)
             Pik_bij = Pik.dot(bij)
             Hjj = -(
