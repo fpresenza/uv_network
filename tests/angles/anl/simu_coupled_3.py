@@ -74,14 +74,9 @@ def simu_step():
     ub = np.zeros((n, 3), dtype=np.float64)    # body-frame
     wb = np.zeros((n, 3), dtype=np.float64)    # body-frame
 
-    # --- distance-based scale correction --- #
-    # correction
-    k_s = 0.5
-    dab2 = np.square(p[b] - p[a]).sum()
-    hat_dab2 = np.square(hatp[b] - hatp[a]).sum()
-    scale_correction_ab = k_s * (hat_dab2 - dab2) * (hatp[a] - hatp[b])
-    corr_p[a] -= scale_correction_ab
-    corr_p[b] += scale_correction_ab
+    # Gain of -grad_hatp L_dot_alpha; its scaling differs from the old
+    # distance-based correction. This is a starting value for this formation.
+    k_s = 10000.0
 
     for i in nodes:
         # --- control inputs --- #
@@ -148,6 +143,37 @@ def simu_step():
             hat_v_i = hatR[i].dot(ub[i])
             hat_v_j = hatR[j].dot(ub[j])
             hat_v_k = hatR[k].dot(ub[k])
+
+            # --- angle-rate-based scale correction --- #
+            # Differentiate the predicted rate with estimated velocities fixed.
+            hat_v_ij = hat_v_j - hat_v_i
+            hat_v_ik = hat_v_k - hat_v_i
+            dot_hat_aijk = Xijk.dot(hat_v_ij) + Xikj.dot(hat_v_ik)
+            e_dot_aijk = dot_hat_aijk - dot_aijk
+
+            # Hessian blocks of the angle cosine with respect to hatp_j, hatp_k.
+            hat_aijk = bij.dot(bik)
+            Pij_bik = Pij.dot(bik)
+            Pik_bij = Pik.dot(bij)
+            Hjj = -(
+                hat_aijk * Pij
+                + np.outer(bij, Pij_bik)
+                + np.outer(Pij_bik, bij)
+            ) / dij**2
+            Hkk = -(
+                hat_aijk * Pik
+                + np.outer(bik, Pik_bij)
+                + np.outer(Pik_bij, bik)
+            ) / dik**2
+            Hjk = Pij.dot(Pik) / (dij * dik)
+
+            # Position gradients of the predicted angle rate.
+            grad_j = Hjj.dot(hat_v_ij) + Hjk.dot(hat_v_ik)
+            grad_k = Hjk.T.dot(hat_v_ij) + Hkk.dot(hat_v_ik)
+            # grad_i = -grad_j - grad_k, by translation invariance.
+            corr_p[i] += k_s * e_dot_aijk * (grad_j + grad_k)
+            corr_p[j] -= k_s * e_dot_aijk * grad_j
+            corr_p[k] -= k_s * e_dot_aijk * grad_k
 
             aux_f[i]['mat'] += np.outer(Xijk + Xikj, Xijk + Xikj)
             aux_f[j]['mat'] += np.outer(Xijk, Xijk)
@@ -279,7 +305,6 @@ def edge_set(t):
 
 
 angle_set = angle_indices(nodes, edge_set(0.0)).astype(int)
-a, b = 0, 1
 
 if not is_angle_rigid(angle_set, p):
     raise ValueError('The framework is not IAR.')
