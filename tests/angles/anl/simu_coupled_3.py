@@ -136,9 +136,11 @@ def simu_step():
             hat_aijk = bij.dot(bik)
             e_aijk = hat_aijk - aijk
 
-            corr_p[i] += k_a * e_aijk * (Xijk + Xikj)
-            corr_p[j] -= k_a * e_aijk * Xijk
-            corr_p[k] -= k_a * e_aijk * Xikj
+            c_j = k_a * e_aijk * Xijk
+            c_k = k_a * e_aijk * Xikj
+            corr_p[i] += c_j + c_k
+            corr_p[j] -= c_j
+            corr_p[k] -= c_k
 
             # --- angle-rate-based scale correction --- #
             # auxiliary variables
@@ -155,27 +157,22 @@ def simu_step():
             dot_hat_aijk = Xijk.dot(hat_v_ij) + Xikj.dot(hat_v_ik)
             e_dot_aijk = dot_hat_aijk - dot_aijk
 
-            Pij_bik = Pij.dot(bik)
-            Pik_bij = Pik.dot(bij)
-            Hjj = -(
-                hat_aijk * Pij
-                + np.outer(bij, Pij_bik)
-                + np.outer(Pij_bik, bij)
-            ) / dij**2
-            Hkk = -(
-                hat_aijk * Pik
-                + np.outer(bik, Pik_bij)
-                + np.outer(Pik_bij, bik)
-            ) / dik**2
-            Hjk = Pij.dot(Pik) / (dij * dik)
+            Dijk = (
+                hat_aijk * Pij / dij**2 +
+                (np.outer(Xijk, bij) + np.outer(bij, Xijk)) / dij
+            )
+            Dikj = (
+                hat_aijk * Pik / dik**2 +
+                (np.outer(Xikj, bik) + np.outer(bik, Xikj)) / dik
+            )
+            Eijk = Pij.dot(Pik) / (dij * dik)  # = Eikj.T
 
             # Position gradients of the predicted angle rate.
-            grad_j = Hjj.dot(hat_v_ij) + Hjk.dot(hat_v_ik)
-            grad_k = Hjk.T.dot(hat_v_ij) + Hkk.dot(hat_v_ik)
-            # grad_i = -grad_j - grad_k, by translation invariance.
-            corr_p[i] += k_s * e_dot_aijk * (grad_j + grad_k)
-            corr_p[j] -= k_s * e_dot_aijk * grad_j
-            corr_p[k] -= k_s * e_dot_aijk * grad_k
+            c_j = k_s * e_dot_aijk * (Eijk.dot(hat_v_ik) - Dijk.dot(hat_v_ij))
+            c_k = k_s * e_dot_aijk * (Eijk.T.dot(hat_v_ij) - Dikj.dot(hat_v_ik))
+            corr_p[i] += c_j + c_k
+            corr_p[j] -= c_j
+            corr_p[k] -= c_k
 
             aux_f[i]['mat'] += np.outer(Xijk + Xikj, Xijk + Xikj)
             aux_f[j]['mat'] += np.outer(Xijk, Xijk)
