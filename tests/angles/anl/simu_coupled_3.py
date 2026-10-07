@@ -171,18 +171,13 @@ def simu_step():
             corr_p[j] -= c_j
             corr_p[k] -= c_k
 
-            aux_f[i]['mat'] += np.outer(Xijk + Xikj, Xijk + Xikj)
-            aux_f[j]['mat'] += np.outer(Xijk, Xijk)
-            aux_f[k]['mat'] += np.outer(Xikj, Xikj)
-            aux_f[i]['vec'] += (
-                Xijk.dot(hat_v_j) + Xikj.dot(hat_v_k) - dot_aijk
-            ) * (Xijk + Xikj)
-            aux_f[j]['vec'] -= (
-                Xikj.dot(hat_v_k) - (Xijk + Xikj).dot(hat_v_i) - dot_aijk
-            ) * Xijk
-            aux_f[k]['vec'] -= (
-                Xijk.dot(hat_v_j) - (Xikj + Xijk).dot(hat_v_i) - dot_aijk
-            ) * Xikj
+            # --- angle-rate-based orientation correction --- #
+            k_o2 = 200.0
+            c_j = k_o2 * (dot_hat_aijk - dot_aijk) * Xijk
+            c_k = k_o2 * (dot_hat_aijk - dot_aijk) * Xikj
+            corr_R[i] += np.cross(ub[i], hatR[i].T.dot(c_j + c_k))
+            corr_R[j] -= np.cross(ub[j], hatR[j].T.dot(c_j))
+            corr_R[k] -= np.cross(ub[k], hatR[k].T.dot(c_k))
 
         k_o1 = 2.0
         for j in out_neighbors:
@@ -190,17 +185,9 @@ def simu_step():
             corr_R[i] += k_o1 * np.cross(bearings[j], hatR[i].T.dot(hatp[j] - hatp[i]))
 
     for i in nodes:
-        # --- velocity-based orientation correction --- #
-        k_o2 = 200.0
-        hat_v_i = hatR[i].dot(ub[i])
-        resid_i = aux_f[i]['vec'] - aux_f[i]['mat'].dot(hat_v_i)
-        corr_R[i] += k_o2 * np.cross(ub[i], hatR[i].T.dot(resid_i))
-
         # --- advance estimation --- #
         hatp_int[i].step(t, hatR[i].dot(ub[i]) + corr_p[i])
         hatR_int[i].step_left(t, wb[i] + corr_R[i])
-        aux_f[i]['vec'][:] = 0.0
-        aux_f[i]['mat'][:] = 0.0
 
 
 def log_step():
@@ -340,14 +327,6 @@ control_w = {
 # Simulation
 # ------------------------------------------------------------------
 # initialize logs
-aux_f = {
-    i: {
-        'vec': np.zeros(3),
-        'mat': np.zeros((3, 3))
-    }
-    for i in nodes
-}
-
 logs = Logs(
     time=[t],
     position=[extract_x(p_int).ravel()],
