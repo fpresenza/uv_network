@@ -74,10 +74,6 @@ def simu_step():
     ub = np.zeros((n, 3), dtype=np.float64)    # body-frame
     wb = np.zeros((n, 3), dtype=np.float64)    # body-frame
 
-    # Gain of -grad_hatp L_dot_alpha; its scaling differs from the old
-    # distance-based correction. This is a starting value for this formation.
-    k_s = 10000.0
-
     for i in nodes:
         # --- control inputs --- #
         ub[i] = control_u[i](t)
@@ -115,9 +111,7 @@ def simu_step():
         }
 
         # --- angle-based shape correction --- #
-        k_a = 2000.0
         for j, k in complete_angle_set(out_neighbors):
-
             # auxiliary variables
             dij = hat_distances[j]
             bij = hat_bearings[j]
@@ -136,6 +130,8 @@ def simu_step():
             hat_aijk = bij.dot(bik)
             e_aijk = hat_aijk - aijk
 
+        # Position correction of the predicted angle
+            k_a = 2000.0
             c_j = k_a * e_aijk * Xijk
             c_k = k_a * e_aijk * Xikj
             corr_p[i] += c_j + c_k
@@ -167,7 +163,8 @@ def simu_step():
             )
             Eijk = Pij.dot(Pik) / (dij * dik)  # = Eikj.T
 
-            # Position gradients of the predicted angle rate.
+            # Position correction of the predicted angle rate
+            k_s = 10000.0
             c_j = k_s * e_dot_aijk * (Eijk.dot(hat_v_ik) - Dijk.dot(hat_v_ij))
             c_k = k_s * e_dot_aijk * (Eijk.T.dot(hat_v_ij) - Dikj.dot(hat_v_ik))
             corr_p[i] += c_j + c_k
@@ -192,9 +189,9 @@ def simu_step():
             # --- bearing-based orientation correction --- #
             corr_R[i] += k_o1 * np.cross(bearings[j], hatR[i].T.dot(hatp[j] - hatp[i]))
 
-    k_o2 = 200.0
     for i in nodes:
         # --- velocity-based orientation correction --- #
+        k_o2 = 200.0
         hat_v_i = hatR[i].dot(ub[i])
         resid_i = aux_f[i]['vec'] - aux_f[i]['mat'].dot(hat_v_i)
         corr_R[i] += k_o2 * np.cross(ub[i], hatR[i].T.dot(resid_i))
