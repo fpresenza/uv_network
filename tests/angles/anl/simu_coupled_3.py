@@ -110,6 +110,11 @@ def simu_step():
             for j in out_neighbors
         }
 
+        # --- bearing-based orientation correction --- #
+        k_o1 = 2.0
+        for j in out_neighbors:
+            corr_R[i] += k_o1 * np.cross(bearings[j], hatR[i].T.dot(hatp[j] - hatp[i]))
+
         # --- angle-based shape correction --- #
         for j, k in complete_angle_set(out_neighbors):
             # auxiliary variables
@@ -178,11 +183,6 @@ def simu_step():
             corr_R[i] += np.cross(ub[i], hatR[i].T.dot(c_j + c_k))
             corr_R[j] -= np.cross(ub[j], hatR[j].T.dot(c_j))
             corr_R[k] -= np.cross(ub[k], hatR[k].T.dot(c_k))
-
-        k_o1 = 2.0
-        for j in out_neighbors:
-            # --- bearing-based orientation correction --- #
-            corr_R[i] += k_o1 * np.cross(bearings[j], hatR[i].T.dot(hatp[j] - hatp[i]))
 
     for i in nodes:
         # --- advance estimation --- #
