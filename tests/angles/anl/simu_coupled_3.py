@@ -131,7 +131,8 @@ def simu_step():
             dot_aijk = bearings[k].dot(dot_bearings[j]) + \
                 bearings[j].dot(dot_bearings[k])
 
-            eijk = bij.dot(bik) - aijk
+            hat_aijk = bij.dot(bik)
+            eijk = hat_aijk - aijk
             Xijk = Pij.dot(bik) / dij
             Xikj = Pik.dot(bij) / dik
 
@@ -152,7 +153,6 @@ def simu_step():
             e_dot_aijk = dot_hat_aijk - dot_aijk
 
             # Hessian blocks of the angle cosine with respect to hatp_j, hatp_k.
-            hat_aijk = bij.dot(bik)
             Pij_bik = Pij.dot(bik)
             Pik_bij = Pik.dot(bij)
             Hjj = -(
