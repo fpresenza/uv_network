@@ -70,6 +70,7 @@ def simu_step():
 
     corr_p = np.zeros((n, 3), dtype=np.float64)
     corr_R = np.zeros((n, 3), dtype=np.float64)
+    buffer = np.zeros((n, 3), dtype=np.float64)
 
     ub = np.zeros((n, 3), dtype=np.float64)    # body-frame
     wb = np.zeros((n, 3), dtype=np.float64)    # body-frame
@@ -180,11 +181,13 @@ def simu_step():
             k_o2 = 200.0
             c_j = k_o2 * (dot_hat_aijk - dot_aijk) * Xijk
             c_k = k_o2 * (dot_hat_aijk - dot_aijk) * Xikj
-            corr_R[i] += np.cross(ub[i], hatR[i].T.dot(c_j + c_k))
-            corr_R[j] -= np.cross(ub[j], hatR[j].T.dot(c_j))
-            corr_R[k] -= np.cross(ub[k], hatR[k].T.dot(c_k))
+            buffer[i] += c_j + c_k
+            buffer[j] -= c_j
+            buffer[k] -= c_k
 
     for i in nodes:
+        # extract correction from buffer
+        corr_R[i] += np.cross(ub[i], hatR[i].T.dot(buffer[i]))
         # --- advance estimation --- #
         hatp_int[i].step(t, hatR[i].dot(ub[i]) + corr_p[i])
         hatR_int[i].step_left(t, wb[i] + corr_R[i])
