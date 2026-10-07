@@ -131,27 +131,28 @@ def simu_step():
             dot_aijk = bearings[k].dot(dot_bearings[j]) + \
                 bearings[j].dot(dot_bearings[k])
 
-            hat_aijk = bij.dot(bik)
-            eijk = hat_aijk - aijk
-            Xijk = Pij.dot(bik) / dij
-            Xikj = Pik.dot(bij) / dik
-
-            corr_p[i] += k_a * eijk * (Xijk + Xikj)
-            corr_p[j] -= k_a * eijk * Xijk
-            corr_p[k] -= k_a * eijk * Xikj
-
-            # velocity reconstruction sum
+            # auxiliary variables
             hat_v_i = hatR[i].dot(ub[i])
             hat_v_j = hatR[j].dot(ub[j])
             hat_v_k = hatR[k].dot(ub[k])
 
-            # --- angle-rate-based scale correction --- #
-            # Differentiate the predicted rate with estimated velocities fixed.
             hat_v_ij = hat_v_j - hat_v_i
             hat_v_ik = hat_v_k - hat_v_i
+
+            Xijk = Pij.dot(bik) / dij
+            Xikj = Pik.dot(bij) / dik
+
+            # estimated angle and angle-rate
+            hat_aijk = bij.dot(bik)
+            e_aijk = hat_aijk - aijk
             dot_hat_aijk = Xijk.dot(hat_v_ij) + Xikj.dot(hat_v_ik)
             e_dot_aijk = dot_hat_aijk - dot_aijk
 
+            corr_p[i] += k_a * e_aijk * (Xijk + Xikj)
+            corr_p[j] -= k_a * e_aijk * Xijk
+            corr_p[k] -= k_a * e_aijk * Xikj
+
+            # --- angle-rate-based scale correction --- #
             # Hessian blocks of the angle cosine with respect to hatp_j, hatp_k.
             Pij_bik = Pij.dot(bik)
             Pik_bij = Pik.dot(bij)
