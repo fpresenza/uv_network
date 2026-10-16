@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
 from transformations import unit_vector
 from scipy.spatial.transform import Rotation
 
 from uvnpy.toolkit.data import read_csv_numpy, read_json_file
+from uvnpy.toolkit.geometry import optimal_rigid_transform
 
 plt.rcParams['text.usetex'] = False
 plt.rcParams['pdf.fonttype'] = 42
@@ -14,6 +17,7 @@ plt.rcParams['ps.fonttype'] = 42
 plt.rcParams['mathtext.fontset'] = 'dejavuserif'
 plt.rcParams['font.family'] = 'serif'
 
+Path('time_plots').mkdir(exist_ok=True)
 
 # ------------------------------------------------------------------
 # Read simulated data
@@ -27,6 +31,21 @@ n = position.shape[1]
 orientation = read_csv_numpy(
     'simu_data/orientation.csv'
 ).reshape(log_num_steps, n, 3, 3)
+
+estimated_position = read_csv_numpy(
+    'simu_data/estimated_position.csv'
+).reshape(log_num_steps, n, 3)
+estimated_orientation = read_csv_numpy(
+    'simu_data/estimated_orientation.csv'
+).reshape(log_num_steps, n, 3, 3)
+
+# Remove the common translation and rotation at each sample, as in
+# anl/time_plots_2.py. Rotate estimated attitudes by the same rotation.
+# No scale alignment is applied, so scale errors remain visible.
+for k in range(log_num_steps):
+    U, v = optimal_rigid_transform(estimated_position[k], position[k])
+    estimated_position[k] = estimated_position[k].dot(U.T) + v
+    estimated_orientation[k] = np.matmul(U, estimated_orientation[k])
 
 # velocity = read_csv_numpy('simu_data/velocity.csv').reshape(log_num_steps, n, 3)
 
@@ -136,6 +155,41 @@ for k, d in enumerate(['yaw', 'pitch', 'roll']):
     ax[k].plot(t, euler_angles[:, :, k], lw=1.0, ds='steps-post')
 
 fig.savefig('time_plots/euler_angles.pdf', bbox_inches='tight')
+
+# ------------------------------------------------------------------
+# Plot pose error in the aligned common frame
+# ------------------------------------------------------------------
+position_error = np.linalg.norm(estimated_position - position, axis=-1)
+E = np.matmul(orientation.swapaxes(2, 3), estimated_orientation)
+cos_phi = (np.trace(E, axis1=2, axis2=3) - 1) / 2
+orientation_error = np.arccos(np.clip(cos_phi, -1.0, 1.0))
+
+fig, axes = plt.subplots(2, 1, figsize=(4.0, 3.5))
+fig.tight_layout()
+fig.subplots_adjust(hspace=0.35)
+
+for ax in axes:
+    ax.tick_params(axis='both', which='both', pad=1, labelsize=12)
+    ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=-2)
+    ax.grid(1)
+
+axes[0].set_ylabel(r'$\|\hat{p}_i - p_i\| (\rm m)$', fontsize=14, labelpad=5)
+axes[0].plot(
+    t, position_error, lw=2.0, ls='-', ds='steps-post',
+    label=[f'{i}' for i in range(n)]
+)
+axes[0].set_ylim(bottom=0.0)
+axes[0].legend(fontsize=10, ncols=2)
+
+axes[1].set_ylabel(r'$\|\psi_i\| \ (\rm rad)$', fontsize=14, labelpad=5)
+axes[1].plot(
+    t, orientation_error, lw=2.0, ls='-', ds='steps-post',
+    label=[f'{i}' for i in range(n)]
+)
+axes[1].set_ylim(bottom=0.0)
+axes[1].legend(fontsize=10, ncols=2)
+
+fig.savefig('time_plots/pose_error.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot control
