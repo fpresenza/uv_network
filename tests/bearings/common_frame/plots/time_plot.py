@@ -5,7 +5,8 @@
 Read ``common_frame/control/simu_data`` and save figures under
 ``common_frame/control/time_plot``, independently of the working directory.
 The pose-error figure follows the angle tests' two-panel layout and includes
-first-second insets. Poses are already logged in the same global frame.
+first-second insets. It is skipped when ``est_pose.csv`` is absent.
+Poses are already logged in the same global frame.
 """
 
 import argparse
@@ -106,25 +107,30 @@ u_r = data.read_csv_numpy(
 action_extents = data.read_csv_numpy(
     data_dir / 'action_extents.csv', start=k_i, stop=k_e, jump=arg.jump
 ).reshape(len(t), n)
-hatx = data.read_csv_numpy(
-    data_dir / 'est_pose.csv', start=k_i, stop=k_e, jump=arg.jump
-).reshape(len(t), n, 4)
+# Estimation logs are optional; all other figures use the true poses.
+has_estimated_pose = (data_dir / 'est_pose.csv').is_file()
+if has_estimated_pose:
+    hatx = data.read_csv_numpy(
+        data_dir / 'est_pose.csv', start=k_i, stop=k_e, jump=arg.jump
+    ).reshape(len(t), n, 4)
 
-# These poses already use the same global frame. The fourth component is yaw;
-# its wrapped absolute difference is the rotation-angle error for yaw rotations.
-position_error, orientation_error = pose_errors(x, hatx)
+    # These poses already use the same global frame. The fourth component is yaw;
+    # its wrapped absolute difference is the rotation-angle error for yaw rotations.
+    position_error, orientation_error = pose_errors(x, hatx)
 
-# Keep the initial transient at full log resolution, even when --jump > 1.
-zoom_stop = min(k_e, int(np.searchsorted(all_t, 1.0, side='right')))
-zoom_t = all_t[k_i:zoom_stop]
-if zoom_t.size:
-    zoom_x = data.read_csv_numpy(
-        data_dir / 'pose.csv', start=k_i, stop=zoom_stop
-    ).reshape(len(zoom_t), n, 4)
-    zoom_hatx = data.read_csv_numpy(
-        data_dir / 'est_pose.csv', start=k_i, stop=zoom_stop
-    ).reshape(len(zoom_t), n, 4)
-    zoom_position_error, zoom_orientation_error = pose_errors(zoom_x, zoom_hatx)
+    # Keep the initial transient at full log resolution, even when --jump > 1.
+    zoom_stop = min(k_e, int(np.searchsorted(all_t, 1.0, side='right')))
+    zoom_t = all_t[k_i:zoom_stop]
+    if zoom_t.size:
+        zoom_x = data.read_csv_numpy(
+            data_dir / 'pose.csv', start=k_i, stop=zoom_stop
+        ).reshape(len(zoom_t), n, 4)
+        zoom_hatx = data.read_csv_numpy(
+            data_dir / 'est_pose.csv', start=k_i, stop=zoom_stop
+        ).reshape(len(zoom_t), n, 4)
+        zoom_position_error, zoom_orientation_error = pose_errors(zoom_x, zoom_hatx)
+else:
+    print('Skipping pose-error plot: est_pose.csv was not found.')
 
 A = as_undirected(D).astype(float)
 fre = np.empty(len(t))
@@ -522,64 +528,65 @@ fig.savefig(output_dir / 'min_dist.pdf', bbox_inches='tight')
 # ------------------------------------------------------------------
 # Plot pose error (same two-panel format as the angle tests)
 # ------------------------------------------------------------------
-fig, axes = plt.subplots(2, 1, figsize=(4.0, 3.5))
-fig.tight_layout()
-fig.subplots_adjust(hspace=0.35)
-
-for ax in axes:
-    ax.tick_params(axis='both', which='both', pad=1, labelsize=12)
-    ax.locator_params(axis='x', nbins=5)
-    ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=-2)
-    ax.grid(1)
-
-axes[0].set_ylabel(r'$\|\hat{p}_i - p_i\| (\rm m)$', fontsize=14, labelpad=5)
-lines = axes[0].plot(
-    t, position_error[:, subset], lw=2.0, ls='-', ds='steps-post',
-    label=[str(i) for i in subset]
-)
-axes[1].set_ylabel(r'$\|\psi_i\| \ (\rm rad)$', fontsize=14, labelpad=5)
-axes[1].plot(
-    t, orientation_error[:, subset], lw=2.0, ls='-', ds='steps-post',
-    label=[str(i) for i in subset]
-)
-for ax, error in zip(axes, (position_error, orientation_error)):
-    ax.set_ylim(bottom=0.0)
-    if not np.any(error[:, subset]):
-        ax.set_ylim(top=1.0)
-
-if len(subset) <= 5:
-    for ax in axes:
-        ax.legend(fontsize=8, ncols=len(subset), loc='upper right')
-else:
-    # A shared legend leaves the error curves and zoom boxes visible for
-    # larger networks (the bearing-control test currently has 30 robots).
-    fig.set_size_inches(6.0, 4.5)
-    fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.85))
+if has_estimated_pose:
+    fig, axes = plt.subplots(2, 1, figsize=(4.0, 3.5))
+    fig.tight_layout()
     fig.subplots_adjust(hspace=0.35)
-    fig.legend(
-        lines, [str(i) for i in subset], loc='upper center', fontsize=7,
-        ncols=min(10, len(subset)), handlelength=1.0, columnspacing=0.8
+
+    for ax in axes:
+        ax.tick_params(axis='both', which='both', pad=1, labelsize=12)
+        ax.locator_params(axis='x', nbins=5)
+        ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=-2)
+        ax.grid(1)
+
+    axes[0].set_ylabel(r'$\|\hat{p}_i - p_i\| (\rm m)$', fontsize=14, labelpad=5)
+    lines = axes[0].plot(
+        t, position_error[:, subset], lw=2.0, ls='-', ds='steps-post',
+        label=[str(i) for i in subset]
     )
+    axes[1].set_ylabel(r'$\|\psi_i\| \ (\rm rad)$', fontsize=14, labelpad=5)
+    axes[1].plot(
+        t, orientation_error[:, subset], lw=2.0, ls='-', ds='steps-post',
+        label=[str(i) for i in subset]
+    )
+    for ax, error in zip(axes, (position_error, orientation_error)):
+        ax.set_ylim(bottom=0.0)
+        if not np.any(error[:, subset]):
+            ax.set_ylim(top=1.0)
 
-if zoom_t.size:
-    for ax, error in zip(axes, (zoom_position_error, zoom_orientation_error)):
-        inset = ax.inset_axes([0.24, 0.28, 0.70, 0.49])
-        inset.plot(zoom_t, error[:, subset], lw=0.9, ds='steps-post')
-        inset.set_xlim(0.0, 1.0)
-        ymax = np.max(error[:, subset])
-        inset.set_ylim(0.0, 1.08 * ymax if ymax > 0 else 1.0)
-        inset.set_xticks([0.0, 0.5, 1.0])
-        inset.locator_params(axis='y', nbins=3)
-        inset.tick_params(axis='both', labelsize=6, pad=1)
-        inset.text(
-            0.97, 0.94, 'First second', transform=inset.transAxes,
-            ha='right', va='top', fontsize=7,
-            bbox=dict(facecolor='white', edgecolor='none', alpha=0.8, pad=1)
+    if len(subset) <= 5:
+        for ax in axes:
+            ax.legend(fontsize=8, ncols=len(subset), loc='upper right')
+    else:
+        # A shared legend leaves the error curves and zoom boxes visible for
+        # larger networks (the bearing-control test currently has 30 robots).
+        fig.set_size_inches(6.0, 4.5)
+        fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.85))
+        fig.subplots_adjust(hspace=0.35)
+        fig.legend(
+            lines, [str(i) for i in subset], loc='upper center', fontsize=7,
+            ncols=min(10, len(subset)), handlelength=1.0, columnspacing=0.8
         )
-        inset.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=6, labelpad=0)
-        inset.grid(True, alpha=0.35)
 
-fig.savefig(output_dir / 'pose_error.pdf', bbox_inches='tight')
+    if zoom_t.size:
+        for ax, error in zip(axes, (zoom_position_error, zoom_orientation_error)):
+            inset = ax.inset_axes([0.24, 0.28, 0.70, 0.49])
+            inset.plot(zoom_t, error[:, subset], lw=0.9, ds='steps-post')
+            inset.set_xlim(0.0, 1.0)
+            ymax = np.max(error[:, subset])
+            inset.set_ylim(0.0, 1.08 * ymax if ymax > 0 else 1.0)
+            inset.set_xticks([0.0, 0.5, 1.0])
+            inset.locator_params(axis='y', nbins=3)
+            inset.tick_params(axis='both', labelsize=6, pad=1)
+            inset.text(
+                0.97, 0.94, 'First second', transform=inset.transAxes,
+                ha='right', va='top', fontsize=7,
+                bbox=dict(facecolor='white', edgecolor='none', alpha=0.8, pad=1)
+            )
+            inset.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=6, labelpad=0)
+            inset.grid(True, alpha=0.35)
+
+    fig.savefig(output_dir / 'pose_error.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot covariance
