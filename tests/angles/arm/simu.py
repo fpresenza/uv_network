@@ -10,12 +10,15 @@ from transformations import unit_vector
 from uvnpy.toolkit.data import write_json_file
 from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
-from uvnpy.toolkit.geometry import rotation_matrix_from_quaternion
+from uvnpy.toolkit.geometry import (
+    rotation_matrix_from_quaternion, rotation_matrix_from_vector
+)
 from uvnpy.toolkit.functions import cosine_activation, cosine_activation_derivative
 from uvnpy.graphs.models import ConeGraph
 from uvnpy.angles.local_frame.core import (
     angle_indices, angle_rigidity_matrix, is_angle_rigid
 )
+from uvnpy.angles.local_frame.localization import AngleBasedPoseObserver
 from uvnpy.control.targets import MovingTargets
 
 
@@ -30,6 +33,8 @@ class Logs(object):
     position: list
     # velocity: list
     orientation: list
+    estimated_position: list
+    estimated_orientation: list
     control_u: list
     control_w: list
     rigidity_val: list
@@ -140,7 +145,7 @@ def complete_angle_set(out_neighbors):
 
 
 def simu_step():
-    """Formation control algorithm"""
+    """Run formation control and pose estimation without estimate feedback."""
     # --- data ---#
     p = extract_x(p_int)
     # v = extract_dotx(p_int)
@@ -150,6 +155,7 @@ def simu_step():
     control_u_m = np.zeros((n, 3), dtype=np.float64)
     control_w_m = np.zeros((n, 3), dtype=np.float64)
     control_u_c = np.zeros((n, 3), dtype=np.float64)
+    measured_bearings = {}
 
     # --- angle rigidity eigenvalue-vector --- #
     edge_set = sensing_graph.edge_set()
@@ -181,6 +187,7 @@ def simu_step():
         bearings = {
             j: R[i].T.dot(r[j] / distances[j]) for j in out_neighbors
         }
+        measured_bearings[i] = bearings
         rotations = {
             j: R[i].T.dot(R[j]) for j in out_neighbors
         }
@@ -303,15 +310,33 @@ def simu_step():
     k_w_m = 5.0
     k_u_c = 1.0
 
-    # compose and apply control action
+    # Compose body-frame inputs using only the true states, as before.
+    ub = k_u_r * control_u_r + k_u_m * control_u_m + k_u_c * control_u_c
+    wb = k_w_r * control_w_r + k_w_m * control_w_m
+
+    # Simulate bearing rates at the same pre-step poses and sensing edges as
+    # the bearings. R_i u_i supplies inertial velocities for this measurement.
+    v = np.einsum('nij,nj->ni', R, ub)
+    bearing_rates = {}
     for i in nodes:
-        control_u = R[i].dot(
-            k_u_r * control_u_r[i] + k_u_m * control_u_m[i] + k_u_c * control_u_c[i]
-        )
+        out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
+        bearing_rates[i] = {}
+        for j in out_neighbors:
+            beta = measured_bearings[i][j]
+            distance = np.sqrt(np.square(p[j] - p[i]).sum())
+            P = np.eye(3) - np.outer(beta, beta)
+            bearing_rates[i][j] = (
+                P.dot(R[i].T.dot(v[j] - v[i])) / distance
+                - np.cross(wb[i], beta)
+            )
+    observer.update(t, ub, wb, measured_bearings, bearing_rates, edge_set)
+
+    # Apply the same control actions and update the true sensing graph.
+    for i in nodes:
+        control_u = R[i].dot(ub[i])
         p_int[i].step(t, control_u)
 
-        control_w = k_w_r * control_w_r[i] + k_w_m * control_w_m[i]
-        R_int[i].step_left(t, control_w)
+        R_int[i].step_left(t, wb[i])
 
     p = extract_x(p_int)
     R = extract_x(R_int)
@@ -324,6 +349,8 @@ def log_step():
     logs.position.append(extract_x(p_int).ravel())
     # logs.velocity.append(np.hstack(extract_dotx(p_int)))
     logs.orientation.append(extract_x(R_int).ravel())
+    logs.estimated_position.append(observer.position.ravel())
+    logs.estimated_orientation.append(observer.orientation.ravel())
     logs.control_u.append(extract_u(p_int).ravel())
     logs.control_w.append(extract_u(R_int).ravel())
     logs.rigidity_val.append(rigidity_val.copy())
@@ -424,6 +451,22 @@ R_int = [
     for i in nodes
 ]
 
+# Independent initialization noise keeps the original simulation RNG unchanged.
+observer_rng = np.random.RandomState(2)
+position_error_std = 2.0             # metres per coordinate
+orientation_error_std = 0.1         # radians per rotation-vector coordinate
+hatp = observer_rng.normal(initial_position, position_error_std)
+hatR = np.array([
+    rotation_matrix_from_vector(
+        observer_rng.normal(scale=orientation_error_std, size=3)
+    ).dot(initial_orientation[i])
+    for i in nodes
+])
+observer = AngleBasedPoseObserver(
+    n, hatp, hatR,
+    k_a=2000.0, k_s=10000.0, k_o1=2.0, k_o2=200.0, time=t,
+)
+
 rigidity_val = np.empty(3, dtype=np.float64)
 
 # --- define targets --- #
@@ -453,8 +496,8 @@ write_json_file(
     'simu_data/targets.jsonlog',
     {
         'ids': list(targets.keys()),
-        'tracking_nodes': tracking_nodes.tolist(),
-        'alloc': target_allocation.tolist()
+        'tracking_nodes': tracking_nodes,
+        'alloc': target_allocation
     }
 )
 
@@ -467,6 +510,8 @@ logs = Logs(
     position=[extract_x(p_int).ravel()],
     # velocity=[extract_dotx(p_int).ravel()],
     orientation=[extract_x(R_int).ravel()],
+    estimated_position=[observer.position.ravel()],
+    estimated_orientation=[observer.orientation.ravel()],
     control_u=[],
     control_w=[],
     rigidity_val=[],
@@ -498,6 +543,12 @@ bar.finish()
 np.savetxt('simu_data/t.csv', logs.time, delimiter=',')
 np.savetxt('simu_data/position.csv', logs.position, delimiter=',')
 np.savetxt('simu_data/orientation.csv', logs.orientation, delimiter=',')
+np.savetxt(
+    'simu_data/estimated_position.csv', logs.estimated_position, delimiter=','
+)
+np.savetxt(
+    'simu_data/estimated_orientation.csv', logs.estimated_orientation, delimiter=','
+)
 np.savetxt('simu_data/control_u.csv', logs.control_u, delimiter=',')
 np.savetxt('simu_data/control_w.csv', logs.control_w, delimiter=',')
 np.savetxt('simu_data/rigidity_val.csv', logs.rigidity_val, delimiter=',')
