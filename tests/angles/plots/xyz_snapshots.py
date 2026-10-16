@@ -6,9 +6,12 @@ Examples (from the repository root)::
 
     python tests/angles/plots/xyz_snapshots.py arm -j 1000
     python tests/angles/plots/xyz_snapshots.py anl -j 1000
+    python tests/angles/plots/xyz_snapshots.py arm -j 1000 --view 10 -45 --view 30 60
 
 Read ``tests/angles/<directory>/simu_data`` and save frames under
 ``tests/angles/<directory>/xyz_snapshots``, independently of the working directory.
+Repeat ``--view ELEV AZIM`` to create one subplot per pair, in degrees.
+Without ``--view``, the views are (10, -45) and (10, 45).
 """
 
 import argparse
@@ -50,9 +53,17 @@ parser.add_argument(
     '-m', '--multijump',
     default=1, type=int, help='Multiplicative jump'
 )
+parser.add_argument(
+    '-v', '--view', nargs=2, type=float, action='append', metavar=('ELEV', 'AZIM'),
+    help='camera elevation and azimuth in degrees; repeat for multiple subplots '
+         '(default: 10 -45 and 10 45)'
+)
 arg = parser.parse_args()
 if arg.jump < 1 or arg.multijump < 1 or arg.jump % arg.multijump != 0:
     parser.error('--jump must be a positive multiple of --multijump (also positive).')
+views = arg.view or [(10.0, -45.0), (10.0, 45.0)]
+if not np.isfinite(views).all():
+    parser.error('--view angles must be finite numbers.')
 
 simulation_dir = Path(__file__).resolve().parents[1] / arg.directory
 data_dir = simulation_dir / 'simu_data'
@@ -102,15 +113,17 @@ output_dir.mkdir(parents=True, exist_ok=True)
 bar = progressbar.ProgressBar(maxval=log_num_steps).start()
 
 fig, axes = plt.subplots(
-    1, 2, subplot_kw={"projection": "3d"}, figsize=(12, 6)
+    1, len(views), subplot_kw={"projection": "3d"},
+    figsize=(6 * len(views), 6), squeeze=False
 )
+axes = axes[0]
 # fig.subplots_adjust(bottom=0.0, wspace=0.0, right=1.0, top=1.0)
 # fig.set_size_inches(10, 8)  # Width = 10, Height = 8
 fig.tight_layout()
 for k in range(log_num_steps):
     tk = t[k]
 
-    for ax in axes:
+    for ax, (elev, azim) in zip(axes, views):
         ax.tick_params(
             axis='both',       # changes apply to the x-axis
             which='both',      # both major and minor ticks are affected
@@ -132,11 +145,8 @@ for k in range(log_num_steps):
         ax.set_yticks(np.linspace(0.0, xy_lim, num=4, endpoint=False))
         ax.set_zticks(np.linspace(0.0, z_lim, num=4, endpoint=False))
 
-    axes[0].view_init(elev=10.0, azim=-45.0)
-    axes[0].set_box_aspect(None, zoom=1.0)
-
-    axes[1].view_init(elev=10.0, azim=45.0)
-    axes[1].set_box_aspect(None, zoom=1.0)
+        ax.view_init(elev=elev, azim=azim)
+        ax.set_box_aspect(None, zoom=1.0)
 
     axes[0].text(
         100, 100.0, 100.0, r't = {:.3f}s'.format(tk),
@@ -153,17 +163,12 @@ for k in range(log_num_steps):
         # axis = R[i, :, 0]    # first column (x-axis)
         cone = draw_cone(p[i], R[i], xy_lim/15, np.pi/3)
 
-        poly = art3d.Poly3DCollection(cone, alpha=0.5)
         colors = [f'C{i}'] * len(cone)
         # colors[0:2] = ['r'] * 3    # mark one sector
-        poly.set_facecolor(colors)
-        axes[0].add_collection3d(poly)
-
-        poly = art3d.Poly3DCollection(cone, alpha=0.5)
-        colors = [f'C{i}'] * len(cone)
-        # colors[0:2] = ['r'] * 3    # mark one sector
-        poly.set_facecolor(colors)
-        axes[1].add_collection3d(poly)
+        for ax in axes:
+            poly = art3d.Poly3DCollection(cone, alpha=0.5)
+            poly.set_facecolor(colors)
+            ax.add_collection3d(poly)
 
     for ax in axes:
         # plot.points(
@@ -249,9 +254,9 @@ for k in range(log_num_steps):
         # bbox_inches="tight",
         # transparent=True
     )
-    axes[0].clear()
-    axes[1].clear()
-    plt.close()
+    for ax in axes:
+        ax.clear()
     bar.update(k)
 
 bar.finish()
+plt.close(fig)
