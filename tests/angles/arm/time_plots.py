@@ -179,7 +179,7 @@ axes[0].plot(
     label=[f'{i}' for i in range(n)]
 )
 axes[0].set_ylim(bottom=0.0)
-axes[0].legend(fontsize=10, ncols=2)
+axes[0].legend(fontsize=8, ncols=min(n, 5), loc='upper right')
 
 axes[1].set_ylabel(r'$\|\psi_i\| \ (\rm rad)$', fontsize=14, labelpad=5)
 axes[1].plot(
@@ -187,7 +187,26 @@ axes[1].plot(
     label=[f'{i}' for i in range(n)]
 )
 axes[1].set_ylim(bottom=0.0)
-axes[1].legend(fontsize=10, ncols=2)
+axes[1].legend(fontsize=8, ncols=min(n, 5), loc='upper right')
+
+# Show the initial transient at full logged resolution inside each panel.
+first_second = (t >= 0.0) & (t <= 1.0)
+if np.any(first_second):
+    for ax, error in zip(axes, (position_error, orientation_error)):
+        inset = ax.inset_axes([0.24, 0.28, 0.70, 0.49])
+        inset.plot(t[first_second], error[first_second], lw=0.9, ds='steps-post')
+        inset.set_xlim(0.0, 1.0)
+        inset.set_ylim(0.0, max(1.08 * np.max(error[first_second]), 1e-6))
+        inset.set_xticks([0.0, 0.5, 1.0])
+        inset.locator_params(axis='y', nbins=3)
+        inset.tick_params(axis='both', labelsize=6, pad=1)
+        inset.text(
+            0.97, 0.94, 'First second', transform=inset.transAxes,
+            ha='right', va='top', fontsize=7,
+            bbox=dict(facecolor='white', edgecolor='none', alpha=0.8, pad=1)
+        )
+        inset.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=6, labelpad=0)
+        inset.grid(True, alpha=0.35)
 
 fig.savefig('time_plots/pose_error.pdf', bbox_inches='tight')
 
