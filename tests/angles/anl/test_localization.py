@@ -1,4 +1,4 @@
-"""Regression checks for extracting the observer from simu_coupled_3.py."""
+"""Regression checks for the pose observer and its simulation integration."""
 
 import ast
 from pathlib import Path
@@ -13,12 +13,11 @@ from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
 from uvnpy.toolkit.geometry import rotation_matrix_from_vector
 
 
-def reference_observer():
-    """Load the script's actual observer without running its simulation/CLI."""
+def simulation_step():
+    """Load the simulation functions without running its loop or CLI."""
     source = Path(__file__).with_name('simu_coupled_3.py')
     names = {
-        'projection_matrix', 'extract_x', 'complete_angle_set',
-        'simu_step', 'edge_set',
+        'projection_matrix', 'extract_x', 'simu_step', 'edge_set',
     }
     tree = ast.parse(source.read_text(), filename=str(source))
     tree.body = [
@@ -51,8 +50,8 @@ class TestAngleBasedPoseObserver(unittest.TestCase):
             for Ri in self.R
         ])
 
-    def test_matches_script_through_switching_roles(self):
-        reference = reference_observer()
+    def test_simulation_matches_original_results_through_switching_roles(self):
+        reference = simulation_step()
         original_edges = reference['edge_set']
         # Exercise both of the script's graphs in a short regression run.
         reference['edge_set'] = lambda t: original_edges(20 * t)
@@ -61,8 +60,7 @@ class TestAngleBasedPoseObserver(unittest.TestCase):
             'nodes': np.arange(self.n),
             'p_int': [EulerIntegrator(pi) for pi in self.p],
             'R_int': [EulerIntegratorOrtogonalGroup(Ri) for Ri in self.R],
-            'hatp_int': [EulerIntegrator(pi) for pi in self.hatp],
-            'hatR_int': [EulerIntegratorOrtogonalGroup(Ri) for Ri in self.hatR],
+            'observer': AngleBasedPoseObserver(self.n, self.hatp, self.hatR),
             'control_u': {
                 i: (lambda t, i=i: np.array([
                     np.cos((i + 1) * t), np.sin(t + i), 0.5
@@ -73,43 +71,27 @@ class TestAngleBasedPoseObserver(unittest.TestCase):
                 for i in range(self.n)
             },
         })
-        observer = AngleBasedPoseObserver(self.n, self.hatp, self.hatR)
+        # Captured from the inline observer before the simulation used the class.
+        fixture = Path(__file__).parent / 'fixtures/localization_switching.txt'
+        snapshots = np.loadtxt(fixture)
+        expected = {row[0]: row[1:] for row in snapshots}
+        checked = 0
 
         for step in range(1, 1001):
             t = round(step * 0.001, 3)
             reference['t'] = t
-            p = reference['extract_x'](reference['p_int'])
-            R = reference['extract_x'](reference['R_int'])
-            u = np.array([reference['control_u'][i](t) for i in range(self.n)])
-            omega = np.array([
-                reference['control_w'][i](t) for i in range(self.n)
-            ])
-            v = np.einsum('nij,nj->ni', R, u)
-            edges = reference['edge_set'](t)
-            bearings, bearing_rates = {}, {}
-            for i in range(self.n):
-                out_neighbors = edges[:, 1][edges[:, 0] == i]
-                bearings[i], bearing_rates[i] = {}, {}
-                for j in out_neighbors:
-                    beta = R[i].T.dot(unit_vector(p[j] - p[i]))
-                    distance = np.sqrt(np.square(p[j] - p[i]).sum())
-                    bearings[i][j] = beta
-                    bearing_rates[i][j] = (
-                        reference['projection_matrix'](beta).dot(
-                            R[i].T.dot(v[j] - v[i])
-                        ) / distance - np.cross(omega[i], beta)
-                    )
-
-            position, orientation = observer.update(
-                t, u, omega, bearings, bearing_rates, edges
-            )
             reference['simu_step']()
-            np.testing.assert_array_equal(
-                position, reference['extract_x'](reference['hatp_int'])
-            )
-            np.testing.assert_array_equal(
-                orientation, reference['extract_x'](reference['hatR_int'])
-            )
+            observer = reference['observer']
+            self.assertEqual(observer.t, t)
+            if t in expected:
+                actual = np.r_[
+                    observer.position.ravel(), observer.orientation.ravel()
+                ]
+                np.testing.assert_allclose(
+                    actual, expected[t], rtol=1e-12, atol=1e-12
+                )
+                checked += 1
+        self.assertEqual(checked, len(expected))
 
     def test_estimates_are_owned_by_observer(self):
         observer = AngleBasedPoseObserver(self.n, self.hatp, self.hatR)

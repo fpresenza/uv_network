@@ -12,6 +12,7 @@ from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
 from uvnpy.toolkit.geometry import rotation_matrix_from_vector
 from uvnpy.angles.local_frame.core import is_angle_rigid, angle_indices
+from uvnpy.angles.local_frame.localization import AngleBasedPoseObserver
 
 # ------------------------------------------------------------------
 # Functions, Classes and Configurations
@@ -50,147 +51,47 @@ def extract_u(integrators):
     return np.array([p.u() for p in integrators])
 
 
-def complete_angle_set(out_neighbors):
-    i, j = np.triu_indices(out_neighbors.size, k=1)
-    return np.column_stack([out_neighbors[i], out_neighbors[j]])
-
-
 # ------------------------------------------------------------------
 # Simulation loop inner functions
 # ------------------------------------------------------------------
 
 
 def simu_step():
-    """Pose estimation algorithm"""
-    # --- data ---#
+    """Advance robots, simulate bearing measurements, and update the observer."""
     p = extract_x(p_int)
-    hatp = extract_x(hatp_int)
     R = extract_x(R_int)
-    hatR = extract_x(hatR_int)
-
-    corr_p = np.zeros((n, 3), dtype=np.float64)
-    corr_R = np.zeros((n, 3), dtype=np.float64)
-    buffer = np.zeros((n, 3), dtype=np.float64)
 
     ub = np.zeros((n, 3), dtype=np.float64)    # body-frame
     wb = np.zeros((n, 3), dtype=np.float64)    # body-frame
-
     for i in nodes:
-        # --- control inputs --- #
         ub[i] = control_u[i](t)
         wb[i] = control_w[i](t)
 
     v = np.einsum('nij,nj->ni', R, ub)
+    E = edge_set(t)
+    bearings, bearing_rates = {}, {}
 
     for i in nodes:
-        # --- advance pose --- #
+        # --- advance true pose --- #
         p_int[i].step(t, R[i].dot(ub[i]))
         R_int[i].step_left(t, wb[i])
 
-        # --- compute measurements --- #
-        E = edge_set(t)
+        # Measurements use the same pre-step pose snapshot as before.
         out_neighbors = E[:, 1][E[:, 0] == i]
-
-        # estimated values
-        hat_distances = {
-            j: np.sqrt(np.square(hatp[j] - hatp[i]).sum()) for j in out_neighbors
-        }
-        hat_bearings = {j: unit_vector(hatp[j] - hatp[i]) for j in out_neighbors}
-
-        # measurements
         distances = {
             j: np.sqrt(np.square(p[j] - p[i]).sum()) for j in out_neighbors
         }
-        bearings = {
+        bearings[i] = {
             j: R[i].T.dot(unit_vector(p[j] - p[i])) for j in out_neighbors
         }
-        dot_bearings = {
-            j: projection_matrix(bearings[j]).dot(
+        bearing_rates[i] = {
+            j: projection_matrix(bearings[i][j]).dot(
                 R[i].T.dot(v[j] - v[i])
-            ) / distances[j] - np.cross(wb[i], bearings[j])
+            ) / distances[j] - np.cross(wb[i], bearings[i][j])
             for j in out_neighbors
         }
 
-        # --- bearing-based orientation correction --- #
-        k_o1 = 2.0
-        for j in out_neighbors:
-            corr_R[i] += k_o1 * np.cross(bearings[j], hatR[i].T.dot(hatp[j] - hatp[i]))
-
-        # --- angle-based shape correction --- #
-        for j, k in complete_angle_set(out_neighbors):
-            # auxiliary variables
-            dij = hat_distances[j]
-            bij = hat_bearings[j]
-            Pij = projection_matrix(bij)
-
-            dik = hat_distances[k]
-            bik = hat_bearings[k]
-            Pik = projection_matrix(bik)
-
-            Xijk = Pij.dot(bik) / dij
-            Xikj = Pik.dot(bij) / dik
-
-            # --- angle-based shape correction --- #
-            # measured angle and angle-rate
-            aijk = bearings[j].dot(bearings[k])
-            hat_aijk = bij.dot(bik)
-            e_aijk = hat_aijk - aijk
-
-        # Position correction of the predicted angle
-            k_a = 2000.0
-            c_j = k_a * e_aijk * Xijk
-            c_k = k_a * e_aijk * Xikj
-            corr_p[i] += c_j + c_k
-            corr_p[j] -= c_j
-            corr_p[k] -= c_k
-
-            # --- angle-rate-based scale correction --- #
-            # auxiliary variables
-            hat_v_i = hatR[i].dot(ub[i])
-            hat_v_j = hatR[j].dot(ub[j])
-            hat_v_k = hatR[k].dot(ub[k])
-
-            hat_v_ij = hat_v_j - hat_v_i
-            hat_v_ik = hat_v_k - hat_v_i
-
-            # estimated angle and angle-rate
-            dot_aijk = bearings[k].dot(dot_bearings[j]) + \
-                bearings[j].dot(dot_bearings[k])
-            dot_hat_aijk = Xijk.dot(hat_v_ij) + Xikj.dot(hat_v_ik)
-            e_dot_aijk = dot_hat_aijk - dot_aijk
-
-            Dijk = (
-                hat_aijk * Pij / dij**2 +
-                (np.outer(Xijk, bij) + np.outer(bij, Xijk)) / dij
-            )
-            Dikj = (
-                hat_aijk * Pik / dik**2 +
-                (np.outer(Xikj, bik) + np.outer(bik, Xikj)) / dik
-            )
-            Eijk = Pij.dot(Pik) / (dij * dik)  # = Eikj.T
-
-            # Position correction of the predicted angle rate
-            k_s = 10000.0
-            c_j = k_s * e_dot_aijk * (Eijk.dot(hat_v_ik) - Dijk.dot(hat_v_ij))
-            c_k = k_s * e_dot_aijk * (Eijk.T.dot(hat_v_ij) - Dikj.dot(hat_v_ik))
-            corr_p[i] += c_j + c_k
-            corr_p[j] -= c_j
-            corr_p[k] -= c_k
-
-            # --- angle-rate-based orientation correction --- #
-            k_o2 = 200.0
-            c_j = k_o2 * (dot_hat_aijk - dot_aijk) * Xijk
-            c_k = k_o2 * (dot_hat_aijk - dot_aijk) * Xikj
-            buffer[i] += c_j + c_k
-            buffer[j] -= c_j
-            buffer[k] -= c_k
-
-    for i in nodes:
-        # extract correction from buffer
-        corr_R[i] += np.cross(ub[i], hatR[i].T.dot(buffer[i]))
-        # --- advance estimation --- #
-        hatp_int[i].step(t, hatR[i].dot(ub[i]) + corr_p[i])
-        hatR_int[i].step_left(t, wb[i] + corr_R[i])
+    observer.update(t, ub, wb, bearings, bearing_rates, E)
 
 
 def log_step():
@@ -198,8 +99,8 @@ def log_step():
     logs.time.append(t)
     logs.position.append(extract_x(p_int).ravel())
     logs.orientation.append(extract_x(R_int).ravel())
-    logs.estimated_position.append(extract_x(hatp_int).ravel())
-    logs.estimated_orientation.append(extract_x(hatR_int).ravel())
+    logs.estimated_position.append(observer.position.ravel())
+    logs.estimated_orientation.append(observer.orientation.ravel())
     logs.control_u.append(extract_u(p_int).ravel())
     logs.control_w.append(extract_u(R_int).ravel())
 
@@ -299,14 +200,14 @@ p_int = [EulerIntegrator(p[i]) for i in nodes]
 
 R_int = [EulerIntegratorOrtogonalGroup(R[i]) for i in nodes]
 
-hatp_int = [EulerIntegrator(np.random.normal(p[i], 2.0)) for i in nodes]
-
-hatR_int = [
-    EulerIntegratorOrtogonalGroup(
-        random_rotation_matrix(1.0).dot(R[i])
-    )
-    for i in nodes
-]
+hatp = np.array([np.random.normal(p[i], 2.0) for i in nodes])
+hatR = np.array([
+    random_rotation_matrix(1.0).dot(R[i]) for i in nodes
+])
+observer = AngleBasedPoseObserver(
+    n, hatp, hatR,
+    k_a=2000.0, k_s=10000.0, k_o1=2.0, k_o2=200.0, time=t,
+)
 
 # define velocities
 
@@ -334,8 +235,8 @@ logs = Logs(
     time=[t],
     position=[extract_x(p_int).ravel()],
     orientation=[extract_x(R_int).ravel()],
-    estimated_position=[extract_x(hatp_int).ravel()],
-    estimated_orientation=[extract_x(hatR_int).ravel()],
+    estimated_position=[observer.position.ravel()],
+    estimated_orientation=[observer.orientation.ravel()],
     control_u=[extract_u(p_int).ravel()],
     control_w=[extract_u(R_int).ravel()],
     adjacency=[adjacency_matrix_from_edges(n, edge_set(0.0)).ravel()]
