@@ -1,7 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""Plot snapshots from an angle-based simulation's logged data.
+
+Examples (from the repository root)::
+
+    python tests/angles/plots/xyz_snapshots.py arm -j 1000
+    python tests/angles/plots/xyz_snapshots.py anl -j 1000
+
+Read ``tests/angles/<directory>/simu_data`` and save frames under
+``tests/angles/<directory>/xyz_snapshots``, independently of the working directory.
+"""
 
 import argparse
+from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 import progressbar
@@ -22,7 +33,11 @@ plt.rcParams['font.family'] = 'serif'
 # ------------------------------------------------------------------
 # Argument parse
 # ------------------------------------------------------------------
-parser = argparse.ArgumentParser(description='')
+parser = argparse.ArgumentParser(description='Plot angle-based simulation snapshots.')
+parser.add_argument(
+    'directory', choices=('arm', 'anl'),
+    help='simulation directory under tests/angles'
+)
 parser.add_argument(
     '-j', '--jump',
     default=1, type=int, help='simulation step jumped'
@@ -36,37 +51,54 @@ parser.add_argument(
     default=1, type=int, help='Multiplicative jump'
 )
 arg = parser.parse_args()
+if arg.jump < 1 or arg.multijump < 1 or arg.jump % arg.multijump != 0:
+    parser.error('--jump must be a positive multiple of --multijump (also positive).')
+
+simulation_dir = Path(__file__).resolve().parents[1] / arg.directory
+data_dir = simulation_dir / 'simu_data'
+output_dir = simulation_dir / 'xyz_snapshots'
 
 # ------------------------------------------------------------------
 # Read simulated data
 # ------------------------------------------------------------------
-t = read_csv_numpy('data/t.csv', jump=arg.jump)
+t = np.atleast_1d(read_csv_numpy(data_dir / 't.csv', jump=arg.jump))
 log_num_steps = len(t)
 
 position = read_csv_numpy(
-    'data/position.csv', jump=arg.jump
+    data_dir / 'position.csv', jump=arg.jump
 ).reshape(log_num_steps, -1, 3)
 n = position.shape[1]
 
 orientation = read_csv_numpy(
-    'data/orientation.csv', jump=arg.jump
+    data_dir / 'orientation.csv', jump=arg.jump
 ).reshape(log_num_steps, n, 3, 3)
 
 adjacency = read_csv_numpy(
-    'data/adjacency.csv', jump=arg.jump
-).reshape(log_num_steps, n, n)
+    data_dir / 'adjacency.csv', jump=arg.jump
+).reshape(-1, n, n)
+# Some localization runs log only the initial graph. Dynamic graphs require
+# one adjacency row per logged pose; a single matrix is reused for all frames.
+if len(adjacency) == 1:
+    adjacency = np.broadcast_to(adjacency, (log_num_steps, n, n))
+elif len(adjacency) != log_num_steps:
+    parser.error('adjacency.csv must contain one graph or one per logged pose.')
 
-target_position = read_csv_numpy(
-    'data/target_position.csv', jump=arg.jump // arg.multijump
-).reshape(log_num_steps * arg.multijump, -1, 3)
-
-targets = read_json_file('data/targets.jsonlog')
-targets_ids = targets['ids']
+targets_ids = []
+target_position = None
+if (data_dir / 'targets.jsonlog').exists() and \
+        (data_dir / 'target_position.csv').exists():
+    targets = read_json_file(data_dir / 'targets.jsonlog')
+    targets_ids = targets['ids']
+    if targets_ids:
+        target_position = read_csv_numpy(
+            data_dir / 'target_position.csv', jump=arg.jump // arg.multijump
+        ).reshape(-1, len(targets_ids), 3)
 targets_style = ['d', 'P', 's', '*', 'X', '^']
 
 # ------------------------------------------------------------------
 # Plot snapshots
 # ------------------------------------------------------------------
+output_dir.mkdir(parents=True, exist_ok=True)
 bar = progressbar.ProgressBar(maxval=log_num_steps).start()
 
 fig, axes = plt.subplots(
@@ -211,7 +243,7 @@ for k in range(log_num_steps):
             alpha=0.5
         )
     fig.savefig(
-        'xyz_snapshots/frame{}.png'.format(str(k).zfill(3)),
+        output_dir / 'frame{}.png'.format(str(k).zfill(3)),
         format='png',
         dpi=300,
         # bbox_inches="tight",
