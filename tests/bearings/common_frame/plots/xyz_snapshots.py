@@ -218,7 +218,7 @@ for k in range(N):
         )
 
     fig.savefig(
-        output_dir / 'frame{}.png'.format(str(k + k_i_jump).zfill(3)),
+        output_dir / 'frame{}.png'.format(str(k + k_i_jump).zfill(4)),
         format='png',
         dpi=300,
         bbox_inches="tight",

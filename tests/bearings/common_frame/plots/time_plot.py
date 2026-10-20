@@ -173,8 +173,8 @@ ax.tick_params(
     pad=1,
     labelsize='x-small')
 
-ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
-ax.set_ylabel(r'$\Vert u_t \Vert \ (\mathrm{m}/\mathrm{s})$', fontsize=8)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12)
+ax.set_ylabel(r'$\Vert u_t \Vert \ (\mathrm{m}/\mathrm{s})$', fontsize=12)
 ax.grid(1)
 ax.plot(
     t,
@@ -196,8 +196,8 @@ ax.tick_params(
     pad=1,
     labelsize='x-small')
 
-ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
-ax.set_ylabel(r'$\Vert u_c \Vert \ (\mathrm{m}/\mathrm{s})$', fontsize=8)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12)
+ax.set_ylabel(r'$\Vert u_c \Vert \ (\mathrm{m}/\mathrm{s})$', fontsize=12)
 ax.grid(1)
 ax.plot(
     t,
@@ -218,8 +218,8 @@ ax.tick_params(
     pad=1,
     labelsize='x-small')
 
-ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
-ax.set_ylabel(r'$\Vert u_r \Vert \ (\mathrm{m}/\mathrm{s})$', fontsize=8)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12)
+ax.set_ylabel(r'$\Vert u_r \Vert \ (\mathrm{m}/\mathrm{s})$', fontsize=12)
 ax.grid(1)
 ax.plot(
     t,
@@ -241,8 +241,8 @@ ax.tick_params(
     pad=1,
     labelsize='x-small')
 
-ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
-ax.set_ylabel(r'$\Vert u \Vert \ (\mathrm{m}/\mathrm{s})$', fontsize=8)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12)
+ax.set_ylabel(r'$\Vert u \Vert \ (\mathrm{m}/\mathrm{s})$', fontsize=12)
 ax.grid(1)
 ax.plot(
     t,
@@ -263,8 +263,8 @@ fig.savefig(output_dir / 'control.pdf', bbox_inches='tight')
 #     pad=1,
 #     labelsize='x-small')
 
-# ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
-# ax.set_ylabel('state extents', fontsize=8)
+# ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12)
+# ax.set_ylabel('state extents', fontsize=12)
 # ax.grid(1)
 # ax.plot(t, state_extents, lw=0.8, marker='.', ds='steps-post')
 # fig.savefig(output_dir / 'state_extents.pdf', bbox_inches='tight')
@@ -282,10 +282,10 @@ fig.savefig(output_dir / 'control.pdf', bbox_inches='tight')
 #     pad=1,
 #     labelsize='x-small')
 
-# ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
+# ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12)
 # ax.set_ylabel(
 #   r'$\Vert e_{\mathrm{vel}} \Vert \ (\mathrm{m}/\mathrm{s})$',
-#   fontsize=8
+#   fontsize=12
 # )
 # ax.grid(1)
 # ax.plot(
@@ -300,7 +300,7 @@ fig.savefig(output_dir / 'control.pdf', bbox_inches='tight')
 # )
 # ax.set_ylim(bottom=0.0)
 # ax.legend(
-#     fontsize=8, handlelength=1, labelspacing=0.4,
+#     fontsize=12, handlelength=1, labelspacing=0.4,
 #     borderpad=0.2, handletextpad=0.2, framealpha=1.,
 #     ncol=2, columnspacing=1)
 # fig.savefig(output_dir / 'vel_meas_err.pdf', bbox_inches='tight')
@@ -318,10 +318,10 @@ fig.savefig(output_dir / 'control.pdf', bbox_inches='tight')
 #     pad=1,
 #     labelsize='x-small')
 
-# ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
+# ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12)
 # ax.set_ylabel(
 #     r'$\Vert e_{\mathrm{gps}} \Vert \ (\mathrm{m}/\mathrm{s})$',
-#     fontsize=8
+#     fontsize=12
 # )
 # ax.grid(1)
 # ax.plot(
@@ -336,7 +336,7 @@ fig.savefig(output_dir / 'control.pdf', bbox_inches='tight')
 # )
 # ax.set_ylim(bottom=0.0)
 # ax.legend(
-#     fontsize=8, handlelength=1, labelspacing=0.4,
+#     fontsize=12, handlelength=1, labelspacing=0.4,
 #     borderpad=0.2, handletextpad=0.2, framealpha=1.,
 #     ncol=2, columnspacing=1)
 # fig.savefig(output_dir / 'gps_meas_err.pdf', bbox_inches='tight')
@@ -354,8 +354,8 @@ fig.savefig(output_dir / 'control.pdf', bbox_inches='tight')
 #     pad=1,
 #     labelsize='x-small')
 
-# ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
-# ax.set_ylabel(r'$\Vert e_{\mathrm{range}} \Vert$ [$m$]', fontsize=8)
+# ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12)
+# ax.set_ylabel(r'$\Vert e_{\mathrm{range}} \Vert$ [$m$]', fontsize=12)
 # ax.grid(1)
 # ax.plot(
 #     t, np.nanmedian(e_range, axis=1),
@@ -369,7 +369,7 @@ fig.savefig(output_dir / 'control.pdf', bbox_inches='tight')
 # )
 # ax.set_ylim(bottom=0.0)
 # ax.legend(
-#     fontsize=8, handlelength=1, labelspacing=0.4,
+#     fontsize=12, handlelength=1, labelspacing=0.4,
 #     borderpad=0.2, handletextpad=0.2, framealpha=1.,
 #     ncol=2, columnspacing=1)
 # fig.savefig(output_dir / 'range_meas_err.pdf', bbox_inches='tight')
@@ -393,8 +393,8 @@ ax.tick_params(
 )
 ax.grid(1, lw=0.4)
 
-ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
-ax.set_ylabel(r'$x_i\ (\mathrm{m})$', fontsize=8)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12)
+ax.set_ylabel(r'$x_i\ (\mathrm{m})$', fontsize=12)
 ax.plot(t, x[:, subset, 0], lw=0.8, ds='steps-post')
 fig.savefig(output_dir / 'pos_x.pdf', bbox_inches='tight')
 
@@ -417,8 +417,8 @@ ax.tick_params(
 )
 ax.grid(1, lw=0.4)
 
-ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
-ax.set_ylabel(r'$y_i\ (\mathrm{m})$', fontsize=8)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12)
+ax.set_ylabel(r'$y_i\ (\mathrm{m})$', fontsize=12)
 ax.plot(t, x[:, subset, 1], lw=0.8, ds='steps-post')
 fig.savefig(output_dir / 'pos_y.pdf', bbox_inches='tight')
 
@@ -441,24 +441,24 @@ ax.tick_params(
 )
 ax.grid(1, lw=0.4)
 
-ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
-ax.set_ylabel(r'$z_i\ (\mathrm{m})$', fontsize=8)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12)
+ax.set_ylabel(r'$z_i\ (\mathrm{m})$', fontsize=12)
 ax.plot(t, x[:, subset, 2], lw=0.8, ds='steps-post')
 fig.savefig(output_dir / 'pos_z.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot eigenvalues
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(2.5, 1.5))
+fig, ax = plt.subplots(figsize=(6, 2))
 fig.tight_layout()
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
-    labelsize='x-small')
+    labelsize='medium')
 ax.grid(1, lw=0.4)
 
-ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12)
 
 ax.semilogy(
     t,
@@ -481,7 +481,7 @@ ax.semilogy(
 ax.fill_between(t, np.min(re, axis=1), np.max(re, axis=1), alpha=0.3)
 ax.set_ylim(bottom=1e-4, top=10)
 # ax.legend(
-#     fontsize=8, handlelength=1, labelspacing=0.4,
+#     fontsize=12, handlelength=1, labelspacing=0.4,
 #     borderpad=0.2, handletextpad=0.2, framealpha=1.,
 #     ncol=4, columnspacing=1)
 fig.savefig(output_dir / 'eigenvalues.pdf', bbox_inches='tight')
@@ -500,7 +500,7 @@ ax.tick_params(
     labelsize='x-small'
 )
 ax.grid(1, lw=0.4)
-ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12)
 ax.plot(
     t,
     mindist,
@@ -511,7 +511,7 @@ ax.plot(
 ax.fill_between(t, np.min(mindist, axis=1), np.max(mindist, axis=1), alpha=0.3)
 # ax.set_ylim(bottom=0.0)
 # ax.legend(
-#     fontsize=8,
+#     fontsize=12,
 #     handlelength=1,
 #     labelspacing=0.4,
 #     borderpad=0.2,
@@ -556,7 +556,7 @@ if has_estimated_pose:
 
     if len(subset) <= 5:
         for ax in axes:
-            ax.legend(fontsize=8, ncols=len(subset), loc='upper right')
+            ax.legend(fontsize=12, ncols=len(subset), loc='upper right')
     else:
         # A shared legend leaves the error curves and zoom boxes visible for
         # larger networks (the bearing-control test currently has 30 robots).
@@ -600,9 +600,9 @@ if has_estimated_pose:
 #     pad=1,
 #     labelsize='x-small')
 # ax.grid(1, lw=0.4)
-# ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
+# ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12)
 # ax.set_ylabel(
-#     r'$\mathrm{tr}(\mathrm{cov}(e_{\mathrm{pos}}))$ [$m^2$]', fontsize=8
+#     r'$\mathrm{tr}(\mathrm{cov}(e_{\mathrm{pos}}))$ [$m^2$]', fontsize=12
 # )
 # # ax.plot(
 #     t,
@@ -621,7 +621,7 @@ if has_estimated_pose:
 # )
 # ax.set_ylim(bottom=1e-2)
 # ax.legend(
-#     fontsize=8, handlelength=1, labelspacing=0.4,
+#     fontsize=12, handlelength=1, labelspacing=0.4,
 #     borderpad=0.2, handletextpad=0.2, framealpha=1.,
 #     ncol=2, columnspacing=1)
 # fig.savefig(output_dir / 'pos_cov.pdf', bbox_inches='tight')
@@ -638,8 +638,8 @@ ax.tick_params(
     labelsize='x-small'
 )
 ax.grid(1, lw=0.4)
-ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
-# ax.set_ylabel(r'$\ell_{ij} \ (\mathrm{m})$', fontsize=8, labelpad=-2.0)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12)
+# ax.set_ylabel(r'$\ell_{ij} \ (\mathrm{m})$', fontsize=12, labelpad=-2.0)
 ax.plot(
     t,
     targets.shape[1] - np.sum(targets, axis=1),
@@ -650,7 +650,7 @@ ax.plot(
 )
 # ax.set_ylim(bottom=0.0)
 # ax.legend(
-#     fontsize=8,
+#     fontsize=12,
 #     handlelength=1,
 #     labelspacing=0.4,
 #     borderpad=0.2,
@@ -666,18 +666,18 @@ fig.savefig(output_dir / 'targets.pdf', bbox_inches='tight')
 # ------------------------------------------------------------------
 # Plot communication metrics
 # ------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(2.5, 1.5))
+fig, ax = plt.subplots(figsize=(6.0, 2.0))
 fig.tight_layout()
 ax.tick_params(
     axis='both',       # changes apply to the x-axis
     which='both',      # both major and minor ticks are affected
     pad=1,
-    labelsize='x-small'
+    labelsize='medium'
 )
 ax.grid(1, lw=0.4)
-ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=8)
+ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12)
 ax.set_yticks([1, 2, 3, 4, 5])
-# ax.set_ylabel(r'$\ell_{ij} \ (\mathrm{m})$', fontsize=8, labelpad=-2.0)
+# ax.set_ylabel(r'$\ell_{ij} \ (\mathrm{m})$', fontsize=12, labelpad=-2.0)
 ax.plot(
     t,
     fdiam,
@@ -698,7 +698,7 @@ ax.plot(
 ax.fill_between(t, np.min(diam, axis=1), np.max(diam, axis=1), alpha=0.3)
 # ax.set_ylim(bottom=0.0)
 # ax.legend(
-#     fontsize=8,
+#     fontsize=12,
 #     handlelength=1,
 #     labelspacing=0.4,
 #     borderpad=0.2,
