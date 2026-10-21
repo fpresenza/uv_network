@@ -50,7 +50,7 @@ class TestAngleBasedPoseObserver(unittest.TestCase):
             for Ri in self.R
         ])
 
-    def test_simulation_matches_original_results_through_switching_roles(self):
+    def test_exact_estimates_follow_simulation_through_switching_roles(self):
         reference = simulation_step()
         original_edges = reference['edge_set']
         # Exercise both of the script's graphs in a short regression run.
@@ -60,7 +60,7 @@ class TestAngleBasedPoseObserver(unittest.TestCase):
             'nodes': np.arange(self.n),
             'p_int': [EulerIntegrator(pi) for pi in self.p],
             'R_int': [EulerIntegratorOrtogonalGroup(Ri) for Ri in self.R],
-            'observer': AngleBasedPoseObserver(self.n, self.hatp, self.hatR),
+            'observer': AngleBasedPoseObserver(self.n, self.p, self.R),
             'control_u': {
                 i: (lambda t, i=i: np.array([
                     np.cos((i + 1) * t), np.sin(t + i), 0.5
@@ -71,27 +71,102 @@ class TestAngleBasedPoseObserver(unittest.TestCase):
                 for i in range(self.n)
             },
         })
-        # Captured from the inline observer before the simulation used the class.
-        fixture = Path(__file__).parent / 'fixtures/localization_switching.txt'
-        snapshots = np.loadtxt(fixture)
-        expected = {row[0]: row[1:] for row in snapshots}
-        checked = 0
-
         for step in range(1, 1001):
             t = round(step * 0.001, 3)
             reference['t'] = t
             reference['simu_step']()
             observer = reference['observer']
             self.assertEqual(observer.t, t)
-            if t in expected:
-                actual = np.r_[
-                    observer.position.ravel(), observer.orientation.ravel()
-                ]
-                np.testing.assert_allclose(
-                    actual, expected[t], rtol=1e-12, atol=1e-12
-                )
-                checked += 1
-        self.assertEqual(checked, len(expected))
+            np.testing.assert_allclose(
+                observer.position, reference['extract_x'](reference['p_int']),
+                rtol=0, atol=1e-7,
+            )
+            np.testing.assert_allclose(
+                observer.orientation, reference['extract_x'](reference['R_int']),
+                rtol=0, atol=1e-7,
+            )
+
+    def test_corrections_are_negative_gradients_of_one_cost(self):
+        rng = np.random.RandomState(17)
+        u = rng.normal(size=(self.n, 3))
+        omega = rng.normal(size=(self.n, 3))
+        # Include a reciprocal pair, overlapping angles, and a receiving-only node.
+        edges = np.array([[0, 1], [0, 2], [0, 3], [1, 0], [1, 2], [2, 4]])
+        bearings = np.full((self.n, self.n, 3), np.nan)
+        rates = np.full_like(bearings, np.nan)
+        v = np.einsum('nij,nj->ni', self.R, u)
+        for i, j in edges:
+            r = self.p[j] - self.p[i]
+            b = r / np.linalg.norm(r)
+            bearings[i, j] = self.R[i].T @ b
+            b_dot = (v[j] - v[i] - b * b.dot(v[j] - v[i])) / np.linalg.norm(r)
+            rates[i, j] = self.R[i].T @ b_dot - np.cross(omega[i], bearings[i, j])
+
+        k_alpha, k_dalpha, k_beta = 1.3, 2.1, 0.8
+        k_p, k_R = 2.3, 1.7
+        observer = AngleBasedPoseObserver(
+            self.n, self.hatp, self.hatR,
+            k_alpha=k_alpha, k_dalpha=k_dalpha, k_beta=k_beta,
+            k_p=k_p, k_R=k_R,
+        )
+        observer.update(0.0, u, omega, bearings, rates, edges)
+
+        def cost(p, R):
+            """Evaluate residual costs directly, independently of their gradients."""
+            velocity = np.einsum('nij,nj->ni', R, u)
+            total = 0.0
+            for i in range(self.n):
+                neighbors = edges[edges[:, 0] == i, 1]
+                b, b_dot = {}, {}
+                for j in neighbors:
+                    r = p[j] - p[i]
+                    d = np.linalg.norm(r)
+                    b[j] = r / d
+                    dv = velocity[j] - velocity[i]
+                    b_dot[j] = (dv - b[j] * b[j].dot(dv)) / d
+                    total += k_beta * (
+                        1.0 - bearings[i, j].dot(R[i].T @ b[j])
+                    )
+                for index, j in enumerate(neighbors):
+                    for k in neighbors[index + 1:]:
+                        e_angle = b[j].dot(b[k]) - bearings[i, j].dot(bearings[i, k])
+                        e_rate = (
+                            b_dot[j].dot(b[k]) + b[j].dot(b_dot[k])
+                            - rates[i, j].dot(bearings[i, k])
+                            - bearings[i, j].dot(rates[i, k])
+                        )
+                        total += 0.5 * k_alpha * e_angle**2 + 0.5 * k_dalpha * e_rate**2
+            return total
+
+        eps = 1e-6
+        grad_p = np.zeros_like(self.hatp)
+        grad_R = np.zeros_like(self.hatp)
+        for i in range(self.n):
+            for axis in range(3):
+                perturbation = eps * np.eye(3)[axis]
+                plus_p, minus_p = self.hatp.copy(), self.hatp.copy()
+                plus_p[i] += perturbation
+                minus_p[i] -= perturbation
+                grad_p[i, axis] = (
+                    cost(plus_p, self.hatR) - cost(minus_p, self.hatR)
+                ) / (2 * eps)
+                plus_R, minus_R = self.hatR.copy(), self.hatR.copy()
+                plus_R[i] = self.hatR[i] @ rotation_matrix_from_vector(perturbation)
+                minus_R[i] = self.hatR[i] @ rotation_matrix_from_vector(-perturbation)
+                grad_R[i, axis] = (
+                    cost(self.hatp, plus_R) - cost(self.hatp, minus_R)
+                ) / (2 * eps)
+
+        # An update at t=0 caches derivatives without changing the estimates.
+        actual_p = np.array([integrator.u() for integrator in observer._p_int])
+        actual_R = np.array([integrator.u() for integrator in observer._R_int])
+        np.testing.assert_allclose(
+            actual_p - np.einsum('nij,nj->ni', self.hatR, u),
+            -k_p * grad_p, rtol=1e-6, atol=1e-9,
+        )
+        np.testing.assert_allclose(
+            actual_R - omega, -k_R * grad_R, rtol=1e-6, atol=1e-9,
+        )
 
     def test_estimates_are_owned_by_observer(self):
         observer = AngleBasedPoseObserver(self.n, self.hatp, self.hatR)

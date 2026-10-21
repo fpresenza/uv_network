@@ -464,7 +464,8 @@ hatR = np.array([
 ])
 observer = AngleBasedPoseObserver(
     n, hatp, hatR,
-    k_a=2000.0, k_s=10000.0, k_o1=2.0, k_o2=200.0, time=t,
+    k_alpha=0.2, k_dalpha=1.0, k_beta=0.01,
+    k_p=10000.0, k_R=200.0, time=t,
 )
 
 rigidity_val = np.empty(3, dtype=np.float64)

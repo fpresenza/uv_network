@@ -21,9 +21,8 @@ def _complete_angle_set(out_neighbors):
 class AngleBasedPoseObserver(object):
     """First-order pose observer for a network of robots in 3D.
 
-    This extracts the observer from ``tests/angles/anl/simu_coupled_3.py``.
-    It keeps the angle-based shape correction, angle-rate scale correction,
-    and bearing/angle-rate orientation corrections unchanged.
+    Propagation is corrected by the negative gradients of angle, angle-rate,
+    and bearing costs.
 
     Parameters
     ----------
@@ -33,9 +32,17 @@ class AngleBasedPoseObserver(object):
         Initial estimated positions in the common estimation frame.
     orientation : array_like, shape (n, 3, 3)
         Initial estimated rotations from body frames to the estimation frame.
-    k_a, k_s, k_o1, k_o2 : float
-        Gains for shape, scale, bearing orientation, and angle-rate orientation
-        corrections, respectively. Defaults match the simulation script.
+    k_alpha, k_dalpha, k_beta : float
+        Finite, nonnegative weights of the angle, angle-rate, and
+        bearing costs. Their weighted sum is the common correction cost
+        ``L = k_alpha * L_angle + k_dalpha * L_angle_rate + k_beta * L_bearing``.
+    k_p, k_R : float
+        Finite, strictly positive position and orientation gradient gains.
+        Corrections are ``-k_p * grad_position(L)`` and
+        ``-k_R * grad_orientation(L)``. Equivalently, the product metric has
+        position weight ``1 / k_p`` and orientation weight ``1 / k_R`` relative
+        to the Euclidean and half-trace metrics, respectively. These gains
+        multiply only the corrections, not the kinematic propagation.
     time : float
         Initial time in seconds.
 
@@ -54,7 +61,8 @@ class AngleBasedPoseObserver(object):
 
     def __init__(
             self, n, position, orientation,
-            k_a=2000.0, k_s=10000.0, k_o1=2.0, k_o2=200.0, time=0.0):
+            k_alpha=0.2, k_dalpha=1.0, k_beta=0.01,
+            k_p=10000.0, k_R=200.0, time=0.0):
         position = np.asarray(position, dtype=float)
         orientation = np.asarray(orientation, dtype=float)
         if n < 1 or int(n) != n:
@@ -63,13 +71,21 @@ class AngleBasedPoseObserver(object):
             raise ValueError('position must have shape (n, 3).')
         if orientation.shape != (n, 3, 3):
             raise ValueError('orientation must have shape (n, 3, 3).')
+        for name, weight in (
+                ('k_alpha', k_alpha), ('k_dalpha', k_dalpha), ('k_beta', k_beta)):
+            if not np.isfinite(weight) or weight < 0:
+                raise ValueError(f'{name} must be finite and nonnegative.')
+        for name, gain in (('k_p', k_p), ('k_R', k_R)):
+            if not np.isfinite(gain) or gain <= 0:
+                raise ValueError(f'{name} must be finite and strictly positive.')
 
         self.n = int(n)
         self.t = float(time)
-        self.k_a = k_a
-        self.k_s = k_s
-        self.k_o1 = k_o1
-        self.k_o2 = k_o2
+        self.k_alpha = k_alpha
+        self.k_dalpha = k_dalpha
+        self.k_beta = k_beta
+        self.k_p = k_p
+        self.k_R = k_R
         self._p_int = [EulerIntegrator(pi, t=self.t) for pi in position]
         self._R_int = [
             EulerIntegratorOrtogonalGroup(Ri, t=self.t) for Ri in orientation
@@ -160,10 +176,16 @@ class AngleBasedPoseObserver(object):
                 for j in out_neighbors
             }
 
-            # --- bearing-based orientation correction --- #
+            # --- bearing-based position/orientation corrections --- #
             for j in out_neighbors:
-                corr_R[i] += self.k_o1 * np.cross(
-                    bearings_i[j], hatR[i].T.dot(hatp[j] - hatp[i])
+                bij = hat_bearings[j]
+                c = self.k_beta * _projection_matrix(bij).dot(
+                    hatR[i].dot(bearings_i[j])
+                ) / hat_distances[j]
+                corr_p[i] -= c
+                corr_p[j] += c
+                corr_R[i] += self.k_beta * np.cross(
+                    bearings_i[j], hatR[i].T.dot(bij)
                 )
 
             for j, k in _complete_angle_set(out_neighbors):
@@ -183,8 +205,8 @@ class AngleBasedPoseObserver(object):
                 hat_aijk = bij.dot(bik)
                 e_aijk = hat_aijk - aijk
 
-                c_j = self.k_a * e_aijk * Xijk
-                c_k = self.k_a * e_aijk * Xikj
+                c_j = self.k_alpha * e_aijk * Xijk
+                c_k = self.k_alpha * e_aijk * Xikj
                 corr_p[i] += c_j + c_k
                 corr_p[j] -= c_j
                 corr_p[k] -= c_k
@@ -214,10 +236,10 @@ class AngleBasedPoseObserver(object):
                 )
                 Eijk = Pij.dot(Pik) / (dij * dik)
 
-                c_j = self.k_s * e_dot_aijk * (
+                c_j = self.k_dalpha * e_dot_aijk * (
                     Eijk.dot(hat_v_ik) - Dijk.dot(hat_v_ij)
                 )
-                c_k = self.k_s * e_dot_aijk * (
+                c_k = self.k_dalpha * e_dot_aijk * (
                     Eijk.T.dot(hat_v_ij) - Dikj.dot(hat_v_ik)
                 )
                 corr_p[i] += c_j + c_k
@@ -225,16 +247,16 @@ class AngleBasedPoseObserver(object):
                 corr_p[k] -= c_k
 
                 # --- angle-rate-based orientation correction --- #
-                c_j = self.k_o2 * (dot_hat_aijk - dot_aijk) * Xijk
-                c_k = self.k_o2 * (dot_hat_aijk - dot_aijk) * Xikj
+                c_j = self.k_dalpha * e_dot_aijk * Xijk
+                c_k = self.k_dalpha * e_dot_aijk * Xikj
                 buffer[i] += c_j + c_k
                 buffer[j] -= c_j
                 buffer[k] -= c_k
 
         for i in range(self.n):
             corr_R[i] += np.cross(ub[i], hatR[i].T.dot(buffer[i]))
-            self._p_int[i].step(time, hatR[i].dot(ub[i]) + corr_p[i])
-            self._R_int[i].step_left(time, wb[i] + corr_R[i])
+            self._p_int[i].step(time, hatR[i].dot(ub[i]) + self.k_p * corr_p[i])
+            self._R_int[i].step_left(time, wb[i] + self.k_R * corr_R[i])
 
         self.t = time
         return self.position, self.orientation
