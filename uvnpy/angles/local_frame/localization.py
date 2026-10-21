@@ -167,25 +167,17 @@ class AngleBasedPoseObserver(object):
             hat_bearings = {
                 j: unit_vector(hatp[j] - hatp[i]) for j in out_neighbors
             }
-            bearings_i = {
-                j: np.asarray(bearings[i][j], dtype=float)
-                for j in out_neighbors
-            }
-            bearing_rates_i = {
-                j: np.asarray(bearing_rates[i][j], dtype=float)
-                for j in out_neighbors
-            }
 
             # --- bearing-based position/orientation corrections --- #
             for j in out_neighbors:
                 bij = hat_bearings[j]
                 c = self.k_beta * _projection_matrix(bij).dot(
-                    hatR[i].dot(bearings_i[j])
+                    hatR[i].dot(bearings[i][j])
                 ) / hat_distances[j]
                 corr_p[i] -= c
                 corr_p[j] += c
                 corr_R[i] += self.k_beta * np.cross(
-                    bearings_i[j], hatR[i].T.dot(bij)
+                    bearings[i][j], hatR[i].T.dot(bij)
                 )
 
             for j, k in _complete_angle_set(out_neighbors):
@@ -201,7 +193,7 @@ class AngleBasedPoseObserver(object):
                 Xikj = Pik.dot(bij) / dik
 
                 # --- angle-based shape correction --- #
-                aijk = bearings_i[j].dot(bearings_i[k])
+                aijk = bearings[i][j].dot(bearings[i][k])
                 hat_aijk = bij.dot(bik)
                 e_aijk = hat_aijk - aijk
 
@@ -220,8 +212,8 @@ class AngleBasedPoseObserver(object):
                 hat_v_ik = hat_v_k - hat_v_i
 
                 dot_aijk = (
-                    bearings_i[k].dot(bearing_rates_i[j])
-                    + bearings_i[j].dot(bearing_rates_i[k])
+                    bearings[i][k].dot(bearing_rates[i][j])
+                    + bearings[i][j].dot(bearing_rates[i][k])
                 )
                 dot_hat_aijk = Xijk.dot(hat_v_ij) + Xikj.dot(hat_v_ik)
                 e_dot_aijk = dot_hat_aijk - dot_aijk
