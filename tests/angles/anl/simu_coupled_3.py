@@ -211,7 +211,9 @@ observer = AngleBasedPoseObserver(
     n, hatp, hatR,
     k_alpha=0.2, k_dalpha=1.0, k_beta=0.01,
     k_p=10000.0, k_R=200.0, time=t,
-    k_d=1e-5, distance_pair=(0, 1)
+    k_d=1e-5, distance_pair=(0, 1),
+    use_bearing_position=False,
+    use_angle_rate_position=False,
 )
 
 # define velocities

@@ -22,7 +22,9 @@ class AngleBasedPoseObserver(object):
     """First-order pose observer for a network of robots in 3D.
 
     Propagation is corrected by the negative gradients of angle, angle-rate,
-    bearing, and optional distance costs.
+    bearing, and optional distance costs. By default, both pose components
+    use the full cost gradient. Flags can omit angle-rate and bearing position
+    corrections independently, while retaining their orientation corrections.
 
     Parameters
     ----------
@@ -40,8 +42,9 @@ class AngleBasedPoseObserver(object):
         to zero, disabling distance correction.
     k_p, k_R : float
         Finite, strictly positive position and orientation gradient gains.
-        Corrections are ``-k_p * grad_position(L)`` and
-        ``-k_R * grad_orientation(L)``. Equivalently, the product metric has
+        With both position corrections enabled, corrections are
+        ``-k_p * grad_position(L)`` and ``-k_R * grad_orientation(L)``.
+        Equivalently, the product metric has
         position weight ``1 / k_p`` and orientation weight ``1 / k_R`` relative
         to the Euclidean and half-trace metrics, respectively. These gains
         multiply only the corrections, not the kinematic propagation.
@@ -50,6 +53,14 @@ class AngleBasedPoseObserver(object):
     distance_pair : tuple of int, optional
         Fixed pair of distinct robot indices ``(a, b)`` measuring distance,
         independent of the directed bearing edge set. Required when ``k_d > 0``.
+    use_angle_rate_position : bool, optional
+        Include the angle-rate position correction, default True. If False,
+        skip that position gradient and its associated matrix calculations;
+        the angle-rate orientation correction remains active.
+    use_bearing_position : bool, optional
+        Include the bearing position correction, default True. If False,
+        the bearing orientation correction remains active. Neither flag
+        affects the angle-based shape or distance-based scale corrections.
 
     Examples
     --------
@@ -77,7 +88,8 @@ class AngleBasedPoseObserver(object):
     def __init__(
             self, n, position, orientation,
             k_alpha=0.2, k_dalpha=1.0, k_beta=0.01,
-            k_p=10000.0, k_R=200.0, time=0.0, k_d=0.0, distance_pair=None):
+            k_p=10000.0, k_R=200.0, time=0.0, k_d=0.0, distance_pair=None,
+            use_angle_rate_position=True, use_bearing_position=True):
         position = np.asarray(position, dtype=float)
         orientation = np.asarray(orientation, dtype=float)
         if n < 1 or int(n) != n:
@@ -114,6 +126,8 @@ class AngleBasedPoseObserver(object):
         self.distance_pair = distance_pair
         self.k_p = k_p
         self.k_R = k_R
+        self.use_angle_rate_position = use_angle_rate_position
+        self.use_bearing_position = use_bearing_position
         self._p_int = [EulerIntegrator(pi, t=self.t) for pi in position]
         self._R_int = [
             EulerIntegratorOrtogonalGroup(Ri, t=self.t) for Ri in orientation
@@ -218,11 +232,12 @@ class AngleBasedPoseObserver(object):
             # --- bearing-based position/orientation corrections --- #
             for j in out_neighbors:
                 bij = hat_bearings[j]
-                c = self.k_beta * _projection_matrix(bij).dot(
-                    hatR[i].dot(bearings[i][j])
-                ) / hat_distances[j]
-                corr_p[i] -= c
-                corr_p[j] += c
+                if self.use_bearing_position:
+                    c = self.k_beta * _projection_matrix(bij).dot(
+                        hatR[i].dot(bearings[i][j])
+                    ) / hat_distances[j]
+                    corr_p[i] -= c
+                    corr_p[j] += c
                 corr_R[i] += self.k_beta * np.cross(
                     bearings[i][j], hatR[i].T.dot(bij)
                 )
@@ -265,25 +280,26 @@ class AngleBasedPoseObserver(object):
                 dot_hat_aijk = Xijk.dot(hat_v_ij) + Xikj.dot(hat_v_ik)
                 e_dot_aijk = dot_hat_aijk - dot_aijk
 
-                Dijk = (
-                    hat_aijk * Pij / dij**2
-                    + (np.outer(Xijk, bij) + np.outer(bij, Xijk)) / dij
-                )
-                Dikj = (
-                    hat_aijk * Pik / dik**2
-                    + (np.outer(Xikj, bik) + np.outer(bik, Xikj)) / dik
-                )
-                Eijk = Pij.dot(Pik) / (dij * dik)
+                if self.use_angle_rate_position:
+                    Dijk = (
+                        hat_aijk * Pij / dij**2
+                        + (np.outer(Xijk, bij) + np.outer(bij, Xijk)) / dij
+                    )
+                    Dikj = (
+                        hat_aijk * Pik / dik**2
+                        + (np.outer(Xikj, bik) + np.outer(bik, Xikj)) / dik
+                    )
+                    Eijk = Pij.dot(Pik) / (dij * dik)
 
-                c_j = self.k_dalpha * e_dot_aijk * (
-                    Eijk.dot(hat_v_ik) - Dijk.dot(hat_v_ij)
-                )
-                c_k = self.k_dalpha * e_dot_aijk * (
-                    Eijk.T.dot(hat_v_ij) - Dikj.dot(hat_v_ik)
-                )
-                corr_p[i] += c_j + c_k
-                corr_p[j] -= c_j
-                corr_p[k] -= c_k
+                    c_j = self.k_dalpha * e_dot_aijk * (
+                        Eijk.dot(hat_v_ik) - Dijk.dot(hat_v_ij)
+                    )
+                    c_k = self.k_dalpha * e_dot_aijk * (
+                        Eijk.T.dot(hat_v_ij) - Dikj.dot(hat_v_ik)
+                    )
+                    corr_p[i] += c_j + c_k
+                    corr_p[j] -= c_j
+                    corr_p[k] -= c_k
 
                 # --- angle-rate-based orientation correction --- #
                 c_j = self.k_dalpha * e_dot_aijk * Xijk

@@ -86,7 +86,7 @@ class TestAngleBasedPoseObserver(unittest.TestCase):
                 rtol=0, atol=1e-7,
             )
 
-    def test_corrections_are_negative_gradients_of_one_cost(self):
+    def test_corrections_match_selected_cost_gradients(self):
         rng = np.random.RandomState(17)
         u = rng.normal(size=(self.n, 3))
         omega = rng.normal(size=(self.n, 3))
@@ -115,7 +115,7 @@ class TestAngleBasedPoseObserver(unittest.TestCase):
             0.0, u, omega, bearings, rates, edges, distance=measured_distance
         )
 
-        def cost(p, R):
+        def cost(p, R, use_angle_rate_position=True, use_bearing_position=True):
             """Evaluate residual costs directly, independently of their gradients."""
             velocity = np.einsum('nij,nj->ni', R, u)
             r = p[distance_pair[1]] - p[distance_pair[0]]
@@ -129,9 +129,10 @@ class TestAngleBasedPoseObserver(unittest.TestCase):
                     b[j] = r / d
                     dv = velocity[j] - velocity[i]
                     b_dot[j] = (dv - b[j] * b[j].dot(dv)) / d
-                    total += k_beta * (
-                        1.0 - bearings[i, j].dot(R[i].T @ b[j])
-                    )
+                    if use_bearing_position:
+                        total += k_beta * (
+                            1.0 - bearings[i, j].dot(R[i].T @ b[j])
+                        )
                 for index, j in enumerate(neighbors):
                     for k in neighbors[index + 1:]:
                         e_angle = b[j].dot(b[k]) - bearings[i, j].dot(bearings[i, k])
@@ -140,7 +141,9 @@ class TestAngleBasedPoseObserver(unittest.TestCase):
                             - rates[i, j].dot(bearings[i, k])
                             - bearings[i, j].dot(rates[i, k])
                         )
-                        total += 0.5 * k_alpha * e_angle**2 + 0.5 * k_dalpha * e_rate**2
+                        total += 0.5 * k_alpha * e_angle**2
+                        if use_angle_rate_position:
+                            total += 0.5 * k_dalpha * e_rate**2
             return total
 
         eps = 1e-6
@@ -172,6 +175,42 @@ class TestAngleBasedPoseObserver(unittest.TestCase):
         np.testing.assert_allclose(
             actual_R - omega, -k_R * grad_R, rtol=1e-6, atol=1e-9,
         )
+
+        # Removing position terms must preserve the other position gradients
+        # and the complete orientation correction at the same pose snapshot.
+        for use_rate, use_bearing in [(False, True), (True, False), (False, False)]:
+            with self.subTest(use_rate=use_rate, use_bearing=use_bearing):
+                selected = AngleBasedPoseObserver(
+                    self.n, self.hatp, self.hatR,
+                    k_alpha=k_alpha, k_dalpha=k_dalpha, k_beta=k_beta,
+                    k_p=k_p, k_R=k_R, k_d=k_d, distance_pair=distance_pair,
+                    use_angle_rate_position=use_rate, use_bearing_position=use_bearing,
+                )
+                selected.update(
+                    0.0, u, omega, bearings, rates, edges, distance=measured_distance
+                )
+                selected_grad_p = np.zeros_like(self.hatp)
+                for i in range(self.n):
+                    for axis in range(3):
+                        perturbation = eps * np.eye(3)[axis]
+                        plus_p, minus_p = self.hatp.copy(), self.hatp.copy()
+                        plus_p[i] += perturbation
+                        minus_p[i] -= perturbation
+                        selected_grad_p[i, axis] = (
+                            cost(plus_p, self.hatR, use_rate, use_bearing)
+                            - cost(minus_p, self.hatR, use_rate, use_bearing)
+                        ) / (2 * eps)
+                selected_p = np.array([
+                    integrator.u() for integrator in selected._p_int
+                ])
+                selected_R = np.array([
+                    integrator.u() for integrator in selected._R_int
+                ])
+                np.testing.assert_allclose(
+                    selected_p - np.einsum('nij,nj->ni', self.hatR, u),
+                    -k_p * selected_grad_p, rtol=1e-6, atol=1e-9,
+                )
+                np.testing.assert_array_equal(selected_R, actual_R)
 
     def test_distance_only_correction_reduces_scale_error_without_bearing_edges(self):
         p = np.array([[0.0, 0.0, 0.0], [4.0, 0.0, 0.0], [0.0, 2.0, 0.0]])
