@@ -103,18 +103,23 @@ class TestAngleBasedPoseObserver(unittest.TestCase):
             rates[i, j] = self.R[i].T @ b_dot - np.cross(omega[i], bearings[i, j])
 
         k_alpha, k_dalpha, k_beta = 1.3, 2.1, 0.8
+        k_d, distance_pair = 0.02, (3, 4)
+        measured_distance = np.linalg.norm(self.p[4] - self.p[3])
         k_p, k_R = 2.3, 1.7
         observer = AngleBasedPoseObserver(
             self.n, self.hatp, self.hatR,
             k_alpha=k_alpha, k_dalpha=k_dalpha, k_beta=k_beta,
-            k_p=k_p, k_R=k_R,
+            k_p=k_p, k_R=k_R, k_d=k_d, distance_pair=distance_pair,
         )
-        observer.update(0.0, u, omega, bearings, rates, edges)
+        observer.update(
+            0.0, u, omega, bearings, rates, edges, distance=measured_distance
+        )
 
         def cost(p, R):
             """Evaluate residual costs directly, independently of their gradients."""
             velocity = np.einsum('nij,nj->ni', R, u)
-            total = 0.0
+            r = p[distance_pair[1]] - p[distance_pair[0]]
+            total = 0.25 * k_d * (r.dot(r) - measured_distance**2)**2
             for i in range(self.n):
                 neighbors = edges[edges[:, 0] == i, 1]
                 b, b_dot = {}, {}
@@ -167,6 +172,45 @@ class TestAngleBasedPoseObserver(unittest.TestCase):
         np.testing.assert_allclose(
             actual_R - omega, -k_R * grad_R, rtol=1e-6, atol=1e-9,
         )
+
+    def test_distance_only_correction_reduces_scale_error_without_bearing_edges(self):
+        p = np.array([[0.0, 0.0, 0.0], [4.0, 0.0, 0.0], [0.0, 2.0, 0.0]])
+        R = np.tile(np.eye(3), (3, 1, 1))
+        pair = [1, 0]
+        observer = AngleBasedPoseObserver(
+            3, p, R, k_d=0.5, distance_pair=pair, k_p=0.2,
+        )
+        pair[:] = [0, 2]  # The constructor must own its fixed measuring pair.
+        np.testing.assert_array_equal(observer.distance_pair, [1, 0])
+        zero = np.zeros((3, 3))
+        observer.update(0.0, zero, zero, {}, {}, [], distance=2.0)
+        position, orientation = observer.update(
+            0.01, zero, zero, {}, {}, [], distance=2.0
+        )
+        estimated_distance = np.linalg.norm(position[1] - position[0])
+        self.assertLess(abs(estimated_distance - 2.0), 2.0)
+        np.testing.assert_allclose(position.mean(axis=0), p.mean(axis=0), atol=1e-14)
+        np.testing.assert_array_equal(position[2], p[2])
+        np.testing.assert_array_equal(orientation, R)
+
+    def test_distance_configuration_and_current_measurement_are_required(self):
+        with self.assertRaises(ValueError):
+            AngleBasedPoseObserver(self.n, self.hatp, self.hatR, k_d=1.0)
+        with self.assertRaises(ValueError):
+            AngleBasedPoseObserver(
+                self.n, self.hatp, self.hatR, k_d=1.0, distance_pair=(0, 0)
+            )
+        observer = AngleBasedPoseObserver(
+            self.n, self.hatp, self.hatR, k_d=0.01, distance_pair=(0, 1),
+        )
+        zero = np.zeros((self.n, 3))
+        measured_distance = np.linalg.norm(self.hatp[1] - self.hatp[0])
+        observer.update(0.0, zero, zero, {}, {}, [], distance=measured_distance)
+        for measurement in [None, np.nan, -1.0]:
+            with self.subTest(distance=measurement), self.assertRaises(ValueError):
+                observer.update(0.001, zero, zero, {}, {}, [], distance=measurement)
+        self.assertEqual(observer.t, 0.0)
+        np.testing.assert_array_equal(observer.position, self.hatp)
 
     def test_estimates_are_owned_by_observer(self):
         observer = AngleBasedPoseObserver(self.n, self.hatp, self.hatR)

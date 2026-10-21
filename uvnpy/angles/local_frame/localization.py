@@ -22,7 +22,7 @@ class AngleBasedPoseObserver(object):
     """First-order pose observer for a network of robots in 3D.
 
     Propagation is corrected by the negative gradients of angle, angle-rate,
-    and bearing costs.
+    bearing, and optional distance costs.
 
     Parameters
     ----------
@@ -32,10 +32,12 @@ class AngleBasedPoseObserver(object):
         Initial estimated positions in the common estimation frame.
     orientation : array_like, shape (n, 3, 3)
         Initial estimated rotations from body frames to the estimation frame.
-    k_alpha, k_dalpha, k_beta : float
-        Finite, nonnegative weights of the angle, angle-rate, and
-        bearing costs. Their weighted sum is the common correction cost
-        ``L = k_alpha * L_angle + k_dalpha * L_angle_rate + k_beta * L_bearing``.
+    k_alpha, k_dalpha, k_beta, k_d : float
+        Finite, nonnegative weights of the angle, angle-rate, bearing, and
+        distance costs. Their weighted sum is the common correction cost
+        ``L = k_alpha * L_angle + k_dalpha * L_angle_rate
+        + k_beta * L_bearing + k_d * L_distance``. The distance weight ``k_d`` defaults
+        to zero, disabling distance correction.
     k_p, k_R : float
         Finite, strictly positive position and orientation gradient gains.
         Corrections are ``-k_p * grad_position(L)`` and
@@ -45,6 +47,9 @@ class AngleBasedPoseObserver(object):
         multiply only the corrections, not the kinematic propagation.
     time : float
         Initial time in seconds.
+    distance_pair : tuple of int, optional
+        Fixed pair of distinct robot indices ``(a, b)`` measuring distance,
+        independent of the directed bearing edge set. Required when ``k_d > 0``.
 
     Examples
     --------
@@ -55,14 +60,24 @@ class AngleBasedPoseObserver(object):
             t, u, omega, bearings, bearing_rates, edge_set
         )
 
+    To enable distance correction, set its weight and measuring pair once,
+    then supply a current measured distance in metres on every update::
+
+        observer = AngleBasedPoseObserver(
+            n, hatp0, hatR0, k_d=0.001, distance_pair=(0, 1)
+        )
+        hatp, hatR = observer.update(
+            t, u, omega, bearings, bearing_rates, edge_set, distance=d01
+        )
+
     ``position`` and ``orientation`` properties return copies of the stored
-    estimates. No true poses or measured distances are used by this class.
+    estimates. No true poses are used by this class.
     """
 
     def __init__(
             self, n, position, orientation,
             k_alpha=0.2, k_dalpha=1.0, k_beta=0.01,
-            k_p=10000.0, k_R=200.0, time=0.0):
+            k_p=10000.0, k_R=200.0, time=0.0, k_d=0.0, distance_pair=None):
         position = np.asarray(position, dtype=float)
         orientation = np.asarray(orientation, dtype=float)
         if n < 1 or int(n) != n:
@@ -72,18 +87,31 @@ class AngleBasedPoseObserver(object):
         if orientation.shape != (n, 3, 3):
             raise ValueError('orientation must have shape (n, 3, 3).')
         for name, weight in (
-                ('k_alpha', k_alpha), ('k_dalpha', k_dalpha), ('k_beta', k_beta)):
+                ('k_alpha', k_alpha), ('k_dalpha', k_dalpha),
+                ('k_beta', k_beta), ('k_d', k_d)):
             if not np.isfinite(weight) or weight < 0:
                 raise ValueError(f'{name} must be finite and nonnegative.')
         for name, gain in (('k_p', k_p), ('k_R', k_R)):
             if not np.isfinite(gain) or gain <= 0:
                 raise ValueError(f'{name} must be finite and strictly positive.')
+        if distance_pair is not None:
+            pair = np.asarray(distance_pair)
+            if (pair.shape != (2,) or not np.issubdtype(pair.dtype, np.integer)
+                    or np.any(pair < 0) or np.any(pair >= n) or pair[0] == pair[1]):
+                raise ValueError(
+                    'distance_pair must contain two distinct robot indices.'
+                )
+            distance_pair = tuple(int(index) for index in pair)
+        elif k_d > 0:
+            raise ValueError('distance_pair is required when k_d > 0.')
 
         self.n = int(n)
         self.t = float(time)
         self.k_alpha = k_alpha
         self.k_dalpha = k_dalpha
         self.k_beta = k_beta
+        self.k_d = k_d
+        self.distance_pair = distance_pair
         self.k_p = k_p
         self.k_R = k_R
         self._p_int = [EulerIntegrator(pi, t=self.t) for pi in position]
@@ -101,7 +129,7 @@ class AngleBasedPoseObserver(object):
         """Current estimated orientations, shape (n, 3, 3), as a copy."""
         return np.array([integrator.x() for integrator in self._R_int])
 
-    def update(self, time, u, omega, bearings, bearing_rates, edge_set):
+    def update(self, time, u, omega, bearings, bearing_rates, edge_set, distance=None):
         """Compute corrections and advance the stored pose estimates.
 
         Parameters
@@ -125,6 +153,10 @@ class AngleBasedPoseObserver(object):
             define measured angles centered at i. The edge set may change at
             every update; the order of each robot's outgoing edges is preserved.
             An empty edge set, either [] or an array of shape (0, 2), is allowed.
+        distance : float, optional
+            Current measured distance in metres between the robots in
+            ``distance_pair``, not its square. Must be finite and strictly
+            positive on every update when ``k_d > 0``; ignored otherwise.
 
         Returns
         -------
@@ -151,12 +183,27 @@ class AngleBasedPoseObserver(object):
             E = E.reshape(0, 2)
         if E.ndim != 2 or E.shape[1] != 2:
             raise ValueError('edge_set must have shape (m, 2).')
+        if self.k_d > 0:
+            if distance is None:
+                raise ValueError('distance is required on every update when k_d > 0.')
+            distance = np.asarray(distance, dtype=float)
+            if distance.ndim != 0 or not np.isfinite(distance) or distance <= 0:
+                raise ValueError('distance must be a finite, strictly positive scalar.')
+            distance = float(distance)
 
         hatp = self.position
         hatR = self.orientation
         corr_p = np.zeros((self.n, 3), dtype=np.float64)
         corr_R = np.zeros((self.n, 3), dtype=np.float64)
         buffer = np.zeros((self.n, 3), dtype=np.float64)
+
+        # --- distance-based scale correction for the fixed measuring pair --- #
+        if self.k_d > 0:
+            a, b = self.distance_pair
+            r = hatp[b] - hatp[a]
+            c = self.k_d * (r.dot(r) - distance**2) * r
+            corr_p[a] += c
+            corr_p[b] -= c
 
         for i in range(self.n):
             out_neighbors = E[:, 1][E[:, 0] == i]
