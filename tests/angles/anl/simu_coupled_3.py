@@ -70,6 +70,7 @@ def simu_step():
     v = np.einsum('nij,nj->ni', R, ub)
     E = edge_set(t)
     bearings, bearing_rates = {}, {}
+    distances = {}
 
     for i in nodes:
         # --- advance true pose --- #
@@ -78,7 +79,7 @@ def simu_step():
 
         # Measurements use the same pre-step pose snapshot as before.
         out_neighbors = E[:, 1][E[:, 0] == i]
-        distances = {
+        distances[i] = {
             j: np.sqrt(np.square(p[j] - p[i]).sum()) for j in out_neighbors
         }
         bearings[i] = {
@@ -87,11 +88,13 @@ def simu_step():
         bearing_rates[i] = {
             j: projection_matrix(bearings[i][j]).dot(
                 R[i].T.dot(v[j] - v[i])
-            ) / distances[j] - np.cross(wb[i], bearings[i][j])
+            ) / distances[i][j] - np.cross(wb[i], bearings[i][j])
             for j in out_neighbors
         }
 
-    observer.update(t, ub, wb, bearings, bearing_rates, E)
+    observer.update(
+        t, ub, wb, bearings, bearing_rates, E, distances[0][1]
+    )
 
 
 def log_step():
@@ -208,6 +211,7 @@ observer = AngleBasedPoseObserver(
     n, hatp, hatR,
     k_alpha=0.2, k_dalpha=1.0, k_beta=0.01,
     k_p=10000.0, k_R=200.0, time=t,
+    k_d=1e-5, distance_pair=(0, 1)
 )
 
 # define velocities
