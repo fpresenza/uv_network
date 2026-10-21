@@ -193,7 +193,7 @@ class AngleBasedPoseObserver(object):
                 Xikj = Pik.dot(bij) / dik
 
                 # --- angle-based shape correction --- #
-                aijk = bearings[i][j].dot(bearings[i][k])
+                aijk = np.dot(bearings[i][j], bearings[i][k])
                 hat_aijk = bij.dot(bik)
                 e_aijk = hat_aijk - aijk
 
@@ -212,8 +212,8 @@ class AngleBasedPoseObserver(object):
                 hat_v_ik = hat_v_k - hat_v_i
 
                 dot_aijk = (
-                    bearings[i][k].dot(bearing_rates[i][j])
-                    + bearings[i][j].dot(bearing_rates[i][k])
+                    np.dot(bearings[i][k], bearing_rates[i][j])
+                    + np.dot(bearings[i][j], bearing_rates[i][k])
                 )
                 dot_hat_aijk = Xijk.dot(hat_v_ij) + Xikj.dot(hat_v_ik)
                 e_dot_aijk = dot_hat_aijk - dot_aijk
