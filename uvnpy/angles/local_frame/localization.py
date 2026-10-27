@@ -38,8 +38,9 @@ class AngleBasedPoseObserver(object):
         Finite, nonnegative weights of the angle, angle-rate, bearing, and
         distance costs. Their weighted sum is the common correction cost
         ``L = k_alpha * L_angle + k_dalpha * L_angle_rate
-        + k_beta * L_bearing + k_d * L_distance``. The distance weight ``k_d`` defaults
-        to zero, disabling distance correction.
+        + k_beta * L_bearing + k_d * L_distance``. The distance weight ``k_d``
+        defaults to zero; ``distance_pair`` controls whether the distance
+        correction is evaluated.
     k_p, k_R : float
         Finite, strictly positive position and orientation gradient gains.
         With both position corrections enabled, corrections are
@@ -52,7 +53,9 @@ class AngleBasedPoseObserver(object):
         Initial time in seconds.
     distance_pair : tuple of int, optional
         Fixed pair of distinct robot indices ``(a, b)`` measuring distance,
-        independent of the directed bearing edge set. Required when ``k_d > 0``.
+        independent of the directed bearing edge set. If None, the distance
+        correction is disabled regardless of ``k_d``. Otherwise, a current
+        distance measurement is required on every update, even if ``k_d == 0``.
     use_angle_rate_position : bool, optional
         Include the angle-rate position correction, default True. If False,
         skip that position gradient and its associated matrix calculations;
@@ -114,8 +117,6 @@ class AngleBasedPoseObserver(object):
                     'distance_pair must contain two distinct robot indices.'
                 )
             distance_pair = tuple(int(index) for index in pair)
-        elif k_d > 0:
-            raise ValueError('distance_pair is required when k_d > 0.')
 
         self.n = int(n)
         self.t = float(time)
@@ -170,7 +171,8 @@ class AngleBasedPoseObserver(object):
         distance : float, optional
             Current measured distance in metres between the robots in
             ``distance_pair``, not its square. Must be finite and strictly
-            positive on every update when ``k_d > 0``; ignored otherwise.
+            positive on every update when ``distance_pair is not None``;
+            ignored otherwise.
 
         Returns
         -------
@@ -197,9 +199,11 @@ class AngleBasedPoseObserver(object):
             E = E.reshape(0, 2)
         if E.ndim != 2 or E.shape[1] != 2:
             raise ValueError('edge_set must have shape (m, 2).')
-        if self.k_d > 0:
+        if self.distance_pair is not None:
             if distance is None:
-                raise ValueError('distance is required on every update when k_d > 0.')
+                raise ValueError(
+                    'distance is required on every update when distance_pair is set.'
+                )
             distance = np.asarray(distance, dtype=float)
             if distance.ndim != 0 or not np.isfinite(distance) or distance <= 0:
                 raise ValueError('distance must be a finite, strictly positive scalar.')
@@ -212,7 +216,7 @@ class AngleBasedPoseObserver(object):
         buffer = np.zeros((self.n, 3), dtype=np.float64)
 
         # --- distance-based scale correction for the fixed measuring pair --- #
-        if self.k_d > 0:
+        if self.distance_pair is not None:
             a, b = self.distance_pair
             r = hatp[b] - hatp[a]
             c = self.k_d * (r.dot(r) - distance**2) * r
@@ -265,7 +269,7 @@ class AngleBasedPoseObserver(object):
                 corr_p[j] -= c_j
                 corr_p[k] -= c_k
 
-                # --- angle-rate-based scale correction --- #
+                # --- angle-rate-based correction --- #
                 hat_v_i = hatR[i].dot(ub[i])
                 hat_v_j = hatR[j].dot(ub[j])
                 hat_v_k = hatR[k].dot(ub[k])

@@ -232,24 +232,28 @@ class TestAngleBasedPoseObserver(unittest.TestCase):
         np.testing.assert_array_equal(position[2], p[2])
         np.testing.assert_array_equal(orientation, R)
 
-    def test_distance_configuration_and_current_measurement_are_required(self):
-        with self.assertRaises(ValueError):
-            AngleBasedPoseObserver(self.n, self.hatp, self.hatR, k_d=1.0)
+    def test_distance_pair_controls_activation_independently_of_gain(self):
+        zero = np.zeros((self.n, 3))
+        disabled = AngleBasedPoseObserver(self.n, self.hatp, self.hatR, k_d=1.0)
+        disabled.update(0.0, zero, zero, {}, {}, [])
+        disabled.update(0.001, zero, zero, {}, {}, [])
+        np.testing.assert_array_equal(disabled.position, self.hatp)
         with self.assertRaises(ValueError):
             AngleBasedPoseObserver(
                 self.n, self.hatp, self.hatR, k_d=1.0, distance_pair=(0, 0)
             )
-        observer = AngleBasedPoseObserver(
-            self.n, self.hatp, self.hatR, k_d=0.01, distance_pair=(0, 1),
-        )
-        zero = np.zeros((self.n, 3))
         measured_distance = np.linalg.norm(self.hatp[1] - self.hatp[0])
-        observer.update(0.0, zero, zero, {}, {}, [], distance=measured_distance)
-        for measurement in [None, np.nan, -1.0]:
-            with self.subTest(distance=measurement), self.assertRaises(ValueError):
-                observer.update(0.001, zero, zero, {}, {}, [], distance=measurement)
-        self.assertEqual(observer.t, 0.0)
-        np.testing.assert_array_equal(observer.position, self.hatp)
+        for k_d in [0.0, 0.01]:
+            observer = AngleBasedPoseObserver(
+                self.n, self.hatp, self.hatR, k_d=k_d, distance_pair=(0, 1),
+            )
+            observer.update(0.0, zero, zero, {}, {}, [], distance=measured_distance)
+            for measurement in [None, np.nan, -1.0]:
+                with self.subTest(k_d=k_d, distance=measurement), \
+                        self.assertRaises(ValueError):
+                    observer.update(0.001, zero, zero, {}, {}, [], distance=measurement)
+            self.assertEqual(observer.t, 0.0)
+            np.testing.assert_array_equal(observer.position, self.hatp)
 
     def test_estimates_are_owned_by_observer(self):
         observer = AngleBasedPoseObserver(self.n, self.hatp, self.hatR)
