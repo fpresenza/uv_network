@@ -7,18 +7,21 @@ import progressbar
 import numpy as np
 from transformations import unit_vector
 
+from uvnpy.toolkit.functions import cosine_activation_derivative
 from uvnpy.toolkit.data import write_json_file
 from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
 from uvnpy.toolkit.geometry import (
     rotation_matrix_from_quaternion, rotation_matrix_from_vector
 )
-from uvnpy.toolkit.functions import cosine_activation, cosine_activation_derivative
 from uvnpy.graphs.models import ConeGraph
 from uvnpy.angles.local_frame.core import (
-    angle_indices, angle_rigidity_matrix, is_angle_rigid
+    angle_indices, is_angle_rigid, angle_rigidity_eigenvalue
 )
 from uvnpy.angles.local_frame.localization import AngleBasedPoseObserver
+from uvnpy.angles.local_frame.control import (
+    weighted_angle_rigidity_eigenvalue, AngleRigidityMaintenance
+)
 from uvnpy.control.targets import MovingTargets
 
 
@@ -56,30 +59,6 @@ def aiming(p, target):
     return np.dstack([a, b, c]).squeeze()
 
 
-def sigma_r_r(x):
-    return cosine_activation(
-        np.array([x]), 0.8 * sensing_range, sensing_range
-    ).item()
-
-
-def dsigma_r_r(x):
-    return cosine_activation_derivative(
-        np.array([x]), 0.8 * sensing_range, sensing_range
-    ).item()
-
-
-def sigma_r_f(x):
-    return cosine_activation(
-        np.array([x]), cos_hfov, 1.4 * cos_hfov
-    ).item()
-
-
-def dsigma_r_f(x):
-    return cosine_activation_derivative(
-        np.array([x]), cos_hfov, 1.4 * cos_hfov
-    ).item()
-
-
 def dsigma_m_r(x):
     return cosine_activation_derivative(
         np.array([x]), 0.0, 100.0
@@ -90,36 +69,6 @@ def dsigma_m_f(x):
     return cosine_activation_derivative(
         np.array([x]), -1.0, 1.0
     ).item()
-
-
-def distance_weights(angle_set, p):
-    return np.array([
-        np.sqrt(np.square(p[j] - p[i]).sum() * np.square(p[k] - p[i]).sum())
-        for i, j, k in angle_set
-    ])
-
-
-def weight(indices, p, R):
-    i, j, k = indices
-    dij = np.sqrt(np.square(p[j] - p[i]).sum())
-    bij = (p[j] - p[i]) / dij
-    dik = np.sqrt(np.square(p[k] - p[i]).sum())
-    bik = (p[k] - p[i]) / dik
-
-    ei = R[i, :, 0]
-    nij = ei.dot(bij)
-    nik = ei.dot(bik)
-
-    wrij = 1 - sigma_r_r(dij)
-    wfij = sigma_r_f(nij)
-    wrik = 1 - sigma_r_r(dik)
-    wfik = sigma_r_f(nik)
-
-    return dij * dik * wrij * wfij * wrik * wfik
-
-
-def weights(angle_set, p, R):
-    return np.array([weight((i, j, k), p, R) for i, j, k in angle_set])
 
 
 def extract_x(integrators):
@@ -134,11 +83,6 @@ def extract_u(integrators):
     return np.array([p.u() for p in integrators])
 
 
-def complete_angle_set(out_neighbors):
-    i, j = np.triu_indices(out_neighbors.size, k=1)
-    return np.column_stack([out_neighbors[i], out_neighbors[j]])
-
-
 # ------------------------------------------------------------------
 # Simulation loop inner functions
 # ------------------------------------------------------------------
@@ -150,53 +94,50 @@ def simu_step():
     p = extract_x(p_int)
     # v = extract_dotx(p_int)
     R = extract_x(R_int)
-    control_u_r = np.zeros((n, 3), dtype=np.float64)
-    control_w_r = np.zeros((n, 3), dtype=np.float64)
     control_u_m = np.zeros((n, 3), dtype=np.float64)
     control_w_m = np.zeros((n, 3), dtype=np.float64)
     control_u_c = np.zeros((n, 3), dtype=np.float64)
-    measured_bearings = {}
+
+    out_neighbors = {}
+    distances = {}
+    bearings, bearing_rates = {}, {}
+    rotations = {}
 
     # --- angle rigidity eigenvalue-vector --- #
     edge_set = sensing_graph.edge_set()
     angle_set = angle_indices(nodes, edge_set).astype(int)
-    A = angle_rigidity_matrix(angle_set, p)
 
     #    # --- unweighted part --- #
-    W = distance_weights(angle_set, p)
-    evals = np.linalg.eigvalsh(A.T.dot(W[:, np.newaxis] * A))
-    rigidity_val[0] = evals[7]
+    rigidity_val[0] = angle_rigidity_eigenvalue(angle_set, p, scale_invariant=True)
 
     #    # --- weighted part --- #
-    W = weights(angle_set, p, R)
-    evals, evecs = np.linalg.eigh(A.T.dot(W[:, np.newaxis] * A))
-    rigidity_val[1:] = evals[7:9]
-    vec = evecs[:, 7].reshape(n, 3)
-    vec = np.squeeze(np.matmul(vec[:, np.newaxis, :], R))
+    rigidity_val[1], rigidity_vec = weighted_angle_rigidity_eigenvalue(
+        angle_set, p, R, range_lims, hfov_lims
+    )
+    rigidity_vec = np.squeeze(np.matmul(rigidity_vec[:, np.newaxis, :], R))
 
     for i in nodes:
-        out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
-        r = {j: p[j] - p[i] for j in out_neighbors}
+        out_neighbors[i] = edge_set[:, 1][edge_set[:, 0] == i]
+        r = {j: p[j] - p[i] for j in out_neighbors[i]}
 
         #   # --- estimated values --- #
-        distances = {
-            j: np.sqrt(np.square(r[j]).sum()) for j in out_neighbors
+        distances[i] = {
+            j: np.sqrt(np.square(r[j]).sum()) for j in out_neighbors[i]
         }
 
         #   # --- measurements --- #
-        bearings = {
-            j: R[i].T.dot(r[j] / distances[j]) for j in out_neighbors
+        bearings[i] = {
+            j: R[i].T.dot(r[j] / distances[i][j]) for j in out_neighbors[i]
         }
-        measured_bearings[i] = bearings
-        rotations = {
-            j: R[i].T.dot(R[j]) for j in out_neighbors
+        rotations[i] = {
+            j: R[i].T.dot(R[j]) for j in out_neighbors[i]
         }
 
         # --- collision avoidance control --- #
-        for j in out_neighbors:
-            dij = distances[j]
-            bij = bearings[j]
-            Rij = rotations[j]
+        for j in out_neighbors[i]:
+            dij = distances[i][j]
+            bij = bearings[i][j]
+            Rij = rotations[i][j]
 
             repulsion = 2 * sensing_range * (dij - sensing_range) * bij / dij**3
             control_u_c[i] += repulsion
@@ -222,91 +163,15 @@ def simu_step():
             # target collision avoidance
             control_u_c[i] += 2 * sensing_range * (dit - sensing_range) * bit / dit**3
 
-        # --- rigidity maintenance control --- #
-        if i in nodes:
-            for j, k in complete_angle_set(out_neighbors):
-                # --- rigidity control law --- #
-                dij = distances[j]
-                bij = bearings[j]
-                Pij = np.eye(3) - np.outer(bij, bij)
-                Rij = rotations[j]
-
-                dik = distances[k]
-                bik = bearings[k]
-                Pik = np.eye(3) - np.outer(bik, bik)
-                Rik = rotations[k]
-
-                # --- weight part --- #
-                nij = bij[0]
-                nik = bik[0]
-
-                wrij = 1 - sigma_r_r(dij)
-                wfij = sigma_r_f(nij)
-                wrik = 1 - sigma_r_r(dik)
-                wfik = sigma_r_f(nik)
-
-                d = dij * dik
-                wr = wrij * wrik
-                wf = wfij * wfik
-                w = wr * wf
-
-                wijk_j = w * dik * bij + d * (
-                    - wf * wrik * dsigma_r_r(dij) * bij
-                    + wr * wfik * dsigma_r_f(nij) * Pij[0] / dij
-                )
-
-                wijk_k = w * dij * bik + d * (
-                    - wf * wrij * dsigma_r_r(dik) * bik
-                    + wr * wfij * dsigma_r_f(nik) * Pik[0] / dik
-                )
-                wijk_i = - wijk_j - wijk_k
-
-                e1_bij = np.array([0.0, -bij[2], bij[1]])
-                e1_bik = np.array([0.0, -bik[2], bik[1]])
-                wijk_Ri = d * wr * (
-                    wfik * dsigma_r_f(nij) * e1_bij
-                    + wfij * dsigma_r_f(nik) * e1_bik
-                )
-
-                wijk = d * w
-
-                # --- rigidity matrix part --- #
-                qijk = Pij.dot(bik) / dij
-                qikj = Pik.dot(bij) / dik
-
-                vec_i = vec[i]
-                vec_j = Rij.dot(vec[j])
-                vec_k = Rik.dot(vec[k])
-
-                sijk = qijk.dot(vec_j - vec_i) + qikj.dot(vec_k - vec_i)
-
-                Dijk = np.outer(Pij.dot(bik), bij)
-                Dijk += np.outer(bij, bik.dot(Pij))
-                Dijk += bij.dot(bik) * Pij
-                Dijk /= dij**2
-
-                Dikj = np.outer(Pik.dot(bij), bik)
-                Dikj += np.outer(bik, bij.dot(Pik))
-                Dikj += bik.dot(bij) * Pik
-                Dikj /= dik**2
-
-                Eijk = Pij.dot(Pik) / (dij * dik)
-                Eikj = Pik.dot(Pij) / (dik * dij)
-
-                sijk_j = - Dijk.dot(vec_j - vec_i) + Eijk.dot(vec_k - vec_i)
-                sijk_k = Eikj.dot(vec_j - vec_i) - Dikj.dot(vec_k - vec_i)
-                sijk_i = - sijk_j - sijk_k
-
-                control_u_r[i] += sijk * (sijk * wijk_i + 2 * wijk * sijk_i)
-                control_u_r[j] += sijk * Rij.T.dot(sijk * wijk_j + 2 * wijk * sijk_j)
-                control_u_r[k] += sijk * Rik.T.dot(sijk * wijk_k + 2 * wijk * sijk_k)
-
-                control_w_r[i] += sijk**2 * wijk_Ri
+    # --- rigidity maintenance control --- #
+    control_u_r, control_w_r = arm.update(
+        out_neighbors, distances, bearings, rotations, rigidity_val, rigidity_vec
+    )
 
     # define relative weights
-    k_u_r = 5.0 / evals[7]
+    k_u_r = 5.0 / rigidity_val[1]
     k_u_m = 50.0
-    k_w_r = 0.5 / evals[7]
+    k_w_r = 0.5 / rigidity_val[1]
     k_w_m = 5.0
     k_u_c = 1.0
 
@@ -317,19 +182,17 @@ def simu_step():
     # Simulate bearing rates at the same pre-step poses and sensing edges as
     # the bearings. R_i u_i supplies inertial velocities for this measurement.
     v = np.einsum('nij,nj->ni', R, ub)
-    bearing_rates = {}
     for i in nodes:
-        out_neighbors = edge_set[:, 1][edge_set[:, 0] == i]
         bearing_rates[i] = {}
-        for j in out_neighbors:
-            beta = measured_bearings[i][j]
+        for j in out_neighbors[i]:
+            beta = bearings[i][j]
             distance = np.sqrt(np.square(p[j] - p[i]).sum())
             P = np.eye(3) - np.outer(beta, beta)
             bearing_rates[i][j] = (
                 P.dot(R[i].T.dot(v[j] - v[i])) / distance
                 - np.cross(wb[i], beta)
             )
-    observer.update(t, ub, wb, measured_bearings, bearing_rates, edge_set)
+    observer.update(t, ub, wb, bearings, bearing_rates, edge_set)
 
     # Apply the same control actions and update the true sensing graph.
     for i in nodes:
@@ -420,8 +283,10 @@ while not found_IAR:
     initial_orientation = aiming(initial_position, initial_position.mean(axis=0))
 
     sensing_range = 40.0
+    range_lims = (0.8 * sensing_range, sensing_range)
     fov = 120.0
     cos_hfov = np.cos(np.deg2rad(fov / 2))
+    hfov_lims = (cos_hfov, 1.4 * cos_hfov)
     sensing_graph = ConeGraph(
         initial_position,
         initial_orientation[:, :, 0],    # x-axes
@@ -451,6 +316,8 @@ R_int = [
     for i in nodes
 ]
 
+arm = AngleRigidityMaintenance(n, range_lims, hfov_lims)
+
 # Independent initialization noise keeps the original simulation RNG unchanged.
 observer_rng = np.random.RandomState(2)
 position_error_std = 2.0             # metres per coordinate
@@ -468,7 +335,7 @@ observer = AngleBasedPoseObserver(
     k_p=10000.0, k_R=200.0, time=t,
 )
 
-rigidity_val = np.empty(3, dtype=np.float64)
+rigidity_val = np.empty(2, dtype=np.float64)
 
 # --- define targets --- #
 targets = MovingTargets({
