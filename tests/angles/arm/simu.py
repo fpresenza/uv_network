@@ -165,13 +165,13 @@ def simu_step():
 
     # --- rigidity maintenance control --- #
     control_u_r, control_w_r = arm.update(
-        out_neighbors, distances, bearings, rotations, rigidity_val, rigidity_vec
+        out_neighbors, distances, bearings, rotations, rigidity_val[1], rigidity_vec
     )
 
     # define relative weights
-    k_u_r = 5.0 / rigidity_val[1]
+    k_u_r = 5.0
     k_u_m = 50.0
-    k_w_r = 0.5 / rigidity_val[1]
+    k_w_r = 0.5
     k_w_m = 5.0
     k_u_c = 1.0
 

@@ -177,4 +177,4 @@ class AngleRigidityMaintenance(object):
 
                 control_w_r[i] += sijk**2 * wijk_Ri
 
-        return control_u_r, control_w_r
+        return control_u_r / rigidity_val, control_w_r / rigidity_val
