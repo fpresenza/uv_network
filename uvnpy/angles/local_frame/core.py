@@ -12,22 +12,22 @@ THRESHOLD_SV = 1e-5
 
 
 @njit
-def angle_indices(V, E):
+def angle_indices(vertex_set, edge_set):
     """Compute the angles indices with the directed edges.
     An angle is a triple (i, j, k) where (i, j) and (i, k)
     are directed edges.
 
     args:
-        V : list of vertices
-        E : edge set | (m, 2)-array
+        vertex_set : list of vertices
+        edge_set : edge set | (m, 2)-array
 
     returns:
         angle_indices | (a, 3)-array
     """
     a = np.empty(shape=(0, 3), dtype=float)
-    for i in V:
-        S = E[:, 0] == i
-        Ei = E[S]
+    for i in vertex_set:
+        S = edge_set[:, 0] == i
+        Ei = edge_set[S]
         x, y = np.triu_indices(sum(S), k=1)
         ai = np.concatenate((Ei[x], Ei[y, 1, np.newaxis]), axis=1)
         a = np.concatenate((a, ai), axis=0)
@@ -35,25 +35,25 @@ def angle_indices(V, E):
 
 
 @njit
-def angle_function(E, p):
+def angle_function(edge_set, p):
     """Compute the angles associated with the directed edges.
     An angle is a triple (i, j, k) where (i, j) and (i, k)
     are directed edges.
 
     args:
-        E : edge_set | (m, 2)-array
+        edge_set : edge set | (m, 2)-array
         p : positions | (..., n, d)-array
 
     returns:
         angles | (..., a)-array
     """
     n = p.shape[-2]
-    r = p[..., E[:, 1], :] - p[..., E[:, 0], :]
+    r = p[..., edge_set[:, 1], :] - p[..., edge_set[:, 0], :]
     d = np.sqrt(np.square(r).sum(axis=-1))
     b = r / d[..., np.newaxis]
     a = np.empty(shape=(0,), dtype=float)
     for i in range(n):
-        S = E[:, 0] == i
+        S = edge_set[:, 0] == i
         bi = b[S]
         x, y = np.triu_indices(sum(S), k=1)
         ai = np.sum(bi[x] * bi[y], axis=1)
@@ -62,21 +62,21 @@ def angle_function(E, p):
 
 
 @njit
-def angle_rigidity_matrix(A, p):
+def angle_rigidity_matrix(angle_set, p):
     """Angle Rigidity matrix (jacobian of the angle function)
 
     args:
-        A: angle set | (m, 2)-array
+        angle_set: angle set | (m, 2)-array
         p: positions | (..., n, d)-array
 
     returns:
         angle rigidity matrix | (a, n*d)
     """
-    s = len(A)
+    s = len(angle_set)
     n, d = p.shape
     Id = np.eye(d)
     R = np.zeros(shape=(s, n, d), dtype=float)
-    for m, (i, j, k) in enumerate(A):
+    for m, (i, j, k) in enumerate(angle_set):
         rij = p[j] - p[i]
         dij = np.sqrt(np.square(rij).sum())
         bij = rij / dij
@@ -100,11 +100,11 @@ def angle_rigidity_matrix(A, p):
 
 
 @njit
-def angle_rigidity_matrix_from_edges(E, p):
+def angle_rigidity_matrix_from_edges(edge_set, p):
     """Angle Rigidity matrix (jacobian of the angle function)
 
     args:
-        E: edge set | (m, 2)-array
+        edge_set: edge set | (m, 2)-array
         p: positions | (..., n, d)-array
 
     returns:
@@ -113,12 +113,12 @@ def angle_rigidity_matrix_from_edges(E, p):
     n, d = p.shape
     Id = np.eye(d)
 
-    r = p[..., E[:, 1], :] - p[..., E[:, 0], :]
+    r = p[..., edge_set[:, 1], :] - p[..., edge_set[:, 0], :]
     q = np.sqrt(np.square(r).sum(axis=-1))
     b = r / q[..., np.newaxis]
     R = np.empty(shape=(0, n*d), dtype=float)
     for i in range(n):
-        S = E[:, 0] == i
+        S = edge_set[:, 0] == i
         s = sum(S)
         bi = b[S]
         qi = q[S]
@@ -131,7 +131,7 @@ def angle_rigidity_matrix_from_edges(E, p):
 
         ds = int(s * (s - 1) / 2)
         Ri = np.zeros(shape=(ds, n, d), dtype=float)
-        Ei = E[S]
+        Ei = edge_set[S]
         j, k = Ei[x, 1], Ei[y, 1]
         for a in range(ds):
             Ri[a, i] = - Nij[a] - Nik[a]
@@ -142,8 +142,23 @@ def angle_rigidity_matrix_from_edges(E, p):
     return R
 
 
-def is_angle_rigid(A, p, threshold=THRESHOLD_SV):
+def is_angle_rigid(angle_set, p, threshold=THRESHOLD_SV):
     n, d = p.shape
     t = int(d * (d + 1) / 2) + 1
-    R = angle_rigidity_matrix(A, p)
+    R = angle_rigidity_matrix(angle_set, p)
     return np.linalg.matrix_rank(R, tol=threshold) == n*d - t
+
+
+def angle_rigidity_eigenvalue(angle_set, p, scale_invariant=False):
+    n, d = p.shape
+    t = int(d * (d + 1) / 2) + 1
+    R = angle_rigidity_matrix(angle_set, p)
+    if scale_invariant:
+        W = np.array([
+            np.sqrt(np.square(p[j] - p[i]).sum() * np.square(p[k] - p[i]).sum())
+            for i, j, k in angle_set
+        ])
+        L = R.T.dot(W[:, np.newaxis] * R)
+    else:
+        L = R.T.dot(R)
+    return np.linalg.eigvalsh(L)[t]
