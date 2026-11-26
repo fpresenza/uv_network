@@ -411,7 +411,7 @@ while not found_IAR:
 
     t = 0.0
     n = 5
-    nodes = np.arange(n)
+    nodes = list(range(n))
     initial_position = np.random.uniform(
         [60.0, 0.0, 0.0],
         [100.0, 40.0, 40.0],
