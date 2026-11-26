@@ -159,7 +159,7 @@ def simu_step():
 
     # --- angle rigidity eigenvalue-vector --- #
     edge_set = sensing_graph.edge_set()
-    angle_set = angle_indices(rigidity_nodes, edge_set).astype(int)
+    angle_set = angle_indices(nodes, edge_set).astype(int)
     A = angle_rigidity_matrix(angle_set, p)
 
     #    # --- unweighted part --- #
@@ -205,7 +205,7 @@ def simu_step():
         # --- target tracking control --- #
         k_m_r = 3.0
         k_m_f = 0.5
-        if i in tracking_nodes:
+        if i in nodes:
             rit = targets[target_allocation[i]](t) - p[i]
             dit = np.sqrt(np.square(rit).sum())
             bit = R[i].T.dot(rit / dit)
@@ -223,7 +223,7 @@ def simu_step():
             control_u_c[i] += 2 * sensing_range * (dit - sensing_range) * bit / dit**3
 
         # --- rigidity maintenance control --- #
-        if i in rigidity_nodes:
+        if i in nodes:
             for j, k in complete_angle_set(out_neighbors):
                 # --- rigidity control law --- #
                 dij = distances[j]
@@ -489,15 +489,13 @@ targets = MovingTargets({
     ])
 })
 
-tracking_nodes = [0, 1, 2, 3, 4]
-rigidity_nodes = [0, 1, 2, 3, 4]
 target_allocation = [0, 1, 2, 1, 2]
 
 write_json_file(
     'simu_data/targets.jsonlog',
     {
         'ids': list(targets.keys()),
-        'tracking_nodes': tracking_nodes,
+        'tracking_nodes': nodes,
         'alloc': target_allocation
     }
 )
