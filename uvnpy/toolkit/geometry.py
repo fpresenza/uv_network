@@ -229,6 +229,27 @@ def draw_cone(apex, rotation, hypot, fov, resolution=36):
     return [np.vstack([apex, points[i-1:i+1]]) for i in range(1, resolution)]
 
 
+def wahba_problem(X, Y):
+    """
+    Find R, t minimizing ||Y - R X)||_F
+
+    args:
+    -----
+    X, Y : (n, 3)-(array)
+
+    Returns:
+        R: (3, 3) rotation matrix
+    """
+    U, _, Vt = np.linalg.svd(Y.T.dot(X))
+
+    # Enforce proper rotation (det(R)=+1), avoid reflection
+    if np.linalg.det(Vt) * np.linalg.det(U) < 0.0:
+        U[:, -1] *= -1
+
+    R = U.dot(Vt)
+    return R
+
+
 def optimal_rigid_transform(X, Y):
     """
     Find R, t minimizing ||Y - (R X + t)||_F
@@ -247,13 +268,6 @@ def optimal_rigid_transform(X, Y):
     Xc = X - cX
     Yc = Y - cY
 
-    H = Xc.T.dot(Yc)
-    U, _, Vt = np.linalg.svd(H)
-
-    # Enforce proper rotation (det(R)=+1), avoid reflection
-    if np.linalg.det(Vt) * np.linalg.det(U) < 0.0:
-        Vt[-1, :] *= -1
-
-    R = Vt.T.dot(U.T)
+    R = wahba_problem(Xc, Yc)
     t = cY - R.dot(cX)
     return R, t
