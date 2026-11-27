@@ -5,6 +5,7 @@
 @institute LAR - FIUBA, Universidad de Buenos Aires, Argentina
 @date lun dic 14 15:37:42 -03 2020
 """
+import numpy as np
 from matplotlib.collections import LineCollection
 from matplotlib.patches import Polygon
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
@@ -29,6 +30,35 @@ def triangles(ax, x, height, **kwargs):
         for vert in triangle(x[..., :2], x[..., 2], height)
     ]
     return nodes
+
+
+def quadrotor(position, attitude, arm_length=1.0, rotor_radius=None, **kwargs):
+    """Create a quadrotor artist for use with ``ax.add_collection3d``.
+
+    ``position`` is the world-frame barycenter (shape ``(3,)``), and
+    ``attitude`` is the body-to-world rotation matrix (shape ``(3, 3)``).
+    The arms lie along the body x and y axes. ``arm_length`` is the distance
+    from the barycenter to each rotor center. By default, each rotor radius
+    is one quarter of the arm length. Style keywords go to Line3DCollection.
+    """
+    position = np.asarray(position)
+    rotation = np.asarray(attitude)
+    if rotor_radius is None:
+        rotor_radius = 0.25 * arm_length
+
+    rotor_centers = arm_length * np.array([
+        [1.0, 0.0, 0.0], [-1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0], [0.0, -1.0, 0.0],
+    ])
+    theta = np.linspace(0.0, 2.0 * np.pi, 49)
+    circle = rotor_radius * np.column_stack((
+        np.cos(theta), np.sin(theta), np.zeros_like(theta)
+    ))
+
+    segments = [rotor_centers[:2], rotor_centers[2:]]
+    segments.extend(center + circle for center in rotor_centers)
+    world_segments = [position + segment @ rotation.T for segment in segments]
+    return Line3DCollection(world_segments, **kwargs)
 
 
 def quiver(ax, p, u, **kwargs):
