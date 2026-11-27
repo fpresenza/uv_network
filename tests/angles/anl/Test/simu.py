@@ -12,7 +12,7 @@ from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
 from uvnpy.toolkit.geometry import rotation_matrix_from_vector
 from uvnpy.angles.local_frame.core import is_angle_rigid, angle_indices
-from uvnpy.angles.local_frame.localization import AngleBasedPoseObserver
+from uvnpy.angles.local_frame.localization import AngleBasedPoseObserverCoupled
 
 # ------------------------------------------------------------------
 # Functions, Classes and Configurations
@@ -207,7 +207,7 @@ hatp = np.array([np.random.normal(p[i], 2.0) for i in nodes])
 hatR = np.array([
     random_rotation_matrix(1.0).dot(R[i]) for i in nodes
 ])
-observer = AngleBasedPoseObserver(
+observer = AngleBasedPoseObserverCoupled(
     n, hatp, hatR,
     k_alpha=0.2, k_dalpha=1.0, k_beta=0.01,
     k_p=10000.0, k_R=200.0, time=t,

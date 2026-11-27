@@ -18,7 +18,7 @@ def _complete_angle_set(out_neighbors):
     return np.column_stack([out_neighbors[i], out_neighbors[j]])
 
 
-class AngleBasedPoseObserver(object):
+class AngleBasedPoseObserverCoupled(object):
     """First-order pose observer for a network of robots in 3D.
 
     Propagation is corrected by the negative gradients of angle, angle-rate,
@@ -69,7 +69,7 @@ class AngleBasedPoseObserver(object):
     --------
     Initialize once, then supply measurements and directed edges at each step::
 
-        observer = AngleBasedPoseObserver(n, hatp0, hatR0)
+        observer = AngleBasedPoseObserverCoupled(n, hatp0, hatR0)
         hatp, hatR = observer.update(
             t, u, omega, bearings, bearing_rates, edge_set
         )
@@ -77,7 +77,7 @@ class AngleBasedPoseObserver(object):
     To enable distance correction, set its weight and measuring pair once,
     then supply a current measured distance in metres on every update::
 
-        observer = AngleBasedPoseObserver(
+        observer = AngleBasedPoseObserverCoupled(
             n, hatp0, hatR0, k_d=0.001, distance_pair=(0, 1)
         )
         hatp, hatR = observer.update(

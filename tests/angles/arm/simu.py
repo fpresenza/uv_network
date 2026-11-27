@@ -16,7 +16,7 @@ from uvnpy.graphs.models import ConeGraph
 from uvnpy.angles.local_frame.core import (
     angle_indices, is_angle_rigid, angle_rigidity_eigenvalue
 )
-from uvnpy.angles.local_frame.localization import AngleBasedPoseObserver
+from uvnpy.angles.local_frame.localization import AngleBasedPoseObserverCoupled
 from uvnpy.angles.local_frame.control import (
     weighted_angle_rigidity_eigenvalue, AngleRigidityMaintenance
 )
@@ -312,7 +312,7 @@ hatR = np.matmul(
     rotation_matrix_from_vector_multiple_axes(small_angle),
     initial_orientation
 )
-observer = AngleBasedPoseObserver(
+observer = AngleBasedPoseObserverCoupled(
     n, hatp, hatR,
     k_alpha=0.2, k_dalpha=1.0, k_beta=0.01,
     k_p=10000.0, k_R=200.0, time=t,
