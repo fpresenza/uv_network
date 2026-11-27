@@ -9,8 +9,9 @@ from transformations import unit_vector
 
 from uvnpy.toolkit.functions import cosine_activation_derivative
 from uvnpy.toolkit.data import write_json_file
-from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
+from uvnpy.dynamics.quadrotor import VelocityControlledQuadrotor
+
 from uvnpy.toolkit.geometry import rotation_matrix_from_vector_multiple_axes
 from uvnpy.graphs.models import ConeGraph
 from uvnpy.angles.local_frame.core import (
@@ -66,6 +67,14 @@ def projection_matrix(x):
     return np.eye(3) - np.outer(x, x)
 
 
+def extract_quadrotor_position(quadrotors):
+    return np.array([q.position() for q in quadrotors])
+
+
+def extract_quadrotor_linear_vel(quadrotors):
+    return np.array([q.linear_vel() for q in quadrotors])
+
+
 def extract_x(integrators):
     return np.array([p.x() for p in integrators])
 
@@ -86,8 +95,8 @@ def simu_step():
     for i in nodes:
         R_int[i].step_left(t, wb[i])
         R[i] = R_int[i].x()
-        p_int[i].step(t, R[i].dot(ub[i]))
-        p[i] = p_int[i].x()
+        p_int[i].closed_loop_step(t, R[i].dot(ub[i]), 0.0)
+        p[i] = p_int[i].position()
 
     sensing_graph.update(p, R[:, :, 0])
 
@@ -194,11 +203,11 @@ def simu_step():
 def log_step():
     """Data log"""
     logs.time.append(t)
-    logs.position.append(extract_x(p_int).ravel())
+    logs.position.append(extract_quadrotor_position(p_int).ravel())
     logs.orientation.append(extract_x(R_int).ravel())
     logs.estimated_position.append(observer.position.ravel())
     logs.estimated_orientation.append(observer.orientation.ravel())
-    logs.control_u.append(extract_u(p_int).ravel())
+    logs.control_u.append(extract_quadrotor_linear_vel(p_int).ravel())
     logs.control_w.append(extract_u(R_int).ravel())
     logs.rigidity_val.append(rigidity_val.copy())
     logs.adjacency.append(sensing_graph.adjacency_matrix().ravel())
@@ -292,7 +301,14 @@ while not found_IAR:
         print('seed = {}'.format(seed))
 
 p_int = [
-    EulerIntegrator(initial_position[i])
+    VelocityControlledQuadrotor(
+        initial_position[i],
+        np.eye(3),
+        np.zeros(3),
+        np.zeros(3),
+        mass=1.5,
+        inertia=np.diag([29e-3, 29e-3, 55e-3])
+    )
     for i in nodes
 ]
 R_int = [
@@ -356,7 +372,7 @@ write_json_file(
 # initialize logs
 logs = Logs(
     time=[t],
-    position=[extract_x(p_int).ravel()],
+    position=[extract_quadrotor_position(p_int).ravel()],
     orientation=[extract_x(R_int).ravel()],
     estimated_position=[observer.position.ravel()],
     estimated_orientation=[observer.orientation.ravel()],
