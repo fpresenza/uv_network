@@ -330,10 +330,10 @@ class AngleBasedPoseObserverCascade(object):
     Robot indices are zero-based. The fixed range pair defaults to (0, 1) and
     need not be a bearing edge. All four innovation gains are strictly positive.
 
-    On each update, a robot is sensing if the smallest eigenvalue of its sum
+    On each update, a robot is rich if the smallest eigenvalue of its sum
     of outgoing body-bearing projectors is at least min_eigenvalue (unit
     weights). Its Wahba rotation maps body bearings to estimated inter-robot
-    directions. Other robots reconstruct velocity from incoming sensing robots.
+    directions. Other robots reconstruct velocity from incoming rich robots.
     An insufficiently conditioned incoming projector sum raises ValueError
     before any integrator advances. min_eigenvalue is a numerical floor by
     default and can be increased to enforce a geometric margin.
@@ -390,7 +390,7 @@ class AngleBasedPoseObserverCascade(object):
         u and omega are (n, 3) body-frame velocities; edge_set contains directed
         (source, target) pairs. bearings[i][j] is a unit body-frame vector and
         bearing_rates[i][j] its body-frame derivative. Rates are read only on
-        sensing-to-free edges. Both nested mappings and arrays are supported.
+        rich-to-weak edges. Both nested mappings and arrays are supported.
         distance is the current positive range of distance_pair in metres.
         """
         time = float(time)
@@ -429,7 +429,7 @@ class AngleBasedPoseObserverCascade(object):
         # Upstream propagation: solve Wahba with all outgoing bearings.
         tilde_T = np.empty_like(hatR)
         tilde_v = np.empty_like(hatp)
-        sensing = np.zeros(self.n, dtype=bool)
+        rich = np.zeros(self.n, dtype=bool)
         out_edges = [np.flatnonzero(sources == i) for i in range(self.n)]
         for i, outgoing in enumerate(out_edges):
             if len(outgoing) < 2:
@@ -443,13 +443,13 @@ class AngleBasedPoseObserverCascade(object):
                 U[:, -1] *= -1
             tilde_T[i] = U @ Vt
             tilde_v[i] = tilde_T[i] @ ub[i]
-            sensing[i] = True
+            rich[i] = True
 
-        # Free robots use only incoming edges from sensing robots.
-        for i in np.flatnonzero(~sensing):
+        # weak robots use only incoming edges from rich robots.
+        for i in np.flatnonzero(~rich):
             X_i = np.zeros((3, 3))
             x_i = np.zeros(3)
-            for edge in np.flatnonzero((targets == i) & sensing[sources]):
+            for edge in np.flatnonzero((targets == i) & rich[sources]):
                 j = sources[edge]
                 b = beta[edge]
                 db = np.asarray(bearing_rates[j][i], dtype=float)
