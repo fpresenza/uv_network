@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 """Angle-based pose localization in a common frame."""
 
+from itertools import combinations
+
 import numpy as np
 from transformations import unit_vector
 
@@ -323,21 +325,17 @@ class AngleBasedPoseObserverCoupled(object):
 
 
 class AngleBasedPoseObserverCascade(object):
-    """Angle-and-range position observer followed by a bearing/velocity attitude
-     dobserver.
+    """Angle-and-range position observer with bearing/velocity attitude correction.
 
     Positions and reconstructed velocities are expressed in a common estimation
     frame. Only the downstream attitude correction uses the estimated rotations.
     Robot indices are zero-based. The fixed range pair defaults to (0, 1) and
     need not be a bearing edge. All four innovation gains are strictly positive.
 
-    On each update, a robot is rich if the smallest eigenvalue of its sum
-    of outgoing body-bearing projectors is at least min_eigenvalue (unit
-    weights). Its Wahba rotation maps body bearings to estimated inter-robot
-    directions. Other robots reconstruct velocity from incoming rich robots.
-    An insufficiently conditioned incoming projector sum raises ValueError
-    before any integrator advances. min_eigenvalue is a numerical floor by
-    default and can be increased to enforce a geometric margin.
+    On each update, robots with at least two outgoing bearings are treated as
+    rich. Their Wahba rotations map body bearings to estimated inter-robot
+    directions. Weak robots reconstruct velocity from incoming rich robots.
+    This requires adequate bearing geometry for both reconstructions.
 
     As in the coupled observer, update(time, ...) advances using the previously
     cached derivatives and stores the new ones. Call update at the initial
@@ -383,14 +381,16 @@ class AngleBasedPoseObserverCascade(object):
     def orientation(self):
         return np.array([integrator.x() for integrator in self._R_int])
 
-    def update(self, time, u, omega, bearings, bearing_rates, distance, edge_set):
+    def update(self, time, u, omega, bearings, bearing_rates, distance, out_neighbors):
         """Advance from one synchronized measurement snapshot.
 
-        u and omega are (n, 3) body-frame velocities; edge_set contains directed
-        (source, target) pairs. bearings[i][j] is a unit body-frame vector and
-        bearing_rates[i][j] its body-frame derivative. Rates are read only on
-        rich-to-weak edges. Both nested mappings and arrays are supported.
-        distance is the current positive range of distance_pair in metres.
+        u and omega are (n, 3) body-frame velocities. out_neighbors maps each
+        source robot ID to a one-dimensional list or array of target robot IDs.
+        A missing source has no outgoing edges. bearings[i][j] is a unit
+        body-frame vector and bearing_rates[i][j] its body-frame derivative.
+        Rates are read only on rich-to-weak edges. Both nested mappings and
+        arrays are supported for the measurements. distance is the current
+        positive range of distance_pair in metres.
         """
         time = float(time)
         if not np.isfinite(time) or time < self.t:
@@ -403,56 +403,64 @@ class AngleBasedPoseObserverCascade(object):
         distance = np.asarray(distance, dtype=float)
         if distance.ndim != 0 or not np.isfinite(distance) or distance <= 0:
             raise ValueError('distance must be a finite, strictly positive scalar.')
-        edges = np.asarray(edge_set)
-        if edges.shape == (0,):
-            edges = np.empty((0, 2), dtype=int)
-        if (edges.ndim != 2 or edges.shape[1] != 2
-                or not np.issubdtype(edges.dtype, np.integer)
-                or np.any(edges < 0) or np.any(edges >= self.n)
-                or np.any(edges[:, 0] == edges[:, 1])):
-            raise ValueError('Expected directed edges between distinct robot indices.')
-
         hatp, hatR = self.position, self.orientation
-        sources, targets = edges.T
-        hatp_ij = hatp[targets] - hatp[sources]
-        hatd = np.linalg.norm(hatp_ij, axis=1)
-        if np.any(hatd == 0):
-            raise ValueError('An estimated bearing edge has zero length.')
-        hatb = hatp_ij / hatd[:, None]
-        beta = np.asarray([bearings[i][j] for i, j in edges], dtype=float)
-        if beta.shape != hatb.shape or not np.allclose(np.linalg.norm(beta, axis=1), 1):
-            raise ValueError('Each active bearing must be a unit 3-vector.')
-
-        # Upstream propagation: solve Wahba with all outgoing bearings.
+        neighbors = []
+        hatp_ij, hatd, hatb, beta = [], [], [], []
         tilde_T = np.empty_like(hatR)
         tilde_v = np.empty_like(hatp)
         rich = np.zeros(self.n, dtype=bool)
-        out_edges = [np.flatnonzero(sources == i) for i in range(self.n)]
-        for i, outgoing in enumerate(out_edges):
-            if len(outgoing) < 2:
-                continue
-            body = beta[outgoing]
-            tilde_T[i] = wahba_problem(body, hatb[outgoing])
-            tilde_v[i] = tilde_T[i].dot(ub[i])
-            rich[i] = True
 
-        # weak robots use only incoming edges from rich robots.
-        for i in np.flatnonzero(~rich):
-            M_i = np.zeros((3, 3))
-            x_i = np.zeros(3)
-            for edge in np.flatnonzero((targets == i) & rich[sources]):
-                j = sources[edge]
-                b = beta[edge]
+        # Group edge geometry by source and solve Wahba for rich robots.
+        for i in range(self.n):
+            outgoing = np.asarray(out_neighbors.get(i, ()))
+            if (outgoing.ndim != 1
+                    or (outgoing.size and not np.issubdtype(outgoing.dtype, np.integer))
+                    or np.any(outgoing < 0) or np.any(outgoing >= self.n)
+                    or np.any(outgoing == i)):
+                raise ValueError(f'Invalid outgoing neighbor IDs for robot {i}.')
+            outgoing = outgoing.astype(int, copy=False)
+            neighbors.append(outgoing)
+
+            relative = hatp[outgoing] - hatp[i]
+            distances = np.linalg.norm(relative, axis=1)
+            if np.any(distances == 0):
+                raise ValueError('An estimated bearing edge has zero length.')
+            directions = relative / distances[:, None]
+            body = np.empty((0, 3))
+            if outgoing.size:
+                body = np.asarray([bearings[i][j] for j in outgoing], dtype=float)
+            if body.shape != directions.shape or not np.allclose(
+                    np.linalg.norm(body, axis=1), 1):
+                raise ValueError('Each active bearing must be a unit 3-vector.')
+            hatp_ij.append(relative)
+            hatd.append(distances)
+            hatb.append(directions)
+            beta.append(body)
+
+            if outgoing.size >= 2:
+                tilde_T[i] = wahba_problem(body, directions)
+                tilde_v[i] = tilde_T[i].dot(ub[i])
+                rich[i] = True
+
+        # Accumulate incoming contributions in one pass over rich sources.
+        M = np.zeros_like(hatR)
+        x = np.zeros_like(hatp)
+        for j in np.flatnonzero(rich):
+            for edge, i in enumerate(neighbors[j]):
+                if rich[i]:
+                    continue
+                b = beta[j][edge]
                 db = np.asarray(bearing_rates[j][i], dtype=float)
                 if db.shape != (3,) or not np.isfinite(db).all():
                     raise ValueError(
                         'Each required bearing rate must be a finite 3-vector.'
                     )
-                M_i += _projection_matrix(tilde_T[j].dot(b))
-                z = _projection_matrix(b).dot(ub[j]) \
-                    + hatd[edge] * (np.cross(wb[j], b) + db)
-                x_i += tilde_T[j].dot(z)
-            tilde_v[i] = np.linalg.solve(M_i, x_i)
+                M[i] += _projection_matrix(tilde_T[j].dot(b))
+                z = (_projection_matrix(b).dot(ub[j])
+                     + hatd[j][edge] * (np.cross(wb[j], b) + db))
+                x[i] += tilde_T[j].dot(z)
+        for i in np.flatnonzero(~rich):
+            tilde_v[i] = np.linalg.solve(M[i], x[i])
 
         # Position innovations: fixed-pair range and outgoing angle cosines.
         corr_p = np.zeros_like(hatp)
@@ -465,15 +473,14 @@ class AngleBasedPoseObserverCascade(object):
         corr_p[b] -= c
 
         # angle correction
-        for i, outgoing in enumerate(out_edges):
-            for ej, ek in _complete_angle_set(outgoing):
-                j, k = targets[ej], targets[ek]
-                bij, bik = hatb[ej], hatb[ek]
-                residual = bij.dot(bik) - beta[ej].dot(beta[ek])
-                c_j = self.k_alpha * residual * (_projection_matrix(bij).dot(bik)) \
-                    / hatd[ej]
-                c_k = self.k_alpha * residual * (_projection_matrix(bik).dot(bij)) \
-                    / hatd[ek]
+        for i, outgoing in enumerate(neighbors):
+            for (ej, j), (ek, k) in combinations(enumerate(outgoing), 2):
+                bij, bik = hatb[i][ej], hatb[i][ek]
+                residual = bij.dot(bik) - beta[i][ej].dot(beta[i][ek])
+                c_j = (self.k_alpha * residual * _projection_matrix(bij).dot(bik)
+                       / hatd[i][ej])
+                c_k = (self.k_alpha * residual * _projection_matrix(bik).dot(bij)
+                       / hatd[i][ek])
                 corr_p[i] += c_j + c_k
                 corr_p[j] -= c_j
                 corr_p[k] -= c_k
@@ -482,10 +489,9 @@ class AngleBasedPoseObserverCascade(object):
         # velocity correction
         corr_R = self.k_v * np.cross(ub, np.einsum('nji,nj->ni', hatR, tilde_v))
         # bearing correction
-        for edge, (i, j) in enumerate(edges):
-            corr_R[i] += self.k_beta * np.cross(
-                beta[edge], hatR[i].T.dot(hatp_ij[edge])
-            )
+        for i in range(self.n):
+            body_relative = hatp_ij[i].dot(hatR[i])
+            corr_R[i] += self.k_beta * np.cross(beta[i], body_relative).sum(axis=0)
 
         for i in range(self.n):
             self._p_int[i].step(time, tilde_v[i] + corr_p[i])

@@ -140,7 +140,7 @@ def simu_step():
 
     da, db = observer.distance_pair
     distance = np.sqrt(np.square(p[da] - p[db]).sum())
-    observer.update(t, ub, wb, bearings, bearing_rates, distance, edge_set)
+    observer.update(t, ub, wb, bearings, bearing_rates, distance, out_neighbors)
 
     # --- control ---#
     for i in nodes:
