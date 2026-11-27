@@ -42,8 +42,13 @@ estimated_orientation = read_csv_numpy(
 # Remove the common translation and rotation at each sample, as in
 # anl/time_plots_2.py. Rotate estimated attitudes by the same rotation.
 # No scale alignment is applied, so scale errors remain visible.
+optimal_translation = np.empty((log_num_steps, 3))
+optimal_rotation = np.empty((log_num_steps, 3, 3))
+
 for k in range(log_num_steps):
     U, v = optimal_rigid_transform(estimated_position[k], position[k])
+    optimal_rotation[k] = U
+    optimal_translation[k] = v
     estimated_position[k] = estimated_position[k].dot(U.T) + v
     estimated_orientation[k] = np.matmul(U, estimated_orientation[k])
 
@@ -119,6 +124,60 @@ fig.savefig('time_plots/position.pdf', bbox_inches='tight')
 #     ax[k].plot(t, velocity[:, :, k], lw=1.0, ds='steps-post')
 
 # fig.savefig('time_plots/velocity.pdf', bbox_inches='tight')
+
+# ------------------------------------------------------------------
+# Plot optimal_transformation
+# ------------------------------------------------------------------
+fig, ax = plt.subplots(2, 1, figsize=(9.0, 6.0))
+fig.subplots_adjust(
+    bottom=0.215,
+    top=0.925,
+    wspace=0.33,
+    right=0.975,
+    left=0.18
+)
+
+# obtain euler angles
+euler_angles = np.empty((log_num_steps, 3), dtype=np.float64)
+for k in range(log_num_steps):
+    euler_angles[k] = Rotation.from_matrix(
+        optimal_rotation[k]
+    ).as_euler('ZYX', degrees=False)
+
+ax[0].tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize=9
+)
+
+ax[0].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+ax[0].set_ylabel(r'optimal rotation$(\rm rad)$', fontsize=10)
+ax[0].set_ylim(-np.pi, np.pi)
+ax[0].grid(1)
+
+ax[0].plot(t, euler_angles[:, 0], lw=1.0, ds='steps-post', label='$yaw$')
+ax[0].plot(t, euler_angles[:, 1], lw=1.0, ds='steps-post', label='$pitch$')
+ax[0].plot(t, euler_angles[:, 2], lw=1.0, ds='steps-post', label='$roll$')
+ax[0].legend(fontsize=8, loc='upper right')
+
+ax[1].tick_params(
+    axis='both',       # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    pad=1,
+    labelsize=9
+)
+
+ax[1].set_xlabel(r'$t\ (\rm s)$', fontsize=10)
+ax[1].set_ylabel(r'optimal translation $(\rm m)$', fontsize=10)
+ax[1].grid(1)
+
+ax[1].plot(t, optimal_translation[:, 0], lw=1.0, ds='steps-post', label='$x$')
+ax[1].plot(t, optimal_translation[:, 1], lw=1.0, ds='steps-post', label='$y$')
+ax[1].plot(t, optimal_translation[:, 2], lw=1.0, ds='steps-post', label='$z$')
+ax[1].legend(fontsize=8, loc='upper right')
+
+fig.savefig('time_plots/optimal_transformation.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot orientations
