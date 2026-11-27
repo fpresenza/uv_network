@@ -316,7 +316,7 @@ hatR = np.matmul(
 )
 observer = AngleBasedPoseObserverCascade(
     n, hatp, hatR,
-    k_alpha=500.0, k_d=0.001, k_beta=2.0, k_v=2.0,
+    k_alpha=2000.0, k_d=0.02, k_beta=2.0, k_v=2.0,
     distance_pair=(0, 1), time=t
 )
 
