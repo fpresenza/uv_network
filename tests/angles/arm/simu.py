@@ -11,9 +11,7 @@ from uvnpy.toolkit.functions import cosine_activation_derivative
 from uvnpy.toolkit.data import write_json_file
 from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
-from uvnpy.toolkit.geometry import (
-    rotation_matrix_from_quaternion, rotation_matrix_from_vector
-)
+from uvnpy.toolkit.geometry import rotation_matrix_from_vector_multiple_axes
 from uvnpy.graphs.models import ConeGraph
 from uvnpy.angles.local_frame.core import (
     angle_indices, is_angle_rigid, angle_rigidity_eigenvalue
@@ -44,12 +42,6 @@ class Logs(object):
     target_position: list
 
 
-def random_rotation_matrix():
-    q = np.random.normal(size=4)
-    q /= np.sqrt(q.dot(q))
-    return rotation_matrix_from_quaternion(q)
-
-
 def aiming(p, target):
     a = unit_vector(target - p, axis=-1)
     x = np.random.normal(size=3)
@@ -70,7 +62,7 @@ def dsigma_m_f(x):
     ).item()
 
 
-def projector(x):
+def projection_matrix(x):
     return np.eye(3) - np.outer(x, x)
 
 
@@ -141,7 +133,7 @@ def simu_step():
             j: R[i].T.dot(R[j]) for j in out_neighbors[i]
         }
         bearing_rates[i] = {
-            j: projector(bearings[i][j]).dot(rotations[i][j].dot(ub[j]) - ub[i])
+            j: projection_matrix(bearings[i][j]).dot(rotations[i][j].dot(ub[j]) - ub[i])
             / distances[i][j] + np.cross(bearings[i][j], wb[i])
             for j in out_neighbors[i]
         }
@@ -312,16 +304,14 @@ wb = np.zeros((n, 3), dtype=np.float64)
 rigidity_val = np.empty(2, dtype=np.float64)
 
 # Independent initialization noise keeps the original simulation RNG unchanged.
-observer_rng = np.random.RandomState(2)
 position_error_std = 2.0             # metres per coordinate
 orientation_error_std = 0.1         # radians per rotation-vector coordinate
-hatp = observer_rng.normal(initial_position, position_error_std)
-hatR = np.array([
-    rotation_matrix_from_vector(
-        observer_rng.normal(scale=orientation_error_std, size=3)
-    ).dot(initial_orientation[i])
-    for i in nodes
-])
+hatp = np.random.normal(initial_position, position_error_std)
+small_angle = np.random.normal(scale=orientation_error_std, size=3)
+hatR = np.matmul(
+    rotation_matrix_from_vector_multiple_axes(small_angle),
+    initial_orientation
+)
 observer = AngleBasedPoseObserver(
     n, hatp, hatR,
     k_alpha=0.2, k_dalpha=1.0, k_beta=0.01,
