@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation
@@ -20,16 +19,6 @@ plt.rcParams['mathtext.fontset'] = 'dejavuserif'
 plt.rcParams['font.family'] = 'serif'
 
 # ------------------------------------------------------------------
-# Argument parse
-# ------------------------------------------------------------------
-parser = argparse.ArgumentParser(description='')
-parser.add_argument(
-    '-c', '--coupled',
-    default=False, action='store_true', help='Coupled or uncoupled estimation.'
-)
-arg = parser.parse_args()
-
-# ------------------------------------------------------------------
 # Read simulated data
 # ------------------------------------------------------------------
 t = read_csv_numpy('simu_data/t.csv')
@@ -46,20 +35,21 @@ hatq = read_csv_numpy(
     'simu_data/estimated_position.csv'
 ).reshape(log_num_steps, n, 3)
 
-position_gradient = read_csv_numpy('simu_data/position_gradient.csv').reshape(log_num_steps, n, 3)
+position_gradient = read_csv_numpy(
+    'simu_data/position_gradient.csv'
+).reshape(log_num_steps, n, 3)
 
 control_u = read_csv_numpy('simu_data/control_u.csv').reshape(log_num_steps, n, 3)
 control_w = read_csv_numpy('simu_data/control_w.csv').reshape(log_num_steps, n, 3)
 
 correction_u = read_csv_numpy('simu_data/correction_u.csv').reshape(log_num_steps, n, 3)
 
-if arg.coupled:
-    hatQ = read_csv_numpy(
-        'simu_data/estimated_orientation.csv'
-    ).reshape(log_num_steps, n, 3, 3)
-    correction_w = read_csv_numpy(
-        'simu_data/correction_w.csv'
-    ).reshape(log_num_steps, n, 3)
+hatQ = read_csv_numpy(
+    'simu_data/estimated_orientation.csv'
+).reshape(log_num_steps, n, 3, 3)
+correction_w = read_csv_numpy(
+    'simu_data/correction_w.csv'
+).reshape(log_num_steps, n, 3)
 
 adjacency = read_csv_numpy('simu_data/adjacency.csv').reshape(n, n)
 
@@ -72,8 +62,7 @@ a, b, c = 0, 1, 2
 # change of basis
 hatp = np.matmul(hatq, R[:, a].swapaxes(1, 2)) + p[:, np.newaxis, a]
 q = np.matmul(p - p[:, np.newaxis, a], R[:, a])
-if arg.coupled:
-    Q = np.matmul(R[:, a, np.newaxis].swapaxes(2, 3), R)
+Q = np.matmul(R[:, a, np.newaxis].swapaxes(2, 3), R)
 
 # Hessian
 A = [angle_rigidity_matrix(angle_set, pk) for pk in p]
@@ -200,101 +189,75 @@ fig.savefig('time_plots/euler_angles.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot pose error
-# ------------------------------------------------------------------
-if arg.coupled:
-    fig, axes = plt.subplots(2, 1, figsize=(4.0, 3.5))
-    fig.tight_layout()
-    fig.subplots_adjust(hspace=0.35)
+fig, axes = plt.subplots(2, 1, figsize=(4.0, 3.5))
+fig.tight_layout()
+fig.subplots_adjust(hspace=0.35)
 
-    for ax in axes:
-        ax.tick_params(
-            axis='both',       # changes apply to the x-axis
-            which='both',      # both major and minor ticks are affected
-            pad=1,
-            labelsize=12
-        )
-        ax.grid(1)
-
-    axes[0].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=-2)
-    axes[0].set_ylabel(r'$\|\tilde{{q}}_{i}\| (\rm m)$', fontsize=14, labelpad=5)
-    axes[0].set_yticks([0.0, 5.0])
-    axes[0].set_yticklabels(['0.0', '5.0'])
-    axes[0].plot(
-        t,
-        np.sqrt(np.square(hatq[:, leaders] - q[:, leaders]).sum(axis=-1)),
-        lw=2.0,
-        ls='-',
-        ds='steps-post'
-    )
-    axes[0].plot(
-        t,
-        np.sqrt(np.square(hatq[:, followers] - q[:, followers]).sum(axis=-1)),
-        lw=2.0,
-        ls='--',
-        ds='steps-post'
-    )
-    axes[0].plot(0.0, 0.0, color='k', ls='-', label='sens')
-    axes[0].plot(0.0, 0.0, color='k', ls='--', label='free')
-    axes[0].legend(fontsize=12)
-
-    E = np.matmul(Q.swapaxes(2, 3), hatQ)
-    phi = np.arccos((np.trace(E, axis1=2, axis2=3) - 1)/2)
-    axes[1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=-2)
-    # ax.set_ylabel(
-    #     r'$\mathrm{tr}\left(I - \tilde{Q}_i\right) / 2$',
-    #     fontsize=15
-    # )
-    axes[1].set_ylabel(r'$\|\psi_i\| \ (\rm rad)$', fontsize=14, labelpad=5)
-    axes[1].set_yticks([0.0, 0.5])
-    axes[1].set_yticklabels(['0.0', '0.5'])
-    axes[1].plot(
-        t,
-        phi[:, leaders],
-        lw=2.0,
-        ls='-',
-        ds='steps-post'
-    )
-    axes[1].plot(
-        t,
-        phi[:, followers],
-        lw=2.0,
-        ls='--',
-        ds='steps-post'
-    )
-    for i in followers:
-        axes[1].scatter(
-            t[[1500, 5000]], phi[[1500, 5000], i],
-            marker='s', s=25, color='k', facecolor='none', zorder=10
-        )
-    axes[1].plot(0.0, 0.0, color='k', ls='-', label='sens')
-    axes[1].plot(0.0, 0.0, color='k', ls='--', label='free')
-    axes[1].legend(fontsize=12)
-
-    fig.savefig('time_plots/pose_error.pdf', bbox_inches='tight')
-
-else:
-    fig, ax = plt.subplots(figsize=(9.0, 2.0))
-    fig.tight_layout()
-
+for ax in axes:
     ax.tick_params(
         axis='both',       # changes apply to the x-axis
         which='both',      # both major and minor ticks are affected
         pad=1,
-        labelsize=15
+        labelsize=12
     )
-
-    ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=15)
-    ax.set_ylabel(r'$\|\tilde{{q}}_{i}\| \ (\rm m)$', fontsize=15)
     ax.grid(1)
 
-    ax.plot(
-        t,
-        np.sqrt(np.square(hatq - q).sum(axis=-1)),
-        lw=2.0,
-        ds='steps-post'
-    )
+axes[0].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=-2)
+axes[0].set_ylabel(r'$\|\tilde{{q}}_{i}\| (\rm m)$', fontsize=14, labelpad=5)
+axes[0].set_yticks([0.0, 5.0])
+axes[0].set_yticklabels(['0.0', '5.0'])
+axes[0].plot(
+    t,
+    np.sqrt(np.square(hatq[:, leaders] - q[:, leaders]).sum(axis=-1)),
+    lw=2.0,
+    ls='-',
+    ds='steps-post'
+)
+axes[0].plot(
+    t,
+    np.sqrt(np.square(hatq[:, followers] - q[:, followers]).sum(axis=-1)),
+    lw=2.0,
+    ls='--',
+    ds='steps-post'
+)
+axes[0].plot(0.0, 0.0, color='k', ls='-', label='sens')
+axes[0].plot(0.0, 0.0, color='k', ls='--', label='free')
+axes[0].legend(fontsize=12)
 
-    fig.savefig('time_plots/position_error_norm.pdf', bbox_inches='tight')
+E = np.matmul(Q.swapaxes(2, 3), hatQ)
+phi = np.arccos((np.trace(E, axis1=2, axis2=3) - 1)/2)
+axes[1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=12, labelpad=-2)
+# ax.set_ylabel(
+#     r'$\mathrm{tr}\left(I - \tilde{Q}_i\right) / 2$',
+#     fontsize=15
+# )
+axes[1].set_ylabel(r'$\|\psi_i\| \ (\rm rad)$', fontsize=14, labelpad=5)
+axes[1].set_yticks([0.0, 0.5])
+axes[1].set_yticklabels(['0.0', '0.5'])
+axes[1].plot(
+    t,
+    phi[:, leaders],
+    lw=2.0,
+    ls='-',
+    ds='steps-post'
+)
+axes[1].plot(
+    t,
+    phi[:, followers],
+    lw=2.0,
+    ls='--',
+    ds='steps-post'
+)
+for i in followers:
+    axes[1].scatter(
+        t[[1500, 5000]], phi[[1500, 5000], i],
+        marker='s', s=25, color='k', facecolor='none', zorder=10
+    )
+axes[1].plot(0.0, 0.0, color='k', ls='-', label='sens')
+axes[1].plot(0.0, 0.0, color='k', ls='--', label='free')
+axes[1].legend(fontsize=12)
+
+fig.savefig('time_plots/pose_error.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot gradient
@@ -366,78 +329,49 @@ fig.savefig('time_plots/control.pdf', bbox_inches='tight')
 # ------------------------------------------------------------------
 # Plot correction
 # ------------------------------------------------------------------
-if arg.coupled:
-    fig, ax = plt.subplots(3, 2, figsize=(18.0, 6.0))
-    fig.subplots_adjust(
-        bottom=0.215,
-        top=0.925,
-        wspace=0.33,
-        right=0.975,
-        left=0.18
+fig, ax = plt.subplots(3, 2, figsize=(18.0, 6.0))
+fig.subplots_adjust(
+    bottom=0.215,
+    top=0.925,
+    wspace=0.33,
+    right=0.975,
+    left=0.18
+)
+
+for k, d in enumerate(['x', 'y', 'z']):
+    ax[k, 0].tick_params(
+        axis='both',       # changes apply to the x-axis
+        which='both',      # both major and minor ticks are affected
+        pad=1,
+        labelsize=9
     )
 
-    for k, d in enumerate(['x', 'y', 'z']):
-        ax[k, 0].tick_params(
-            axis='both',       # changes apply to the x-axis
-            which='both',      # both major and minor ticks are affected
-            pad=1,
-            labelsize=9
-        )
+    ax[k, 0].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+    ax[k, 0].set_ylabel(
+        fr'$\delta \hat{{p}}_{{i, {d}}} \ (\rm m / s)$', fontsize=10
+    )
+    # ax[k, 0].set_ylim(-1e-4, 1e-4)
+    ax[k, 0].grid(1)
 
-        ax[k, 0].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-        ax[k, 0].set_ylabel(
-            fr'$\delta \hat{{p}}_{{i, {d}}} \ (\rm m / s)$', fontsize=10
-        )
-        # ax[k, 0].set_ylim(-1e-4, 1e-4)
-        ax[k, 0].grid(1)
+    ax[k, 0].plot(t, correction_u[:, :, k], lw=1.0, ds='steps-post')
 
-        ax[k, 0].plot(t, correction_u[:, :, k], lw=1.0, ds='steps-post')
-
-        ax[k, 1].tick_params(
-            axis='both',       # changes apply to the x-axis
-            which='both',      # both major and minor ticks are affected
-            pad=1,
-            labelsize=9
-        )
-
-        ax[k, 1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-        ax[k, 1].set_ylabel(
-            fr'$\delta \hat{{Q}}_{{i, {d}}} \ (\rm m / s)$', fontsize=10
-        )
-        # ax[k, 1].set_ylim(-1e-4, 1e-4)
-        ax[k, 1].grid(1)
-
-        ax[k, 1].plot(t, correction_w[:, :, k], lw=1.0, ds='steps-post')
-
-    fig.savefig('time_plots/correction.pdf', bbox_inches='tight')
-
-else:
-
-    fig, ax = plt.subplots(3, figsize=(9.0, 6.0))
-    fig.subplots_adjust(
-        bottom=0.215,
-        top=0.925,
-        wspace=0.33,
-        right=0.975,
-        left=0.18
+    ax[k, 1].tick_params(
+        axis='both',       # changes apply to the x-axis
+        which='both',      # both major and minor ticks are affected
+        pad=1,
+        labelsize=9
     )
 
-    for k, d in enumerate(['x', 'y', 'z']):
-        ax[k].tick_params(
-            axis='both',       # changes apply to the x-axis
-            which='both',      # both major and minor ticks are affected
-            pad=1,
-            labelsize=9
-        )
+    ax[k, 1].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
+    ax[k, 1].set_ylabel(
+        fr'$\delta \hat{{Q}}_{{i, {d}}} \ (\rm m / s)$', fontsize=10
+    )
+    # ax[k, 1].set_ylim(-1e-4, 1e-4)
+    ax[k, 1].grid(1)
 
-        ax[k].set_xlabel(r'$t\ (\mathrm{s})$', fontsize=10)
-        ax[k].set_ylabel(fr'$\delta \hat{{p}}_{{i, {d}}} \ (\rm m / s)$', fontsize=10)
-        # ax[k].set_ylim(-1e-4, 1e-4)
-        ax[k].grid(1)
+    ax[k, 1].plot(t, correction_w[:, :, k], lw=1.0, ds='steps-post')
 
-        ax[k].plot(t, correction_u[:, :, k], lw=1.0, ds='steps-post')
-
-    fig.savefig('time_plots/correction.pdf', bbox_inches='tight')
+fig.savefig('time_plots/correction.pdf', bbox_inches='tight')
 
 # ------------------------------------------------------------------
 # Plot angle error
