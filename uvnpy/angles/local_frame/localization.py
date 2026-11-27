@@ -7,6 +7,7 @@ from transformations import unit_vector
 
 from uvnpy.dynamics.core import EulerIntegrator
 from uvnpy.dynamics.lie_groups import EulerIntegratorOrtogonalGroup
+from uvnpy.toolkit.geometry import wahba_problem
 
 
 def _projection_matrix(x):
@@ -345,8 +346,7 @@ class AngleBasedPoseObserverCascade(object):
 
     def __init__(
             self, n, position, orientation, k_alpha=500.0, k_d=0.001,
-            k_beta=2.0, k_v=2.0, time=0.0, distance_pair=(0, 1),
-            min_eigenvalue=1e-8):
+            k_beta=2.0, k_v=2.0, distance_pair=(0, 1), time=0.0):
         position = np.asarray(position, dtype=float)
         orientation = np.asarray(orientation, dtype=float)
         if int(n) != n or n < 2:
@@ -360,7 +360,7 @@ class AngleBasedPoseObserverCascade(object):
                 or np.any(pair < 0) or np.any(pair >= n) or pair[0] == pair[1]):
             raise ValueError('distance_pair must contain two distinct robot indices.')
         for name, value in (('k_alpha', k_alpha), ('k_d', k_d), ('k_beta', k_beta),
-                            ('k_v', k_v), ('min_eigenvalue', min_eigenvalue)):
+                            ('k_v', k_v)):
             if not np.isfinite(value) or value <= 0:
                 raise ValueError(f'{name} must be finite and strictly positive.')
         self.n = int(n)
@@ -370,7 +370,6 @@ class AngleBasedPoseObserverCascade(object):
         self.distance_pair = tuple(int(idx) for idx in pair)
         self.k_alpha, self.k_d = k_alpha, k_d
         self.k_beta, self.k_v = k_beta, k_v
-        self.min_eigenvalue = min_eigenvalue
         self._p_int = [EulerIntegrator(pi, t=self.t) for pi in position]
         self._R_int = [
             EulerIntegratorOrtogonalGroup(Ri, t=self.t) for Ri in orientation
@@ -384,7 +383,7 @@ class AngleBasedPoseObserverCascade(object):
     def orientation(self):
         return np.array([integrator.x() for integrator in self._R_int])
 
-    def update(self, time, u, omega, bearings, bearing_rates, edge_set, distance):
+    def update(self, time, u, omega, bearings, bearing_rates, distance, edge_set):
         """Advance from one synchronized measurement snapshot.
 
         u and omega are (n, 3) body-frame velocities; edge_set contains directed
@@ -421,8 +420,6 @@ class AngleBasedPoseObserverCascade(object):
             raise ValueError('An estimated bearing edge has zero length.')
         hatb = hatp_ij / hatd[:, None]
         beta = np.asarray([bearings[i][j] for i, j in edges], dtype=float)
-        if edges.size == 0:
-            raise ValueError('Velocity reconstruction requires bearing edges.')
         if beta.shape != hatb.shape or not np.allclose(np.linalg.norm(beta, axis=1), 1):
             raise ValueError('Each active bearing must be a unit 3-vector.')
 
@@ -435,19 +432,13 @@ class AngleBasedPoseObserverCascade(object):
             if len(outgoing) < 2:
                 continue
             body = beta[outgoing]
-            G = len(outgoing) * np.eye(3) - body.T @ body
-            if np.linalg.eigvalsh(G)[0] < self.min_eigenvalue:
-                continue
-            U, _, Vt = np.linalg.svd(hatb[outgoing].T @ body)
-            if np.linalg.det(U @ Vt) < 0:
-                U[:, -1] *= -1
-            tilde_T[i] = U @ Vt
-            tilde_v[i] = tilde_T[i] @ ub[i]
+            tilde_T[i] = wahba_problem(body, hatb[outgoing])
+            tilde_v[i] = tilde_T[i].dot(ub[i])
             rich[i] = True
 
         # weak robots use only incoming edges from rich robots.
         for i in np.flatnonzero(~rich):
-            X_i = np.zeros((3, 3))
+            M_i = np.zeros((3, 3))
             x_i = np.zeros(3)
             for edge in np.flatnonzero((targets == i) & rich[sources]):
                 j = sources[edge]
@@ -457,43 +448,48 @@ class AngleBasedPoseObserverCascade(object):
                     raise ValueError(
                         'Each required bearing rate must be a finite 3-vector.'
                     )
-                X_i += _projection_matrix(tilde_T[j] @ b)
-                z = _projection_matrix(b) @ ub[j] \
+                M_i += _projection_matrix(tilde_T[j].dot(b))
+                z = _projection_matrix(b).dot(ub[j]) \
                     + hatd[edge] * (np.cross(wb[j], b) + db)
-                x_i += tilde_T[j] @ z
-            if np.linalg.eigvalsh(X_i)[0] < self.min_eigenvalue:
-                raise ValueError(
-                    f'Insufficient incoming sensing geometry for robot {i}.'
-                )
-            tilde_v[i] = np.linalg.solve(X_i, x_i)
+                x_i += tilde_T[j].dot(z)
+            tilde_v[i] = np.linalg.solve(M_i, x_i)
 
         # Position innovations: fixed-pair range and outgoing angle cosines.
         corr_p = np.zeros_like(hatp)
+
+        # distance correction
         a, b = self.distance_pair
         r = hatp[b] - hatp[a]
         c = self.k_d * (r.dot(r) - distance**2) * r
         corr_p[a] += c
         corr_p[b] -= c
+
+        # angle correction
         for i, outgoing in enumerate(out_edges):
             for ej, ek in _complete_angle_set(outgoing):
                 j, k = targets[ej], targets[ek]
                 bij, bik = hatb[ej], hatb[ek]
                 residual = bij.dot(bik) - beta[ej].dot(beta[ek])
-                c_j = self.k_alpha * residual * (_projection_matrix(bij) @ bik) \
+                c_j = self.k_alpha * residual * (_projection_matrix(bij).dot(bik)) \
                     / hatd[ej]
-                c_k = self.k_alpha * residual * (_projection_matrix(bik) @ bij) \
+                c_k = self.k_alpha * residual * (_projection_matrix(bik).dot(bij)) \
                     / hatd[ek]
                 corr_p[i] += c_j + c_k
                 corr_p[j] -= c_j
                 corr_p[k] -= c_k
 
         # Both attitude innovations apply to every robot, in its body frame.
+        # velocity correction
         corr_R = self.k_v * np.cross(ub, np.einsum('nji,nj->ni', hatR, tilde_v))
+        # bearing correction
         for edge, (i, j) in enumerate(edges):
-            corr_R[i] += self.k_beta * np.cross(beta[edge], hatR[i].T @ hatp_ij[edge])
+            corr_R[i] += self.k_beta * np.cross(
+                beta[edge], hatR[i].T.dot(hatp_ij[edge])
+            )
 
         for i in range(self.n):
             self._p_int[i].step(time, tilde_v[i] + corr_p[i])
             self._R_int[i].step_left(time, wb[i] + corr_R[i])
         self.t = time
+
         return self.position, self.orientation

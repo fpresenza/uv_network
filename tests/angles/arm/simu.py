@@ -16,7 +16,7 @@ from uvnpy.graphs.models import ConeGraph
 from uvnpy.angles.local_frame.core import (
     angle_indices, is_angle_rigid, angle_rigidity_eigenvalue
 )
-from uvnpy.angles.local_frame.localization import AngleBasedPoseObserverCoupled
+from uvnpy.angles.local_frame.localization import AngleBasedPoseObserverCascade
 from uvnpy.angles.local_frame.control import (
     weighted_angle_rigidity_eigenvalue, AngleRigidityMaintenance
 )
@@ -138,7 +138,9 @@ def simu_step():
             for j in out_neighbors[i]
         }
 
-    observer.update(t, ub, wb, bearings, bearing_rates, edge_set)
+    da, db = observer.distance_pair
+    distance = np.sqrt(np.square(p[da] - p[db]).sum())
+    observer.update(t, ub, wb, bearings, bearing_rates, distance, edge_set)
 
     # --- control ---#
     for i in nodes:
@@ -312,10 +314,10 @@ hatR = np.matmul(
     rotation_matrix_from_vector_multiple_axes(small_angle),
     initial_orientation
 )
-observer = AngleBasedPoseObserverCoupled(
+observer = AngleBasedPoseObserverCascade(
     n, hatp, hatR,
-    k_alpha=0.2, k_dalpha=1.0, k_beta=0.01,
-    k_p=10000.0, k_R=200.0, time=t,
+    k_alpha=500.0, k_d=0.001, k_beta=2.0, k_v=2.0,
+    distance_pair=(0, 1), time=t
 )
 
 # --- define targets --- #
