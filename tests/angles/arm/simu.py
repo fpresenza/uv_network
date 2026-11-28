@@ -115,7 +115,7 @@ def simu_step():
     rigidity_val[0] = angle_rigidity_eigenvalue(angle_set, p, scale_invariant=True)
 
     #    # --- weighted part --- #
-    rigidity_val[:], rigidity_vec = weighted_angle_rigidity_eigenvalue(
+    rigidity_val[1], rigidity_vec = weighted_angle_rigidity_eigenvalue(
         angle_set, p, R, range_lims, hfov_lims
     )
     rigidity_vec = np.squeeze(np.matmul(rigidity_vec[:, np.newaxis, :], R))
