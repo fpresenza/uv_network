@@ -33,6 +33,7 @@ from uvnpy.control.targets import MovingTargets
 class Logs(object):
     time: list
     position: list
+    attitude: list
     orientation: list
     estimated_position: list
     estimated_orientation: list
@@ -69,6 +70,10 @@ def projection_matrix(x):
 
 def extract_quadrotor_position(quadrotors):
     return np.array([q.position() for q in quadrotors])
+
+
+def extract_quadrotor_attitude(quadrotors):
+    return np.array([q.attitude() for q in quadrotors])
 
 
 def extract_quadrotor_linear_vel(quadrotors):
@@ -204,6 +209,7 @@ def log_step():
     """Data log"""
     logs.time.append(t)
     logs.position.append(extract_quadrotor_position(p_int).ravel())
+    logs.attitude.append(extract_quadrotor_attitude(p_int).ravel())
     logs.orientation.append(extract_x(R_int).ravel())
     logs.estimated_position.append(observer.position.ravel())
     logs.estimated_orientation.append(observer.orientation.ravel())
@@ -373,6 +379,7 @@ write_json_file(
 logs = Logs(
     time=[t],
     position=[extract_quadrotor_position(p_int).ravel()],
+    attitude=[extract_quadrotor_attitude(p_int).ravel()],
     orientation=[extract_x(R_int).ravel()],
     estimated_position=[observer.position.ravel()],
     estimated_orientation=[observer.orientation.ravel()],
@@ -406,6 +413,7 @@ bar.finish()
 
 np.savetxt('simu_data/t.csv', logs.time, delimiter=',')
 np.savetxt('simu_data/position.csv', logs.position, delimiter=',')
+np.savetxt('simu_data/attitude.csv', logs.attitude, delimiter=',')
 np.savetxt('simu_data/orientation.csv', logs.orientation, delimiter=',')
 np.savetxt(
     'simu_data/estimated_position.csv', logs.estimated_position, delimiter=','

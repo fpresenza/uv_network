@@ -5,6 +5,7 @@
 Examples (from the repository root)::
 
     python tests/angles/plots/xyz_snapshots.py arm -j 1000
+    python tests/angles/plots/xyz_snapshots.py arm -j 1000 -quad
     python tests/angles/plots/xyz_snapshots.py anl -j 1000
     python tests/angles/plots/xyz_snapshots.py arm -j 1000 --view 10 -45 --view 30 60
 
@@ -50,6 +51,10 @@ parser.add_argument(
     default=False, action='store_true', help='Whether to plot as snapshots.'
 )
 parser.add_argument(
+    '-quad', '--quad', action='store_true',
+    help='Draw robots as quadrotors using their logged attitudes.'
+)
+parser.add_argument(
     '-m', '--multijump',
     default=1, type=int, help='Multiplicative jump'
 )
@@ -79,6 +84,10 @@ position = read_csv_numpy(
     data_dir / 'position.csv', jump=arg.jump
 ).reshape(log_num_steps, -1, 3)
 n = position.shape[1]
+
+attitude = read_csv_numpy(
+    data_dir / 'attitude.csv', jump=arg.jump
+).reshape(log_num_steps, n, 3, 3)
 
 orientation = read_csv_numpy(
     data_dir / 'orientation.csv', jump=arg.jump
@@ -157,6 +166,7 @@ for k in range(log_num_steps):
     # --- position and orientation--- #
     p = position[k]
     R = orientation[k]
+    Q = attitude[k]
 
     # --- plot --- #
     for i in range(n):
@@ -181,16 +191,23 @@ for k in range(log_num_steps):
         #     zorder=10,
         #     # alpha=1
         # )
-        plot.points(
-            ax, p,
-            facecolor='0.3',
-            edgecolor='none',
-            marker='o',
-            s=15,
-            # lw=1,
-            zorder=10,
-            # alpha=1
-        )
+        if arg.quad:
+            for robot_position, robot_attitude in zip(p, Q):
+                ax.add_collection3d(plot.quadrotor(
+                    robot_position, robot_attitude,
+                    arm_length=2.5, colors='0.3', linewidths=1.0
+                ))
+        else:
+            plot.points(
+                ax, p,
+                facecolor='0.3',
+                edgecolor='none',
+                marker='o',
+                s=15,
+                # lw=1,
+                zorder=10,
+                # alpha=1
+            )
         plot.arrows(
             ax,
             p,
