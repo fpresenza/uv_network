@@ -111,14 +111,15 @@ def simu_step():
     edge_set = sensing_graph.edge_set()
     angle_set = angle_indices(nodes, edge_set).astype(int)
 
-    #    # --- unweighted part --- #
     rigidity_val[0] = angle_rigidity_eigenvalue(angle_set, p, scale_invariant=True)
-
-    #    # --- weighted part --- #
-    rigidity_val[1], rigidity_vec = weighted_angle_rigidity_eigenvalue(
+    rigidity_vals, rigidity_vecs = weighted_angle_rigidity_eigenvalue(
         angle_set, p, R, range_lims, hfov_lims
     )
-    rigidity_vec = np.squeeze(np.matmul(rigidity_vec[:, np.newaxis, :], R))
+    rigidity_val[1] = rigidity_vals[0]
+
+    # Each eigenvector column contains one world-frame 3-vector per robot.
+    world_vecs = rigidity_vecs.reshape(n, 3, -1)
+    rigidity_vecs_b = (R.swapaxes(-1, -2) @ world_vecs).transpose(2, 0, 1)
 
     # --- measurements and estimation --- #
     out_neighbors = {i: [] for i in nodes}
@@ -180,11 +181,11 @@ def simu_step():
 
     # --- rigidity maintenance control --- #
     control_u_r, control_w_r = arm.update(
-        out_neighbors, distances, bearings, rotations, rigidity_val[1], rigidity_vec
+        out_neighbors, distances, bearings, rotations, rigidity_vals, rigidity_vecs_b
     )
 
     # define relative weights
-    k_u_r = 5.0
+    k_u_r = 1.0
     k_u_m = 50.0
     k_w_r = 0.5
     k_w_m = 5.0

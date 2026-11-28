@@ -65,27 +65,34 @@ def weights(angle_set, p, R, range_lims, hfov_lims):
 
 
 def weighted_angle_rigidity_eigenvalue(angle_set, p, R, range_lims, hfov_lims):
+    """Return modes 8 through 3N of the weighted 3D rigidity matrix.
+
+    Eigenvalues are ascending and eigenvectors are columns. The first
+    seven modes correspond to the similarity-motion nullspace.
+    """
     A = angle_rigidity_matrix(angle_set, p)
     W = weights(angle_set, p, R, range_lims, hfov_lims)
     evals, evecs = np.linalg.eigh(A.T.dot(W[:, np.newaxis] * A))
-    return evals[7], evecs[:, 7].reshape(p.shape)
+    return evals[7:], evecs[:, 7:]
 
 
 class AngleRigidityMaintenance(object):
-    """
-    Rigidity Maintenance Control based on the minimization
-    of the rigidity matrix (nonzero) eigenvalues' inverses.
+    """Negative gradient of the log barrier on the nontrivial spectrum.
 
-    args:
-    -----
-        N           : number of robots
-        range_lims  : range low and high limits
-        cos_lims    : cosine low and high limits
+    The potential is -sum(log(rigidity_vals - epsilon_lambda)).
+    epsilon_lambda defaults to zero and must be below the smallest retained
+    eigenvalue throughout operation. N is the number of robots and range_lims
+    and hfov_lims define the distance and field-of-view weight transitions.
     """
-    def __init__(self, N, range_lims, hfov_lims):
+
+    def __init__(self, N, range_lims, hfov_lims, epsilon_lambda=0.0):
+        epsilon_lambda = float(epsilon_lambda)
+        if not np.isfinite(epsilon_lambda) or epsilon_lambda < 0:
+            raise ValueError('epsilon_lambda must be finite and nonnegative.')
         self.N = N
         self.range_lims = range_lims
         self.hfov_lims = hfov_lims
+        self.epsilon_lambda = epsilon_lambda
 
     def update(
             self,
@@ -93,9 +100,27 @@ class AngleRigidityMaintenance(object):
             distances,
             bearings,
             rotations,
-            rigidity_val,
-            rigidity_vec
+            rigidity_vals,
+            rigidity_vecs
             ):
+        """Return body-frame commands from the retained weighted modes.
+
+        rigidity_vals has shape (3*N - 7,). rigidity_vecs has shape
+        (3*N - 7, N, 3), with each robot's block in its own body frame.
+        """
+        rigidity_vals = np.asarray(rigidity_vals, dtype=float)
+        rigidity_vecs = np.asarray(rigidity_vecs, dtype=float)
+        n_modes = 3 * self.N - 7
+        if (n_modes <= 0 or rigidity_vals.shape != (n_modes,)
+                or rigidity_vecs.shape != (n_modes, self.N, 3)):
+            raise ValueError(
+                'Expected modes 8 through 3N and their body-frame vectors.'
+            )
+        gaps = rigidity_vals - self.epsilon_lambda
+        if not np.all(np.isfinite(gaps) & (gaps > 0)):
+            raise ValueError('Rigidity barrier requires all retained eigenvalues '
+                             'to be strictly greater than epsilon_lambda.')
+
         control_u_r = np.zeros((self.N, 3), dtype=np.float64)
         control_w_r = np.zeros((self.N, 3), dtype=np.float64)
         for i in range(self.N):
@@ -149,12 +174,6 @@ class AngleRigidityMaintenance(object):
                 qijk = Pij.dot(bik) / dij
                 qikj = Pik.dot(bij) / dik
 
-                vec_i = rigidity_vec[i]
-                vec_j = Rij.dot(rigidity_vec[j])
-                vec_k = Rik.dot(rigidity_vec[k])
-
-                sijk = qijk.dot(vec_j - vec_i) + qikj.dot(vec_k - vec_i)
-
                 Dijk = np.outer(Pij.dot(bik), bij)
                 Dijk += np.outer(bij, bik.dot(Pij))
                 Dijk += bij.dot(bik) * Pij
@@ -166,16 +185,28 @@ class AngleRigidityMaintenance(object):
                 Dikj /= dik**2
 
                 Eijk = Pij.dot(Pik) / (dij * dik)
-                Eikj = Pik.dot(Pij) / (dik * dij)
+                # Work with all mode rows in the source robot's body frame.
+                vec_i = rigidity_vecs[:, i]
+                diff_j = rigidity_vecs[:, j] @ Rij.T - vec_i
+                diff_k = rigidity_vecs[:, k] @ Rik.T - vec_i
+                sijk = diff_j @ qijk + diff_k @ qikj
 
-                sijk_j = - Dijk.dot(vec_j - vec_i) + Eijk.dot(vec_k - vec_i)
-                sijk_k = Eikj.dot(vec_j - vec_i) - Dikj.dot(vec_k - vec_i)
-                sijk_i = - sijk_j - sijk_k
+                # Sum modal contributions before applying the common gradients.
+                weighted_s = sijk / gaps
+                weight_factor = sijk @ weighted_s
+                sum_diff_j = weighted_s @ diff_j
+                sum_diff_k = weighted_s @ diff_k
+                sum_grad_j = -Dijk @ sum_diff_j + Eijk @ sum_diff_k
+                sum_grad_k = Eijk.T @ sum_diff_j - Dikj @ sum_diff_k
+                sum_grad_i = -sum_grad_j - sum_grad_k
 
-                control_u_r[i] += sijk * (sijk * wijk_i + 2 * wijk * sijk_i)
-                control_u_r[j] += sijk * Rij.T.dot(sijk * wijk_j + 2 * wijk * sijk_j)
-                control_u_r[k] += sijk * Rik.T.dot(sijk * wijk_k + 2 * wijk * sijk_k)
+                control_u_r[i] += weight_factor * wijk_i + 2 * wijk * sum_grad_i
+                control_u_r[j] += Rij.T @ (
+                    weight_factor * wijk_j + 2 * wijk * sum_grad_j
+                )
+                control_u_r[k] += Rik.T @ (
+                    weight_factor * wijk_k + 2 * wijk * sum_grad_k
+                )
+                control_w_r[i] += weight_factor * wijk_Ri
 
-                control_w_r[i] += sijk**2 * wijk_Ri
-
-        return control_u_r / rigidity_val, control_w_r / rigidity_val
+        return control_u_r, control_w_r
