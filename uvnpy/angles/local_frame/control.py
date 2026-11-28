@@ -5,14 +5,14 @@
 @institute LAR - FIUBA, Universidad de Buenos Aires, Argentina
 """
 import numpy as np
+from itertools import combinations
 
 from uvnpy.angles.local_frame.core import angle_rigidity_matrix
 from uvnpy.toolkit.functions import cosine_activation, cosine_activation_derivative
 
 
 def complete_angle_set(out_neighbors):
-    i, j = np.triu_indices(out_neighbors.size, k=1)
-    return np.column_stack([out_neighbors[i], out_neighbors[j]]).astype(int).tolist()
+    return [[int(a), int(b)] for a, b in combinations(out_neighbors, 2)]
 
 
 def sigma_r_r(x, range_lims):
@@ -90,7 +90,8 @@ class AngleRigidityMaintenance(object):
     def update(
             self,
             out_neighbors,
-            distances, bearings,
+            distances,
+            bearings,
             rotations,
             rigidity_val,
             rigidity_vec
