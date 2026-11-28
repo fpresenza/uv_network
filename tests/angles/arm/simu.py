@@ -106,15 +106,6 @@ def simu_step():
     sensing_graph.update(p, R[:, :, 0])
 
     """Run formation control and pose estimation without estimate feedback."""
-    # --- data ---#
-    control_u_m = np.zeros((n, 3), dtype=np.float64)
-    control_w_m = np.zeros((n, 3), dtype=np.float64)
-    control_u_c = np.zeros((n, 3), dtype=np.float64)
-
-    out_neighbors = {}
-    distances = {}
-    bearings, bearing_rates = {}, {}
-    rotations = {}
 
     # --- angle rigidity eigenvalue-vector --- #
     edge_set = sensing_graph.edge_set()
@@ -124,39 +115,38 @@ def simu_step():
     rigidity_val[0] = angle_rigidity_eigenvalue(angle_set, p, scale_invariant=True)
 
     #    # --- weighted part --- #
-    rigidity_val[1], rigidity_vec = weighted_angle_rigidity_eigenvalue(
+    rigidity_val[:], rigidity_vec = weighted_angle_rigidity_eigenvalue(
         angle_set, p, R, range_lims, hfov_lims
     )
     rigidity_vec = np.squeeze(np.matmul(rigidity_vec[:, np.newaxis, :], R))
 
     # --- measurements and estimation --- #
-    for i in nodes:
-        out_neighbors[i] = edge_set[:, 1][edge_set[:, 0] == i]
-        r = {j: p[j] - p[i] for j in out_neighbors[i]}
+    out_neighbors = {i: [] for i in nodes}
+    distances = {i: {} for i in nodes}
+    bearings, bearing_rates = {i: {} for i in nodes}, {i: {} for i in nodes}
+    rotations = {i: {} for i in nodes}
+    for i, j in edge_set:
+        out_neighbors[i].append(j)
+        pij = p[j] - p[i]
 
         #   # --- estimated values --- #
-        distances[i] = {
-            j: np.sqrt(np.square(r[j]).sum()) for j in out_neighbors[i]
-        }
+        distances[i][j] = np.sqrt(np.square(pij).sum())
+        rotations[i][j] = R[i].T.dot(R[j])
 
         #   # --- measurements --- #
-        bearings[i] = {
-            j: R[i].T.dot(r[j] / distances[i][j]) for j in out_neighbors[i]
-        }
-        rotations[i] = {
-            j: R[i].T.dot(R[j]) for j in out_neighbors[i]
-        }
-        bearing_rates[i] = {
-            j: projection_matrix(bearings[i][j]).dot(rotations[i][j].dot(ub[j]) - ub[i])
-            / distances[i][j] + np.cross(bearings[i][j], wb[i])
-            for j in out_neighbors[i]
-        }
+        bearings[i][j] = R[i].T.dot(pij / distances[i][j])
+        bearing_rates[i][j] = projection_matrix(bearings[i][j]).dot(
+            rotations[i][j].dot(ub[j]) - ub[i]
+            ) / distances[i][j] + np.cross(bearings[i][j], wb[i])
 
     da, db = observer.distance_pair
     distance = np.sqrt(np.square(p[da] - p[db]).sum())
     observer.update(t, ub, wb, bearings, bearing_rates, distance, out_neighbors)
 
     # --- control ---#
+    control_u_m = np.zeros((n, 3), dtype=np.float64)
+    control_w_m = np.zeros((n, 3), dtype=np.float64)
+    control_u_c = np.zeros((n, 3), dtype=np.float64)
     for i in nodes:
         # --- collision avoidance control --- #
         for j in out_neighbors[i]:
