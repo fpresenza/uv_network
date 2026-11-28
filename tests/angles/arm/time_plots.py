@@ -370,25 +370,25 @@ ax.tick_params(
 )
 
 ax.set_xlabel(r'$t\ (\mathrm{s})$', fontsize=15)
-ax.set_ylabel(r'$\arccos(\zeta_{i \tau_i})$', fontsize=15)
-# ax.set_ylim(bottom=0.0)
+ax.set_ylabel(r'$\theta_{i \tau_i}$', fontsize=15)
+ax.set_ylim(-1.0, 1.0)
 ax.set_xticks(np.linspace(t[0], t[-1], 5))
-ax.set_yticks(np.linspace(0, 360, 6, endpoint=False))
+ax.set_yticks(np.linspace(-1, 1, 5, endpoint=True))
 ax.grid(1)
 
 ax.plot(
     t,
-    np.rad2deg(np.arccos(np.sum(
+    np.sum(
         unit_vector(
             target_position[:, targets_ids] - position[:, tracking_nodes],
             axis=-1
         ) * orientation[:, tracking_nodes, :, 0].swapaxes(0, 1),
         axis=-1
-    ))),
+    ),
     lw=2.0, ds='steps-post'
 )
-ax.hlines(60.0, t[0], t[-1], ls='--', color='k', lw=1.0)
-ax.text(180.0, 63.0, r'$60\degree$', size=15)
+ax.hlines(0.5, t[0], t[-1], ls='--', color='k', lw=1.0)
+ax.text(0.85 * t[-1], 0.5, 'in fov', size=15)
 
 fig.savefig('time_plots/tracking_aiming.pdf', bbox_inches='tight')
 
